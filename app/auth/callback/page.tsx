@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 
 export default function CallbackPage() {
   const router = useRouter()
@@ -23,23 +22,33 @@ export default function CallbackPage() {
 
         if (access_token && refresh_token) {
           console.log('✅ [CALLBACK CLIENT] Tokens encontrados en hash')
+          console.log('📤 [CALLBACK CLIENT] Enviando tokens al servidor...')
           
-          const { data, error } = await supabase.auth.setSession({
-            access_token,
-            refresh_token,
+          // Enviar tokens al servidor para establecer cookies
+          const response = await fetch('/api/auth/set-session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              access_token,
+              refresh_token,
+            }),
           })
 
-          if (error) {
-            console.error('❌ [CALLBACK CLIENT] Error estableciendo sesión:', error)
-            setError(error.message)
+          const result = await response.json()
+
+          if (!response.ok || result.error) {
+            console.error('❌ [CALLBACK CLIENT] Error estableciendo sesión:', result.error)
+            setError(result.error || 'Error estableciendo sesión')
             return
           }
 
-          console.log('✅ [CALLBACK CLIENT] Sesión establecida correctamente')
-          console.log('✅ [CALLBACK CLIENT] Usuario:', data.user?.email)
-          
-          // Forzar reload completo para sincronizar cookies
+          console.log('✅ [CALLBACK CLIENT] Sesión establecida en el servidor')
+          console.log('✅ [CALLBACK CLIENT] Usuario:', result.user?.email)
           console.log('🔄 [CALLBACK CLIENT] Redirigiendo al dashboard...')
+          
+          // Redirigir al dashboard
           window.location.href = '/dashboard'
           return
         }
@@ -51,20 +60,33 @@ export default function CallbackPage() {
 
         if (access_token_query && refresh_token_query) {
           console.log('✅ [CALLBACK CLIENT] Tokens encontrados en query params')
+          console.log('📤 [CALLBACK CLIENT] Enviando tokens al servidor...')
           
-          const { data, error } = await supabase.auth.setSession({
-            access_token: access_token_query,
-            refresh_token: refresh_token_query,
+          // Enviar tokens al servidor para establecer cookies
+          const response = await fetch('/api/auth/set-session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              access_token: access_token_query,
+              refresh_token: refresh_token_query,
+            }),
           })
 
-          if (error) {
-            console.error('❌ [CALLBACK CLIENT] Error estableciendo sesión:', error)
-            setError(error.message)
+          const result = await response.json()
+
+          if (!response.ok || result.error) {
+            console.error('❌ [CALLBACK CLIENT] Error estableciendo sesión:', result.error)
+            setError(result.error || 'Error estableciendo sesión')
             return
           }
 
-          console.log('✅ [CALLBACK CLIENT] Sesión establecida correctamente')
+          console.log('✅ [CALLBACK CLIENT] Sesión establecida en el servidor')
+          console.log('✅ [CALLBACK CLIENT] Usuario:', result.user?.email)
           console.log('🔄 [CALLBACK CLIENT] Redirigiendo al dashboard...')
+          
+          // Redirigir al dashboard
           window.location.href = '/dashboard'
           return
         }
