@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 export default function CallbackPage() {
   const router = useRouter()
@@ -91,8 +92,32 @@ export default function CallbackPage() {
           return
         }
 
-        // 3. Si no hay tokens, mostrar error
-        console.error('❌ [CALLBACK CLIENT] No se encontraron tokens')
+        // 3. Intentar obtener code de OAuth flow
+        const code = searchParams.get('code')
+
+        if (code) {
+          console.log('✅ [CALLBACK CLIENT] Code encontrado (OAuth flow)')
+          console.log('📤 [CALLBACK CLIENT] Intercambiando code por tokens...')
+          
+          // Intercambiar code por session
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+          if (error) {
+            console.error('❌ [CALLBACK CLIENT] Error intercambiando code:', error)
+            setError(error.message)
+            return
+          }
+
+          console.log('✅ [CALLBACK CLIENT] Code intercambiado correctamente')
+          console.log('🔄 [CALLBACK CLIENT] Redirigiendo al dashboard...')
+          
+          // Redirigir al dashboard
+          window.location.href = '/dashboard'
+          return
+        }
+
+        // 4. Si no hay tokens ni code, mostrar error
+        console.error('❌ [CALLBACK CLIENT] No se encontraron tokens ni code')
         setError('No se encontraron tokens de autenticación')
       } catch (err) {
         console.error('❌ [CALLBACK CLIENT] Error:', err)
