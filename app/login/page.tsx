@@ -39,12 +39,16 @@ export default function LoginPage() {
         ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
         : 'http://localhost:3000/auth/callback'
 
+    console.log('🔍 [DEBUG] Enviando Magic Link con redirectTo:', redirectTo)
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: redirectTo,
       },
     })
+
+    console.log('✅ [DEBUG] Magic Link enviado, error:', error)
 
     if (error) {
       alert("Error: " + error.message)
