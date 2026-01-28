@@ -97,18 +97,29 @@ export default function CallbackPage() {
 
         if (code) {
           console.log('✅ [CALLBACK CLIENT] Code encontrado (OAuth flow)')
-          console.log('📤 [CALLBACK CLIENT] Intercambiando code por tokens...')
+          console.log('📤 [CALLBACK CLIENT] Enviando code al servidor...')
           
-          // Intercambiar code por session
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          // Enviar code al servidor para intercambio
+          const response = await fetch('/api/auth/set-session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              code,
+            }),
+          })
 
-          if (error) {
-            console.error('❌ [CALLBACK CLIENT] Error intercambiando code:', error)
-            setError(error.message)
+          const result = await response.json()
+
+          if (!response.ok || result.error) {
+            console.error('❌ [CALLBACK CLIENT] Error intercambiando code:', result.error)
+            setError(result.error || 'Error estableciendo sesión')
             return
           }
 
-          console.log('✅ [CALLBACK CLIENT] Code intercambiado correctamente')
+          console.log('✅ [CALLBACK CLIENT] Code intercambiado en el servidor')
+          console.log('✅ [CALLBACK CLIENT] Usuario:', result.user?.email)
           console.log('🔄 [CALLBACK CLIENT] Redirigiendo al dashboard...')
           
           // Redirigir al dashboard
