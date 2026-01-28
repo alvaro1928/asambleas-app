@@ -8,7 +8,8 @@ export async function GET(request: Request) {
   const next = requestUrl.searchParams.get('next') || '/dashboard'
 
   if (code) {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
+    const response = NextResponse.redirect(new URL(next, request.url))
     
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,10 +20,20 @@ export async function GET(request: Request) {
             return cookieStore.get(name)?.value 
           },
           set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options })
+            try {
+              cookieStore.set({ name, value, ...options })
+              response.cookies.set({ name, value, ...options })
+            } catch (error) {
+              // Ignorar errores de cookies en producción
+            }
           },
           remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: '', ...options })
+            try {
+              cookieStore.set({ name, value: '', ...options })
+              response.cookies.set({ name, value: '', ...options })
+            } catch (error) {
+              // Ignorar errores de cookies en producción
+            }
           },
         },
       }
@@ -32,8 +43,8 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error) {
-      // ✅ Redirección con URL relativa (funciona en cualquier dominio)
-      return NextResponse.redirect(new URL(next, request.url))
+      // ✅ Retornar la respuesta con las cookies seteadas
+      return response
     }
 
     // ❌ Si hay error en el intercambio
