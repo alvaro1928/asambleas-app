@@ -120,6 +120,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [editOpciones, setEditOpciones] = useState<OpcionPregunta[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
 
+  // Cargar datos iniciales
   useEffect(() => {
     loadData()
     
@@ -128,8 +129,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       setSuccessMessage('Asamblea creada exitosamente')
       setTimeout(() => setSuccessMessage(''), 5000)
     }
+  }, [params.id]) // Solo cuando cambia el ID
 
-    // Actualizar estadísticas cada 5 segundos si hay preguntas abiertas
+  // Polling para estadísticas (separado)
+  useEffect(() => {
+    if (preguntas.length === 0) return
+
     const interval = setInterval(() => {
       if (preguntas.some(p => p.estado === 'abierta')) {
         loadEstadisticas()
@@ -138,7 +143,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [params.id, preguntas])
+  }, [params.id, preguntas.length]) // Usar .length en lugar del array completo
 
   const loadData = async () => {
     try {
