@@ -38,9 +38,9 @@ export default function CallbackPage() {
           console.log('✅ [CALLBACK CLIENT] Sesión establecida correctamente')
           console.log('✅ [CALLBACK CLIENT] Usuario:', data.user?.email)
           
-          // Limpiar el hash y redirigir
-          window.location.hash = ''
-          router.push('/dashboard')
+          // Forzar reload completo para sincronizar cookies
+          console.log('🔄 [CALLBACK CLIENT] Redirigiendo al dashboard...')
+          window.location.href = '/dashboard'
           return
         }
 
@@ -64,7 +64,8 @@ export default function CallbackPage() {
           }
 
           console.log('✅ [CALLBACK CLIENT] Sesión establecida correctamente')
-          router.push('/dashboard')
+          console.log('🔄 [CALLBACK CLIENT] Redirigiendo al dashboard...')
+          window.location.href = '/dashboard'
           return
         }
 
