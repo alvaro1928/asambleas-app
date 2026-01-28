@@ -1,0 +1,764 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
+import { 
+  ArrowLeft, 
+  Plus, 
+  Trash2,
+  Search,
+  FileText,
+  Users,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Upload,
+  Home
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+
+interface Asamblea {
+  id: string
+  nombre: string
+  fecha: string
+  estado: string
+  organization_id: string
+}
+
+interface Unidad {
+  id: string
+  numero: string
+  torre: string
+  coeficiente: number
+  nombre_propietario: string
+  email: string
+  tipo: string
+}
+
+interface Poder {
+  id: string
+  unidad_otorgante_id: string
+  unidad_receptor_id: string | null
+  email_otorgante: string
+  nombre_otorgante: string
+  email_receptor: string
+  nombre_receptor: string
+  estado: string
+  coeficiente_delegado: number
+  unidad_otorgante_numero: string
+  unidad_otorgante_torre: string
+  unidad_receptor_numero: string | null
+  unidad_receptor_torre: string | null
+  archivo_poder: string | null
+  observaciones: string | null
+  created_at: string
+}
+
+interface ResumenPoderes {
+  total_poderes_activos: number
+  total_unidades_delegadas: number
+  coeficiente_total_delegado: number
+  porcentaje_coeficiente: number
+}
+
+interface ConfigPoderes {
+  max_poderes_por_apoderado: number
+  requiere_documento: boolean
+}
+
+export default function PoderesPage({ params }: { params: { id: string } }) {
+  const router = useRouter()
+  const [asamblea, setAsamblea] = useState<Asamblea | null>(null)
+  const [poderes, setPoderes] = useState<Poder[]>([])
+  const [unidades, setUnidades] = useState<Unidad[]>([])
+  const [resumen, setResumen] = useState<ResumenPoderes | null>(null)
+  const [config, setConfig] = useState<ConfigPoderes>({ max_poderes_por_apoderado: 3, requiere_documento: false })
+  const [loading, setLoading] = useState(true)
+  const [successMessage, setSuccessMessage] = useState('')
+
+  // Estados para el modal de nuevo poder
+  const [showNewPoder, setShowNewPoder] = useState(false)
+  const [searchOtorgante, setSearchOtorgante] = useState('')
+  const [searchReceptor, setSearchReceptor] = useState('')
+  const [selectedOtorgante, setSelectedOtorgante] = useState<Unidad | null>(null)
+  const [emailReceptor, setEmailReceptor] = useState('')
+  const [nombreReceptor, setNombreReceptor] = useState('')
+  const [observaciones, setObservaciones] = useState('')
+  const [savingPoder, setSavingPoder] = useState(false)
+
+  // Estados para búsqueda y filtros
+  const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    loadData()
+  }, [params.id])
+
+  const loadData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
+      if (!selectedConjuntoId) {
+        alert('Por favor selecciona un conjunto primero')
+        router.push('/dashboard')
+        return
+      }
+
+      // Cargar asamblea
+      const { data: asambleaData, error: asambleaError } = await supabase
+        .from('asambleas')
+        .select('*')
+        .eq('id', params.id)
+        .eq('organization_id', selectedConjuntoId)
+        .single()
+
+      if (asambleaError) throw asambleaError
+      setAsamblea(asambleaData)
+
+      // Cargar unidades del conjunto
+      const { data: unidadesData, error: unidadesError } = await supabase
+        .from('unidades')
+        .select('*')
+        .eq('organization_id', selectedConjuntoId)
+        .order('torre', { ascending: true })
+        .order('numero', { ascending: true })
+
+      if (unidadesError) throw unidadesError
+      setUnidades(unidadesData || [])
+
+      // Cargar configuración de poderes
+      const { data: configData } = await supabase
+        .from('configuracion_poderes')
+        .select('max_poderes_por_apoderado, requiere_documento')
+        .eq('organization_id', selectedConjuntoId)
+        .single()
+
+      if (configData) {
+        setConfig(configData)
+      }
+
+      // Cargar poderes
+      await loadPoderes()
+
+      // Cargar resumen
+      await loadResumen()
+
+      setLoading(false)
+    } catch (error: any) {
+      console.error('Error loading data:', error)
+      alert('Error al cargar los datos: ' + error.message)
+      setLoading(false)
+    }
+  }
+
+  const loadPoderes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('vista_poderes_completa')
+        .select('*')
+        .eq('asamblea_id', params.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setPoderes(data || [])
+    } catch (error: any) {
+      console.error('Error loading poderes:', error)
+    }
+  }
+
+  const loadResumen = async () => {
+    try {
+      const { data, error } = await supabase.rpc('resumen_poderes_asamblea', {
+        p_asamblea_id: params.id
+      })
+
+      if (!error && data && data.length > 0) {
+        setResumen(data[0])
+      } else {
+        // Fallback manual si la función no existe
+        const { data: poderesData } = await supabase
+          .from('poderes')
+          .select('*, unidades!inner(coeficiente)')
+          .eq('asamblea_id', params.id)
+          .eq('estado', 'activo')
+
+        const totalPoderes = poderesData?.length || 0
+        const coeficienteDelegado = poderesData?.reduce((sum: number, p: any) => 
+          sum + (p.unidades?.coeficiente || 0), 0) || 0
+
+        setResumen({
+          total_poderes_activos: totalPoderes,
+          total_unidades_delegadas: totalPoderes,
+          coeficiente_total_delegado: coeficienteDelegado,
+          porcentaje_coeficiente: 0 // Calcular después
+        })
+      }
+    } catch (error: any) {
+      console.error('Error loading resumen:', error)
+    }
+  }
+
+  const handleCreatePoder = async () => {
+    if (!selectedOtorgante) {
+      alert('Debes seleccionar la unidad que otorga el poder')
+      return
+    }
+
+    if (!emailReceptor.trim()) {
+      alert('Debes ingresar el email del apoderado')
+      return
+    }
+
+    if (!nombreReceptor.trim()) {
+      alert('Debes ingresar el nombre del apoderado')
+      return
+    }
+
+    // Validar límite de poderes
+    try {
+      const { data: validacion, error: validacionError } = await supabase.rpc('validar_limite_poderes', {
+        p_asamblea_id: params.id,
+        p_email_receptor: emailReceptor.trim(),
+        p_organization_id: asamblea?.organization_id
+      })
+
+      if (validacionError) {
+        console.error('Error validando límite:', validacionError)
+      } else if (validacion && validacion.length > 0) {
+        const resultado = validacion[0]
+        if (!resultado.puede_recibir_poder) {
+          alert(`⚠️ ${resultado.mensaje}\n\nEl apoderado ya tiene ${resultado.poderes_actuales} poderes activos (límite: ${resultado.limite_maximo})`)
+          return
+        }
+      }
+    } catch (error) {
+      console.error('Error en validación:', error)
+    }
+
+    setSavingPoder(true)
+    try {
+      const { error } = await supabase
+        .from('poderes')
+        .insert({
+          asamblea_id: params.id,
+          unidad_otorgante_id: selectedOtorgante.id,
+          email_otorgante: selectedOtorgante.email,
+          nombre_otorgante: selectedOtorgante.nombre_propietario,
+          email_receptor: emailReceptor.trim(),
+          nombre_receptor: nombreReceptor.trim(),
+          observaciones: observaciones.trim() || null,
+          estado: 'activo'
+        })
+
+      if (error) throw error
+
+      setSuccessMessage('Poder registrado exitosamente')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      setShowNewPoder(false)
+      setSelectedOtorgante(null)
+      setEmailReceptor('')
+      setNombreReceptor('')
+      setObservaciones('')
+      setSearchOtorgante('')
+      setSearchReceptor('')
+      
+      await loadPoderes()
+      await loadResumen()
+    } catch (error: any) {
+      console.error('Error creating poder:', error)
+      alert('Error al crear el poder: ' + error.message)
+    } finally {
+      setSavingPoder(false)
+    }
+  }
+
+  const handleRevocarPoder = async (poderId: string) => {
+    if (!confirm('¿Estás seguro de revocar este poder? Esta acción no se puede deshacer.')) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('poderes')
+        .update({ 
+          estado: 'revocado',
+          revocado_at: new Date().toISOString()
+        })
+        .eq('id', poderId)
+
+      if (error) throw error
+
+      setSuccessMessage('Poder revocado exitosamente')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      
+      await loadPoderes()
+      await loadResumen()
+    } catch (error: any) {
+      console.error('Error revoking poder:', error)
+      alert('Error al revocar el poder: ' + error.message)
+    }
+  }
+
+  const filteredOtorgantes = unidades.filter(u =>
+    !searchOtorgante || 
+    u.numero.toLowerCase().includes(searchOtorgante.toLowerCase()) ||
+    u.torre.toLowerCase().includes(searchOtorgante.toLowerCase()) ||
+    u.nombre_propietario.toLowerCase().includes(searchOtorgante.toLowerCase())
+  )
+
+  const filteredPoderes = poderes.filter(p =>
+    p.estado === 'activo' && (
+      !searchTerm ||
+      p.nombre_otorgante.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.nombre_receptor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.unidad_otorgante_numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.email_receptor.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  )
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando poderes...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!asamblea) {
+    return null
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Link
+                href={`/dashboard/asambleas/${params.id}`}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </Link>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                  <Users className="w-6 h-6 mr-2 text-indigo-600 dark:text-indigo-400" />
+                  Gestión de Poderes
+                </h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  {asamblea.nombre}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link href="/dashboard/unidades">
+                <Button
+                  variant="outline"
+                  className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                >
+                  <Home className="w-4 h-4 mr-2" />
+                  Consultar Unidades
+                </Button>
+              </Link>
+              <Button
+                onClick={() => setShowNewPoder(true)}
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Registrar Poder
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Mensaje de éxito */}
+        {successMessage && (
+          <Alert className="mb-6 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <AlertTitle className="text-green-900 dark:text-green-100">Éxito</AlertTitle>
+            <AlertDescription className="text-green-800 dark:text-green-200">
+              {successMessage}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Resumen de Poderes */}
+        {resumen && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Poderes Activos</p>
+              <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+                {resumen.total_poderes_activos}
+              </p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Unidades Delegadas</p>
+              <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                {resumen.total_unidades_delegadas}
+              </p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Coeficiente Delegado</p>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                {resumen.coeficiente_total_delegado.toFixed(2)}%
+              </p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Límite por Apoderado</p>
+              <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                {config.max_poderes_por_apoderado}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Info sobre regulación */}
+        <Alert className="mb-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+          <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertTitle className="text-blue-900 dark:text-blue-100">
+            ℹ️ Sobre los Poderes en Asambleas
+          </AlertTitle>
+          <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">
+            • Un propietario puede otorgar un <strong>poder</strong> a otra persona para que vote en su nombre
+            <br />
+            • Límite actual: máximo <strong>{config.max_poderes_por_apoderado} poderes</strong> por apoderado (configurable)
+            <br />
+            • El voto del apoderado representa la suma de su coeficiente más el de todas las unidades que representa
+            <br />
+            • Los poderes se pueden revocar antes de la votación
+          </AlertDescription>
+        </Alert>
+
+        {/* Buscador */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Input
+              type="text"
+              placeholder="Buscar por unidad, propietario o apoderado..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+
+        {/* Lista de Poderes */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              Poderes Registrados ({filteredPoderes.length})
+            </h2>
+          </div>
+
+          {filteredPoderes.length === 0 ? (
+            <div className="p-12 text-center">
+              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600 dark:text-gray-400">
+                {searchTerm ? 'No se encontraron poderes con ese criterio' : 'No hay poderes registrados'}
+              </p>
+              {!searchTerm && (
+                <Button
+                  onClick={() => setShowNewPoder(true)}
+                  variant="outline"
+                  className="mt-4"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Registrar Primer Poder
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Unidad Otorgante
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Propietario
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Apoderado
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Coeficiente
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Estado
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredPoderes.map((poder) => (
+                    <tr key={poder.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {poder.unidad_otorgante_torre} - {poder.unidad_otorgante_numero}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {poder.nombre_otorgante}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {poder.email_otorgante}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                          {poder.nombre_receptor}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {poder.email_receptor}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-bold text-green-600 dark:text-green-400">
+                          {poder.coeficiente_delegado.toFixed(4)}%
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {poder.estado === 'activo' ? (
+                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                            Activo
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                            Revocado
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        {poder.estado === 'activo' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRevocarPoder(poder.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          >
+                            <XCircle className="w-4 h-4 mr-1" />
+                            Revocar
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Modal: Nuevo Poder */}
+      <Dialog open={showNewPoder} onOpenChange={setShowNewPoder}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Registrar Nuevo Poder</DialogTitle>
+            <DialogDescription>
+              Selecciona la unidad que otorga el poder y los datos del apoderado
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 mt-4">
+            {/* Selección de Unidad Otorgante */}
+            <div>
+              <Label htmlFor="search-otorgante">
+                1. Unidad que Otorga el Poder <span className="text-red-500">*</span>
+              </Label>
+              <div className="mt-2 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="search-otorgante"
+                  type="text"
+                  placeholder="Buscar por torre, número o propietario..."
+                  value={searchOtorgante}
+                  onChange={(e) => setSearchOtorgante(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Comienza a escribir para buscar una unidad
+                </p>
+                <Link 
+                  href="/dashboard/unidades"
+                  target="_blank"
+                  className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center"
+                >
+                  <Home className="w-3 h-3 mr-1" />
+                  Ver todas las unidades
+                </Link>
+              </div>
+
+              {selectedOtorgante ? (
+                <div className="mt-3 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-indigo-900 dark:text-indigo-100">
+                        {selectedOtorgante.torre} - {selectedOtorgante.numero}
+                      </p>
+                      <p className="text-sm text-indigo-700 dark:text-indigo-300">
+                        {selectedOtorgante.nombre_propietario}
+                      </p>
+                      <p className="text-xs text-indigo-600 dark:text-indigo-400">
+                        Coeficiente: {selectedOtorgante.coeficiente.toFixed(4)}%
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedOtorgante(null)}
+                    >
+                      Cambiar
+                    </Button>
+                  </div>
+                </div>
+              ) : searchOtorgante && (
+                <div className="mt-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                  {filteredOtorgantes.length === 0 ? (
+                    <p className="p-4 text-sm text-gray-500 dark:text-gray-400 text-center">
+                      No se encontraron unidades
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {filteredOtorgantes.slice(0, 10).map((unidad) => (
+                        <button
+                          key={unidad.id}
+                          onClick={() => {
+                            setSelectedOtorgante(unidad)
+                            setSearchOtorgante('')
+                          }}
+                          className="w-full p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {unidad.torre} - {unidad.numero}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {unidad.nombre_propietario} • {unidad.coeficiente.toFixed(4)}%
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Datos del Apoderado */}
+            <div className="border-t pt-4">
+              <Label className="text-base font-semibold">
+                2. Datos del Apoderado <span className="text-red-500">*</span>
+              </Label>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                La persona que votará en representación del propietario
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="nombre-receptor">
+                    Nombre Completo del Apoderado <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="nombre-receptor"
+                    type="text"
+                    placeholder="Juan Pérez García"
+                    value={nombreReceptor}
+                    onChange={(e) => setNombreReceptor(e.target.value)}
+                    className="mt-2"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="email-receptor">
+                    Email del Apoderado <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="email-receptor"
+                    type="email"
+                    placeholder="apoderado@ejemplo.com"
+                    value={emailReceptor}
+                    onChange={(e) => setEmailReceptor(e.target.value)}
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Este email se usará para identificar al apoderado
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="observaciones">Observaciones (Opcional)</Label>
+                  <textarea
+                    id="observaciones"
+                    placeholder="Notas adicionales sobre este poder..."
+                    value={observaciones}
+                    onChange={(e) => setObservaciones(e.target.value)}
+                    className="mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Botones */}
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowNewPoder(false)
+                  setSelectedOtorgante(null)
+                  setEmailReceptor('')
+                  setNombreReceptor('')
+                  setObservaciones('')
+                  setSearchOtorgante('')
+                }}
+                disabled={savingPoder}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleCreatePoder}
+                disabled={savingPoder || !selectedOtorgante || !emailReceptor || !nombreReceptor}
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+              >
+                {savingPoder ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Registrando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    Registrar Poder
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
