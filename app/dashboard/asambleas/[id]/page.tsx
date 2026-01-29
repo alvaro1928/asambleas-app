@@ -1047,6 +1047,17 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         <Share2 className="w-4 h-4 mr-1" />
                         WhatsApp
                       </Button>
+                      <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="w-full">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                        >
+                          <QrCode className="w-4 h-4 mr-1" />
+                          Ver QR
+                        </Button>
+                      </Link>
+                    </div>
                       <Button
                         onClick={handleDesactivarVotacion}
                         variant="outline"

@@ -134,60 +134,14 @@ export default function VotacionPublicaPage() {
     setError('')
 
     try {
-      const { data, error } = await supabase.rpc('validar_votante_asamblea', {
-        p_codigo_asamblea: codigo,
-        p_email_votante: email.toLowerCase().trim()
-      })
-
-      if (error) throw error
-
-      if (!data || data.length === 0) {
-        setError('No se pudo validar el email')
-        setLoading(false)
-        return
-      }
-
-      const resultado = data[0]
-
-      if (!resultado.puede_votar) {
-        setError(resultado.mensaje)
-        setLoading(false)
-        return
-      }
-
-      // Obtener información detallada de las unidades
-      const unidadesIds = [
-        ...(resultado.unidades_propias || []),
-        ...(resultado.unidades_poderes || [])
-      ]
-
-      if (unidadesIds.length === 0) {
+      const unidadesConInfo = await refrescarUnidades()
+      
+      if (unidadesConInfo.length === 0) {
         setError('No se encontraron unidades para este email')
         setLoading(false)
         return
       }
 
-      const { data: unidadesData, error: unidadesError } = await supabase
-        .from('unidades')
-        .select('id, torre, numero, coeficiente, nombre_propietario')
-        .in('id', unidadesIds)
-
-      if (unidadesError) throw unidadesError
-
-      // Marcar cuáles son poderes
-      const unidadesPropias = resultado.unidades_propias || []
-      const unidadesPoderes = resultado.unidades_poderes || []
-
-      const unidadesConInfo: UnidadInfo[] = (unidadesData || []).map((u: any) => ({
-        id: u.id,
-        torre: u.torre,
-        numero: u.numero,
-        coeficiente: u.coeficiente,
-        es_poder: unidadesPoderes.includes(u.id),
-        nombre_otorgante: u.nombre_propietario
-      }))
-
-      setUnidades(unidadesConInfo)
       setStep('votar')
       
       // Cargar preguntas pasando las unidades como parámetro
@@ -195,10 +149,61 @@ export default function VotacionPublicaPage() {
 
     } catch (error: any) {
       console.error('Error validando votante:', error)
-      setError('Error al validar el votante: ' + error.message)
+      setError('Error al validar el votante: ' + (error.message || error))
     } finally {
       setLoading(false)
     }
+  }
+
+  const refrescarUnidades = async (): Promise<UnidadInfo[]> => {
+    const { data, error } = await supabase.rpc('validar_votante_asamblea', {
+      p_codigo_asamblea: codigo,
+      p_email_votante: email.toLowerCase().trim()
+    })
+
+    if (error) throw error
+
+    if (!data || data.length === 0) {
+      return []
+    }
+
+    const resultado = data[0]
+
+    if (!resultado.puede_votar) {
+      throw new Error(resultado.mensaje || 'No puede votar')
+    }
+
+    // Obtener información detallada de las unidades
+    const unidadesIds = [
+      ...(resultado.unidades_propias || []),
+      ...(resultado.unidades_poderes || [])
+    ]
+
+    if (unidadesIds.length === 0) {
+      return []
+    }
+
+    const { data: unidadesData, error: unidadesError } = await supabase
+      .from('unidades')
+      .select('id, torre, numero, coeficiente, nombre_propietario')
+      .in('id', unidadesIds)
+
+    if (unidadesError) throw unidadesError
+
+    // Marcar cuáles son poderes
+    const unidadesPoderes = resultado.unidades_poderes || []
+
+    const unidadesConInfo: UnidadInfo[] = (unidadesData || []).map((u: any) => ({
+      id: u.id,
+      torre: u.torre,
+      numero: u.numero,
+      coeficiente: u.coeficiente,
+      es_poder: unidadesPoderes.includes(u.id),
+      nombre_otorgante: u.nombre_propietario
+    }))
+
+    setUnidades(unidadesConInfo)
+    return unidadesConInfo
   }
 
   const cargarPreguntas = async (unidadesParam?: UnidadInfo[]) => {
@@ -496,9 +501,12 @@ export default function VotacionPublicaPage() {
   const refrescarDatos = async () => {
     setRecargando(true)
     try {
-      await cargarPreguntas(unidades)
+      // Re-validar unidades y poderes (por si se agregaron nuevos poderes)
+      const nuevasUnidades = await refrescarUnidades()
+      
+      await cargarPreguntas(nuevasUnidades)
       if (mostrarHistorial) {
-        await cargarHistorial(unidades)
+        await cargarHistorial(nuevasUnidades)
       }
     } catch (error: any) {
       console.error('Error refrescando datos:', error)
@@ -806,7 +814,7 @@ export default function VotacionPublicaPage() {
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
-                {recargando ? 'Actualizando...' : 'Actualizar Preguntas'}
+                {recargando ? 'Actualizando...' : 'Actualizar Todo (Preguntas y Poderes)'}
               </Button>
               
               <Button
