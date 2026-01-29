@@ -22,6 +22,7 @@ import {
   Lock,
   Copy,
   Share2,
+  QrCode,
   Link as LinkIcon
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -763,9 +764,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     )
   }
 
-  if (!asamblea) {
-    return null
-  }
+  if (!asamblea) return null
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -1058,16 +1057,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         </Button>
                       </Link>
                     </div>
-                      <Button
-                        onClick={handleDesactivarVotacion}
-                        variant="outline"
-                        size="sm"
-                        className="border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      >
-                        <Lock className="w-4 h-4 mr-1" />
-                        Desactivar
-                      </Button>
-                    </div>
+                    
+                    <Button
+                      onClick={handleDesactivarVotacion}
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                      <Lock className="w-4 h-4 mr-1" />
+                      Desactivar Votación
+                    </Button>
 
                     <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                       Comparte este código con los residentes para que puedan votar
