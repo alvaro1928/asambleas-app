@@ -1,143 +1,108 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useEffect, useState, useRef } from 'react'
+
+const FETCH_OPTIONS = {
+  method: 'POST' as const,
+  headers: { 'Content-Type': 'application/json' },
+  credentials: 'include' as RequestCredentials,
+}
+
+function doRedirect() {
+  // Pequeña pausa para que el navegador persista las cookies antes del redirect
+  const url = `/dashboard?t=${Date.now()}`
+  window.location.replace(url)
+}
 
 export default function CallbackPage() {
-  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
+  const doneRef = useRef(false)
 
   useEffect(() => {
+    if (doneRef.current) return
+
     const handleCallback = async () => {
       try {
-        console.log('🔍 [CALLBACK CLIENT] Iniciando...')
-        console.log('🔍 [CALLBACK CLIENT] URL completa:', window.location.href)
-        console.log('🔍 [CALLBACK CLIENT] Hash:', window.location.hash)
-        console.log('🔍 [CALLBACK CLIENT] Search:', window.location.search)
+        const hash = window.location.hash
+        const search = window.location.search
 
-        // 1. Intentar obtener tokens del hash (Implicit Flow)
-        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+        // 1. Tokens en el hash (Magic Link / Implicit Flow)
+        const hashParams = new URLSearchParams(hash.substring(1))
         const access_token = hashParams.get('access_token')
         const refresh_token = hashParams.get('refresh_token')
 
         if (access_token && refresh_token) {
-          console.log('✅ [CALLBACK CLIENT] Tokens encontrados en hash')
-          console.log('📤 [CALLBACK CLIENT] Enviando tokens al servidor...')
-          
-          // Enviar tokens al servidor para establecer cookies
-          const response = await fetch('/api/auth/set-session', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              access_token,
-              refresh_token,
-            }),
-          })
+          doneRef.current = true
+          // Quitar el hash de la URL para que un segundo run del efecto no vea "sin tokens"
+          if (window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search)
+          }
 
+          const response = await fetch('/api/auth/set-session', {
+            ...FETCH_OPTIONS,
+            body: JSON.stringify({ access_token, refresh_token }),
+          })
           const result = await response.json()
 
           if (!response.ok || result.error) {
-            console.error('❌ [CALLBACK CLIENT] Error estableciendo sesión:', result.error)
             setError(result.error || 'Error estableciendo sesión')
             return
           }
-
-          console.log('✅ [CALLBACK CLIENT] Sesión establecida en el servidor')
-          console.log('✅ [CALLBACK CLIENT] Usuario:', result.user?.email)
-          console.log('🔄 [CALLBACK CLIENT] Redirigiendo al dashboard...')
-          
-          // Redirigir al dashboard
-          window.location.href = '/dashboard'
+          setTimeout(doRedirect, 150)
           return
         }
 
-        // 2. Intentar obtener tokens de query params (por si acaso)
-        const searchParams = new URLSearchParams(window.location.search)
+        // 2. Tokens en query (por si el cliente los manda ahí)
+        const searchParams = new URLSearchParams(search)
         const access_token_query = searchParams.get('access_token')
         const refresh_token_query = searchParams.get('refresh_token')
 
         if (access_token_query && refresh_token_query) {
-          console.log('✅ [CALLBACK CLIENT] Tokens encontrados en query params')
-          console.log('📤 [CALLBACK CLIENT] Enviando tokens al servidor...')
-          
-          // Enviar tokens al servidor para establecer cookies
+          doneRef.current = true
           const response = await fetch('/api/auth/set-session', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            ...FETCH_OPTIONS,
             body: JSON.stringify({
               access_token: access_token_query,
               refresh_token: refresh_token_query,
             }),
           })
-
           const result = await response.json()
 
           if (!response.ok || result.error) {
-            console.error('❌ [CALLBACK CLIENT] Error estableciendo sesión:', result.error)
             setError(result.error || 'Error estableciendo sesión')
             return
           }
-
-          console.log('✅ [CALLBACK CLIENT] Sesión establecida en el servidor')
-          console.log('✅ [CALLBACK CLIENT] Usuario:', result.user?.email)
-          console.log('🔄 [CALLBACK CLIENT] Redirigiendo al dashboard...')
-          
-          // Redirigir al dashboard
-          window.location.href = '/dashboard'
+          setTimeout(doRedirect, 150)
           return
         }
 
-        // 3. Intentar obtener code de OAuth flow
+        // 3. Code (OAuth / PKCE)
         const code = searchParams.get('code')
-
         if (code) {
-          console.log('✅ [CALLBACK CLIENT] Code encontrado (OAuth flow)')
-          console.log('📤 [CALLBACK CLIENT] Enviando code al servidor...')
-          
-          // Enviar code al servidor para intercambio
+          doneRef.current = true
           const response = await fetch('/api/auth/set-session', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              code,
-            }),
+            ...FETCH_OPTIONS,
+            body: JSON.stringify({ code }),
           })
-
           const result = await response.json()
 
           if (!response.ok || result.error) {
-            console.error('❌ [CALLBACK CLIENT] Error intercambiando code:', result.error)
             setError(result.error || 'Error estableciendo sesión')
             return
           }
-
-          console.log('✅ [CALLBACK CLIENT] Code intercambiado en el servidor')
-          console.log('✅ [CALLBACK CLIENT] Usuario:', result.user?.email)
-          console.log('🔄 [CALLBACK CLIENT] Redirigiendo al dashboard...')
-          
-          // Redirigir al dashboard
-          window.location.href = '/dashboard'
+          setTimeout(doRedirect, 150)
           return
         }
 
-        // 4. Si no hay tokens ni code, mostrar error
-        console.error('❌ [CALLBACK CLIENT] No se encontraron tokens ni code')
         setError('No se encontraron tokens de autenticación')
       } catch (err) {
-        console.error('❌ [CALLBACK CLIENT] Error:', err)
+        console.error(err)
         setError('Error procesando autenticación')
       }
     }
 
     handleCallback()
-  }, [router])
+  }, [])
 
   if (error) {
     return (
@@ -146,7 +111,7 @@ export default function CallbackPage() {
           <h1 className="text-2xl font-bold mb-4">Error de Autenticación</h1>
           <p className="text-red-300 mb-4">{error}</p>
           <button
-            onClick={() => router.push('/login')}
+            onClick={() => window.location.href = '/login'}
             className="bg-indigo-600 px-4 py-2 rounded hover:bg-indigo-700"
           >
             Volver al Login

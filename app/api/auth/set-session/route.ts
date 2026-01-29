@@ -2,6 +2,20 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+// Cabeceras para que el navegador no cachee y persista las cookies de sesión
+const noCacheHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  'Pragma': 'no-cache',
+}
+
+function jsonSuccess(data: object) {
+  return NextResponse.json(data, { headers: noCacheHeaders })
+}
+
+function jsonError(message: string, status: number) {
+  return NextResponse.json({ error: message }, { status, headers: noCacheHeaders })
+}
+
 export async function POST(request: Request) {
   try {
     const { access_token, refresh_token, code } = await request.json()
@@ -44,27 +58,18 @@ export async function POST(request: Request) {
 
       if (error) {
         console.error('❌ [API SET-SESSION] Error intercambiando code:', error)
-        return NextResponse.json(
-          { error: error.message },
-          { status: 400 }
-        )
+        return jsonError(error.message, 400)
       }
 
       console.log('✅ [API SET-SESSION] Code intercambiado correctamente')
       console.log('✅ [API SET-SESSION] Usuario:', data.user?.email)
 
-      return NextResponse.json({
-        success: true,
-        user: data.user,
-      })
+      return jsonSuccess({ success: true, user: data.user })
     }
 
     if (!access_token || !refresh_token) {
       console.error('❌ [API SET-SESSION] Tokens o code faltantes')
-      return NextResponse.json(
-        { error: 'Tokens o code faltantes' },
-        { status: 400 }
-      )
+      return jsonError('Tokens o code faltantes', 400)
     }
 
     const cookieStore = await cookies()
@@ -103,24 +108,15 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('❌ [API SET-SESSION] Error estableciendo sesión:', error)
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400 }
-      )
+      return jsonError(error.message, 400)
     }
 
     console.log('✅ [API SET-SESSION] Sesión establecida correctamente')
     console.log('✅ [API SET-SESSION] Usuario:', data.user?.email)
 
-    return NextResponse.json({
-      success: true,
-      user: data.user,
-    })
+    return jsonSuccess({ success: true, user: data.user })
   } catch (error) {
     console.error('❌ [API SET-SESSION] Error:', error)
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    )
+    return jsonError('Error interno del servidor', 500)
   }
 }
