@@ -61,7 +61,7 @@ git commit -m "✨ Proyecto listo para producción - Sistema de Asambleas PH"
 ### **3. Conectar y Subir**
 
 ```bash
-git remote add origin https://github.com/TU-USUARIO/asambleas-app.git
+git remote add origin https://github.com/alvaro1928/asambleas-app.git
 git branch -M main
 git push -u origin main
 ```
