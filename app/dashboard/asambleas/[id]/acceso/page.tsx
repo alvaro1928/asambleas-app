@@ -87,24 +87,35 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     else setRecargando(true)
 
     try {
-      // Consultar quorum con join a unidades
-      const { data, error } = await supabase
-        .from('quorum_asamblea')
-        .select(`
-          id,
-          email_propietario,
-          hora_llegada,
-          unidades (
-            torre,
-            numero,
-            coeficiente,
-            nombre_propietario
-          )
-        `)
-        .eq('asamblea_id', params.id)
-        .eq('presente_virtual', true)
-        .order('hora_llegada', { ascending: false })
+      // Solo sesiones con actividad reciente (últimos 5 min); requiere columna ultima_actividad (AGREGAR-ULTIMA-ACTIVIDAD-QUORUM.sql)
+      const cincoMinAtras = new Date(Date.now() - 5 * 60 * 1000).toISOString()
 
+      const baseQuery = () =>
+        supabase
+          .from('quorum_asamblea')
+          .select(`
+            id,
+            email_propietario,
+            hora_llegada,
+            unidades (
+              torre,
+              numero,
+              coeficiente,
+              nombre_propietario
+            )
+          `)
+          .eq('asamblea_id', params.id)
+          .eq('presente_virtual', true)
+          .order('hora_llegada', { ascending: false })
+
+      let result = await baseQuery().gte('ultima_actividad', cincoMinAtras)
+
+      // Si falla (ej. columna ultima_actividad no existe), repetir sin filtro de actividad
+      if (result.error) {
+        result = await baseQuery()
+      }
+
+      const { data, error } = result
       if (error) throw error
 
       const formattedAsistentes: Asistente[] = (data || []).map((item: any) => ({

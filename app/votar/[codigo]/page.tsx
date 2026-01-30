@@ -122,6 +122,23 @@ export default function VotacionPublicaPage() {
     }
   }, [step])
 
+  // Heartbeat cada 2 min para que el Registro de Ingresos solo muestre sesiones activas
+  useEffect(() => {
+    if (step !== 'votar' || !salidaRef.current) return
+    const ping = () => {
+      const payload = salidaRef.current
+      if (!payload) return
+      fetch('/api/ping-quorum', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: payload.asamblea_id, email: payload.email })
+      }).catch(() => {})
+    }
+    ping()
+    const interval = setInterval(ping, 2 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [step])
+
   useEffect(() => {
     validarCodigo()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run when codigo changes
