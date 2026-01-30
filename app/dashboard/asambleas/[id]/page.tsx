@@ -50,6 +50,7 @@ interface Pregunta {
   descripcion?: string
   tipo_votacion: 'coeficiente' | 'nominal'
   estado: 'pendiente' | 'abierta' | 'cerrada'
+  umbral_aprobacion?: number | null
 }
 
 interface OpcionPregunta {
@@ -95,7 +96,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [newPregunta, setNewPregunta] = useState({
     texto_pregunta: '',
     descripcion: '',
-    tipo_votacion: 'coeficiente' as 'coeficiente' | 'nominal'
+    tipo_votacion: 'coeficiente' as 'coeficiente' | 'nominal',
+    umbral_aprobacion: null as number | null
   })
   const [opciones, setOpciones] = useState<OpcionPregunta[]>([
     { texto_opcion: 'A favor', orden: 1, color: '#10b981' },
@@ -116,7 +118,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [editForm, setEditForm] = useState({
     texto_pregunta: '',
     descripcion: '',
-    tipo_votacion: 'coeficiente' as 'coeficiente' | 'nominal'
+    tipo_votacion: 'coeficiente' as 'coeficiente' | 'nominal',
+    umbral_aprobacion: null as number | null
   })
   const [editOpciones, setEditOpciones] = useState<OpcionPregunta[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
@@ -436,7 +439,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           texto_pregunta: newPregunta.texto_pregunta.trim(),
           descripcion: newPregunta.descripcion.trim() || null,
           tipo_votacion: newPregunta.tipo_votacion,
-          estado: 'pendiente'
+          estado: 'pendiente',
+          umbral_aprobacion: newPregunta.umbral_aprobacion ?? null
         })
         .select()
         .single()
@@ -468,7 +472,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       setNewPregunta({
         texto_pregunta: '',
         descripcion: '',
-        tipo_votacion: 'coeficiente'
+        tipo_votacion: 'coeficiente',
+        umbral_aprobacion: null
       })
       setOpciones([
         { texto_opcion: 'A favor', orden: 1, color: '#10b981' },
@@ -594,7 +599,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     setEditForm({
       texto_pregunta: pregunta.texto_pregunta,
       descripcion: pregunta.descripcion || '',
-      tipo_votacion: pregunta.tipo_votacion
+      tipo_votacion: pregunta.tipo_votacion,
+      umbral_aprobacion: (pregunta as Pregunta & { umbral_aprobacion?: number | null }).umbral_aprobacion ?? null
     })
 
     // Cargar opciones actuales
@@ -629,7 +635,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         .update({
           texto_pregunta: editForm.texto_pregunta.trim(),
           descripcion: editForm.descripcion.trim() || null,
-          tipo_votacion: editForm.tipo_votacion
+          tipo_votacion: editForm.tipo_votacion,
+          umbral_aprobacion: editForm.umbral_aprobacion ?? null
         })
         .eq('id', editingPregunta.id)
 
@@ -1279,6 +1286,17 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                                   </div>
                                 ))}
                               </div>
+                              {pregunta.umbral_aprobacion != null && estadisticas[pregunta.id]?.length > 0 && (() => {
+                                const maxPct = Math.max(...estadisticas[pregunta.id].map(s =>
+                                  pregunta.tipo_votacion === 'coeficiente' ? s.porcentaje_coeficiente : s.porcentaje_nominal
+                                ))
+                                const aprobado = maxPct >= (pregunta.umbral_aprobacion ?? 0)
+                                return (
+                                  <div className={`mt-3 py-2 px-3 rounded-lg text-center text-sm font-semibold ${aprobado ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'}`}>
+                                    Umbral: {pregunta.umbral_aprobacion}% — Resultado: {aprobado ? 'Aprobado' : 'No aprobado'} (máx. {maxPct.toFixed(1)}%)
+                                  </div>
+                                )
+                              })()}
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
                                 {pregunta.tipo_votacion === 'coeficiente'
                                   ? '📊 Votación ponderada por coeficiente (Ley 675)'
@@ -1387,6 +1405,27 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 {newPregunta.tipo_votacion === 'coeficiente' 
                   ? 'El voto se calcula según el coeficiente de cada unidad (Ley 675)'
                   : 'Cada unidad tiene un voto con el mismo peso'}
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="umbral_aprobacion">Umbral de aprobación (%) — opcional</Label>
+              <Input
+                id="umbral_aprobacion"
+                type="number"
+                min={0}
+                max={100}
+                step={0.01}
+                placeholder="Ej: 50, 70, 100. Vacío = no mostrar Aprobado/No aprobado"
+                value={newPregunta.umbral_aprobacion ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value.trim()
+                  setNewPregunta({ ...newPregunta, umbral_aprobacion: v === '' ? null : Math.min(100, Math.max(0, parseFloat(v) || 0)) })
+                }}
+                className="mt-2"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                50 = mayoría simple, 70 = calificada (ej. reforma estatutos), 100 = unanimidad.
               </p>
             </div>
 
@@ -1529,6 +1568,27 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 {editForm.tipo_votacion === 'coeficiente' 
                   ? 'El voto se calcula según el coeficiente de cada unidad (Ley 675)'
                   : 'Cada unidad tiene un voto con el mismo peso'}
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-umbral_aprobacion">Umbral de aprobación (%) — opcional</Label>
+              <Input
+                id="edit-umbral_aprobacion"
+                type="number"
+                min={0}
+                max={100}
+                step={0.01}
+                placeholder="Ej: 50, 70, 100. Vacío = no mostrar Aprobado/No aprobado"
+                value={editForm.umbral_aprobacion ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value.trim()
+                  setEditForm({ ...editForm, umbral_aprobacion: v === '' ? null : Math.min(100, Math.max(0, parseFloat(v) || 0)) })
+                }}
+                className="mt-2"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                50 = mayoría simple, 70 = calificada (ej. reforma estatutos), 100 = unanimidad.
               </p>
             </div>
 

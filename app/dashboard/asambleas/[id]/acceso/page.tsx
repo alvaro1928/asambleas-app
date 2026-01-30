@@ -235,7 +235,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-gray-800">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Unidades en línea</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Unidades con sesión activa</span>
                   <span className="text-lg font-bold text-gray-900 dark:text-white">{asistentes.length}</span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -252,10 +252,15 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           <div className="lg:col-span-2">
             <Card className="shadow-md h-full min-h-[600px]">
               <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 sticky top-0 z-10">
-                <CardTitle className="text-lg flex items-center">
-                  <Users className="w-5 h-5 mr-2 text-green-600" />
-                  Registro de Ingresos en Tiempo Real
-                </CardTitle>
+                <div>
+                  <CardTitle className="text-lg flex items-center">
+                    <Users className="w-5 h-5 mr-2 text-green-600" />
+                    Registro de Ingresos en Tiempo Real
+                  </CardTitle>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Solo se muestran quienes tienen sesión activa (al salir o cerrar la pestaña desaparecen del listado).
+                  </p>
+                </div>
                 <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs px-3 py-1 rounded-full font-bold animate-pulse flex items-center">
                   <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                   EN VIVO

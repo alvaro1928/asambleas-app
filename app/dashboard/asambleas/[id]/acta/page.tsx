@@ -26,6 +26,7 @@ interface Pregunta {
   tipo_votacion: string
   estado: string
   orden: number
+  umbral_aprobacion?: number | null
 }
 
 interface Opcion {
@@ -120,7 +121,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
       const { data: preguntasData } = await supabase
         .from('preguntas')
-        .select('id, texto_pregunta, descripcion, tipo_votacion, estado, orden')
+        .select('id, texto_pregunta, descripcion, tipo_votacion, estado, orden, umbral_aprobacion')
         .eq('asamblea_id', params.id)
         .order('orden', { ascending: true })
 
@@ -324,6 +325,18 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                           </li>
                         ))}
                       </ul>
+                      {pregunta.umbral_aprobacion != null && stats.resultados?.length > 0 && (() => {
+                        const totalVotos = Number(stats.total_votos) || 0
+                        const maxPct = pregunta.tipo_votacion === 'coeficiente'
+                          ? Math.max(...(stats.resultados as any[]).map((r: any) => Number(r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0)))
+                          : Math.max(...(stats.resultados as any[]).map((r: any) => totalVotos > 0 ? ((Number(r.votos_cantidad) || 0) / totalVotos) * 100 : 0))
+                        const aprobado = maxPct >= (pregunta.umbral_aprobacion ?? 0)
+                        return (
+                          <p className={`text-sm font-semibold mt-2 ${aprobado ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                            Umbral: {pregunta.umbral_aprobacion}% — Resultado: {aprobado ? 'Aprobado' : 'No aprobado'} (máx. {maxPct.toFixed(1)}%).
+                          </p>
+                        )
+                      })()}
                     </div>
                   )}
                   {auditoria[pregunta.id] && auditoria[pregunta.id].length > 0 && (

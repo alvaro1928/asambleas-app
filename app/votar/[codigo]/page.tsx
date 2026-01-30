@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, BarChart3, Clock, RefreshCw, History } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, BarChart3, Clock, RefreshCw, History, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -89,6 +89,38 @@ export default function VotacionPublicaPage() {
   const [recargando, setRecargando] = useState(false)
   const [mostrarHistorial, setMostrarHistorial] = useState(false)
   const [clientIp, setClientIp] = useState<string | null>(null)
+
+  // Para marcar salida al cerrar/abandonar la página (solo sesiones activas en el registro)
+  const salidaRef = useRef<{ asamblea_id: string; email: string } | null>(null)
+  useEffect(() => {
+    if (step === 'votar' && asamblea?.asamblea_id && email?.trim()) {
+      salidaRef.current = { asamblea_id: asamblea.asamblea_id, email: email.trim() }
+    } else {
+      salidaRef.current = null
+    }
+  }, [step, asamblea?.asamblea_id, email])
+
+  const marcarSalidaQuorum = () => {
+    const payload = salidaRef.current
+    if (!payload) return
+    fetch('/api/marcar-salida-quorum', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ asamblea_id: payload.asamblea_id, email: payload.email }),
+      keepalive: true
+    }).catch(() => {})
+  }
+
+  useEffect(() => {
+    if (step !== 'votar' || !salidaRef.current) return
+    const handleLeave = () => marcarSalidaQuorum()
+    window.addEventListener('beforeunload', handleLeave)
+    window.addEventListener('pagehide', handleLeave)
+    return () => {
+      window.removeEventListener('beforeunload', handleLeave)
+      window.removeEventListener('pagehide', handleLeave)
+    }
+  }, [step])
 
   useEffect(() => {
     validarCodigo()
@@ -729,17 +761,32 @@ export default function VotacionPublicaPage() {
         <div className="max-w-4xl mx-auto py-8">
           {/* Header de Bienvenida */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mb-6 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-center mb-4">
-              <div className="w-16 h-16 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full flex items-center justify-center">
-                <CheckCircle2 className="w-8 h-8 text-white" />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div className="flex items-center justify-center sm:justify-start">
+                <div className="w-16 h-16 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-8 h-8 text-white" />
+                </div>
+                <div className="ml-4">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                    ¡Bienvenido!
+                  </h1>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
+                    {email}
+                  </p>
+                </div>
               </div>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  marcarSalidaQuorum()
+                  setStep('email')
+                }}
+                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shrink-0"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Salir de la votación
+              </Button>
             </div>
-            <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-2">
-              ¡Bienvenido!
-            </h1>
-            <p className="text-center text-gray-600 dark:text-gray-400 mb-6">
-              {email}
-            </p>
 
             {/* Resumen de Unidades */}
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
