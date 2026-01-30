@@ -100,24 +100,19 @@ export default function CallbackPage() {
           return
         }
 
-        // 3. Code (OAuth / PKCE)
+        // 3. Code (OAuth / PKCE - Google, etc.) — intercambio en el cliente para usar el code_verifier del navegador
         const code = searchParams.get('code')
         if (code) {
           doneRef.current = true
-          const response = await fetch('/api/auth/set-session', {
-            ...FETCH_OPTIONS,
-            body: JSON.stringify({ code }),
-          })
-          const result = await response.json()
-
-          if (!response.ok || result.error) {
-            setError(result.error || 'Error estableciendo sesión')
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+          if (exchangeError) {
+            setError(exchangeError.message)
             return
           }
           if (window.history.replaceState) {
             window.history.replaceState(null, '', window.location.pathname)
           }
-          setTimeout(doRedirect, 150)
+          setTimeout(() => doRedirect(false), 150)
           return
         }
 
