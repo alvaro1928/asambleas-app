@@ -10,6 +10,7 @@ export async function getUser() {
   return user
 }
 
+/** Cierra sesión vía API (servidor) para no borrar el code_verifier y que Google OAuth siga funcionando. */
 export async function signOut() {
-  await supabase.auth.signOut()
+  await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' })
 }

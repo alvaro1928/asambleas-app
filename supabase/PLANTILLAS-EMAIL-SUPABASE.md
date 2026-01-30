@@ -71,6 +71,8 @@ La app ya tiene el botón **"Entrar con Google"** en la página de login. Para q
    - **Authorized redirect URIs**: añade la URL que te indique Supabase (algo como `https://<tu-proyecto>.supabase.co/auth/v1/callback`).
    - Copia **Client ID** y **Client Secret**.
 4. En Supabase, pega **Client ID** y **Client Secret** en la configuración de Google y guarda.
-5. En **Authentication** → **URL Configuration**, en **Redirect URLs** debe estar tu callback (ej. `https://tu-app.vercel.app/auth/callback`).
+5. En **Authentication** → **URL Configuration**, en **Redirect URLs** añade **ambas**:
+   - `https://tu-app.vercel.app/auth/callback` (Magic Link, reset password)
+   - `https://tu-app.vercel.app/auth/callback/oauth` (Google OAuth)
 
-Después de guardar, "Entrar con Google" redirigirá a Google y, al volver, el callback de la app establecerá la sesión y redirigirá al dashboard.
+Después de guardar, "Entrar con Google" redirigirá a Google y, al volver a `/auth/callback/oauth`, el servidor hará el intercambio del code (usando el code_verifier de las cookies) y redirigirá al dashboard. Así se evita el error "PKCE code verifier not found" al cerrar sesión y volver a entrar con Google.

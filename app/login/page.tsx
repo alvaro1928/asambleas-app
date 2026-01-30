@@ -76,11 +76,16 @@ export default function LoginPage() {
     setLoading(false)
   }
 
+  const getOAuthCallbackUrl = () => {
+    const base = getCallbackUrl()
+    return base.replace(/\/auth\/callback\/?$/, '') + '/auth/callback/oauth'
+  }
+
   const handleGoogleLogin = async () => {
     setLoading(true)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: getCallbackUrl() },
+      options: { redirectTo: getOAuthCallbackUrl() },
     })
     if (error) {
       alert('Error: ' + error.message)

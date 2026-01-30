@@ -162,8 +162,9 @@ export default function DashboardPage() {
   }
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    // Usar window.location.href para limpiar completamente el estado
+    // Cerrar sesión solo en el servidor para no borrar el code_verifier de PKCE
+    // (evita "PKCE code verifier not found" al volver a entrar con Google)
+    await fetch('/api/auth/signout', { method: 'POST', credentials: 'include' })
     window.location.href = '/login'
   }
 
