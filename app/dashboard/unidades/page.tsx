@@ -70,10 +70,12 @@ export default function UnidadesPage() {
 
   useEffect(() => {
     loadUnidades()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, [])
 
   useEffect(() => {
     filterUnidades()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- filter when list or filters change
   }, [unidades, searchTerm, selectedTorre])
 
   const loadUnidades = async () => {

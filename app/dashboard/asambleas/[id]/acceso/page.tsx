@@ -53,6 +53,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     }, 10000)
 
     return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when id changes, interval uses loadAsistentes
   }, [params.id])
 
   const loadAsamblea = async () => {

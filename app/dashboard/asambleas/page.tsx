@@ -34,6 +34,7 @@ export default function AsambleasPage() {
 
   useEffect(() => {
     loadAsambleas()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, [])
 
   const loadAsambleas = async () => {

@@ -25,6 +25,7 @@ export default function EditarConjuntoPage() {
 
   useEffect(() => {
     loadConjunto()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when conjuntoId changes
   }, [conjuntoId])
 
   const loadConjunto = async () => {

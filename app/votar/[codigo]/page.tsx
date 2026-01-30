@@ -91,6 +91,7 @@ export default function VotacionPublicaPage() {
 
   useEffect(() => {
     validarCodigo()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run when codigo changes
   }, [codigo])
 
   const validarCodigo = async () => {
@@ -568,6 +569,7 @@ export default function VotacionPublicaPage() {
     }, 5000)
 
     return () => clearTimeout(timeout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when step or list lengths change
   }, [step, preguntas.length, unidades.length])
 
   const formatFecha = (fecha: string) => {

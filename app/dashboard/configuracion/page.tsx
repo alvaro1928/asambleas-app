@@ -47,6 +47,7 @@ export default function ConfiguracionPage() {
 
   useEffect(() => {
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, [])
 
   const loadData = async () => {

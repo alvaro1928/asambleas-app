@@ -50,6 +50,7 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
 
   useEffect(() => {
     loadAsamblea()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when id changes
   }, [params.id])
 
   const loadAsamblea = async () => {

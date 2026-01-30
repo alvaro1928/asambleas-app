@@ -79,6 +79,45 @@ export default function LoginPage() {
     setLoading(false)
   }
 
+  if (showForgotPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
+        <div className="bg-gray-800 p-8 rounded-xl shadow-2xl w-96 space-y-4">
+          <h1 className="text-2xl font-bold text-center">Restablecer contraseña</h1>
+          <p className="text-gray-400 text-sm text-center">
+            Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.
+          </p>
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="tu@email.com"
+              className="w-full p-2 rounded bg-gray-700 border border-gray-600"
+              required
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(false)}
+                className="flex-1 py-2 rounded border border-gray-500 text-gray-300 hover:bg-gray-700"
+              >
+                Volver
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 py-2 rounded bg-indigo-600 font-bold hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {loading ? 'Enviando...' : 'Enviar enlace de recuperación'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   if (magicLinkSent) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">

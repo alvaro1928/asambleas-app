@@ -25,6 +25,7 @@ export default function ConjuntosPage() {
 
   useEffect(() => {
     loadConjuntos()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, [])
 
   const loadConjuntos = async () => {

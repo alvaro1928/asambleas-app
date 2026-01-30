@@ -72,6 +72,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when id changes
   }, [params.id])
 
   const loadData = async () => {

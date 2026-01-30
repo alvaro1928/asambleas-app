@@ -130,7 +130,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       setSuccessMessage('Asamblea creada exitosamente')
       setTimeout(() => setSuccessMessage(''), 5000)
     }
-  }, [params.id]) // Solo cuando cambia el ID
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when id changes
+  }, [params.id])
 
   // Polling para estadísticas (separado)
   useEffect(() => {
@@ -144,7 +145,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [params.id, preguntas.length]) // Usar .length en lugar del array completo
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when preguntas length changes
+  }, [params.id, preguntas.length])
 
   const loadData = async () => {
     try {
