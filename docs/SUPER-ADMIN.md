@@ -4,7 +4,7 @@ Página restringida para gestionar conjuntos y planes de suscripción.
 
 ## Seguridad
 
-- Solo puede acceder el usuario cuyo **email** coincida con la variable de entorno **`SUPER_ADMIN_EMAIL`** (comparación sin distinguir mayúsculas/minúsculas).
+- Solo puede acceder el usuario cuyo **email** coincida con **`NEXT_PUBLIC_ADMIN_EMAIL`** (página) o **`SUPER_ADMIN_EMAIL`** (API). Configura al menos `NEXT_PUBLIC_ADMIN_EMAIL` en `.env.local` para entrar a `/super-admin`; si la API usa `SUPER_ADMIN_EMAIL`, pon el mismo correo en ambas para que listado y "Activar Cortesía" funcionen.
 - Si no hay sesión o el email no es el configurado, se redirige a `/login`.
 - En código se usa la utilidad **`isSuperAdmin(email)`** de `@/lib/super-admin` para comprobar si el usuario es super admin.
 - Para que el super admin tenga **acceso total a todas las tablas desde Supabase (RLS)** sin depender de `organization_id`, ejecuta el script `supabase/ROL-SUPER-ADMIN.sql` y luego actualiza el correo en la tabla `app_config`.
@@ -14,7 +14,10 @@ Página restringida para gestionar conjuntos y planes de suscripción.
 En `.env.local` (o en las variables de entorno de Vercel) debes definir:
 
 ```env
-# Email del super administrador (único que puede entrar a /super-admin)
+# Email del admin (quien puede entrar a /super-admin). Usar NEXT_PUBLIC_ para la página.
+NEXT_PUBLIC_ADMIN_EMAIL=tu_correo@ejemplo.com
+
+# Opcional: mismo correo para la API (si no lo pones, la API usa solo SUPER_ADMIN_EMAIL)
 SUPER_ADMIN_EMAIL=tu_correo@ejemplo.com
 
 # Clave de servicio de Supabase (Dashboard → Settings → API → service_role)
@@ -27,10 +30,8 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
 ## Funcionalidad
 
-- **Tabla:** Lista todos los registros de la tabla `organizations` (conjuntos).
-- **Plan:** Selector en cada fila para cambiar `plan_type` (`free`, `pro`, `pilot`). Al cambiar, se ejecuta un `UPDATE` en Supabase y la tabla se actualiza en tiempo real.
-- **Piloto:** Columna que indica si el conjunto está en modo piloto (`is_pilot`).
-- **Unidades:** Columna con el número de unidades registradas por conjunto.
+- **Tabla:** Lista todos los conjuntos registrados (nombre, plan actual).
+- **Activar Cortesía:** Botón por fila que pone el plan en `pro` manualmente (sin pasarela). Para usuarios piloto. Llama a `PATCH /api/super-admin/conjuntos` con `{ id, plan_type: 'pro' }`.
 
 ## Rutas API
 

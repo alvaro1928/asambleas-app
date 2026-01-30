@@ -3,21 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Shield, Building2, Loader2, LogOut, Users, Crown } from 'lucide-react'
+import { Shield, Building2, Loader2, LogOut, Gift } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { isAdminEmail } from '@/lib/super-admin'
 
 interface ConjuntoRow {
   id: string
   name: string
-  slug: string
-  nit?: string
   plan_type: string
-  plan_active_until: string | null
-  plan_status?: string | null
-  is_pilot: boolean
-  created_at: string
-  unidades_count: number
-  admin_email?: string | null
 }
 
 export default function SuperAdminPage() {
@@ -42,6 +35,11 @@ export default function SuperAdminPage() {
         return
       }
 
+      if (!isAdminEmail(session.user.email)) {
+        router.replace('/login?redirect=/super-admin')
+        return
+      }
+
       const res = await fetch('/api/super-admin/conjuntos', {
         credentials: 'include',
       })
@@ -50,7 +48,6 @@ export default function SuperAdminPage() {
         router.replace('/login?redirect=/super-admin')
         return
       }
-      // 401/403 = no sesión o no es super admin; redirigir a login
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -60,7 +57,12 @@ export default function SuperAdminPage() {
       }
 
       const data = await res.json()
-      setConjuntos(data.conjuntos || [])
+      const rows = (data.conjuntos || []).map((c: ConjuntoRow & { plan_type?: string }) => ({
+        id: c.id,
+        name: c.name,
+        plan_type: c.plan_type ?? 'free',
+      }))
+      setConjuntos(rows)
     } catch (e) {
       console.error('Super admin load:', e)
       router.replace('/login?redirect=/super-admin')
@@ -69,28 +71,28 @@ export default function SuperAdminPage() {
     }
   }
 
-  const handlePlanChange = async (id: string, plan_type: string) => {
+  const handleActivarCortesia = async (id: string) => {
     setUpdatingId(id)
     try {
       const res = await fetch('/api/super-admin/conjuntos', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ id, plan_type }),
+        body: JSON.stringify({ id, plan_type: 'pro' }),
       })
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        alert(err.error || 'Error al actualizar')
+        alert(err.error || 'Error al activar cortesía')
         return
       }
 
       setConjuntos((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, plan_type } : c))
+        prev.map((c) => (c.id === id ? { ...c, plan_type: 'pro' } : c))
       )
     } catch (e) {
-      console.error('Plan update:', e)
-      alert('Error al actualizar el plan')
+      console.error('Activar cortesía:', e)
+      alert('Error al activar cortesía')
     } finally {
       setUpdatingId(null)
     }
@@ -133,49 +135,21 @@ export default function SuperAdminPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Métricas de negocio */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center">
-              <Users className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total conjuntos</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{conjuntos.length}</p>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-6 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
-              <Crown className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Plan Pro activo</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {conjuntos.filter((c) => c.plan_type === 'pro').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Tabla de conjuntos */}
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 uppercase text-xs">
                 <tr>
-                  <th className="px-6 py-4">Nombre del conjunto</th>
-                  <th className="px-6 py-4">Email del administrador</th>
+                  <th className="px-6 py-4">Nombre</th>
                   <th className="px-6 py-4">Plan actual</th>
-                  <th className="px-6 py-4">Estado</th>
-                  <th className="px-6 py-4">Piloto</th>
-                  <th className="px-6 py-4 text-right">Unidades</th>
+                  <th className="px-6 py-4 text-right">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {conjuntos.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
                       No hay conjuntos registrados.
                     </td>
                   </tr>
@@ -192,56 +166,35 @@ export default function SuperAdminPage() {
                             {c.name}
                           </span>
                         </div>
-                        {c.nit && (
-                          <p className="text-xs text-gray-500 mt-0.5 ml-6">NIT: {c.nit}</p>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
-                        {c.admin_email ?? (
-                          <span className="text-gray-400">—</span>
-                        )}
                       </td>
                       <td className="px-6 py-4">
-                        <select
-                          value={c.plan_type ?? 'free'}
-                          onChange={(e) =>
-                            handlePlanChange(c.id, e.target.value)
-                          }
-                          disabled={updatingId === c.id}
-                          className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            c.plan_type === 'pro'
+                              ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300'
+                              : c.plan_type === 'pilot'
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                          }`}
                         >
-                          <option value="free">free</option>
-                          <option value="pro">pro</option>
-                          <option value="pilot">pilot</option>
-                        </select>
-                        {updatingId === c.id && (
-                          <Loader2 className="inline-block w-4 h-4 animate-spin ml-2 text-indigo-500 align-middle" />
-                        )}
+                          {c.plan_type ?? 'free'}
+                        </span>
                       </td>
-                      <td className="px-6 py-4">
-                        {c.plan_status === 'active' ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                            Activo
-                          </span>
-                        ) : c.plan_status === 'inactive' ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                            Inactivo
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        {c.is_pilot ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                            Sí
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-right font-medium text-gray-900 dark:text-white">
-                        {c.unidades_count}
+                      <td className="px-6 py-4 text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleActivarCortesia(c.id)}
+                          disabled={updatingId === c.id || c.plan_type === 'pro'}
+                          className="gap-2"
+                        >
+                          {updatingId === c.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Gift className="w-4 h-4" />
+                          )}
+                          Activar Cortesía
+                        </Button>
                       </td>
                     </tr>
                   ))

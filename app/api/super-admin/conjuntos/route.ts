@@ -2,7 +2,11 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { isSuperAdmin } from '@/lib/super-admin'
+import { isSuperAdmin, isAdminEmail } from '@/lib/super-admin'
+
+function canAccessSuperAdmin(email: string | undefined): boolean {
+  return isSuperAdmin(email) || isAdminEmail(email)
+}
 
 /** GET: lista todos los conjuntos (solo super admin) */
 export async function GET() {
@@ -29,8 +33,8 @@ export async function GET() {
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
-    if (!isSuperAdmin(session.user.email)) {
-      return NextResponse.json({ error: 'Acceso denegado. Solo super administrador.' }, { status: 403 })
+    if (!canAccessSuperAdmin(session.user.email)) {
+      return NextResponse.json({ error: 'Acceso denegado. Solo administrador.' }, { status: 403 })
     }
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -128,7 +132,7 @@ export async function PATCH(request: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
-    if (!isSuperAdmin(session.user.email)) {
+    if (!canAccessSuperAdmin(session.user.email)) {
       return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 })
     }
 

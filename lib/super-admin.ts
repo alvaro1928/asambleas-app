@@ -15,3 +15,13 @@ export function isSuperAdmin(email: string | undefined): boolean {
   if (!configured || !email) return false
   return email.trim().toLowerCase() === configured
 }
+
+/**
+ * Comprueba si el email corresponde al admin (NEXT_PUBLIC_ADMIN_EMAIL).
+ * Usado en la página /super-admin para control de acceso.
+ */
+export function isAdminEmail(email: string | undefined): boolean {
+  const configured = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase()
+  if (!configured || !email) return false
+  return email.trim().toLowerCase() === configured
+}
