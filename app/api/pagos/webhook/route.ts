@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createHash, timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
  * Para errores sin conjunto usamos console y opcionalmente una tabla pagos_log_errores si existiera.
  */
 async function logPaymentError(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   organizationId: string | null,
   reference: string | null,
   wompiTransactionId: string | null,
