@@ -8,6 +8,7 @@ import { User } from '@supabase/supabase-js'
 import ConjuntoSelector from '@/components/ConjuntoSelector'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { isAdminEmail } from '@/lib/super-admin'
+import { formatPrecioPro } from '@/lib/precio-pro'
 
 interface UnidadMetrics {
   total: number
@@ -376,8 +377,18 @@ export default function DashboardPage() {
                   })()
                 )}
               </div>
+              {planType === 'free' && (
+                <div className="mt-3 space-y-1">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Plan Pro: <span className="font-semibold text-gray-900 dark:text-white">{formatPrecioPro()}</span> por año (por conjunto).
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Al pagar, vuelve a este mismo dashboard y recarga la página para ver tu plan Pro activo con todos los privilegios (actas, más preguntas, etc.).
+                  </p>
+                </div>
+              )}
               {planType === 'free' && !process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL && process.env.NEXT_PUBLIC_PLAN_PRO_URL && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   El botón enlaza a contacto/ventas. Configura <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">NEXT_PUBLIC_PASARELA_PAGOS_URL</code> para la pasarela de pagos.
                 </p>
               )}

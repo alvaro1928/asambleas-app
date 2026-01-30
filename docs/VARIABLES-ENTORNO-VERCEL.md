@@ -41,13 +41,33 @@ Lista de **todas** las variables de entorno que debe tener el proyecto en Vercel
 | **`WOMPI_LLAVE_PRIVADA`** | Opcional | Wompi → Llave privada | Solo si tu backend llama a la API de Wompi (consultar transacción, reversar, etc.). |
 | **`WOMPI_EVENTOS`** | Opcional | Wompi → Secretos → Eventos | No la usamos hoy en el webhook (verificamos con Integridad). |
 
+### Llaves Wompi (prueba) – copiar y pegar en Vercel
+
+Bloque listo para **Vercel → Settings → Environment Variables**. Son llaves de **prueba (Sandbox)**; cuando Wompi te active producción, sustituye por las de producción.
+
+```
+NEXT_PUBLIC_WOMPI_LLAVE_PUBLICA=pub_test_aGHqimadrTMPu1CCE10ISDBUSK9NURwb
+WOMPI_INTEGRIDAD=test_integrity_55x6A2jue80RD0p1phURdgLtJLRybQE8
+WOMPI_LLAVE_PRIVADA=prv_test_qjjPb9Y3QQZHeRfEWlAcwS0Y5j0gxneq
+WOMPI_EVENTOS=test_events_oR6WKYwkq4u1MrVW5EUsrvsf5h88KDJB
+```
+
+**En el panel de Wompi** (Configuraciones avanzadas → Seguimiento de transacciones), pon en **URL de Eventos** esta URL (no `/dashboard`):
+
+```
+https://asambleas-app-epbco.vercel.app/api/pagos/webhook
+```
+
+Luego pulsa **Guardar** para que Wompi envíe los eventos de pago a tu app.
+
 ---
 
 ## 5. Landing y contacto (Plan Pro / WhatsApp)
 
 | Variable | Obligatoria | Dónde sacarla | Uso |
 |----------|-------------|---------------|-----|
-| **`NEXT_PUBLIC_PLAN_PRO_URL`** | Opcional | URL de ventas/contacto o página Plan Pro | Enlaces "Plan Pro" y "Actualizar a Pro" en landing y dashboard. |
+| **`NEXT_PUBLIC_PLAN_PRO_URL`** | Opcional | URL de ventas/contacto o WhatsApp | Enlaces "Plan Pro" y "Actualizar a Pro". Tras pagar, el usuario vuelve al **mismo dashboard** y recarga para ver privilegios Pro. |
+| **`NEXT_PUBLIC_PRECIO_PRO_ANUAL`** | Opcional | Precio en COP por año (ej. `200000`) | Lo que cobras por Plan Pro por conjunto/año. Por defecto 200.000 COP. Se muestra en dashboard y landing. Para Wompi: valor × 100 = centavos. |
 | **`NEXT_PUBLIC_WHATSAPP_NUMBER`** | Opcional | Número WhatsApp con código país (ej. `573001234567`) | Botones de contacto por WhatsApp en la landing. |
 
 ---
@@ -76,8 +96,9 @@ WOMPI_INTEGRIDAD=test_integrity_xxxxxxxxxxxx
 # WOMPI_LLAVE_PRIVADA=...   # solo si el backend llama a la API de Wompi
 # WOMPI_EVENTOS=...         # opcional, no usada en el webhook actual
 
-# ========== Landing / contacto ==========
-# NEXT_PUBLIC_PLAN_PRO_URL=https://...
+# ========== Landing / contacto / precio Pro ==========
+# NEXT_PUBLIC_PLAN_PRO_URL=https://wa.me/573001234567
+# NEXT_PUBLIC_PRECIO_PRO_ANUAL=200000
 # NEXT_PUBLIC_WHATSAPP_NUMBER=573001234567
 ```
 

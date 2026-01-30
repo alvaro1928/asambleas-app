@@ -16,6 +16,8 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
+import { formatPrecioPro } from '@/lib/precio-pro'
+
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ''
 const PLAN_PRO_URL = process.env.NEXT_PUBLIC_PLAN_PRO_URL || '#'
 
@@ -163,7 +165,7 @@ export default function Home() {
               </div>
               <CardHeader>
                 <CardTitle className="text-xl text-indigo-600 dark:text-indigo-400">Pro</CardTitle>
-                <p className="text-2xl font-bold mt-2 text-gray-900 dark:text-white">Consulte</p>
+                <p className="text-2xl font-bold mt-2 text-gray-900 dark:text-white">{formatPrecioPro()} /año</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Para conjuntos que requieren actas</p>
               </CardHeader>
               <CardContent className="flex-1 space-y-3">
