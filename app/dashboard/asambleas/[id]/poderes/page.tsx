@@ -374,6 +374,15 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   Consultar Unidades
                 </Button>
               </Link>
+              <Link href={`/dashboard/asambleas/${params.id}/poderes/importar`}>
+                <Button
+                  variant="outline"
+                  className="border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Importar Excel
+                </Button>
+              </Link>
               <Button
                 onClick={() => setShowNewPoder(true)}
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"

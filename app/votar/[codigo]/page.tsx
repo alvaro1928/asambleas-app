@@ -126,7 +126,7 @@ export default function VotacionPublicaPage() {
 
   const handleValidarEmail = async () => {
     if (!email.trim()) {
-      setError('Por favor ingresa tu email')
+      setError('Por favor ingresa tu email o número de teléfono')
       return
     }
 
@@ -137,7 +137,7 @@ export default function VotacionPublicaPage() {
       const unidadesConInfo = await refrescarUnidades()
       
       if (unidadesConInfo.length === 0) {
-        setError('No se encontraron unidades para este email')
+        setError('No se encontraron unidades para este email o teléfono')
         setLoading(false)
         return
       }
@@ -156,9 +156,10 @@ export default function VotacionPublicaPage() {
   }
 
   const refrescarUnidades = async (): Promise<UnidadInfo[]> => {
+    const identificador = email.trim()
     const { data, error } = await supabase.rpc('validar_votante_asamblea', {
       p_codigo_asamblea: codigo,
-      p_email_votante: email.toLowerCase().trim()
+      p_email_votante: identificador.includes('@') ? identificador.toLowerCase() : identificador
     })
 
     if (error) throw error
@@ -650,22 +651,24 @@ export default function VotacionPublicaPage() {
             </div>
           )}
 
-          {/* Formulario de Email */}
+          {/* Formulario: Email o Teléfono */}
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Ingresa tu email registrado
+                Email o teléfono registrado en la unidad
               </label>
               <Input
-                type="email"
+                type="text"
+                inputMode="email"
+                autoComplete="email tel"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com"
+                placeholder="tu@email.com o 3001234567"
                 className="w-full text-lg"
                 onKeyPress={(e) => e.key === 'Enter' && handleValidarEmail()}
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                ℹ️ Debe ser el email registrado en tu unidad o si tienes poderes activos
+                ℹ️ Ingresa el email o el número de teléfono registrado en tu unidad o con el que tienes poderes
               </p>
             </div>
 
@@ -700,7 +703,7 @@ export default function VotacionPublicaPage() {
           {/* Footer */}
           <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
             <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-              🔒 Tus datos están protegidos. Solo podrás votar si tu email está registrado en el conjunto.
+              🔒 Solo podrás votar si tu email o teléfono está registrado en una unidad del conjunto.
             </p>
           </div>
         </div>

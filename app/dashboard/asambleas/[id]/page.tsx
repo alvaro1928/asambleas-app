@@ -799,6 +799,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   Activar
                 </Button>
               )}
+              {(asamblea.estado === 'finalizada' || asamblea.estado === 'activa') && (
+                <Link href={`/dashboard/asambleas/${params.id}/acta`}>
+                  <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Generar acta
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         </div>
