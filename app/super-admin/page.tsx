@@ -7,11 +7,9 @@ import { Shield, Building2, Loader2, LogOut, Gift, Users, DollarSign } from 'luc
 import { Button } from '@/components/ui/button'
 
 /**
- * Super Administración: protegida solo para este email.
- * Reemplaza TU_EMAIL_AQUÍ por tu email. Para que la API permita el acceso,
- * configura en .env: NEXT_PUBLIC_ADMIN_EMAIL=tu@email.com y SUPER_ADMIN_EMAIL=tu@email.com (el mismo).
+ * Super Administración: protegida solo para el email en NEXT_PUBLIC_ADMIN_EMAIL (Vercel / .env).
+ * La API usa SUPER_ADMIN_EMAIL o NEXT_PUBLIC_ADMIN_EMAIL; pon el mismo valor en ambas.
  */
-const SUPER_ADMIN_ALLOWED_EMAIL = 'TU_EMAIL_AQUÍ'
 
 interface ConjuntoRow {
   id: string
@@ -39,8 +37,8 @@ export default function SuperAdminPage() {
 
   const isAllowed = (email: string | undefined) => {
     if (!email) return false
-    const allowed = SUPER_ADMIN_ALLOWED_EMAIL.trim().toLowerCase()
-    if (allowed === 'tu_email_aquí' || allowed === '') return false
+    const allowed = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? '').trim().toLowerCase()
+    if (!allowed) return false
     return email.trim().toLowerCase() === allowed
   }
 
