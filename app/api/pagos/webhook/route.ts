@@ -1,33 +1,76 @@
 import { createClient } from '@supabase/supabase-js'
+import { createHash, timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-/** Payload genérico: adaptable a Stripe, Wompi, etc. */
-interface WebhookPayload {
-  event?: string
-  metadata?: {
-    organization_id?: string
-    conjunto_id?: string
+/** Referencia Wompi: REF_<conjunto_id>_<timestamp> */
+function extractConjuntoIdFromReference(reference: string | null | undefined): string | null {
+  if (!reference || typeof reference !== 'string') return null
+  const parts = reference.trim().split('_')
+  if (parts.length < 2) return null
+  const maybeUuid = parts[1]
+  return UUID_REGEX.test(maybeUuid) ? maybeUuid : null
+}
+
+/** Obtener valor anidado en objeto por path "transaction.id" -> data.transaction.id */
+function getNestedValue(obj: unknown, path: string): string | number | null {
+  const keys = path.split('.')
+  let current: unknown = obj
+  for (const key of keys) {
+    if (current == null || typeof current !== 'object') return null
+    current = (current as Record<string, unknown>)[key]
   }
-  external_payment_id?: string
-  subscription_id?: string
-  amount_cents?: number
-  currency?: string
+  if (current === null || current === undefined) return null
+  if (typeof current === 'string' || typeof current === 'number') return current
+  return String(current)
 }
 
-function getOrganizationId(payload: WebhookPayload): string | null {
-  const meta = payload.metadata
-  if (!meta) return null
-  const id = meta.conjunto_id ?? meta.organization_id
-  return typeof id === 'string' && UUID_REGEX.test(id) ? id : null
+/** Verificar firma de integridad Wompi (SHA256 de properties + timestamp + secret). */
+function verifyWompiSignature(
+  data: Record<string, unknown>,
+  signature: { properties?: string[]; timestamp?: number; checksum?: string },
+  secret: string
+): boolean {
+  const props = signature?.properties
+  const timestamp = signature?.timestamp
+  const expectedChecksum = signature?.checksum
+  if (!Array.isArray(props) || props.length === 0 || timestamp == null || !expectedChecksum) return false
+  const parts: (string | number)[] = []
+  for (const path of props) {
+    const v = getNestedValue(data, path)
+    if (v === null) return false
+    parts.push(v)
+  }
+  parts.push(timestamp)
+  const concatenated = parts.join('') + secret
+  const hash = createHash('sha256').update(concatenated, 'utf8').digest('hex')
+  if (hash.length !== expectedChecksum.length) return false
+  try {
+    return timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(expectedChecksum.toLowerCase(), 'hex'))
+  } catch {
+    return false
+  }
 }
 
-function verifyWebhookSecret(request: NextRequest): boolean {
-  const secret = process.env.WEBHOOK_PAGOS_SECRET
-  if (!secret) return false
-  const header = request.headers.get('x-webhook-secret') ?? request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
-  return header === secret
+/** Payload Wompi evento transaction.updated */
+interface WompiEventPayload {
+  event?: string
+  data?: {
+    transaction?: {
+      id?: string
+      reference?: string
+      status?: string
+      amount_in_cents?: number
+      currency?: string
+    }
+  }
+  signature?: {
+    properties?: string[]
+    timestamp?: number
+    checksum?: string
+  }
+  sent_at?: string
 }
 
 export async function GET() {
@@ -36,121 +79,142 @@ export async function GET() {
 
 /**
  * POST /api/pagos/webhook
- * Recibe notificaciones de la pasarela de pagos.
- * En 'pago_exitoso': actualiza el conjunto a plan Pro activo 1 año y registra en pagos_historial.
+ * Webhook Wompi: evento transaction.updated.
+ * Verifica firma SHA256 con WOMPI_INTEGRIDAD (secreto Integridad de Wompi).
+ * Si status === APPROVED: extrae conjunto_id de reference (REF_UUID_TIMESTAMP), activa plan Pro 365 días.
+ * Si falla: registra en pagos_log para revisión.
  */
 export async function POST(request: NextRequest) {
-  if (!verifyWebhookSecret(request)) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  const secret = process.env.WOMPI_INTEGRIDAD
+  if (!secret) {
+    return NextResponse.json({ error: 'WOMPI_INTEGRIDAD no configurado' }, { status: 500 })
   }
 
-  let body: WebhookPayload
+  let body: WompiEventPayload
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Body JSON inválido' }, { status: 400 })
   }
 
-  const event = body.event
-  if (event !== 'pago_exitoso') {
-    return NextResponse.json({ received: true, event }, { status: 200 })
+  if (body.event !== 'transaction.updated') {
+    return NextResponse.json({ received: true, event: body.event }, { status: 200 })
   }
 
-  const organizationId = getOrganizationId(body)
-  if (!organizationId) {
-    return NextResponse.json(
-      { error: 'metadata.conjunto_id o metadata.organization_id (UUID) requerido' },
-      { status: 400 }
-    )
+  const data = body.data ?? {}
+  const transaction = data.transaction ?? {}
+  const txId = transaction.id ?? null
+  const reference = transaction.reference ?? null
+  const status = (transaction.status ?? '').toString().toUpperCase()
+  const amountInCents = typeof transaction.amount_in_cents === 'number' ? transaction.amount_in_cents : 0
+
+  const signature = body.signature ?? {}
+  const checksumHeader = request.headers.get('x-event-checksum')
+  const checksumToVerify = signature.checksum ?? checksumHeader ?? ''
+  if (!verifyWompiSignature(data, { ...signature, checksum: checksumToVerify }, secret)) {
+    return NextResponse.json({ error: 'Firma de integridad inválida' }, { status: 401 })
   }
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceRoleKey) {
-    return NextResponse.json(
-      { error: 'SUPABASE_SERVICE_ROLE_KEY no configurada' },
-      { status: 500 }
-    )
+  if (!supabaseUrl || !serviceRoleKey) {
+    return NextResponse.json({ error: 'Supabase no configurado' }, { status: 500 })
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    serviceRoleKey,
-    { auth: { persistSession: false } }
-  )
+  const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
+  const conjuntoId = extractConjuntoIdFromReference(reference)
 
-  const externalPaymentId = body.external_payment_id ?? body.subscription_id ?? null
-  if (externalPaymentId) {
-    const { data: existing } = await supabase
-      .from('pagos_historial')
-      .select('id')
-      .eq('external_payment_id', externalPaymentId)
-      .eq('status', 'confirmed')
-      .maybeSingle()
-
-    if (existing) {
-      return NextResponse.json({ received: true, duplicate: true }, { status: 200 })
+  if (status === 'APPROVED') {
+    if (!conjuntoId) {
+      await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Referencia sin UUID válido (REF_UUID_TIMESTAMP)')
+      return NextResponse.json({ error: 'Referencia inválida: se espera REF_<uuid>_<timestamp>' }, { status: 400 })
     }
-  }
 
-  const { data: org } = await supabase
-    .from('organizations')
-    .select('id')
-    .eq('id', organizationId)
-    .maybeSingle()
+    const { data: org } = await supabase.from('organizations').select('id').eq('id', conjuntoId).maybeSingle()
+    if (!org) {
+      await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Conjunto no encontrado')
+      return NextResponse.json({ error: 'Conjunto no encontrado' }, { status: 404 })
+    }
 
-  if (!org) {
-    return NextResponse.json({ error: 'Conjunto no encontrado' }, { status: 404 })
-  }
+    const now = new Date()
+    const activeUntil = new Date(now)
+    activeUntil.setDate(activeUntil.getDate() + 365)
 
-  const now = new Date()
-  const oneYearLater = new Date(now)
-  oneYearLater.setFullYear(oneYearLater.getFullYear() + 1)
+    const nowIso = now.toISOString()
+    const { error: updateError } = await supabase
+      .from('organizations')
+      .update({
+        plan_type: 'pro',
+        subscription_status: 'active',
+        plan_active_until: activeUntil.toISOString(),
+        last_payment_date: nowIso,
+        wompi_reference: reference,
+      })
+      .eq('id', conjuntoId)
 
-  const { error: updateError } = await supabase
-    .from('organizations')
-    .update({
-      plan_type: 'pro',
-      plan_status: 'active',
-      plan_active_until: oneYearLater.toISOString(),
-      last_payment_date: now.toISOString(),
-      ...(body.subscription_id && { subscription_id: body.subscription_id }),
+    if (updateError) {
+      await logPaymentError(supabase, conjuntoId, reference, txId, amountInCents, status, updateError.message)
+      return NextResponse.json({ error: 'Error al actualizar conjunto', details: updateError.message }, { status: 500 })
+    }
+
+    const { error: logError } = await supabase.from('pagos_log').insert({
+      organization_id: conjuntoId,
+      monto: amountInCents,
+      wompi_transaction_id: txId,
+      estado: 'APPROVED',
     })
-    .eq('id', organizationId)
+    if (logError) {
+      // No fallar la respuesta; el plan ya se activó
+      console.error('[webhook pagos] Error al insertar pagos_log:', logError.message)
+    }
 
-  if (updateError) {
-    return NextResponse.json(
-      { error: 'Error al actualizar conjunto', details: updateError.message },
-      { status: 500 }
-    )
+    return NextResponse.json({
+      received: true,
+      organization_id: conjuntoId,
+      plan_active_until: activeUntil.toISOString(),
+    })
   }
 
-  const amountCents = typeof body.amount_cents === 'number' && body.amount_cents >= 0
-    ? body.amount_cents
-    : 0
-  const currency = typeof body.currency === 'string' && body.currency.length <= 10
-    ? body.currency
-    : 'COP'
-
-  const { error: insertError } = await supabase.from('pagos_historial').insert({
-    organization_id: organizationId,
-    amount_cents: amountCents,
-    currency,
-    external_payment_id: externalPaymentId,
-    status: 'confirmed',
-    plan_type: 'pro',
-    description: 'Pago exitoso vía webhook - plan Pro 1 año',
-  })
-
-  if (insertError) {
-    return NextResponse.json(
-      { error: 'Conjunto actualizado; fallo al registrar pago', details: insertError.message },
-      { status: 500 }
-    )
+  // Pago no aprobado: registrar en pagos_log para revisión (solo si podemos asociar a un conjunto)
+  if (conjuntoId) {
+    const { data: org } = await supabase.from('organizations').select('id').eq('id', conjuntoId).maybeSingle()
+    if (org) {
+      await supabase.from('pagos_log').insert({
+        organization_id: conjuntoId,
+        monto: amountInCents,
+        wompi_transaction_id: txId,
+        estado: status || 'UNKNOWN',
+      })
+    }
+  } else {
+    await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Referencia sin UUID (pago no aprobado)')
   }
 
-  return NextResponse.json({
-    received: true,
-    organization_id: organizationId,
-    plan_active_until: oneYearLater.toISOString(),
-  })
+  return NextResponse.json({ received: true, status }, { status: 200 })
+}
+
+/**
+ * Registrar error en pagos_log cuando no hay organization_id.
+ * pagos_log exige organization_id NOT NULL; si no tenemos conjunto, guardamos en una tabla de errores
+ * o no insertamos. Aquí intentamos insertar solo cuando tenemos organization_id.
+ * Para errores sin conjunto usamos console y opcionalmente una tabla pagos_log_errores si existiera.
+ */
+async function logPaymentError(
+  supabase: ReturnType<typeof createClient>,
+  organizationId: string | null,
+  reference: string | null,
+  wompiTransactionId: string | null,
+  monto: number,
+  estado: string,
+  detalle: string
+) {
+  if (organizationId) {
+    await supabase.from('pagos_log').insert({
+      organization_id: organizationId,
+      monto,
+      wompi_transaction_id: wompiTransactionId,
+      estado: estado || 'ERROR',
+    })
+  }
+  console.error('[webhook pagos]', { organizationId, reference, wompiTransactionId, estado, detalle })
 }

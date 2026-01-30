@@ -3,19 +3,32 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Shield, Building2, Loader2, LogOut, Gift } from 'lucide-react'
+import { Shield, Building2, Loader2, LogOut, Gift, Users, DollarSign } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { isAdminEmail } from '@/lib/super-admin'
+
+/**
+ * Super Administración: protegida solo para este email.
+ * Reemplaza TU_EMAIL_AQUÍ por tu email. Para que la API permita el acceso,
+ * configura en .env: NEXT_PUBLIC_ADMIN_EMAIL=tu@email.com y SUPER_ADMIN_EMAIL=tu@email.com (el mismo).
+ */
+const SUPER_ADMIN_ALLOWED_EMAIL = 'TU_EMAIL_AQUÍ'
 
 interface ConjuntoRow {
   id: string
   name: string
   plan_type: string
+  plan_status?: string | null
+}
+
+interface ResumenPagos {
+  conjuntos_que_pagaron: number
+  dinero_total_centavos: number
 }
 
 export default function SuperAdminPage() {
   const router = useRouter()
   const [conjuntos, setConjuntos] = useState<ConjuntoRow[]>([])
+  const [resumen, setResumen] = useState<ResumenPagos | null>(null)
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
 
@@ -23,6 +36,13 @@ export default function SuperAdminPage() {
     checkAndLoad()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const isAllowed = (email: string | undefined) => {
+    if (!email) return false
+    const allowed = SUPER_ADMIN_ALLOWED_EMAIL.trim().toLowerCase()
+    if (allowed === 'tu_email_aquí' || allowed === '') return false
+    return email.trim().toLowerCase() === allowed
+  }
 
   const checkAndLoad = async () => {
     try {
@@ -35,7 +55,7 @@ export default function SuperAdminPage() {
         return
       }
 
-      if (!isAdminEmail(session.user.email)) {
+      if (!isAllowed(session.user.email)) {
         router.replace('/login?redirect=/super-admin')
         return
       }
@@ -61,8 +81,10 @@ export default function SuperAdminPage() {
         id: c.id,
         name: c.name,
         plan_type: c.plan_type ?? 'free',
+        plan_status: (c as { plan_status?: string | null }).plan_status ?? null,
       }))
       setConjuntos(rows)
+      setResumen(data.resumen ?? null)
     } catch (e) {
       console.error('Super admin load:', e)
       router.replace('/login?redirect=/super-admin')
@@ -71,14 +93,14 @@ export default function SuperAdminPage() {
     }
   }
 
-  const handleActivarCortesia = async (id: string) => {
+  const handleActivarCortesiaPiloto = async (id: string) => {
     setUpdatingId(id)
     try {
       const res = await fetch('/api/super-admin/conjuntos', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ id, plan_type: 'pro' }),
+        body: JSON.stringify({ id, activar_cortesia: true }),
       })
 
       if (!res.ok) {
@@ -88,7 +110,7 @@ export default function SuperAdminPage() {
       }
 
       setConjuntos((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, plan_type: 'pro' } : c))
+        prev.map((c) => (c.id === id ? { ...c, plan_type: 'pro', plan_status: 'active' } : c))
       )
     } catch (e) {
       console.error('Activar cortesía:', e)
@@ -96,6 +118,16 @@ export default function SuperAdminPage() {
     } finally {
       setUpdatingId(null)
     }
+  }
+
+  const formatDinero = (centavos: number) => {
+    const pesos = centavos / 100
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(pesos)
   }
 
   if (loading) {
@@ -120,7 +152,7 @@ export default function SuperAdminPage() {
                 Super Administración
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Conjuntos y planes
+                Conjuntos y planes (solo tu email)
               </p>
             </div>
           </div>
@@ -135,7 +167,38 @@ export default function SuperAdminPage() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {resumen != null && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                  <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Conjuntos que han pagado</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {resumen.conjuntos_que_pagaron}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                  <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Dinero total recaudado</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {formatDinero(resumen.dinero_total_centavos)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -143,13 +206,14 @@ export default function SuperAdminPage() {
                 <tr>
                   <th className="px-6 py-4">Nombre</th>
                   <th className="px-6 py-4">Plan actual</th>
+                  <th className="px-6 py-4">Estado suscripción</th>
                   <th className="px-6 py-4 text-right">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {conjuntos.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
                       No hay conjuntos registrados.
                     </td>
                   </tr>
@@ -180,11 +244,16 @@ export default function SuperAdminPage() {
                           {c.plan_type ?? 'free'}
                         </span>
                       </td>
+                      <td className="px-6 py-4">
+                        <span className="text-gray-600 dark:text-gray-400">
+                          {c.plan_status ?? '—'}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 text-right">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleActivarCortesia(c.id)}
+                          onClick={() => handleActivarCortesiaPiloto(c.id)}
                           disabled={updatingId === c.id || c.plan_type === 'pro'}
                           className="gap-2"
                         >
@@ -193,7 +262,7 @@ export default function SuperAdminPage() {
                           ) : (
                             <Gift className="w-4 h-4" />
                           )}
-                          Activar Cortesía
+                          Activar Cortesía (Piloto)
                         </Button>
                       </td>
                     </tr>

@@ -61,6 +61,14 @@ export async function GET() {
       return NextResponse.json({ error: orgsError.message }, { status: 500 })
     }
 
+    const { data: pagosResumen } = await admin
+      .from('pagos_log')
+      .select('organization_id, monto')
+      .eq('estado', 'APPROVED')
+
+    const conjuntosQuePagaron = new Set((pagosResumen || []).map((r) => (r as { organization_id: string }).organization_id)).size
+    const dineroTotalCentavos = (pagosResumen || []).reduce((acc, r) => acc + Number((r as { monto: number }).monto ?? 0), 0)
+
     const orgIds = (orgs || []).map((o) => o.id)
 
     const { data: unidades } = await admin
@@ -100,7 +108,13 @@ export async function GET() {
       plan_status: (o as { plan_status?: string }).plan_status ?? null,
     }))
 
-    return NextResponse.json({ conjuntos })
+    return NextResponse.json({
+      conjuntos,
+      resumen: {
+        conjuntos_que_pagaron: conjuntosQuePagaron,
+        dinero_total_centavos: dineroTotalCentavos,
+      },
+    })
   } catch (e) {
     console.error('super-admin conjuntos GET:', e)
     return NextResponse.json({ error: 'Error al listar conjuntos' }, { status: 500 })
@@ -137,19 +151,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { id, plan_type } = body as { id?: string; plan_type?: string }
+    const { id, plan_type, activar_cortesia } = body as { id?: string; plan_type?: string; activar_cortesia?: boolean }
 
-    if (!id || !plan_type) {
-      return NextResponse.json(
-        { error: 'Faltan id o plan_type' },
-        { status: 400 }
-      )
-    }
-    if (!['free', 'pro', 'pilot'].includes(plan_type)) {
-      return NextResponse.json(
-        { error: 'plan_type debe ser free, pro o pilot' },
-        { status: 400 }
-      )
+    if (!id) {
+      return NextResponse.json({ error: 'Falta id del conjunto' }, { status: 400 })
     }
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -165,6 +170,35 @@ export async function PATCH(request: NextRequest) {
       serviceRoleKey,
       { auth: { persistSession: false } }
     )
+
+    if (activar_cortesia) {
+      const now = new Date()
+      const activeUntil = new Date(now)
+      activeUntil.setDate(activeUntil.getDate() + 365)
+      const { error } = await admin
+        .from('organizations')
+        .update({
+          plan_type: 'pro',
+          subscription_status: 'active',
+          plan_active_until: activeUntil.toISOString(),
+        })
+        .eq('id', id)
+      if (error) {
+        console.error('super-admin PATCH cortesía:', error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      return NextResponse.json({ ok: true })
+    }
+
+    if (!plan_type) {
+      return NextResponse.json({ error: 'Faltan plan_type o activar_cortesia' }, { status: 400 })
+    }
+    if (!['free', 'pro', 'pilot'].includes(plan_type)) {
+      return NextResponse.json(
+        { error: 'plan_type debe ser free, pro o pilot' },
+        { status: 400 }
+      )
+    }
 
     const { error } = await admin
       .from('organizations')

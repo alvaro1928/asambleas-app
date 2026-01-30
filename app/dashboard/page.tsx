@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import ConjuntoSelector from '@/components/ConjuntoSelector'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
+import { isAdminEmail } from '@/lib/super-admin'
 
 interface UnidadMetrics {
   total: number
@@ -202,6 +203,17 @@ export default function DashboardPage() {
             <div className="flex items-center space-x-4">
               <ConjuntoSelector />
               <div className="flex items-center space-x-3">
+              {user?.email && isAdminEmail(user.email) && (
+                <Link
+                  href="/super-admin"
+                  className="px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-lg transition-colors inline-flex items-center space-x-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  <span>Administración</span>
+                </Link>
+              )}
               <Link
                 href="/dashboard/configuracion"
                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors inline-flex items-center space-x-2"
@@ -333,18 +345,35 @@ export default function DashboardPage() {
                   </span>
                 </div>
                 {planType === 'free' && (
-                  <a
-                    href={
-                      process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
-                        ? `${process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL}${process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL?.includes('?') ? '&' : '?'}conjunto_id=${encodeURIComponent(selectedConjuntoId)}`
-                        : process.env.NEXT_PUBLIC_PLAN_PRO_URL || '#'
+                  (() => {
+                    const pasarelaUrl = process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
+                    const planProUrl = process.env.NEXT_PUBLIC_PLAN_PRO_URL
+                    const href = pasarelaUrl
+                      ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}conjunto_id=${encodeURIComponent(selectedConjuntoId ?? '')}`
+                      : (planProUrl && planProUrl !== '#') ? planProUrl : null
+                    const openInNewTab = !!href && href !== '#'
+                    if (!href || href === '#') {
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => alert('Configura NEXT_PUBLIC_PASARELA_PAGOS_URL o NEXT_PUBLIC_PLAN_PRO_URL en las variables de entorno para habilitar el pago o contacto.')}
+                          className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all text-sm"
+                        >
+                          Actualizar a Pro
+                        </button>
+                      )
                     }
-                    target={process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL ? '_blank' : undefined}
-                    rel={process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL ? 'noopener noreferrer' : undefined}
-                    className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all text-sm"
-                  >
-                    Actualizar a Pro
-                  </a>
+                    return (
+                      <a
+                        href={href}
+                        target={openInNewTab ? '_blank' : undefined}
+                        rel={openInNewTab ? 'noopener noreferrer' : undefined}
+                        className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all text-sm"
+                      >
+                        Actualizar a Pro
+                      </a>
+                    )
+                  })()
                 )}
               </div>
               {planType === 'free' && !process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL && process.env.NEXT_PUBLIC_PLAN_PRO_URL && (
