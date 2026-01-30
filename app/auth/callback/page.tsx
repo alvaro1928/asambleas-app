@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { supabase } from '@/lib/supabase'
 
 const FETCH_OPTIONS = {
   method: 'POST' as const,
@@ -24,6 +25,27 @@ export default function CallbackPage() {
       try {
         const hash = window.location.hash
         const search = window.location.search
+        const searchParams = new URLSearchParams(search)
+
+        // 0. token_hash en query (evita pérdida del hash en navegadores con caché)
+        const token_hash = searchParams.get('token_hash')
+        const typeParam = searchParams.get('type')
+        if (token_hash && (typeParam === 'email' || typeParam === 'recovery')) {
+          doneRef.current = true
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash,
+            type: typeParam as 'email' | 'recovery',
+          })
+          if (verifyError) {
+            setError(verifyError.message)
+            return
+          }
+          if (window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname)
+          }
+          setTimeout(() => doRedirect(typeParam === 'recovery'), 150)
+          return
+        }
 
         // 1. Tokens en el hash (Magic Link / Recovery / Implicit Flow)
         const hashParams = new URLSearchParams(hash.substring(1))
@@ -33,9 +55,6 @@ export default function CallbackPage() {
 
         if (access_token && refresh_token) {
           doneRef.current = true
-          if (window.history.replaceState) {
-            window.history.replaceState(null, '', window.location.pathname + window.location.search)
-          }
 
           const response = await fetch('/api/auth/set-session', {
             ...FETCH_OPTIONS,
@@ -47,13 +66,15 @@ export default function CallbackPage() {
             setError(result.error || 'Error estableciendo sesión')
             return
           }
+          if (window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search)
+          }
           const isRecovery = type === 'recovery'
           setTimeout(() => doRedirect(isRecovery), 150)
           return
         }
 
         // 2. Tokens en query (por si el cliente los manda ahí)
-        const searchParams = new URLSearchParams(search)
         const access_token_query = searchParams.get('access_token')
         const refresh_token_query = searchParams.get('refresh_token')
 
@@ -72,6 +93,9 @@ export default function CallbackPage() {
             setError(result.error || 'Error estableciendo sesión')
             return
           }
+          if (window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname)
+          }
           setTimeout(doRedirect, 150)
           return
         }
@@ -89,6 +113,9 @@ export default function CallbackPage() {
           if (!response.ok || result.error) {
             setError(result.error || 'Error estableciendo sesión')
             return
+          }
+          if (window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname)
           }
           setTimeout(doRedirect, 150)
           return

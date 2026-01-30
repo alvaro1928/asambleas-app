@@ -158,6 +158,23 @@ git push origin main
 ### **"No redirige al dashboard"**
 ➡️ Limpia cookies del navegador e intenta de nuevo
 
+### **Magic Link funciona en el celular pero no en el navegador (sin incógnito)**
+En algunos navegadores el **hash** (`#access_token=...`) se pierde por caché o redirecciones. La app ya soporta dos formas de callback:
+
+1. **Hash** (por defecto): Supabase redirige con tokens en la URL fragment. Si tu navegador lo pierde, usa la opción 2.
+2. **token_hash en query** (recomendado si falla en desktop): Cambia la plantilla del Magic Link en Supabase para que el enlace lleve los tokens en la **query** en vez del hash.
+
+**Configurar plantilla en Supabase (opcional, si el callback falla en navegador normal):**
+
+1. Ve a **Supabase Dashboard** → **Authentication** → **Email Templates** → **Magic Link**.
+2. En el cuerpo del correo, sustituye el enlace por uno que apunte a tu callback con `token_hash`:
+   - Reemplaza algo como `{{ .ConfirmationURL }}` por un enlace como:
+   ```html
+   <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email">Entrar a Asambleas</a>
+   ```
+   (Usa tu Site URL real, p. ej. `https://tu-app.vercel.app`).
+3. Guarda. Los próximos Magic Links llevarán `token_hash` en la URL y el callback funcionará aunque el navegador pierda el hash.
+
 ---
 
 ## 📚 **Próximos Pasos (Opcional):**
