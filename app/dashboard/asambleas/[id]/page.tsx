@@ -801,11 +801,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   Activar
                 </Button>
               )}
-              {(asamblea.estado === 'finalizada' || asamblea.estado === 'activa') && (
+              {(asamblea.estado === 'finalizada' || asamblea.estado === 'activa' || preguntas.some(p => p.estado === 'cerrada')) && (
                 <Link href={`/dashboard/asambleas/${params.id}/acta`}>
                   <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400">
                     <FileText className="w-4 h-4 mr-2" />
-                    Generar acta
+                    {preguntas.some(p => p.estado === 'cerrada') ? 'Descargar acta (todas las preguntas y votos)' : 'Generar acta'}
                   </Button>
                 </Link>
               )}

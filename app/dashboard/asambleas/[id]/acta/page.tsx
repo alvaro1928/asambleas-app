@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, FileText, Printer, Loader2 } from 'lucide-react'
+import { ArrowLeft, Download, Printer, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface Asamblea {
@@ -57,6 +57,20 @@ interface Quorum {
   coeficiente_votante: number
   porcentaje_participacion_coeficiente: number
   quorum_alcanzado: boolean
+}
+
+interface AuditRow {
+  votante_email: string
+  votante_nombre: string | null
+  unidad_torre: string
+  unidad_numero: string
+  opcion_seleccionada: string
+  es_poder: boolean
+  accion: string
+  opcion_anterior: string | null
+  fecha_accion: string
+  ip_address: string | null
+  user_agent?: string | null
 }
 
 export default function ActaPage({ params }: { params: { id: string } }) {
@@ -152,6 +166,33 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       }
       setPreguntas(preguntasConOpciones)
       setEstadisticas({ ...statsMap })
+
+      const auditMap: Record<string, AuditRow[]> = {}
+      for (const p of preguntasConOpciones) {
+        try {
+          const { data: auditData } = await supabase.rpc('reporte_auditoria_pregunta', {
+            p_pregunta_id: p.id,
+          })
+          if (auditData && Array.isArray(auditData)) {
+            auditMap[p.id] = auditData.map((r: any) => ({
+              votante_email: r.votante_email ?? '',
+              votante_nombre: r.votante_nombre ?? null,
+              unidad_torre: r.unidad_torre ?? '',
+              unidad_numero: r.unidad_numero ?? '',
+              opcion_seleccionada: r.opcion_seleccionada ?? '',
+              es_poder: !!r.es_poder,
+              accion: r.accion ?? '',
+              opcion_anterior: r.opcion_anterior ?? null,
+              fecha_accion: r.fecha_accion ?? '',
+              ip_address: r.ip_address ?? null,
+              user_agent: r.user_agent ?? null,
+            }))
+          }
+        } catch {
+          auditMap[p.id] = []
+        }
+      }
+      setAuditoria(auditMap)
 
       const { data: quorumData } = await supabase.rpc('calcular_quorum_asamblea', {
         p_asamblea_id: params.id,
@@ -282,6 +323,37 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                           </li>
                         ))}
                       </ul>
+                    </div>
+                  )}
+                  {auditoria[pregunta.id] && auditoria[pregunta.id].length > 0 && (
+                    <div className="ml-4 mt-3 text-xs overflow-x-auto">
+                      <p className="font-semibold text-gray-700 mb-1">Detalle de auditoría (quién votó, cuándo, dispositivo):</p>
+                      <table className="min-w-full border border-gray-300">
+                        <thead>
+                          <tr className="bg-gray-100">
+                            <th className="border px-2 py-1 text-left">Votante</th>
+                            <th className="border px-2 py-1 text-left">Unidad</th>
+                            <th className="border px-2 py-1 text-left">Opción</th>
+                            <th className="border px-2 py-1 text-left">Acción</th>
+                            <th className="border px-2 py-1 text-left">Fecha/hora</th>
+                            <th className="border px-2 py-1 text-left">IP</th>
+                            <th className="border px-2 py-1 text-left">Dispositivo</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {auditoria[pregunta.id].map((row, i) => (
+                            <tr key={i}>
+                              <td className="border px-2 py-1">{row.votante_email} {row.votante_nombre ? `(${row.votante_nombre})` : ''}</td>
+                              <td className="border px-2 py-1">{row.unidad_torre}-{row.unidad_numero}{row.es_poder ? ' (poder)' : ''}</td>
+                              <td className="border px-2 py-1">{row.opcion_seleccionada}</td>
+                              <td className="border px-2 py-1">{row.accion}{row.opcion_anterior ? ` (antes: ${row.opcion_anterior})` : ''}</td>
+                              <td className="border px-2 py-1">{row.fecha_accion ? new Date(row.fecha_accion).toLocaleString('es-CO') : '-'}</td>
+                              <td className="border px-2 py-1">{row.ip_address || '-'}</td>
+                              <td className="border px-2 py-1 max-w-[200px] truncate" title={row.user_agent || ''}>{row.user_agent || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>

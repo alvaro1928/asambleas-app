@@ -88,6 +88,7 @@ export default function VotacionPublicaPage() {
   const [votando, setVotando] = useState<string | null>(null)
   const [recargando, setRecargando] = useState(false)
   const [mostrarHistorial, setMostrarHistorial] = useState(false)
+  const [clientIp, setClientIp] = useState<string | null>(null)
 
   useEffect(() => {
     validarCodigo()
@@ -144,8 +145,13 @@ export default function VotacionPublicaPage() {
       }
 
       setStep('votar')
-      
-      // Cargar preguntas pasando las unidades como parámetro
+      try {
+        const res = await fetch('/api/client-info', { credentials: 'include' })
+        const info = await res.json()
+        if (info?.ip) setClientIp(info.ip)
+      } catch {
+        // Ignorar; ip es opcional para trazabilidad
+      }
       await cargarPreguntas(unidadesConInfo)
 
     } catch (error: any) {
@@ -532,7 +538,7 @@ export default function VotacionPublicaPage() {
         p_votante_nombre: unidad.nombre_otorgante || 'Votante',
         p_es_poder: unidad.es_poder,
         p_poder_id: null,
-        p_ip_address: null,
+        p_ip_address: clientIp || null,
         p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
       })
 
