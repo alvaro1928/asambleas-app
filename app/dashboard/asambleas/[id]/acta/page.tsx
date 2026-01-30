@@ -83,6 +83,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [quorum, setQuorum] = useState<Quorum | null>(null)
   const [totalPoderes, setTotalPoderes] = useState(0)
   const [coefPoderes, setCoefPoderes] = useState(0)
+  const [auditoria, setAuditoria] = useState<Record<string, AuditRow[]>>({})
 
   useEffect(() => {
     loadData()
