@@ -150,7 +150,7 @@ Este documento relaciona las **funcionalidades de la aplicación** con los **req
 
 - **Ley 675:** Guías que citan Art. 15, 18, 23, 24, 39: `GUIA-SISTEMA-VOTACION-PUBLICA.md`, `GUIA-MODULO-VOTACIONES.md`, `GUIA-ESTADISTICAS-QUORUM-PODERES.md`, `GUIA-MODULO-PODERES.md`, `GUIA-IMPORTACION-UNIDADES.md`.
 - **Estadísticas y quórum:** `supabase/MEJORAR-ESTADISTICAS-COEFICIENTE.sql`, `SCRIPT-FINAL-LEY-675.sql`.
-- **Auditoría:** `supabase/AUDITORIA-Y-BLOCKCHAIN.md`, `ACTUALIZAR-REPORTE-AUDITORIA-USER-AGENT.sql`.
+- **Auditoría:** [docs/supabase/AUDITORIA-Y-BLOCKCHAIN.md](../supabase/AUDITORIA-Y-BLOCKCHAIN.md); script SQL: `supabase/ACTUALIZAR-REPORTE-AUDITORIA-USER-AGENT.sql` (si existe).
 
 ---
 

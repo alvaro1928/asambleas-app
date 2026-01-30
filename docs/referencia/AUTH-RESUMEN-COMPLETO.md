@@ -55,7 +55,7 @@ Las plantillas deben usar **token_hash en la URL** (no `{{ .ConfirmationURL }}`)
 - **Message body (enlace):**  
   `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery`
 
-Plantillas completas listas para copiar/pegar: **`supabase/PLANTILLAS-EMAIL-SUPABASE.md`**
+Plantillas completas listas para copiar/pegar: **[docs/supabase/PLANTILLAS-EMAIL-SUPABASE.md](../supabase/PLANTILLAS-EMAIL-SUPABASE.md)**
 
 ---
 
@@ -104,4 +104,4 @@ Plantillas completas listas para copiar/pegar: **`supabase/PLANTILLAS-EMAIL-SUPA
 2. **Supabase → Email Templates:** Magic Link y Reset Password con enlaces que usen `token_hash` y `type=email` / `type=recovery`.
 3. **Google (opcional):** Provider activado, Client ID/Secret, Redirect URL de la app = `/auth/callback/oauth`.
 4. **Cerrar sesión:** Solo vía `POST /api/auth/signout`; no usar `signOut()` en el cliente para no romper Google tras cerrar sesión.
-5. **Documentación detallada:** `supabase/PLANTILLAS-EMAIL-SUPABASE.md` y este archivo.
+5. **Documentación detallada:** [docs/supabase/PLANTILLAS-EMAIL-SUPABASE.md](../supabase/PLANTILLAS-EMAIL-SUPABASE.md) y este archivo.

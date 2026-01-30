@@ -30,4 +30,7 @@ npm run dev
 
 - `app/` - Rutas y componentes de Next.js App Router
 - `lib/` - Utilidades y configuración (incluye `supabase.ts`)
-- `supabase/` - Scripts SQL y migraciones
+- `supabase/` - Scripts SQL (documentación en `docs/supabase/`)
+- `docs/` - Documentación del proyecto (guías, configuración, despliegue, referencia)
+
+Para ver toda la documentación: **[docs/README.md](docs/README.md)**.

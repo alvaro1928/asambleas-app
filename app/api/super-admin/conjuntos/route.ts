@@ -200,9 +200,21 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
+    const payload: Record<string, unknown> = { plan_type }
+    if (plan_type === 'pro' || plan_type === 'pilot') {
+      const now = new Date()
+      const activeUntil = new Date(now)
+      activeUntil.setDate(activeUntil.getDate() + 365)
+      payload.subscription_status = 'active'
+      payload.plan_active_until = activeUntil.toISOString()
+    } else {
+      payload.subscription_status = 'inactive'
+      payload.plan_active_until = null
+    }
+
     const { error } = await admin
       .from('organizations')
-      .update({ plan_type })
+      .update(payload)
       .eq('id', id)
 
     if (error) {

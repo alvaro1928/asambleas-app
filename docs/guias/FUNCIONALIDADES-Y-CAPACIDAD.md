@@ -142,7 +142,7 @@ Ejecución: `k6 run script-load-test.js`.
 ## 3. Documentos relacionados
 
 - **Autenticación:** `AUTH-RESUMEN-COMPLETO.md`
-- **Plantillas de email:** `supabase/PLANTILLAS-EMAIL-SUPABASE.md`
+- **Plantillas de email:** [docs/supabase/PLANTILLAS-EMAIL-SUPABASE.md](../supabase/PLANTILLAS-EMAIL-SUPABASE.md)
 - **Despliegue:** `DEPLOYMENT-GUIDE.md`, `LISTO-PARA-DEPLOY.md`
 - **Votaciones y códigos:** `GUIA-CODIGOS-ACCESO-VOTACION.md`, `GUIA-SISTEMA-VOTACION-PUBLICA.md`
-- **Auditoría:** `supabase/AUDITORIA-Y-BLOCKCHAIN.md`
+- **Auditoría:** [docs/supabase/AUDITORIA-Y-BLOCKCHAIN.md](../supabase/AUDITORIA-Y-BLOCKCHAIN.md)

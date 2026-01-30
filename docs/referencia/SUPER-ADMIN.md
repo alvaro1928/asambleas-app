@@ -30,13 +30,17 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
 ## Funcionalidad
 
-- **Tabla:** Lista todos los conjuntos registrados (nombre, plan actual).
-- **Activar Cortesía:** Botón por fila que pone el plan en `pro` manualmente (sin pasarela). Para usuarios piloto. Llama a `PATCH /api/super-admin/conjuntos` con `{ id, plan_type: 'pro' }`.
+- **Tabla de conjuntos:** Lista todos los conjuntos (nombre, plan actual). Por cada fila puedes elegir plan (free / pro / pilot) y pulsar **Aplicar** para actualizar; o usar el atajo **Pro 1 año**.
+- **Administración de planes:** Tabla de planes (nombre, precio COP anual) editable desde la misma página; cada plan tiene botón **Guardar**.
+- **Activar Cortesía:** Botón por fila que pone el plan en `pro` manualmente (sin pasarela). Para usuarios piloto.
 
 ## Rutas API
 
 - `GET /api/super-admin/conjuntos` — Lista todos los conjuntos (solo super admin).
-- `PATCH /api/super-admin/conjuntos` — Body: `{ id, plan_type }`. Actualiza el plan del conjunto (solo super admin).
+- `PATCH /api/super-admin/conjuntos` — Body: `{ id, plan_type }`. Actualiza el plan del conjunto (solo super admin). `plan_type`: 'free' | 'pro' | 'pilot'.
+- `GET /api/super-admin/planes` — Lista planes (solo super admin).
+- `PATCH /api/super-admin/planes` — Body: `{ key, nombre?, precio_cop_anual? }`. Actualiza un plan (solo super admin).
+- `GET /api/planes` — Público: datos de planes para mostrar precios en dashboard/landing.
 
 ## Base de datos
 

@@ -27,7 +27,7 @@ Lista de **todas** las variables de entorno que debe tener el proyecto en Vercel
 | Variable | Obligatoria | Dónde sacarla | Uso |
 |----------|-------------|---------------|-----|
 | **`NEXT_PUBLIC_ADMIN_EMAIL`** | Sí (para super-admin) | Tu email | Email que puede entrar a `/super-admin` y ver el enlace "Administración" en el dashboard. |
-| **`SUPER_ADMIN_EMAIL`** | Sí (para API super-admin) | Mismo email que arriba | API `/api/super-admin/conjuntos`: listar conjuntos y "Activar Cortesía". Debe ser el mismo que `NEXT_PUBLIC_ADMIN_EMAIL`. |
+| **`SUPER_ADMIN_EMAIL`** | Sí (para API super-admin) | Mismo email que arriba | API `/api/super-admin/conjuntos`: listar conjuntos y gestionar planes. Debe ser el mismo que `NEXT_PUBLIC_ADMIN_EMAIL`. |
 
 ---
 
@@ -106,7 +106,6 @@ WOMPI_INTEGRIDAD=test_integrity_xxxxxxxxxxxx
 
 ## Notas
 
-- Las que empiezan por **`NEXT_PUBLIC_``** se exponen al navegador; no pongas secretos ahí.
+- Las que empiezan por **`NEXT_PUBLIC_`** se exponen al navegador; no pongas secretos ahí.
 - **`SUPABASE_SERVICE_ROLE_KEY`** y **`WOMPI_INTEGRIDAD`** son secretas; no las expongas en el cliente.
-- En la página **`app/super-admin/page.tsx`** hay una constante **`SUPER_ADMIN_ALLOWED_EMAIL = 'TU_EMAIL_AQUÍ'`**: reemplázala por tu email para que la página solo permita ese correo (y configura el mismo email en `NEXT_PUBLIC_ADMIN_EMAIL` y `SUPER_ADMIN_EMAIL` en Vercel).
-- Para más detalle: **Wompi** → `docs/CONFIGURAR-WOMPI.md`; **Super Admin** → `docs/SUPER-ADMIN.md`.
+- Para más detalle: **Wompi** → [CONFIGURAR-WOMPI.md](CONFIGURAR-WOMPI.md); **Super Admin** → [../referencia/SUPER-ADMIN.md](../referencia/SUPER-ADMIN.md).
