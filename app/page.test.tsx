@@ -8,17 +8,30 @@ describe('Home (landing)', () => {
     expect(screen.getByText(/Asambleas App/i)).toBeInTheDocument()
   })
 
-  it('muestra el enlace Iniciar Sesión', () => {
+  it('muestra el enlace Iniciar sesión', () => {
     render(<Home />)
-    const link = screen.getByRole('link', { name: /iniciar sesión/i })
-    expect(link).toBeInTheDocument()
-    expect(link).toHaveAttribute('href', '/login')
+    const links = screen.getAllByRole('link', { name: /iniciar sesión/i })
+    expect(links.length).toBeGreaterThan(0)
+    expect(links[0]).toHaveAttribute('href', '/login')
   })
 
   it('muestra las secciones de features', () => {
     render(<Home />)
-    expect(screen.getByText(/Gestión Fácil/i)).toBeInTheDocument()
-    expect(screen.getByText(/Seguro/i)).toBeInTheDocument()
-    expect(screen.getByText(/Multi-tenant/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Quórum en tiempo real/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Actas y auditoría/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Seguro y multi-conjunto/i)).toBeInTheDocument()
+  })
+
+  it('muestra la prueba social 500+ usuarios', () => {
+    render(<Home />)
+    expect(screen.getByText(/500\+ usuarios simultáneos/i)).toBeInTheDocument()
+    expect(screen.getByText(/latencia menor a 200 ms/i)).toBeInTheDocument()
+  })
+
+  it('muestra la tabla de precios', () => {
+    render(<Home />)
+    expect(screen.getAllByText(/Gratis/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Pro/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Personalizado/i)).toBeInTheDocument()
   })
 })

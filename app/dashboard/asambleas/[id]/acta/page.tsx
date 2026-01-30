@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Download, Printer, Loader2 } from 'lucide-react'
+import { ArrowLeft, Download, FileText, Printer, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface Asamblea {
@@ -85,6 +85,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [totalPoderes, setTotalPoderes] = useState(0)
   const [coefPoderes, setCoefPoderes] = useState(0)
   const [auditoria, setAuditoria] = useState<Record<string, AuditRow[]>>({})
+  const [planType, setPlanType] = useState<'free' | 'pro' | 'pilot'>('free')
 
   useEffect(() => {
     loadData()
@@ -114,10 +115,11 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
       const { data: orgData } = await supabase
         .from('organizations')
-        .select('name')
+        .select('name, plan_type')
         .eq('id', asambleaData.organization_id)
         .single()
       setConjunto(orgData || null)
+      setPlanType((orgData?.plan_type as 'free' | 'pro' | 'pilot') ?? 'free')
 
       const { data: preguntasData } = await supabase
         .from('preguntas')
@@ -247,6 +249,37 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 print:hidden">
         <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
+      </div>
+    )
+  }
+
+  const planProUrl = process.env.NEXT_PUBLIC_PLAN_PRO_URL || '#'
+
+  if (planType === 'free') {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700 text-center">
+          <FileText className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+            Acta y Auditoría en Plan Pro
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            La descarga del acta y el reporte de auditoría están disponibles en Plan Pro o Pilot. Actualiza tu plan para acceder.
+          </p>
+          <Link href={`/dashboard/asambleas/${params.id}`}>
+            <Button variant="outline" className="mb-4">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Volver a la asamblea
+            </Button>
+          </Link>
+          {planProUrl !== '#' && (
+            <a href={planProUrl} target="_blank" rel="noopener noreferrer" className="block">
+              <Button className="w-full bg-indigo-600 hover:bg-indigo-700">
+                Disponible en Plan Pro — Contactar soporte / ventas
+              </Button>
+            </a>
+          )}
+        </div>
       </div>
     )
   }

@@ -27,6 +27,8 @@ export default function DashboardPage() {
     censoDatos: 0,
     distribucionTipo: []
   })
+  const [planType, setPlanType] = useState<'free' | 'pro' | 'pilot' | null>(null)
+  const [selectedConjuntoId, setSelectedConjuntoId] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -105,13 +107,22 @@ export default function DashboardPage() {
       const uniqueOrgs = new Set(profiles?.map(p => p.organization_id).filter(Boolean))
       setConjuntosCount(uniqueOrgs.size)
 
-      // Obtener unidades del conjunto activo
-      const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
-      if (selectedConjuntoId) {
+      // Conjunto activo y plan
+      const conjId = localStorage.getItem('selectedConjuntoId')
+      setSelectedConjuntoId(conjId)
+
+      if (conjId) {
+        const { data: orgPlan } = await supabase
+          .from('organizations')
+          .select('plan_type')
+          .eq('id', conjId)
+          .maybeSingle()
+        setPlanType((orgPlan?.plan_type as 'free' | 'pro' | 'pilot') ?? 'free')
+
         const { data: unidades, error } = await supabase
           .from('unidades')
           .select('*')
-          .eq('organization_id', selectedConjuntoId)
+          .eq('organization_id', conjId)
 
         if (!error && unidades) {
           const total = unidades.length
@@ -286,6 +297,63 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+
+          {/* Suscripción */}
+          {selectedConjuntoId && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 text-indigo-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                  />
+                </svg>
+                Suscripción
+              </h3>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-gray-600 dark:text-gray-400">Plan actual:</span>
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                      planType === 'pro'
+                        ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'
+                        : planType === 'pilot'
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    {planType === 'pro' ? 'Pro' : planType === 'pilot' ? 'Pilot' : 'Gratis'}
+                  </span>
+                </div>
+                {planType === 'free' && (
+                  <a
+                    href={
+                      process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
+                        ? `${process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL}${process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL?.includes('?') ? '&' : '?'}conjunto_id=${encodeURIComponent(selectedConjuntoId)}`
+                        : process.env.NEXT_PUBLIC_PLAN_PRO_URL || '#'
+                    }
+                    target={process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL ? '_blank' : undefined}
+                    rel={process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL ? 'noopener noreferrer' : undefined}
+                    className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all text-sm"
+                  >
+                    Actualizar a Pro
+                  </a>
+                )}
+              </div>
+              {planType === 'free' && !process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL && process.env.NEXT_PUBLIC_PLAN_PRO_URL && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                  El botón enlaza a contacto/ventas. Configura <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">NEXT_PUBLIC_PASARELA_PAGOS_URL</code> para la pasarela de pagos.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Action Card */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">

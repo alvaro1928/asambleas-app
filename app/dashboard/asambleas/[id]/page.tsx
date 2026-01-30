@@ -124,6 +124,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [editOpciones, setEditOpciones] = useState<OpcionPregunta[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
 
+  // Plan del conjunto activo (una consulta por carga; no satura la BD)
+  const [planType, setPlanType] = useState<'free' | 'pro' | 'pilot' | null>(null)
+
   // Cargar datos iniciales
   useEffect(() => {
     loadData()
@@ -180,6 +183,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       }
 
       setAsamblea(asambleaData)
+
+      // Plan del conjunto (una sola consulta por carga)
+      const { data: orgPlan } = await supabase
+        .from('organizations')
+        .select('plan_type')
+        .eq('id', asambleaData.organization_id)
+        .single()
+      setPlanType((orgPlan?.plan_type as 'free' | 'pro' | 'pilot') ?? 'free')
 
       // Cargar preguntas
       const { data: preguntasData, error: preguntasError } = await supabase
@@ -809,12 +820,25 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 </Button>
               )}
               {(asamblea.estado === 'finalizada' || asamblea.estado === 'activa' || preguntas.some(p => p.estado === 'cerrada')) && (
-                <Link href={`/dashboard/asambleas/${params.id}/acta`}>
-                  <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400">
-                    <FileText className="w-4 h-4 mr-2" />
-                    {preguntas.some(p => p.estado === 'cerrada') ? 'Descargar acta (todas las preguntas y votos)' : 'Generar acta'}
-                  </Button>
-                </Link>
+                (planType === 'pro' || planType === 'pilot') ? (
+                  <Link href={`/dashboard/asambleas/${params.id}/acta`}>
+                    <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400">
+                      <FileText className="w-4 h-4 mr-2" />
+                      {preguntas.some(p => p.estado === 'cerrada') ? 'Descargar acta (todas las preguntas y votos)' : 'Generar acta'}
+                    </Button>
+                  </Link>
+                ) : (
+                  <a
+                    href={process.env.NEXT_PUBLIC_PLAN_PRO_URL || '#'}
+                    target={process.env.NEXT_PUBLIC_PLAN_PRO_URL ? '_blank' : undefined}
+                    rel={process.env.NEXT_PUBLIC_PLAN_PRO_URL ? 'noopener noreferrer' : undefined}
+                  >
+                    <Button variant="outline" className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400">
+                      <FileText className="w-4 h-4 mr-2" />
+                      Disponible en Plan Pro
+                    </Button>
+                  </a>
+                )
               )}
             </div>
           </div>
@@ -1101,14 +1125,38 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                   Preguntas de Votación
                 </h2>
-                <Button
-                  onClick={() => setShowNewPregunta(true)}
-                  className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Agregar Pregunta
-                </Button>
+                {(planType !== 'free' || preguntas.length < 2) && (
+                  <Button
+                    onClick={() => setShowNewPregunta(true)}
+                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Agregar Pregunta
+                  </Button>
+                )}
               </div>
+
+              {planType === 'free' && preguntas.length >= 2 && (
+                <Alert className="mb-6 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <AlertTitle className="text-amber-900 dark:text-amber-100">
+                    Límite del plan Free alcanzado
+                  </AlertTitle>
+                  <AlertDescription className="text-amber-800 dark:text-amber-200">
+                    El plan Free permite hasta 2 preguntas por asamblea. Actualiza a Plan Pro para crear más preguntas.
+                    {process.env.NEXT_PUBLIC_PLAN_PRO_URL && (
+                      <a
+                        href={process.env.NEXT_PUBLIC_PLAN_PRO_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block mt-2 font-medium underline"
+                      >
+                        Ver planes y contacto
+                      </a>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {preguntas.length === 0 ? (
                 <div className="text-center py-12">
@@ -1116,13 +1164,15 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
                     No hay preguntas creadas
                   </p>
-                  <Button
-                    onClick={() => setShowNewPregunta(true)}
-                    variant="outline"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Crear Primera Pregunta
-                  </Button>
+                  {(planType !== 'free' || preguntas.length < 2) && (
+                    <Button
+                      onClick={() => setShowNewPregunta(true)}
+                      variant="outline"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Crear Primera Pregunta
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">

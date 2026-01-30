@@ -34,10 +34,9 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
-  // ✅ Proteger rutas del dashboard
-  if (request.nextUrl.pathname.startsWith('/dashboard')) {
+  // ✅ Proteger rutas del dashboard y super-admin
+  if (request.nextUrl.pathname.startsWith('/dashboard') || request.nextUrl.pathname.startsWith('/super-admin')) {
     if (!session) {
-      // Redirigir al login si no hay sesión
       const redirectUrl = new URL('/login', request.url)
       redirectUrl.searchParams.set('redirect', request.nextUrl.pathname)
       return NextResponse.redirect(redirectUrl)
