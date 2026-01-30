@@ -31,6 +31,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { planEfectivo } from '@/lib/plan-utils'
 
 interface Asamblea {
   id: string
@@ -184,13 +185,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       setAsamblea(asambleaData)
 
-      // Plan del conjunto (una sola consulta por carga)
+      // Plan del conjunto (considera vigencia plan_active_until)
       const { data: orgPlan } = await supabase
         .from('organizations')
-        .select('plan_type')
+        .select('plan_type, plan_active_until')
         .eq('id', asambleaData.organization_id)
         .single()
-      setPlanType((orgPlan?.plan_type as 'free' | 'pro' | 'pilot') ?? 'free')
+      const row = orgPlan as { plan_type?: string; plan_active_until?: string | null } | null
+      setPlanType(planEfectivo(row?.plan_type, row?.plan_active_until))
 
       // Cargar preguntas
       const { data: preguntasData, error: preguntasError } = await supabase

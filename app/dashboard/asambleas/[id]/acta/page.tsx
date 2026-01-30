@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Download, FileText, Printer, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { planEfectivo } from '@/lib/plan-utils'
 
 interface Asamblea {
   id: string
@@ -115,11 +116,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
       const { data: orgData } = await supabase
         .from('organizations')
-        .select('name, plan_type')
+        .select('name, plan_type, plan_active_until')
         .eq('id', asambleaData.organization_id)
         .single()
-      setConjunto(orgData || null)
-      setPlanType((orgData?.plan_type as 'free' | 'pro' | 'pilot') ?? 'free')
+      const org = orgData as { name?: string; plan_type?: string; plan_active_until?: string | null } | null
+      setConjunto(org || null)
+      setPlanType(planEfectivo(org?.plan_type, org?.plan_active_until))
 
       const { data: preguntasData } = await supabase
         .from('preguntas')

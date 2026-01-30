@@ -9,6 +9,7 @@ import ConjuntoSelector from '@/components/ConjuntoSelector'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { isAdminEmail } from '@/lib/super-admin'
 import { formatPrecioPro } from '@/lib/precio-pro'
+import { planEfectivo } from '@/lib/plan-utils'
 
 interface UnidadMetrics {
   total: number
@@ -116,10 +117,11 @@ export default function DashboardPage() {
       if (conjId) {
         const { data: orgPlan } = await supabase
           .from('organizations')
-          .select('plan_type')
+          .select('plan_type, plan_active_until')
           .eq('id', conjId)
           .maybeSingle()
-        setPlanType((orgPlan?.plan_type as 'free' | 'pro' | 'pilot') ?? 'free')
+        const row = orgPlan as { plan_type?: string; plan_active_until?: string | null } | null
+        setPlanType(planEfectivo(row?.plan_type, row?.plan_active_until))
 
         const { data: unidades, error } = await supabase
           .from('unidades')
