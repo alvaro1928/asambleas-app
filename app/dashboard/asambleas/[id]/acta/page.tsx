@@ -120,7 +120,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         .eq('id', asambleaData.organization_id)
         .single()
       const org = orgData as { name?: string; plan_type?: string; plan_active_until?: string | null } | null
-      setConjunto(org || null)
+      setConjunto(org && typeof org.name === 'string' ? { name: org.name } : null)
       setPlanType(planEfectivo(org?.plan_type, org?.plan_active_until))
 
       const { data: preguntasData } = await supabase
