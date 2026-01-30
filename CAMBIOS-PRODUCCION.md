@@ -175,6 +175,40 @@ En algunos navegadores el **hash** (`#access_token=...`) se pierde por caché o 
    (Usa tu Site URL real, p. ej. `https://tu-app.vercel.app`).
 3. Guarda. Los próximos Magic Links llevarán `token_hash` en la URL y el callback funcionará aunque el navegador pierda el hash.
 
+### **El correo de Reset Password no trae enlace / no sirve**
+El correo de "Restablecer contraseña" lo envía Supabase según la plantilla **Reset Password** (Recovery). Si el correo no trae enlace o el enlace no funciona, hay que configurar bien esa plantilla.
+
+**Qué hacer en Supabase:**
+
+1. Ve a **Supabase Dashboard** → **Authentication** → **Email Templates**.
+2. Elige la plantilla **"Reset Password"** (o "Recovery").
+3. Asegúrate de que el **cuerpo del correo** incluya un enlace. Puedes usar uno de estos dos estilos:
+
+   **Opción A – Enlace directo a tu app (recomendado, evita pérdida del hash):**
+
+   En **Message body**, pon algo como (sustituye `https://tu-app.vercel.app` por tu Site URL si hace falta):
+
+   ```html
+   <h2>Restablecer contraseña</h2>
+   <p>Hola,</p>
+   <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta. Haz clic en el enlace para elegir una nueva contraseña:</p>
+   <p><a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery">Restablecer contraseña</a></p>
+   <p>Si no solicitaste esto, puedes ignorar este correo.</p>
+   ```
+
+   **Opción B – Enlace por defecto de Supabase:**
+
+   ```html
+   <h2>Restablecer contraseña</h2>
+   <p>Sigue este enlace para restablecer la contraseña de tu cuenta:</p>
+   <p><a href="{{ .ConfirmationURL }}">Restablecer contraseña</a></p>
+   ```
+
+4. **Subject** puede ser por ejemplo: `Restablecer contraseña - Asambleas`.
+5. Guarda los cambios.
+
+Con la **Opción A**, el enlace lleva `token_hash` en la URL y nuestra app ya maneja ese caso en `/auth/callback` y redirige a `/auth/restablecer` para poner la nueva contraseña. Con la **Opción B** depende del comportamiento por defecto de Supabase (redirect con hash); si en tu caso el hash se pierde, usa la Opción A.
+
 ---
 
 ## 📚 **Próximos Pasos (Opcional):**
