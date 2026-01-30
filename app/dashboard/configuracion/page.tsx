@@ -38,6 +38,13 @@ export default function ConfiguracionPage() {
   const [orgNit, setOrgNit] = useState('')
   const [orgAddress, setOrgAddress] = useState('')
 
+  // Estados para cambiar contraseña
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+
   useEffect(() => {
     loadData()
   }, [])
@@ -183,6 +190,33 @@ export default function ConfiguracionPage() {
       setError('Error al guardar los datos del conjunto')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordMessage('')
+    setPasswordError('')
+    if (newPassword.length < 6) {
+      setPasswordError('La contraseña debe tener al menos 6 caracteres')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Las contraseñas no coinciden')
+      return
+    }
+    setPasswordSaving(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+      setPasswordMessage('Contraseña actualizada. Ya puedes entrar con email y contraseña.')
+      setNewPassword('')
+      setConfirmPassword('')
+      setTimeout(() => setPasswordMessage(''), 5000)
+    } catch (err: any) {
+      setPasswordError(err?.message || 'Error al actualizar la contraseña')
+    } finally {
+      setPasswordSaving(false)
     }
   }
 
@@ -335,6 +369,82 @@ export default function ConfiguracionPage() {
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Guardando...' : 'Guardar Perfil'}
+              </button>
+            </form>
+          </div>
+
+          {/* Cambiar contraseña */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-amber-600 dark:text-amber-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Contraseña
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Establece o cambia tu contraseña para entrar con email y contraseña
+                </p>
+              </div>
+            </div>
+
+            {passwordMessage && (
+              <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <p className="text-sm text-green-800 dark:text-green-300">{passwordMessage}</p>
+              </div>
+            )}
+            {passwordError && (
+              <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <p className="text-sm text-red-800 dark:text-red-300">{passwordError}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdatePassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Nueva contraseña
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  minLength={6}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Confirmar contraseña
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repite la contraseña"
+                  minLength={6}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={passwordSaving || !newPassword || !confirmPassword}
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {passwordSaving ? 'Guardando...' : 'Actualizar contraseña'}
               </button>
             </form>
           </div>

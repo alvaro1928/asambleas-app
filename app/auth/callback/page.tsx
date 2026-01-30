@@ -8,9 +8,8 @@ const FETCH_OPTIONS = {
   credentials: 'include' as RequestCredentials,
 }
 
-function doRedirect() {
-  // Pequeña pausa para que el navegador persista las cookies antes del redirect
-  const url = `/dashboard?t=${Date.now()}`
+function doRedirect(isRecovery?: boolean) {
+  const url = isRecovery ? `/auth/restablecer?t=${Date.now()}` : `/dashboard?t=${Date.now()}`
   window.location.replace(url)
 }
 
@@ -26,14 +25,14 @@ export default function CallbackPage() {
         const hash = window.location.hash
         const search = window.location.search
 
-        // 1. Tokens en el hash (Magic Link / Implicit Flow)
+        // 1. Tokens en el hash (Magic Link / Recovery / Implicit Flow)
         const hashParams = new URLSearchParams(hash.substring(1))
         const access_token = hashParams.get('access_token')
         const refresh_token = hashParams.get('refresh_token')
+        const type = hashParams.get('type')
 
         if (access_token && refresh_token) {
           doneRef.current = true
-          // Quitar el hash de la URL para que un segundo run del efecto no vea "sin tokens"
           if (window.history.replaceState) {
             window.history.replaceState(null, '', window.location.pathname + window.location.search)
           }
@@ -48,7 +47,8 @@ export default function CallbackPage() {
             setError(result.error || 'Error estableciendo sesión')
             return
           }
-          setTimeout(doRedirect, 150)
+          const isRecovery = type === 'recovery'
+          setTimeout(() => doRedirect(isRecovery), 150)
           return
         }
 

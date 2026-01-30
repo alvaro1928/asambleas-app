@@ -9,6 +9,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [useMagicLink, setUseMagicLink] = useState(false)
   const [magicLinkSent, setMagicLinkSent] = useState(false)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [resetLinkSent, setResetLinkSent] = useState(false)
   const router = useRouter()
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
@@ -54,6 +56,25 @@ export default function LoginPage() {
       alert("Error: " + error.message)
     } else {
       setMagicLinkSent(true)
+    }
+    setLoading(false)
+  }
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    const redirectTo = typeof window !== 'undefined'
+      ? `${window.location.origin}/auth/callback`
+      : process.env.NEXT_PUBLIC_SITE_URL
+        ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+        : 'http://localhost:3000/auth/callback'
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    })
+    if (error) {
+      alert('Error: ' + error.message)
+    } else {
+      setResetLinkSent(true)
     }
     setLoading(false)
   }
@@ -132,14 +153,23 @@ export default function LoginPage() {
         />
         
         {!useMagicLink && (
-          <input 
-            type="password" 
-            placeholder="Tu contraseña" 
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 rounded bg-gray-700 border border-gray-600"
-            required
-          />
+          <>
+            <input 
+              type="password" 
+              placeholder="Tu contraseña" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-2 rounded bg-gray-700 border border-gray-600"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowForgotPassword(true)}
+              className="text-sm text-amber-400 hover:text-amber-300 w-full text-center"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </>
         )}
 
         <button 
