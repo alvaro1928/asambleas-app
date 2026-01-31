@@ -56,11 +56,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
-  // Limpiar todos los timeouts al desmontar
+  // Limpiar todos los timeouts al desmontar (copiar ref a variable para el cleanup)
   React.useEffect(() => {
+    const timeouts = timeoutsRef.current
     return () => {
-      timeoutsRef.current.forEach((tid) => clearTimeout(tid))
-      timeoutsRef.current.clear()
+      timeouts.forEach((tid) => clearTimeout(tid))
+      timeouts.clear()
     }
   }, [])
 

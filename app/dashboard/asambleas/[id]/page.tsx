@@ -90,6 +90,7 @@ interface QuorumData {
 export default function AsambleaDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const toast = useToast()
   const [asamblea, setAsamblea] = useState<Asamblea | null>(null)
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [loading, setLoading] = useState(true)
