@@ -38,6 +38,7 @@ interface PoderRow {
 }
 
 export default function ImportarPoderesPage({ params }: { params: { id: string } }) {
+  const toast = useToast()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -247,7 +248,7 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
 
       if (insertError) throw insertError
 
-      alert(`Se importaron ${toInsert.length} poder(es) correctamente.`)
+      toast.success(`Se importaron ${toInsert.length} poder(es) correctamente.`)
       router.push(`/dashboard/asambleas/${params.id}/poderes`)
     } catch (err: any) {
       setError(err.message || 'Error al importar')

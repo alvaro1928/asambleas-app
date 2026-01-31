@@ -17,6 +17,7 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 | 7 | **ROL-SUPER-ADMIN.sql** | Rol super admin: tabla `app_config`, función `is_super_admin()` y políticas RLS para acceso total sin depender de `organization_id`. Después: `UPDATE app_config SET value = 'tu@correo.com' WHERE key = 'super_admin_email';` |
 | 8 | **WOMPI-CONJUNTOS-Y-PAGOS-LOG.sql** | Integración Wompi: en `organizations` añade `subscription_status`, `wompi_reference` (y asegura `plan_type`, `plan_active_until`). Crea tabla `pagos_log` (id, organization_id, monto, wompi_transaction_id, estado, created_at). RLS en `pagos_log` para que solo el backend (service_role) escriba. |
 | 9 | **PLANES-TABLA-Y-SEED.sql** | Tabla **planes** (key, nombre, precio_cop_anual) para administrar planes desde super-admin. Seed: free, pro, pilot. Permite editar nombres y precios sin variables de entorno. |
+| 10 | **AGREGAR-LIMITES-PLANES.sql** | En **planes**: columnas `max_preguntas_por_asamblea` e `incluye_acta_detallada`. La app usa estos valores para el límite de preguntas por asamblea y para habilitar/ocultar acta con auditoría. |
 
 ---
 
@@ -32,6 +33,7 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 7. ROL-SUPER-ADMIN.sql
 8. WOMPI-CONJUNTOS-Y-PAGOS-LOG.sql
 9. PLANES-TABLA-Y-SEED.sql
+10. AGREGAR-LIMITES-PLANES.sql
 ```
 
 ---

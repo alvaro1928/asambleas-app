@@ -23,6 +23,7 @@ import { Select } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { useToast } from '@/components/providers/ToastProvider'
 import {
   Table,
   TableBody,
@@ -187,10 +188,10 @@ export default function UnidadesPage() {
       ))
 
       setEditingUnidad(null)
-      alert('Unidad actualizada exitosamente')
+      toast.success('Unidad actualizada exitosamente')
     } catch (error) {
       console.error('Error updating unidad:', error)
-      alert('Error al actualizar la unidad')
+      toast.error('Error al actualizar la unidad')
     } finally {
       setSaving(false)
     }
@@ -217,7 +218,7 @@ export default function UnidadesPage() {
       setDeletingUnidad(null)
     } catch (error) {
       console.error('Error deleting unidad:', error)
-      alert('Error al eliminar la unidad')
+      toast.error('Error al eliminar la unidad')
     } finally {
       setDeleting(false)
     }

@@ -50,7 +50,7 @@ export async function GET() {
 
     const { data, error } = await admin
       .from('planes')
-      .select('id, key, nombre, precio_cop_anual, activo')
+      .select('id, key, nombre, precio_cop_anual, activo, max_preguntas_por_asamblea, incluye_acta_detallada')
       .order('precio_cop_anual', { ascending: true })
 
     if (error) {
@@ -95,11 +95,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { id, key, nombre, precio_cop_anual } = body as {
+    const { id, key, nombre, precio_cop_anual, max_preguntas_por_asamblea, incluye_acta_detallada } = body as {
       id?: string
       key?: string
       nombre?: string
       precio_cop_anual?: number
+      max_preguntas_por_asamblea?: number
+      incluye_acta_detallada?: boolean
     }
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -113,12 +115,19 @@ export async function PATCH(request: NextRequest) {
       { auth: { persistSession: false } }
     )
 
-    const updates: { nombre?: string; precio_cop_anual?: number } = {}
+    const updates: {
+      nombre?: string
+      precio_cop_anual?: number
+      max_preguntas_por_asamblea?: number
+      incluye_acta_detallada?: boolean
+    } = {}
     if (typeof nombre === 'string' && nombre.trim()) updates.nombre = nombre.trim()
     if (typeof precio_cop_anual === 'number' && precio_cop_anual >= 0) updates.precio_cop_anual = precio_cop_anual
+    if (typeof max_preguntas_por_asamblea === 'number' && max_preguntas_por_asamblea >= 0) updates.max_preguntas_por_asamblea = max_preguntas_por_asamblea
+    if (typeof incluye_acta_detallada === 'boolean') updates.incluye_acta_detallada = incluye_acta_detallada
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'Falta nombre o precio_cop_anual' }, { status: 400 })
+      return NextResponse.json({ error: 'Falta al menos un campo: nombre, precio_cop_anual, max_preguntas_por_asamblea o incluye_acta_detallada' }, { status: 400 })
     }
 
     let query = admin.from('planes').update(updates)

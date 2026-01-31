@@ -7,6 +7,19 @@ import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, BarChart3, Cloc
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { StepIndicator } from '@/components/ui/StepIndicator'
+import { useToast } from '@/components/providers/ToastProvider'
+
+const STORAGE_EMAIL_KEY = (codigo: string) => `votar_email_${codigo}`
+
+function mensajeErrorAmigable(msg: string): string {
+  const m = msg.toLowerCase()
+  if (m.includes('no se encontraron unidades') || m.includes('length === 0')) return 'Este correo o teléfono no está asociado a ninguna unidad en esta asamblea. Revisa el dato o contacta al administrador.'
+  if (m.includes('no puede votar') || m.includes('puede_votar')) return 'No tienes permiso para votar en esta asamblea con este correo o teléfono. Verifica que tengas una unidad o poder asignado.'
+  if (m.includes('código') && m.includes('inválido')) return 'El código de acceso no es válido. Verifica que hayas escaneado correctamente el QR o que el enlace sea el indicado.'
+  if (m.includes('acceso') && m.includes('cerrado')) return 'El acceso a esta votación está cerrado. Contacta al administrador si crees que es un error.'
+  return msg
+}
 
 interface AsambleaInfo {
   asamblea_id: string
@@ -70,6 +83,7 @@ interface EstadisticasPregunta {
 export default function VotacionPublicaPage() {
   const params = useParams()
   const codigo = params.codigo as string
+  const toast = useToast()
 
   const [step, setStep] = useState<'validando' | 'email' | 'verificando' | 'votar' | 'error'>('validando')
   const [asamblea, setAsamblea] = useState<AsambleaInfo | null>(null)
@@ -153,7 +167,7 @@ export default function VotacionPublicaPage() {
       if (error) throw error
 
       if (!data || data.length === 0) {
-        setError('Código de acceso inválido')
+        setError(mensajeErrorAmigable('Código de acceso inválido'))
         setStep('error')
         return
       }
@@ -161,16 +175,22 @@ export default function VotacionPublicaPage() {
       const asambleaData = data[0]
 
       if (!asambleaData.acceso_valido) {
-        setError(asambleaData.mensaje)
+        setError(mensajeErrorAmigable(asambleaData.mensaje || 'Acceso denegado'))
         setStep('error')
         return
       }
 
       setAsamblea(asambleaData)
       setStep('email')
+      try {
+        const guardado = typeof window !== 'undefined' && localStorage.getItem(STORAGE_EMAIL_KEY(codigo))
+        if (guardado) setEmail(guardado)
+      } catch {
+        // Ignorar si localStorage no está disponible
+      }
     } catch (error: any) {
       console.error('Error validando código:', error)
-      setError('Error al validar el código de acceso')
+      setError(mensajeErrorAmigable(error?.message || 'Error al validar el código de acceso'))
       setStep('error')
     }
   }
@@ -188,11 +208,16 @@ export default function VotacionPublicaPage() {
       const unidadesConInfo = await refrescarUnidades()
       
       if (unidadesConInfo.length === 0) {
-        setError('No se encontraron unidades para este email o teléfono')
+        setError(mensajeErrorAmigable('No se encontraron unidades para este email o teléfono'))
         setLoading(false)
         return
       }
 
+      try {
+        if (typeof window !== 'undefined') localStorage.setItem(STORAGE_EMAIL_KEY(codigo), email.trim())
+      } catch {
+        // Ignorar
+      }
       setStep('votar')
       try {
         const res = await fetch('/api/client-info', { credentials: 'include' })
@@ -205,7 +230,7 @@ export default function VotacionPublicaPage() {
 
     } catch (error: any) {
       console.error('Error validando votante:', error)
-      setError('Error al validar el votante: ' + (error.message || error))
+      setError(mensajeErrorAmigable(error?.message || 'Error al validar el votante'))
     } finally {
       setLoading(false)
     }
@@ -269,8 +294,6 @@ export default function VotacionPublicaPage() {
     try {
       // Usar unidades del parámetro o del estado
       const unidadesParaUsar = unidadesParam || unidades
-      
-      console.log('📋 Cargando preguntas con unidades:', unidadesParaUsar)
 
       // Cargar preguntas abiertas
       const { data: preguntasData, error: preguntasError } = await supabase
@@ -287,24 +310,32 @@ export default function VotacionPublicaPage() {
         return
       }
 
-      // Cargar opciones para cada pregunta
-      const preguntasConOpciones: Pregunta[] = []
-      for (const pregunta of preguntasData) {
-        const { data: opcionesData } = await supabase
-          .from('opciones_pregunta')
-          .select('id, texto_opcion, color, orden')
-          .eq('pregunta_id', pregunta.id)
-          .order('orden', { ascending: true })
+      const preguntaIds = preguntasData.map((p: { id: string }) => p.id)
+      const { data: opcionesData } = await supabase
+        .from('opciones_pregunta')
+        .select('id, pregunta_id, texto_opcion, color, orden')
+        .in('pregunta_id', preguntaIds)
+        .order('orden', { ascending: true })
 
-        preguntasConOpciones.push({
-          ...pregunta,
-          opciones: (opcionesData || []).map(o => ({
+      const opcionesPorPregunta: Record<string, { id: string; texto: string; color: string }[]> = {}
+      for (const p of preguntasData) {
+        opcionesPorPregunta[p.id] = []
+      }
+      for (const o of opcionesData || []) {
+        const pid = (o as { pregunta_id: string }).pregunta_id
+        if (opcionesPorPregunta[pid]) {
+          opcionesPorPregunta[pid].push({
             id: o.id,
             texto: o.texto_opcion,
             color: o.color
-          }))
-        })
+          })
+        }
       }
+
+      const preguntasConOpciones: Pregunta[] = preguntasData.map((p: any) => ({
+        ...p,
+        opciones: opcionesPorPregunta[p.id] || []
+      }))
 
       setPreguntas(preguntasConOpciones)
 
@@ -318,10 +349,7 @@ export default function VotacionPublicaPage() {
 
     } catch (error: any) {
       // Ignorar errores de AbortError (son normales cuando hay cancelaciones)
-      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) {
-        console.log('⚠️ Carga de preguntas cancelada (normal)')
-        return
-      }
+      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) return
       console.error('Error cargando preguntas:', error)
     }
   }
@@ -331,8 +359,6 @@ export default function VotacionPublicaPage() {
 
     try {
       const unidadesParaUsar = unidadesParam || unidades
-      
-      console.log('📚 Cargando historial de preguntas cerradas')
 
       // Cargar preguntas cerradas
       const { data: preguntasCerradasData, error: preguntasError } = await supabase
@@ -349,24 +375,32 @@ export default function VotacionPublicaPage() {
         return
       }
 
-      // Cargar opciones para cada pregunta cerrada
-      const preguntasConOpciones: Pregunta[] = []
-      for (const pregunta of preguntasCerradasData) {
-        const { data: opcionesData } = await supabase
-          .from('opciones_pregunta')
-          .select('id, texto_opcion, color, orden')
-          .eq('pregunta_id', pregunta.id)
-          .order('orden', { ascending: true })
+      const cerradaIds = preguntasCerradasData.map((p: { id: string }) => p.id)
+      const { data: opcionesCerradasData } = await supabase
+        .from('opciones_pregunta')
+        .select('id, pregunta_id, texto_opcion, color, orden')
+        .in('pregunta_id', cerradaIds)
+        .order('orden', { ascending: true })
 
-        preguntasConOpciones.push({
-          ...pregunta,
-          opciones: (opcionesData || []).map(o => ({
+      const opcionesPorCerrada: Record<string, { id: string; texto: string; color: string }[]> = {}
+      for (const p of preguntasCerradasData) {
+        opcionesPorCerrada[p.id] = []
+      }
+      for (const o of opcionesCerradasData || []) {
+        const pid = (o as { pregunta_id: string }).pregunta_id
+        if (opcionesPorCerrada[pid]) {
+          opcionesPorCerrada[pid].push({
             id: o.id,
             texto: o.texto_opcion,
             color: o.color
-          }))
-        })
+          })
+        }
       }
+
+      const preguntasConOpciones: Pregunta[] = preguntasCerradasData.map((p: any) => ({
+        ...p,
+        opciones: opcionesPorCerrada[p.id] || []
+      }))
 
       setPreguntasCerradas(preguntasConOpciones)
 
@@ -396,10 +430,7 @@ export default function VotacionPublicaPage() {
 
     } catch (error: any) {
       // Ignorar errores de AbortError
-      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) {
-        console.log('⚠️ Carga de historial cancelada (normal)')
-        return
-      }
+      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) return
       console.error('Error cargando historial:', error)
     }
   }
@@ -407,23 +438,16 @@ export default function VotacionPublicaPage() {
   const cargarVotosActuales = async (preguntaIds: string[], unidadesParam?: UnidadInfo[]) => {
     const unidadesParaUsar = unidadesParam || unidades
     
-    if (!unidadesParaUsar || unidadesParaUsar.length === 0) {
-      console.log('⚠️ No hay unidades cargadas aún')
-      return
-    }
+    if (!unidadesParaUsar || unidadesParaUsar.length === 0) return
 
     try {
       const unidadIds = unidadesParaUsar.map(u => u.id)
-      
-      console.log('🔍 Cargando votos para:', { preguntaIds, unidadIds })
 
       const { data: votosData, error } = await supabase
         .from('votos')
         .select('pregunta_id, unidad_id, opcion_id, opciones_pregunta(texto_opcion)')
         .in('pregunta_id', preguntaIds)
         .in('unidad_id', unidadIds)
-
-      console.log('📥 Votos cargados:', votosData, error)
 
       if (votosData && votosData.length > 0) {
         const votosMap: any[] = votosData.map((v: any) => ({
@@ -432,20 +456,14 @@ export default function VotacionPublicaPage() {
           opcion_id: v.opcion_id,
           opcion_texto: v.opciones_pregunta?.texto_opcion || ''
         }))
-        
-        console.log('✅ Votos mapeados:', votosMap)
         setVotosActuales(votosMap)
       } else {
-        console.log('⚠️ No se encontraron votos')
         setVotosActuales([])
       }
     } catch (error: any) {
       // Ignorar errores de AbortError
-      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) {
-        console.log('⚠️ Carga de votos cancelada (normal)')
-        return
-      }
-      console.error('❌ Error cargando votos actuales:', error)
+      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) return
+      console.error('Error cargando votos actuales:', error)
     }
   }
 
@@ -457,8 +475,6 @@ export default function VotacionPublicaPage() {
         const { data, error } = await supabase.rpc('calcular_estadisticas_pregunta', {
           p_pregunta_id: preguntaId
         })
-
-        console.log('📊 Estadísticas raw para pregunta', preguntaId, ':', data, error)
 
         if (!error && data && data.length > 0) {
           const statsData = data[0]
@@ -487,7 +503,6 @@ export default function VotacionPublicaPage() {
             resultados: resultados
           }
         } else {
-          console.warn('⚠️ No hay estadísticas para pregunta', preguntaId, error)
           // Si no hay datos, crear estructura vacía
           estadisticasMap[preguntaId] = {
             total_votos: 0,
@@ -497,15 +512,10 @@ export default function VotacionPublicaPage() {
         }
       }
 
-      console.log('📊 Estadísticas finales:', estadisticasMap)
       setEstadisticas(estadisticasMap)
     } catch (error: any) {
-      // Ignorar errores de AbortError
-      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) {
-        console.log('⚠️ Carga de estadísticas cancelada (normal)')
-        return
-      }
-      console.error('❌ Error cargando estadísticas:', error)
+      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) return
+      console.error('Error cargando estadísticas:', error)
     }
   }
 
@@ -547,10 +557,7 @@ export default function VotacionPublicaPage() {
       setEstadisticasCerradas(estadisticasMap)
     } catch (error: any) {
       // Ignorar errores de AbortError
-      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) {
-        console.log('⚠️ Carga de estadísticas cerradas cancelada (normal)')
-        return
-      }
+      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) return
       console.error('Error cargando estadísticas cerradas:', error)
     }
   }
@@ -597,11 +604,11 @@ export default function VotacionPublicaPage() {
       await cargarVotosActuales([preguntaId], unidades)
       await cargarEstadisticas([preguntaId])
 
-      alert(`✅ Voto registrado para ${unidad.torre} - ${unidad.numero}`)
+      toast.success(`Voto registrado para ${unidad.torre} - ${unidad.numero}`)
 
     } catch (error: any) {
       console.error('Error al votar:', error)
-      alert('❌ Error al registrar el voto: ' + error.message)
+      toast.error('Error al registrar el voto: ' + error.message)
     } finally {
       setVotando(null)
     }
@@ -614,7 +621,6 @@ export default function VotacionPublicaPage() {
     // Delay inicial de 5 segundos antes de empezar el polling
     const timeout = setTimeout(() => {
       const interval = setInterval(() => {
-        console.log('🔄 Actualizando datos...')
         cargarVotosActuales(preguntas.map(p => p.id), unidades)
         cargarEstadisticas(preguntas.map(p => p.id))
       }, 10000)
@@ -680,6 +686,7 @@ export default function VotacionPublicaPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
+          <StepIndicator pasoActual="email" />
           {/* Header */}
           <div className="text-center mb-8">
             <div className="mx-auto w-16 h-16 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full flex items-center justify-center mb-4">
@@ -742,6 +749,7 @@ export default function VotacionPublicaPage() {
               onClick={handleValidarEmail}
               disabled={loading || !email.trim()}
               className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-lg py-6"
+              title="Continuar para ver tus unidades y votar"
             >
               {loading ? (
                 <>
@@ -772,10 +780,41 @@ export default function VotacionPublicaPage() {
     const totalCoeficiente = unidades.reduce((sum, u) => sum + u.coeficiente, 0)
     const unidadesPropias = unidades.filter(u => !u.es_poder)
     const unidadesPoderes = unidades.filter(u => u.es_poder)
+    const todasVotadas =
+      preguntas.length > 0 &&
+      preguntas.every((p) =>
+        unidades.every((u) => votosActuales.some((v) => v.pregunta_id === p.id && v.unidad_id === u.id))
+      )
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-900 dark:to-gray-800 p-4">
         <div className="max-w-4xl mx-auto py-8">
+          <StepIndicator pasoActual="votar" />
+          {/* Pantalla de éxito cuando terminó de votar en todas las unidades */}
+          {todasVotadas && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mb-6 border-2 border-emerald-300 dark:border-emerald-700 text-center">
+              <div className="mx-auto w-20 h-20 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-12 h-12 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Gracias, tu participación quedó registrada
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Has votado con todas tus unidades en las preguntas abiertas.
+              </p>
+              <Button
+                onClick={() => {
+                  setMostrarHistorial(true)
+                  if (preguntasCerradas.length === 0) cargarHistorial(unidades)
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                title="Ver historial de votaciones cerradas"
+              >
+                <History className="w-4 h-4 mr-2" />
+                Ver historial
+              </Button>
+            </div>
+          )}
           {/* Header de Bienvenida */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mb-6 border border-gray-200 dark:border-gray-700">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -799,6 +838,7 @@ export default function VotacionPublicaPage() {
                   setStep('email')
                 }}
                 className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shrink-0"
+                title="Salir y volver a ingresar con otro correo"
               >
                 <LogOut className="w-4 h-4 mr-2" />
                 Salir de la votación
@@ -887,6 +927,7 @@ export default function VotacionPublicaPage() {
                 onClick={refrescarDatos}
                 disabled={recargando}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                title="Recargar preguntas y poderes asignados"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
                 {recargando ? 'Actualizando...' : 'Actualizar Todo (Preguntas y Poderes)'}
@@ -901,6 +942,7 @@ export default function VotacionPublicaPage() {
                 }}
                 variant="outline"
                 className="border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                title="Ver el historial de votos que has emitido"
               >
                 <History className="w-4 h-4 mr-2" />
                 {mostrarHistorial ? 'Ocultar' : 'Ver'} Historial

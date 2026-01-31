@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/providers/ToastProvider'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('alvarocontreras35@gmail.com')
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [resetLinkSent, setResetLinkSent] = useState(false)
   const router = useRouter()
+  const toast = useToast()
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,7 +25,7 @@ export default function LoginPage() {
     })
 
     if (error) {
-      alert("Error: " + error.message)
+      toast.error(error.message)
     } else {
       router.push('/dashboard')
     }
@@ -36,7 +38,6 @@ export default function LoginPage() {
 
     // 🔥 URLs dinámicas para producción
     const redirectTo = getCallbackUrl()
-    console.log('🔍 [DEBUG] Enviando Magic Link con redirectTo:', redirectTo)
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -45,10 +46,9 @@ export default function LoginPage() {
       },
     })
 
-    console.log('✅ [DEBUG] Magic Link enviado, error:', error)
 
     if (error) {
-      alert("Error: " + error.message)
+      toast.error(error.message)
     } else {
       setMagicLinkSent(true)
     }
@@ -69,7 +69,7 @@ export default function LoginPage() {
       redirectTo: getCallbackUrl(),
     })
     if (error) {
-      alert('Error: ' + error.message)
+      toast.error(error.message)
     } else {
       setResetLinkSent(true)
     }
@@ -88,7 +88,7 @@ export default function LoginPage() {
       options: { redirectTo: getOAuthCallbackUrl() },
     })
     if (error) {
-      alert('Error: ' + error.message)
+      toast.error(error.message)
     }
     setLoading(false)
   }
@@ -114,6 +114,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowForgotPassword(false)}
+                title="Volver al formulario de inicio de sesión"
                 className="flex-1 py-2 rounded border border-gray-500 text-gray-300 hover:bg-gray-700"
               >
                 Volver
@@ -121,6 +122,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
+                title="Se enviará un enlace a tu correo para restablecer la contraseña"
                 className="flex-1 py-2 rounded bg-indigo-600 font-bold hover:bg-indigo-700 disabled:opacity-50"
               >
                 {loading ? 'Enviando...' : 'Enviar enlace de recuperación'}
@@ -175,6 +177,7 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => setUseMagicLink(false)}
+            title="Entrar con tu correo y contraseña"
             className={`flex-1 py-2 rounded-md transition ${
               !useMagicLink 
                 ? 'bg-indigo-600 text-white font-bold' 
@@ -186,6 +189,7 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => setUseMagicLink(true)}
+            title="Recibir un enlace por correo para entrar sin contraseña"
             className={`flex-1 py-2 rounded-md transition ${
               useMagicLink 
                 ? 'bg-indigo-600 text-white font-bold' 
@@ -201,6 +205,7 @@ export default function LoginPage() {
           value={email} 
           onChange={(e) => setEmail(e.target.value)}
           placeholder="tu@email.com"
+          title="Correo electrónico con el que te registraste"
           className="w-full p-2 rounded bg-gray-700 border border-gray-600"
           required
         />
@@ -212,12 +217,14 @@ export default function LoginPage() {
               placeholder="Tu contraseña" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              title="Tu contraseña de la cuenta"
               className="w-full p-2 rounded bg-gray-700 border border-gray-600"
               required
             />
             <button
               type="button"
               onClick={() => setShowForgotPassword(true)}
+              title="Recibir un enlace por correo para crear una nueva contraseña"
               className="text-sm text-amber-400 hover:text-amber-300 w-full text-center"
             >
               ¿Olvidaste tu contraseña?
@@ -228,6 +235,7 @@ export default function LoginPage() {
         <button 
           type="submit" 
           disabled={loading}
+          title={useMagicLink ? 'Se enviará un enlace a tu correo para iniciar sesión' : 'Iniciar sesión con correo y contraseña'}
           className="w-full bg-indigo-600 p-2 rounded font-bold hover:bg-indigo-700 disabled:opacity-50"
         >
           {loading ? 'Procesando...' : useMagicLink ? '📧 Enviar Magic Link' : 'Entrar Ahora'}

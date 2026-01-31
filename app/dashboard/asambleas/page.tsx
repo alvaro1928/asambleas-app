@@ -12,9 +12,12 @@ import {
   FileText,
   CheckCircle2,
   Clock,
-  Edit
+  Edit,
+  Search
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 interface Asamblea {
@@ -26,11 +29,20 @@ interface Asamblea {
   created_at: string
 }
 
+interface PreguntasCount {
+  abierta: number
+  pendiente: number
+  cerrada: number
+}
+
 export default function AsambleasPage() {
   const router = useRouter()
   const [asambleas, setAsambleas] = useState<Asamblea[]>([])
+  const [preguntasPorAsamblea, setPreguntasPorAsamblea] = useState<Record<string, PreguntasCount>>({})
   const [loading, setLoading] = useState(true)
   const [conjuntoName, setConjuntoName] = useState('')
+  const [searchNombre, setSearchNombre] = useState('')
+  const [filterEstado, setFilterEstado] = useState<string>('all')
 
   useEffect(() => {
     loadAsambleas()
@@ -133,11 +145,18 @@ export default function AsambleasPage() {
     )
   }
 
+  const asambleasFiltradas = asambleas.filter((a) => {
+    const matchNombre = !searchNombre.trim() || a.nombre.toLowerCase().includes(searchNombre.trim().toLowerCase())
+    const matchEstado = filterEstado === 'all' || a.estado === filterEstado
+    return matchNombre && matchEstado
+  })
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Asambleas' }]} className="mb-2" />
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link
@@ -151,12 +170,12 @@ export default function AsambleasPage() {
                   Asambleas
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {conjuntoName} • {asambleas.length} asamblea{asambleas.length !== 1 ? 's' : ''}
+                  {conjuntoName} • {asambleasFiltradas.length} asamblea{asambleasFiltradas.length !== 1 ? 's' : ''}
                 </p>
               </div>
             </div>
-            <Link href="/dashboard/asambleas/nueva">
-              <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700">
+            <Link href="/dashboard/asambleas/nueva" title="Crear una nueva asamblea para este conjunto">
+              <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" title="Crear una nueva asamblea para este conjunto">
                 <Plus className="w-4 h-4 mr-2" />
                 Nueva Asamblea
               </Button>
@@ -167,6 +186,30 @@ export default function AsambleasPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {asambleas.length > 0 && (
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                type="search"
+                placeholder="Buscar por nombre..."
+                value={searchNombre}
+                onChange={(e) => setSearchNombre(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <select
+              value={filterEstado}
+              onChange={(e) => setFilterEstado(e.target.value)}
+              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-2 text-sm min-w-[160px]"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="borrador">Borrador</option>
+              <option value="activa">Activa</option>
+              <option value="finalizada">Finalizada</option>
+            </select>
+          </div>
+        )}
         {asambleas.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-12 text-center border border-gray-200 dark:border-gray-700">
             <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -176,8 +219,8 @@ export default function AsambleasPage() {
             <p className="text-gray-600 dark:text-gray-400 mb-6">
               Crea tu primera asamblea para comenzar a gestionar votaciones
             </p>
-            <Link href="/dashboard/asambleas/nueva">
-              <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700">
+            <Link href="/dashboard/asambleas/nueva" title="Crear tu primera asamblea">
+              <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" title="Crear tu primera asamblea">
                 <Plus className="w-4 h-4 mr-2" />
                 Nueva Asamblea
               </Button>
@@ -185,7 +228,12 @@ export default function AsambleasPage() {
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {asambleas.map((asamblea) => (
+            {asambleasFiltradas.map((asamblea) => {
+              const counts = preguntasPorAsamblea[asamblea.id]
+              const totalPreguntas = counts ? counts.abierta + counts.pendiente + counts.cerrada : 0
+              const abiertas = counts?.abierta ?? 0
+              const pendientes = counts?.pendiente ?? 0
+              return (
               <Link
                 key={asamblea.id}
                 href={`/dashboard/asambleas/${asamblea.id}`}
@@ -215,6 +263,17 @@ export default function AsambleasPage() {
                     {formatFecha(asamblea.fecha)}
                   </div>
 
+                  {/* Progreso preguntas */}
+                  {totalPreguntas > 0 && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                      {abiertas > 0 && <span className="text-green-600 dark:text-green-400">{abiertas} abierta{abiertas !== 1 ? 's' : ''}</span>}
+                      {abiertas > 0 && (pendientes > 0 || counts?.cerrada) && ' • '}
+                      {pendientes > 0 && <span>{pendientes} pendiente{pendientes !== 1 ? 's' : ''}</span>}
+                      {pendientes > 0 && counts?.cerrada ? ' • ' : ''}
+                      {counts?.cerrada ? <span>{counts.cerrada} cerrada{counts.cerrada !== 1 ? 's' : ''}</span> : null}
+                    </div>
+                  )}
+
                   {/* Footer */}
                   <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex items-center justify-between text-sm">
@@ -229,7 +288,7 @@ export default function AsambleasPage() {
                   </div>
                 </div>
               </Link>
-            ))}
+            )})}
           </div>
         )}
       </main>

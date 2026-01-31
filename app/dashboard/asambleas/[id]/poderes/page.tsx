@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { useToast } from '@/components/providers/ToastProvider'
 
 interface Asamblea {
   id: string
@@ -74,6 +75,7 @@ interface ConfigPoderes {
 
 export default function PoderesPage({ params }: { params: { id: string } }) {
   const router = useRouter()
+  const toast = useToast()
   const [asamblea, setAsamblea] = useState<Asamblea | null>(null)
   const [poderes, setPoderes] = useState<Poder[]>([])
   const [unidades, setUnidades] = useState<Unidad[]>([])
@@ -94,6 +96,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
   // Estados para búsqueda y filtros
   const [searchTerm, setSearchTerm] = useState('')
+  const [revocandoPoderId, setRevocandoPoderId] = useState<string | null>(null)
+  const [revocando, setRevocando] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -110,7 +114,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
       const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
       if (!selectedConjuntoId) {
-        alert('Por favor selecciona un conjunto primero')
+        toast.error('Por favor selecciona un conjunto primero')
         router.push('/dashboard')
         return
       }
@@ -157,7 +161,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       setLoading(false)
     } catch (error: any) {
       console.error('Error loading data:', error)
-      alert('Error al cargar los datos: ' + error.message)
+      toast.error('Error al cargar los datos: ' + error.message)
       setLoading(false)
     }
   }
@@ -211,17 +215,17 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
   const handleCreatePoder = async () => {
     if (!selectedOtorgante) {
-      alert('Debes seleccionar la unidad que otorga el poder')
+      toast.error('Debes seleccionar la unidad que otorga el poder')
       return
     }
 
     if (!emailReceptor.trim()) {
-      alert('Debes ingresar el email del apoderado')
+      toast.error('Debes ingresar el email del apoderado')
       return
     }
 
     if (!nombreReceptor.trim()) {
-      alert('Debes ingresar el nombre del apoderado')
+      toast.error('Debes ingresar el nombre del apoderado')
       return
     }
 
@@ -238,7 +242,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       } else if (validacion && validacion.length > 0) {
         const resultado = validacion[0]
         if (!resultado.puede_recibir_poder) {
-          alert(`⚠️ ${resultado.mensaje}\n\nEl apoderado ya tiene ${resultado.poderes_actuales} poderes activos (límite: ${resultado.limite_maximo})`)
+          toast.error(`${resultado.mensaje}. El apoderado ya tiene ${resultado.poderes_actuales} poderes activos (límite: ${resultado.limite_maximo})`)
           return
         }
       }
@@ -277,7 +281,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       await loadResumen()
     } catch (error: any) {
       console.error('Error creating poder:', error)
-      alert('Error al crear el poder: ' + error.message)
+      toast.error('Error al crear el poder: ' + error.message)
     } finally {
       setSavingPoder(false)
     }
@@ -306,7 +310,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       await loadResumen()
     } catch (error: any) {
       console.error('Error revoking poder:', error)
-      alert('Error al revocar el poder: ' + error.message)
+      toast.error('Error al revocar el poder: ' + error.message)
     }
   }
 
@@ -566,6 +570,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                             size="sm"
                             onClick={() => handleRevocarPoder(poder.id)}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            title="Revocar este poder"
                           >
                             <XCircle className="w-4 h-4 mr-1" />
                             Revocar
@@ -766,6 +771,40 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                 )}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo confirmación revocar poder */}
+      <Dialog open={!!revocandoPoderId} onOpenChange={(open) => !open && setRevocandoPoderId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Revocar este poder?</DialogTitle>
+            <DialogDescription>
+              Esta acción no se puede deshacer. El apoderado dejará de poder votar por la unidad que le otorgó el poder.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setRevocandoPoderId(null)} disabled={revocando}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700"
+              onClick={confirmarRevocarPoder}
+              disabled={revocando}
+            >
+              {revocando ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  Revocando...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Revocar
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

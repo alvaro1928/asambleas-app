@@ -6,10 +6,12 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import ConjuntoSelector from '@/components/ConjuntoSelector'
+import { Tooltip as UiTooltip } from '@/components/ui/tooltip'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { isAdminEmail } from '@/lib/super-admin'
 import { formatPrecioPro } from '@/lib/precio-pro'
 import { planEfectivo } from '@/lib/plan-utils'
+import { useToast } from '@/components/providers/ToastProvider'
 
 interface UnidadMetrics {
   total: number
@@ -207,24 +209,27 @@ export default function DashboardPage() {
               <ConjuntoSelector />
               <div className="flex items-center space-x-3">
               {user?.email && isAdminEmail(user.email) && (
-                <a
-                  href="/super-admin"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    window.location.href = '/super-admin'
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-lg transition-colors inline-flex items-center space-x-2 cursor-pointer"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                  <span>Administración</span>
-                </a>
+                <UiTooltip content="Panel de super administrador: gestionar conjuntos y planes de suscripción">
+                  <a
+                    href="/super-admin"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      window.location.href = '/super-admin'
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-lg transition-colors inline-flex items-center space-x-2 cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    <span>Administración</span>
+                  </a>
+                </UiTooltip>
               )}
-              <Link
-                href="/dashboard/configuracion"
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors inline-flex items-center space-x-2"
-              >
+              <UiTooltip content="Cambiar contraseña, preferencias y datos de tu cuenta">
+                <Link
+                  href="/dashboard/configuracion"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors inline-flex items-center space-x-2"
+                >
                 <svg
                   className="w-4 h-4"
                   fill="none"
@@ -246,12 +251,15 @@ export default function DashboardPage() {
                 </svg>
                 <span>Configuración</span>
               </Link>
-              <button
-                onClick={handleSignOut}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                Cerrar sesión
-              </button>
+              </UiTooltip>
+              <UiTooltip content="Cerrar sesión y volver a la pantalla de inicio">
+                <button
+                  onClick={handleSignOut}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  Cerrar sesión
+                </button>
+              </UiTooltip>
               </div>
             </div>
           </div>
@@ -361,24 +369,28 @@ export default function DashboardPage() {
                     const openInNewTab = !!href && href !== '#'
                     if (!href || href === '#') {
                       return (
-                        <button
-                          type="button"
-                          onClick={() => alert('Configura NEXT_PUBLIC_PASARELA_PAGOS_URL o NEXT_PUBLIC_PLAN_PRO_URL en las variables de entorno para habilitar el pago o contacto.')}
-                          className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all text-sm"
-                        >
-                          Actualizar a Pro
-                        </button>
+                        <UiTooltip content="Configura la URL de pago o contacto en las variables de entorno para habilitar este botón">
+                          <button
+                            type="button"
+                            onClick={() => toast.info('Configura NEXT_PUBLIC_PASARELA_PAGOS_URL o NEXT_PUBLIC_PLAN_PRO_URL en las variables de entorno para habilitar el pago o contacto.')}
+                            className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all text-sm"
+                          >
+                            Actualizar a Pro
+                          </button>
+                        </UiTooltip>
                       )
                     }
                     return (
-                      <a
-                        href={href}
-                        target={openInNewTab ? '_blank' : undefined}
-                        rel={openInNewTab ? 'noopener noreferrer' : undefined}
-                        className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all text-sm"
-                      >
-                        Actualizar a Pro
-                      </a>
+                      <UiTooltip content="Ir a la pasarela de pago o contacto para activar el Plan Pro en este conjunto">
+                        <a
+                          href={href}
+                          target={openInNewTab ? '_blank' : undefined}
+                          rel={openInNewTab ? 'noopener noreferrer' : undefined}
+                          className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all text-sm"
+                        >
+                          Actualizar a Pro
+                        </a>
+                      </UiTooltip>
                     )
                   })()
                 )}
@@ -430,65 +442,69 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link
-                  href="/dashboard/nuevo-conjunto"
-                  className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 space-x-2"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                <UiTooltip content="Crear un nuevo conjunto residencial para gestionar sus asambleas y unidades">
+                  <Link
+                    href="/dashboard/nuevo-conjunto"
+                    className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 space-x-2"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  <span>Registrar Conjunto</span>
-                </Link>
-                
-                <Link
-                  href="/dashboard/unidades/importar"
-                  className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 space-x-2"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    <span>Registrar Conjunto</span>
+                  </Link>
+                </UiTooltip>
+                <UiTooltip content="Cargar unidades desde Excel o CSV con coeficientes y datos de propietarios">
+                  <Link
+                    href="/dashboard/unidades/importar"
+                    className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 space-x-2"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    />
-                  </svg>
-                  <span>Importar Unidades</span>
-                </Link>
-
-                <Link
-                  href="/dashboard/asambleas"
-                  className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 space-x-2"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    <span>Importar Unidades</span>
+                  </Link>
+                </UiTooltip>
+                <UiTooltip content="Ver y crear asambleas, preguntas y votaciones del conjunto">
+                  <Link
+                    href="/dashboard/asambleas"
+                    className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 space-x-2"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                    />
-                  </svg>
-                  <span>Asambleas</span>
-                </Link>
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                      />
+                    </svg>
+                    <span>Asambleas</span>
+                  </Link>
+                </UiTooltip>
               </div>
             </div>
           </div>
@@ -496,8 +512,9 @@ export default function DashboardPage() {
           {/* Métricas Detalladas */}
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Total Unidades */}
-            <Link href="/dashboard/unidades">
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-700 transition-all cursor-pointer">
+            <UiTooltip content="Ver listado de unidades, editar y gestionar coeficientes">
+              <Link href="/dashboard/unidades">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-700 transition-all cursor-pointer">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
@@ -523,9 +540,10 @@ export default function DashboardPage() {
                 </p>
               </div>
             </Link>
+            </UiTooltip>
 
             {/* Suma Coeficientes */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700" title="La Ley 675 exige que la suma de coeficientes sea 100%. Verde = correcto.">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-3">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
@@ -571,7 +589,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Censo de Datos */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700" title="Porcentaje de unidades con email y teléfono completos para contacto.">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
@@ -606,8 +624,9 @@ export default function DashboardPage() {
             </div>
 
             {/* Conjuntos */}
-            <Link href="/dashboard/conjuntos">
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer">
+            <UiTooltip content="Ver y editar los conjuntos residenciales que gestionas">
+              <Link href="/dashboard/conjuntos">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
@@ -633,6 +652,7 @@ export default function DashboardPage() {
                 </p>
               </div>
             </Link>
+            </UiTooltip>
           </div>
 
           {/* Gráfico de Distribución por Tipo */}

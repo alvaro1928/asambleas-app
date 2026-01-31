@@ -11,8 +11,10 @@ import {
   ExternalLink, 
   RefreshCw, 
   Clock,
-  CheckCircle2,
-  Building2
+  Building2,
+  Vote,
+  BarChart3,
+  CheckCircle2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,6 +37,23 @@ interface Asistente {
   coeficiente: number
 }
 
+interface QuorumData {
+  total_unidades: number
+  unidades_votantes: number
+  unidades_pendientes: number
+  porcentaje_participacion_nominal: number
+  porcentaje_participacion_coeficiente: number
+  quorum_alcanzado: boolean
+}
+
+interface PreguntaAvance {
+  id: string
+  texto_pregunta: string
+  total_votos: number
+  total_coeficiente: number
+  coeficiente_total_conjunto?: number
+}
+
 export default function AsambleaAccesoPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [asamblea, setAsamblea] = useState<Asamblea | null>(null)
@@ -42,18 +61,22 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [loading, setLoading] = useState(true)
   const [recargando, setRecargando] = useState(false)
   const [urlPublica, setUrlPublica] = useState('')
+  const [quorum, setQuorum] = useState<QuorumData | null>(null)
+  const [preguntasAvance, setPreguntasAvance] = useState<PreguntaAvance[]>([])
 
   useEffect(() => {
     loadAsamblea()
     loadAsistentes()
+    loadAvanceVotaciones()
 
-    // Polling cada 10 segundos
+    // Polling cada 10 segundos (ingresos + avance de votaciones)
     const interval = setInterval(() => {
       loadAsistentes(true)
+      loadAvanceVotaciones()
     }, 10000)
 
     return () => clearInterval(interval)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when id changes, interval uses loadAsistentes
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when id changes, interval uses loadAsistentes/loadAvanceVotaciones
   }, [params.id])
 
   const loadAsamblea = async () => {
@@ -137,6 +160,69 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     }
   }
 
+  const loadAvanceVotaciones = async () => {
+    try {
+      // Quórum de la asamblea (unidades que ya votaron / total)
+      const { data: rpcData, error: rpcError } = await supabase.rpc('calcular_quorum_asamblea', {
+        p_asamblea_id: params.id
+      })
+
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        const q = rpcData[0] as QuorumData
+        setQuorum({
+          total_unidades: q.total_unidades ?? 0,
+          unidades_votantes: q.unidades_votantes ?? 0,
+          unidades_pendientes: q.unidades_pendientes ?? 0,
+          porcentaje_participacion_nominal: q.porcentaje_participacion_nominal ?? 0,
+          porcentaje_participacion_coeficiente: q.porcentaje_participacion_coeficiente ?? 0,
+          quorum_alcanzado: q.quorum_alcanzado ?? false
+        })
+      } else {
+        setQuorum(null)
+      }
+
+      // Preguntas abiertas y avance por pregunta
+      const { data: preguntasData, error: preguntasError } = await supabase
+        .from('preguntas')
+        .select('id, texto_pregunta')
+        .eq('asamblea_id', params.id)
+        .eq('estado', 'abierta')
+        .order('created_at', { ascending: true })
+
+      if (preguntasError || !preguntasData?.length) {
+        setPreguntasAvance([])
+        return
+      }
+
+      const avances: PreguntaAvance[] = []
+      for (const p of preguntasData) {
+        const { data: statsData, error: statsError } = await supabase.rpc('calcular_estadisticas_pregunta', {
+          p_pregunta_id: p.id
+        })
+        if (!statsError && statsData && statsData.length > 0) {
+          const s = statsData[0] as { total_votos?: number; total_coeficiente?: number; coeficiente_total_conjunto?: number }
+          avances.push({
+            id: p.id,
+            texto_pregunta: p.texto_pregunta,
+            total_votos: Number(s.total_votos) || 0,
+            total_coeficiente: Number(s.total_coeficiente) || 0,
+            coeficiente_total_conjunto: s.coeficiente_total_conjunto != null ? Number(s.coeficiente_total_conjunto) : undefined
+          })
+        } else {
+          avances.push({
+            id: p.id,
+            texto_pregunta: p.texto_pregunta,
+            total_votos: 0,
+            total_coeficiente: 0
+          })
+        }
+      }
+      setPreguntasAvance(avances)
+    } catch (error) {
+      console.error('Error cargando avance de votaciones:', error)
+    }
+  }
+
   if (loading && !asamblea) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -174,7 +260,10 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => loadAsistentes(true)}
+                onClick={() => {
+                  loadAsistentes(true)
+                  loadAvanceVotaciones()
+                }}
                 disabled={recargando}
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
@@ -255,6 +344,81 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     {asistentes.reduce((sum, a) => sum + a.coeficiente, 0).toFixed(6)}%
                   </span>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Avance de votaciones: misma pantalla para el administrador */}
+            <Card className="shadow-sm border-emerald-200 dark:border-emerald-900">
+              <CardHeader>
+                <CardTitle className="text-md flex items-center">
+                  <Vote className="w-4 h-4 mr-2 text-emerald-600" />
+                  Avance de votaciones
+                </CardTitle>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Se actualiza cada 10 segundos. Ideal para proyectar en pantalla.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {quorum ? (
+                  <>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Unidades que ya votaron</span>
+                        <span className="font-bold text-gray-900 dark:text-white">
+                          {quorum.unidades_votantes} / {quorum.total_unidades}
+                        </span>
+                      </div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-500 dark:bg-emerald-600 transition-all duration-500"
+                          style={{ width: `${Math.min(100, quorum.porcentaje_participacion_nominal)}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                        <span>{quorum.porcentaje_participacion_nominal.toFixed(1)}% nominal</span>
+                        <span>{quorum.porcentaje_participacion_coeficiente.toFixed(1)}% coeficiente</span>
+                      </div>
+                      {quorum.quorum_alcanzado && (
+                        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
+                          <CheckCircle2 className="w-4 h-4 shrink-0" />
+                          Quórum alcanzado
+                        </div>
+                      )}
+                    </div>
+                    {preguntasAvance.length > 0 && (
+                      <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2 flex items-center">
+                          <BarChart3 className="w-3 h-3 mr-1" />
+                          Preguntas abiertas
+                        </p>
+                        <ul className="space-y-2">
+                          {preguntasAvance.map((p) => (
+                            <li key={p.id} className="text-sm flex justify-between items-start gap-2">
+                              <span className="text-gray-700 dark:text-gray-300 line-clamp-2 flex-1 min-w-0">
+                                {p.texto_pregunta}
+                              </span>
+                              <span className="shrink-0 font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                {p.total_votos} votos
+                                {p.coeficiente_total_conjunto != null && p.coeficiente_total_conjunto > 0
+                                  ? ` (${((p.total_coeficiente / p.coeficiente_total_conjunto) * 100).toFixed(1)}%)`
+                                  : ''}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {preguntasAvance.length === 0 && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-800">
+                        No hay preguntas con votación abierta en este momento.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    No hay datos de avance. Abre preguntas para votación en el detalle de la asamblea.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>

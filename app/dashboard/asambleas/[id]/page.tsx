@@ -23,7 +23,8 @@ import {
   Copy,
   Share2,
   QrCode,
-  Link as LinkIcon
+  Link as LinkIcon,
+  UserPlus
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,10 +33,13 @@ import { Select } from '@/components/ui/select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { planEfectivo } from '@/lib/plan-utils'
+import { useToast } from '@/components/providers/ToastProvider'
+import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 
 interface Asamblea {
   id: string
   nombre: string
+  organization_id?: string
   descripcion?: string
   fecha: string
   estado: 'borrador' | 'activa' | 'finalizada'
@@ -125,8 +129,18 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [editOpciones, setEditOpciones] = useState<OpcionPregunta[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
 
-  // Plan del conjunto activo (una consulta por carga; no satura la BD)
+  // Plan del conjunto activo y límites parametrizables (desde tabla planes)
   const [planType, setPlanType] = useState<'free' | 'pro' | 'pilot' | null>(null)
+  const [planLimits, setPlanLimits] = useState({ max_preguntas_por_asamblea: 2, incluye_acta_detallada: false })
+
+  // Registrar voto a nombre de un residente (admin)
+  const [showRegistroVotoAdmin, setShowRegistroVotoAdmin] = useState(false)
+  const [unidadesParaVoto, setUnidadesParaVoto] = useState<Array<{ id: string; torre: string; numero: string; email_propietario?: string | null }>>([])
+  const [unidadRegistroVoto, setUnidadRegistroVoto] = useState('')
+  const [votanteEmailRegistro, setVotanteEmailRegistro] = useState('')
+  const [votanteNombreRegistro, setVotanteNombreRegistro] = useState('')
+  const [votosRegistroPorPregunta, setVotosRegistroPorPregunta] = useState<Record<string, string>>({})
+  const [savingRegistroVoto, setSavingRegistroVoto] = useState(false)
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -268,7 +282,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             resultados = statsData.resultados || []
           }
           
-          console.log('📊 Admin - Resultados parseados:', resultados)
 
           // Convertir al formato esperado
           const estadisticasFormateadas: EstadisticaOpcion[] = resultados.map((r: any) => ({
@@ -308,7 +321,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       }
 
       // Si falla la función RPC (no existe aún), calcular manualmente
-      console.log('RPC no disponible, calculando manualmente')
 
       // Obtener total de unidades del conjunto
       const { data: unidadesData } = await supabase
@@ -371,7 +383,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       loadData() // Recargar datos
     } catch (error: any) {
       console.error('Error al activar votación:', error)
-      alert('Error al activar votación: ' + error.message)
+      toast.error('Error al activar votación: ' + error.message)
     }
   }
 
@@ -393,7 +405,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       loadData() // Recargar datos
     } catch (error: any) {
       console.error('Error al desactivar votación:', error)
-      alert('Error al desactivar votación: ' + error.message)
+      toast.error('Error al desactivar votación: ' + error.message)
     }
   }
 
@@ -404,7 +416,83 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       setTimeout(() => setSuccessMessage(''), 2000)
     } catch (error) {
       console.error('Error al copiar:', error)
-      alert('Error al copiar al portapapeles')
+      toast.error('Error al copiar al portapapeles')
+    }
+  }
+
+  const preguntasAbiertas = preguntas.filter((p) => p.estado === 'abierta')
+
+  const handleAbrirRegistroVotoAdmin = async () => {
+    if (!asamblea?.organization_id) return
+    setShowRegistroVotoAdmin(true)
+    setUnidadRegistroVoto('')
+    setVotanteEmailRegistro('')
+    setVotanteNombreRegistro('')
+    setVotosRegistroPorPregunta({})
+    try {
+      const { data } = await supabase
+        .from('unidades')
+        .select('id, torre, numero, email_propietario')
+        .eq('organization_id', asamblea.organization_id)
+        .order('torre')
+        .order('numero')
+      setUnidadesParaVoto(data ?? [])
+    } catch (e) {
+      console.error('Error cargando unidades:', e)
+      setUnidadesParaVoto([])
+    }
+  }
+
+  const handleUnidadChangeRegistro = (unidadId: string) => {
+    setUnidadRegistroVoto(unidadId)
+    const u = unidadesParaVoto.find((x) => x.id === unidadId)
+    if (u) {
+      setVotanteEmailRegistro(u.email_propietario ?? '')
+      setVotanteNombreRegistro('')
+    }
+  }
+
+  const handleRegistrarVotoAdmin = async () => {
+    if (!asamblea || !unidadRegistroVoto || !votanteEmailRegistro.trim()) {
+      toast.error('Selecciona una unidad e indica el email del residente.')
+      return
+    }
+    const votosPayload = preguntasAbiertas
+      .filter((p) => votosRegistroPorPregunta[p.id])
+      .map((p) => ({ pregunta_id: p.id, opcion_id: votosRegistroPorPregunta[p.id] }))
+    if (votosPayload.length === 0) {
+      toast.error('Indica al menos un voto para una pregunta abierta.')
+      return
+    }
+    setSavingRegistroVoto(true)
+    try {
+      const res = await fetch('/api/admin/registrar-voto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          asamblea_id: asamblea.id,
+          unidad_id: unidadRegistroVoto,
+          votante_email: votanteEmailRegistro.trim(),
+          votante_nombre: votanteNombreRegistro.trim() || undefined,
+          votos: votosPayload,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data.error || 'Error al registrar votos')
+        return
+      }
+      setSuccessMessage(data.message || 'Votos registrados correctamente')
+      setShowRegistroVotoAdmin(false)
+      loadEstadisticas()
+      loadQuorum()
+      loadData()
+    } catch (e) {
+      console.error('Error registrando votos:', e)
+      toast.error('Error al registrar votos')
+    } finally {
+      setSavingRegistroVoto(false)
     }
   }
 
@@ -426,14 +514,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const handleCreatePregunta = async () => {
     if (!newPregunta.texto_pregunta.trim()) {
-      alert('El texto de la pregunta es obligatorio')
+      toast.error('El texto de la pregunta es obligatorio')
       return
     }
 
     // Validar que haya al menos 2 opciones
     const opcionesValidas = opciones.filter(o => o.texto_opcion.trim())
     if (opcionesValidas.length < 2) {
-      alert('Debes tener al menos 2 opciones de respuesta')
+      toast.error('Debes tener al menos 2 opciones de respuesta')
       return
     }
 
@@ -498,7 +586,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (error: any) {
       console.error('Error creating pregunta:', error)
-      alert('Error al crear la pregunta: ' + error.message)
+      toast.error('Error al crear la pregunta: ' + error.message)
     } finally {
       setSavingPregunta(false)
     }
@@ -522,7 +610,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (error: any) {
       console.error('Error deleting pregunta:', error)
-      alert('Error al eliminar: ' + error.message)
+      toast.error('Error al eliminar: ' + error.message)
     } finally {
       setDeleting(false)
     }
@@ -555,7 +643,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       await loadQuorum()
     } catch (error: any) {
       console.error('Error updating estado:', error)
-      alert('Error al cambiar estado: ' + error.message)
+      toast.error('Error al cambiar estado: ' + error.message)
     }
   }
 
@@ -568,7 +656,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const removeOpcion = (index: number) => {
     if (opciones.length <= 2) {
-      alert('Debes tener al menos 2 opciones')
+      toast.error('Debes tener al menos 2 opciones')
       return
     }
     setOpciones(opciones.filter((_, i) => i !== index))
@@ -595,7 +683,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const removeEditOpcion = (index: number) => {
     if (editOpciones.length <= 2) {
-      alert('Debes tener al menos 2 opciones')
+      toast.error('Debes tener al menos 2 opciones')
       return
     }
     setEditOpciones(editOpciones.filter((_, i) => i !== index))
@@ -604,7 +692,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const handleEditClick = async (pregunta: Pregunta) => {
     // Solo permitir editar preguntas pendientes
     if (pregunta.estado !== 'pendiente') {
-      alert('Solo se pueden editar preguntas que están pendientes (sin votos)')
+      toast.error('Solo se pueden editar preguntas que están pendientes (sin votos)')
       return
     }
 
@@ -630,13 +718,13 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!editingPregunta) return
 
     if (!editForm.texto_pregunta.trim()) {
-      alert('El texto de la pregunta es obligatorio')
+      toast.error('El texto de la pregunta es obligatorio')
       return
     }
 
     const opcionesValidas = editOpciones.filter(o => o.texto_opcion.trim())
     if (opcionesValidas.length < 2) {
-      alert('Debes tener al menos 2 opciones de respuesta')
+      toast.error('Debes tener al menos 2 opciones de respuesta')
       return
     }
 
@@ -695,7 +783,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (error: any) {
       console.error('Error updating pregunta:', error)
-      alert('Error al actualizar la pregunta: ' + error.message)
+      toast.error('Error al actualizar la pregunta: ' + error.message)
     } finally {
       setSavingEdit(false)
     }
@@ -733,7 +821,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (error: any) {
       console.error('Error updating estado:', error)
-      alert('Error al cambiar estado: ' + error.message)
+      toast.error('Error al cambiar estado: ' + error.message)
     }
   }
 
@@ -793,6 +881,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <Breadcrumbs
+            items={[
+              { label: 'Dashboard', href: '/dashboard' },
+              { label: 'Asambleas', href: '/dashboard/asambleas' },
+              { label: asamblea.nombre }
+            ]}
+            className="mb-2"
+          />
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link
@@ -935,8 +1031,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 ⏱️ Datos actualizados en tiempo real cada 5 segundos
               </p>
             </>
-          ) : (
-            <div className="text-center py-8">
+            ) : (
+              <div className="text-center py-8">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-3"></div>
               <p className="text-gray-600 dark:text-gray-400">Cargando datos de participación...</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
@@ -945,6 +1041,21 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             </div>
           )}
         </div>
+
+        {/* Registrar voto a nombre de un residente (p. ej. personas mayores) */}
+        {preguntasAbiertas.length > 0 && (
+          <div className="mb-6 flex justify-end">
+            <Button
+              variant="outline"
+              onClick={handleAbrirRegistroVotoAdmin}
+              className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+              title="Registrar el voto de un residente que no puede votar en línea (p. ej. persona mayor)"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Registrar voto a nombre de un residente
+            </Button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Información de la Asamblea */}
@@ -1051,6 +1162,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                           variant="outline"
                           size="sm"
                           className="border-green-300 dark:border-green-700"
+                          title="Copiar el código de acceso al portapapeles"
                         >
                           <Copy className="w-4 h-4" />
                         </Button>
@@ -1073,6 +1185,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                           onClick={() => handleCopiarTexto(asamblea.url_publica || '', 'URL')}
                           variant="outline"
                           size="sm"
+                          title="Copiar el enlace de votación al portapapeles"
                         >
                           <Copy className="w-4 h-4" />
                         </Button>
@@ -1085,15 +1198,17 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         onClick={handleCompartirWhatsApp}
                         className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
                         size="sm"
+                        title="Compartir el enlace de votación por WhatsApp"
                       >
                         <Share2 className="w-4 h-4 mr-1" />
                         WhatsApp
                       </Button>
-                      <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="w-full">
+                      <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="w-full" title="Ver código QR para que los residentes escaneen y voten">
                         <Button
                           variant="outline"
                           size="sm"
                           className="w-full border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                          title="Ver código QR para compartir"
                         >
                           <QrCode className="w-4 h-4 mr-1" />
                           Ver QR
@@ -1127,25 +1242,26 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                   Preguntas de Votación
                 </h2>
-                {(planType !== 'free' || preguntas.length < 2) && (
-                  <Button
-                    onClick={() => setShowNewPregunta(true)}
-                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Agregar Pregunta
-                  </Button>
+                {preguntas.length < planLimits.max_preguntas_por_asamblea && (
+                <Button
+                  onClick={() => setShowNewPregunta(true)}
+                  className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                  title="Añadir una nueva pregunta de votación a esta asamblea"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Agregar Pregunta
+                </Button>
                 )}
               </div>
 
-              {planType === 'free' && preguntas.length >= 2 && (
+              {preguntas.length >= planLimits.max_preguntas_por_asamblea && (
                 <Alert className="mb-6 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
                   <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   <AlertTitle className="text-amber-900 dark:text-amber-100">
-                    Límite del plan Free alcanzado
+                    Límite del plan alcanzado
                   </AlertTitle>
                   <AlertDescription className="text-amber-800 dark:text-amber-200">
-                    El plan Free permite hasta 2 preguntas por asamblea. Actualiza a Plan Pro para crear más preguntas.
+                    Tu plan permite hasta {planLimits.max_preguntas_por_asamblea} pregunta{planLimits.max_preguntas_por_asamblea !== 1 ? 's' : ''} por asamblea. Actualiza a Plan Pro para crear más preguntas.
                     {process.env.NEXT_PUBLIC_PLAN_PRO_URL && (
                       <a
                         href={process.env.NEXT_PUBLIC_PLAN_PRO_URL}
@@ -1166,7 +1282,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
                     No hay preguntas creadas
                   </p>
-                  {(planType !== 'free' || preguntas.length < 2) && (
+                  {preguntas.length < planLimits.max_preguntas_por_asamblea && (
                     <Button
                       onClick={() => setShowNewPregunta(true)}
                       variant="outline"
@@ -1770,6 +1886,127 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 </>
               )}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Registrar voto a nombre de un residente */}
+      <Dialog open={showRegistroVotoAdmin} onOpenChange={setShowRegistroVotoAdmin}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-blue-600" />
+              Registrar voto a nombre de un residente
+            </DialogTitle>
+            <DialogDescription>
+              Para personas que no pueden votar en línea (p. ej. mayores de edad sin acceso a tecnología). Los votos quedarán registrados con trazabilidad.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label className="text-gray-700 dark:text-gray-300">Unidad (propietario o residente)</Label>
+              <select
+                value={unidadRegistroVoto}
+                onChange={(e) => handleUnidadChangeRegistro(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+              >
+                <option value="">Selecciona una unidad</option>
+                {unidadesParaVoto.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.torre} - {u.numero}
+                    {u.email_propietario ? ` (${u.email_propietario})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label className="text-gray-700 dark:text-gray-300">Email del residente</Label>
+              <Input
+                type="email"
+                value={votanteEmailRegistro}
+                onChange={(e) => setVotanteEmailRegistro(e.target.value)}
+                placeholder="correo@ejemplo.com"
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label className="text-gray-700 dark:text-gray-300">Nombre del residente (opcional)</Label>
+              <Input
+                type="text"
+                value={votanteNombreRegistro}
+                onChange={(e) => setVotanteNombreRegistro(e.target.value)}
+                placeholder="Nombre del propietario o residente"
+                className="mt-1"
+              />
+            </div>
+
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">Votos por pregunta abierta</p>
+              {preguntasAbiertas.length === 0 ? (
+                <p className="text-sm text-gray-500">No hay preguntas con votación abierta.</p>
+              ) : (
+                <div className="space-y-3">
+                  {preguntasAbiertas.map((p) => {
+                    const opciones = opcionesPreguntas[p.id] ?? []
+                    return (
+                      <div key={p.id} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 line-clamp-2">
+                          {p.texto_pregunta}
+                        </p>
+                        <select
+                          value={votosRegistroPorPregunta[p.id] ?? ''}
+                          onChange={(e) =>
+                            setVotosRegistroPorPregunta((prev) => ({
+                              ...prev,
+                              [p.id]: e.target.value,
+                            }))
+                          }
+                          className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-white"
+                        >
+                          <option value="">Selecciona opción</option>
+                          {opciones.filter((o) => o.id).map((o) => (
+                            <option key={o.id!} value={o.id}>
+                              {o.texto_opcion}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowRegistroVotoAdmin(false)}
+                disabled={savingRegistroVoto}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleRegistrarVotoAdmin}
+                disabled={savingRegistroVoto || !unidadRegistroVoto || !votanteEmailRegistro.trim()}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                {savingRegistroVoto ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Registrando...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Registrar votos
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

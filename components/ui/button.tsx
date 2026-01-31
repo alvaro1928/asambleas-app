@@ -32,6 +32,8 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
+  /** Mensaje de ayuda al pasar el mouse (tooltip nativo). Mejora la usabilidad. */
+  title?: string
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

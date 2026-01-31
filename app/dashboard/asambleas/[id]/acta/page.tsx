@@ -87,6 +87,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [coefPoderes, setCoefPoderes] = useState(0)
   const [auditoria, setAuditoria] = useState<Record<string, AuditRow[]>>({})
   const [planType, setPlanType] = useState<'free' | 'pro' | 'pilot'>('free')
+  const [incluyeActaDetallada, setIncluyeActaDetallada] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -257,7 +258,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
   const planProUrl = process.env.NEXT_PUBLIC_PLAN_PRO_URL || '#'
 
-  if (planType === 'free') {
+  if (!incluyeActaDetallada) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700 text-center">
