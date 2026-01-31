@@ -56,7 +56,7 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [planSelect, setPlanSelect] = useState<Record<string, string>>({})
-  const [editingPlan, setEditingPlan] = useState<Record<string, { nombre: string; precio_cop_anual: number }>>({})
+  const [editingPlan, setEditingPlan] = useState<Record<string, EditingPlanValue>>({})
   const [savingPlanKey, setSavingPlanKey] = useState<string | null>(null)
   const [searchConjunto, setSearchConjunto] = useState('')
   const [filterPlan, setFilterPlan] = useState('all')

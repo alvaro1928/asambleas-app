@@ -292,10 +292,25 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       return
     }
 
+    await revocarPoder(poderId)
+  }
+
+  const confirmarRevocarPoder = async () => {
+    if (!revocandoPoderId) return
+    setRevocando(true)
+    try {
+      await revocarPoder(revocandoPoderId)
+      setRevocandoPoderId(null)
+    } finally {
+      setRevocando(false)
+    }
+  }
+
+  const revocarPoder = async (poderId: string) => {
     try {
       const { error } = await supabase
         .from('poderes')
-        .update({ 
+        .update({
           estado: 'revocado',
           revocado_at: new Date().toISOString()
         })
@@ -305,7 +320,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
       setSuccessMessage('Poder revocado exitosamente')
       setTimeout(() => setSuccessMessage(''), 3000)
-      
+
       await loadPoderes()
       await loadResumen()
     } catch (error: any) {

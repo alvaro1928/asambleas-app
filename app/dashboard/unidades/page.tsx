@@ -46,6 +46,7 @@ interface Unidad {
 
 export default function UnidadesPage() {
   const router = useRouter()
+  const toast = useToast()
   const [unidades, setUnidades] = useState<Unidad[]>([])
   const [filteredUnidades, setFilteredUnidades] = useState<Unidad[]>([])
   const [loading, setLoading] = useState(true)

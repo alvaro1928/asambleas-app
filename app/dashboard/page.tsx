@@ -21,6 +21,7 @@ interface UnidadMetrics {
 }
 
 export default function DashboardPage() {
+  const toast = useToast()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [successMessage, setSuccessMessage] = useState('')
