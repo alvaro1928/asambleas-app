@@ -645,9 +645,9 @@ export default function VotacionPublicaPage() {
 
   if (step === 'validando') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-primary-light to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Validando código de acceso...</p>
         </div>
       </div>
@@ -684,25 +684,25 @@ export default function VotacionPublicaPage() {
 
   if (step === 'email') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
+      <div className="min-h-screen bg-gradient-to-br from-primary-light to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-surface dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-border dark:border-gray-700">
           <StepIndicator pasoActual="email" />
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full flex items-center justify-center mb-4">
+            <div className="mx-auto w-16 h-16 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center mb-4">
               <Vote className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               Votación Virtual
             </h1>
             <p className="text-gray-600 dark:text-gray-400 text-sm">
-              Código: <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{codigo}</span>
+              Código: <span className="font-mono font-bold text-primary dark:text-indigo-400">{codigo}</span>
             </p>
           </div>
 
           {/* Información de la Asamblea */}
           {asamblea && (
-            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-4 mb-6 border border-indigo-200 dark:border-indigo-800">
+            <div className="bg-gradient-to-r from-primary-light to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-4 mb-6 border border-border dark:border-indigo-800">
               <h2 className="font-bold text-gray-900 dark:text-white mb-2">
                 {asamblea.nombre}
               </h2>

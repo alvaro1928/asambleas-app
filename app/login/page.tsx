@@ -119,12 +119,12 @@ export default function LoginPage() {
               >
                 Volver
               </button>
-              <button
-                type="submit"
-                disabled={loading}
-                title="Se enviará un enlace a tu correo para restablecer la contraseña"
-                className="flex-1 py-2 rounded bg-indigo-600 font-bold hover:bg-indigo-700 disabled:opacity-50"
-              >
+          <button
+            type="submit"
+            disabled={loading}
+            title="Se enviará un enlace a tu correo para restablecer la contraseña"
+            className="flex-1 py-2 rounded bg-primary font-bold hover:bg-primary-hover disabled:opacity-50"
+          >
                 {loading ? 'Enviando...' : 'Enviar enlace de recuperación'}
               </button>
             </div>
@@ -180,7 +180,7 @@ export default function LoginPage() {
             title="Entrar con tu correo y contraseña"
             className={`flex-1 py-2 rounded-md transition ${
               !useMagicLink 
-                ? 'bg-indigo-600 text-white font-bold' 
+                ? 'bg-primary text-white font-bold' 
                 : 'text-gray-400 hover:text-white'
             }`}
           >
@@ -192,7 +192,7 @@ export default function LoginPage() {
             title="Recibir un enlace por correo para entrar sin contraseña"
             className={`flex-1 py-2 rounded-md transition ${
               useMagicLink 
-                ? 'bg-indigo-600 text-white font-bold' 
+                ? 'bg-primary text-white font-bold' 
                 : 'text-gray-400 hover:text-white'
             }`}
           >

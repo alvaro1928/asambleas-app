@@ -91,9 +91,9 @@ function Toast({ item, onClose }: { item: ToastItem; onClose: () => void }) {
     info: <Info className="w-5 h-5 shrink-0" />,
   }
   const styles = {
-    success: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 [&>svg]:text-emerald-600 dark:[&>svg]:text-emerald-400',
-    error: 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 [&>svg]:text-red-600 dark:[&>svg]:text-red-400',
-    info: 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 [&>svg]:text-blue-600 dark:[&>svg]:text-blue-400',
+    success: 'bg-success-light dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 [&>svg]:text-success',
+    error: 'bg-error-light dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 [&>svg]:text-error',
+    info: 'bg-primary-light dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 text-primary-dark dark:text-indigo-200 [&>svg]:text-primary',
   }
   return (
     <div

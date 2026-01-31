@@ -2,12 +2,7 @@
 
 Índice de la documentación del proyecto. Todo está organizado en subcarpetas por tema.
 
----
-
-## Configuración
-
-- [Variables de entorno (Vercel)](configuracion/VARIABLES-ENTORNO-VERCEL.md) – Variables para Vercel y desarrollo (Supabase, auth, Wompi, super-admin).
-- [Configurar Wompi](configuracion/CONFIGURAR-WOMPI.md) – Pasarela de pagos y webhook para Plan Pro.
+**Orden recomendado de lectura:** Guías de uso → Configuración → Despliegue → Referencia / Supabase → Pruebas → UX y mejoras.
 
 ---
 
@@ -20,6 +15,13 @@
 - [Módulo de poderes](guias/GUIA-MODULO-PODERES.md)
 - [Estadísticas, quórum y poderes](guias/GUIA-ESTADISTICAS-QUORUM-PODERES.md)
 - [Funcionalidades y capacidad](guias/FUNCIONALIDADES-Y-CAPACIDAD.md)
+
+---
+
+## Configuración
+
+- [Variables de entorno (Vercel)](configuracion/VARIABLES-ENTORNO-VERCEL.md) – Variables para Vercel y desarrollo (Supabase, auth, Wompi, super-admin).
+- [Configurar Wompi](configuracion/CONFIGURAR-WOMPI.md) – Pasarela de pagos y webhook para Plan Pro.
 
 ---
 
@@ -60,3 +62,11 @@
 - [K6 – pruebas de carga](pruebas/K6-README.md)
 - [Stress test votos](pruebas/STRESS-TEST-VOTOS.md)
 - [Reporte slow queries](pruebas/REPORTE-SLOW-QUERIES.md)
+
+---
+
+## UX, diseño y mejoras
+
+- [Mejoras de experiencia (journey) por rol](ux/MEJORAS-UX-JOURNEY.md) – Propuestas para admin, votantes y super usuario.
+- [Pruebas, optimización e ideas de mejora](ux/PRUEBAS-OPTIMIZACION-Y-MEJORAS.md) – Estado de pruebas, optimizaciones aplicadas e ideas concretas.
+- [Colores: psicología y marketing](ux/COLORES-PSICOLOGIA-Y-MARKETING.md) – Paleta basada en psicología del color y regla 60-30-10.

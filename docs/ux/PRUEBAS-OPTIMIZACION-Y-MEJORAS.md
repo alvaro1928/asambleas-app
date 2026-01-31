@@ -90,6 +90,7 @@ Cada idea incluye **qué** mejorar y **cómo** implementarlo de forma concreta.
 | **Página 404 amigable** | No dejar al usuario en blanco. | Añadir `app/not-found.tsx` con mensaje "Página no encontrada", enlace a "/" y a "/dashboard" (si aplica), y estilo coherente con el resto de la app. |
 | **Sesión y deslogueo** | Menos sorpresas por sesión expirada. | En el cliente, escuchar el evento de Supabase `onAuthStateChange`; si la sesión se invalida o expira, mostrar un toast "Tu sesión expiró" y redirigir a `/login`. Opcional: renovar token en segundo plano antes de que expire (Supabase lo hace en parte; revisar duración en Dashboard). |
 | **Middleware y rutas públicas** | Evitar redirecciones incorrectas. | El middleware ya protege `/dashboard` y `/super-admin`. Confirmar que `/votar/*` y `/login` no exigen sesión y que las rutas de API públicas (votar, client-info, etc.) están fuera del matcher que exige sesión. |
+| **Colores y psicología** | Que el sitio guste y motive a quedarse. | Paleta basada en psicología del color (confianza = primary, éxito = success, fondos cálidos). Ver [COLORES-PSICOLOGIA-Y-MARKETING.md](COLORES-PSICOLOGIA-Y-MARKETING.md) y variables en `app/globals.css` + `tailwind.config.ts`. |
 
 ---
 
