@@ -53,7 +53,7 @@ export async function GET() {
 
     const { data: orgs, error: orgsError } = await admin
       .from('organizations')
-      .select('id, name, slug, nit, plan_type, plan_active_until, plan_status, is_pilot, created_at')
+      .select('id, name, slug, nit, plan_type, plan_active_until, plan_status, is_pilot, tokens_disponibles, created_at')
       .order('created_at', { ascending: false })
 
     if (orgsError) {

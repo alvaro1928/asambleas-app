@@ -1,6 +1,7 @@
 /**
  * Límites parametrizables por plan (desde tabla planes).
- * La app usa estos valores para restringir funcionalidad (p. ej. max preguntas por asamblea, acta detallada).
+ * Plan Pro por asamblea: para usar funciones Pro (más de 2 preguntas, acta detallada)
+ * el conjunto debe tener tokens_disponibles > 0.
  */
 
 export interface PlanLimits {
@@ -11,7 +12,7 @@ export interface PlanLimits {
 export interface PlanFromApi {
   key: string
   nombre?: string
-  precio_cop_anual?: number
+  precio_por_asamblea_cop?: number
   max_preguntas_por_asamblea?: number
   incluye_acta_detallada?: boolean
 }
@@ -23,7 +24,7 @@ const DEFAULTS: Record<string, PlanLimits> = {
 }
 
 /**
- * Obtiene los límites de un plan por su key.
+ * Obtiene los límites de un plan por su key (sin considerar tokens).
  * Si no hay datos (API antigua o sin migración), usa valores por defecto.
  */
 export function getPlanLimits(planKey: string | null | undefined, planFromApi?: PlanFromApi | null): PlanLimits {
@@ -41,6 +42,33 @@ export function getPlanLimits(planKey: string | null | undefined, planFromApi?: 
   }
   const key = (planKey ?? 'free') as keyof typeof DEFAULTS
   return DEFAULTS[key] ?? DEFAULTS.free
+}
+
+/**
+ * Indica si el conjunto puede usar funciones Pro (más de 2 preguntas, acta detallada).
+ * Pilot: siempre. Pro: solo si tokens_disponibles > 0. Free: no.
+ */
+export function canUseProFeatures(
+  planKey: string | null | undefined,
+  tokensDisponibles: number
+): boolean {
+  if (planKey === 'pilot') return true
+  if (planKey === 'pro') return tokensDisponibles > 0
+  return false
+}
+
+/**
+ * Límites efectivos según plan y tokens. Para usar Pro (más de 2 preguntas, acta detallada)
+ * se requiere tokens_disponibles > 0 si el plan es Pro; Pilot siempre tiene Pro.
+ */
+export function getEffectivePlanLimits(
+  planKey: string | null | undefined,
+  tokensDisponibles: number,
+  planFromApi?: PlanFromApi | null
+): PlanLimits {
+  const canPro = canUseProFeatures(planKey, tokensDisponibles)
+  if (canPro) return getPlanLimits(planKey, planFromApi)
+  return DEFAULTS.free
 }
 
 /**

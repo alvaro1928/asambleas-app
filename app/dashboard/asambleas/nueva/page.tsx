@@ -1,26 +1,81 @@
 'use client'
 
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Save, Calendar } from 'lucide-react'
+import { ArrowLeft, Save, Calendar, Lock, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import type { PlanType } from '@/lib/plan-utils'
+
+type OrganizationStatus = {
+  plan_efectivo: PlanType
+  tokens_disponibles: number
+}
 
 export default function NuevaAsambleaPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  
+  const [selectedConjuntoId, setSelectedConjuntoId] = useState<string | null>(null)
+  const [status, setStatus] = useState<OrganizationStatus | null>(null)
+  const [statusLoading, setStatusLoading] = useState(true)
+  const [statusError, setStatusError] = useState('')
+
   const [formData, setFormData] = useState({
     nombre: '',
     descripcion: '',
     fecha: '',
     hora: ''
   })
+
+  useEffect(() => {
+    const conjId = typeof window !== 'undefined' ? localStorage.getItem('selectedConjuntoId') : null
+    setSelectedConjuntoId(conjId)
+
+    if (!conjId) {
+      setStatusLoading(false)
+      setStatusError('No hay conjunto seleccionado')
+      return
+    }
+
+    let cancelled = false
+    setStatusLoading(true)
+    setStatusError('')
+
+    fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(conjId)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(res.status === 403 ? 'Sin acceso a este conjunto' : 'Error al cargar el estado')
+        return res.json()
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setStatus({
+            plan_efectivo: data.plan_efectivo ?? 'free',
+            tokens_disponibles: Number(data.tokens_disponibles ?? 0),
+          })
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setStatusError(err.message || 'Error al cargar el estado del conjunto')
+      })
+      .finally(() => {
+        if (!cancelled) setStatusLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const planEfectivo = status?.plan_efectivo ?? null
+  const tokensDisponibles = status?.tokens_disponibles ?? 0
+  const puedeCrear =
+    planEfectivo === 'pilot' || (planEfectivo !== null && tokensDisponibles >= 1)
+  const bloqueado = !statusLoading && !statusError && selectedConjuntoId && !puedeCrear
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -34,14 +89,13 @@ export default function NuevaAsambleaPage() {
         return
       }
 
-      const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
-      if (!selectedConjuntoId) {
+      const conjId = localStorage.getItem('selectedConjuntoId')
+      if (!conjId) {
         setError('No hay conjunto seleccionado')
         setLoading(false)
         return
       }
 
-      // Validaciones
       if (!formData.nombre.trim()) {
         setError('El nombre de la asamblea es obligatorio')
         setLoading(false)
@@ -54,31 +108,40 @@ export default function NuevaAsambleaPage() {
         return
       }
 
-      // Combinar fecha y hora
-      const fechaHora = formData.hora 
+      const fechaHora = formData.hora
         ? `${formData.fecha}T${formData.hora}:00`
         : `${formData.fecha}T10:00:00`
 
-      // Crear asamblea
-      const { data: asamblea, error: insertError } = await supabase
-        .from('asambleas')
-        .insert({
-          organization_id: selectedConjuntoId,
+      const res = await fetch('/api/dashboard/crear-asamblea', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organization_id: conjId,
           nombre: formData.nombre.trim(),
           descripcion: formData.descripcion.trim() || null,
           fecha: fechaHora,
-          estado: 'borrador'
-        })
-        .select()
-        .single()
+        }),
+      })
 
-      if (insertError) throw insertError
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 402 && (data as { code?: string }).code === 'SIN_TOKENS') {
+          setError('No tienes asambleas disponibles. Compra más en Plan Pro.')
+          setStatus((prev) => (prev ? { ...prev, tokens_disponibles: 0 } : null))
+          return
+        }
+        throw new Error(data.error || 'Error al crear la asamblea')
+      }
 
-      // Redirigir a la página de detalle de la asamblea
-      router.push(`/dashboard/asambleas/${asamblea.id}?success=created`)
-    } catch (err: any) {
+      const asamblea = (data as { asamblea?: { id: string } }).asamblea
+      if (asamblea?.id) {
+        router.push(`/dashboard/asambleas/${asamblea.id}?success=created`)
+      } else {
+        setError('Error al crear la asamblea')
+      }
+    } catch (err: unknown) {
       console.error('Error creating asamblea:', err)
-      setError(err.message || 'Error al crear la asamblea')
+      setError(err instanceof Error ? err.message : 'Error al crear la asamblea')
     } finally {
       setLoading(false)
     }
@@ -111,12 +174,67 @@ export default function NuevaAsambleaPage() {
       {/* Main Content */}
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+          {statusError && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertDescription>{statusError}</AlertDescription>
+            </Alert>
+          )}
           {error && (
             <Alert variant="destructive" className="mb-6">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
+          {statusLoading && (
+            <div className="flex items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+              <span className="ml-3">Cargando estado del conjunto...</span>
+            </div>
+          )}
+
+          {!statusLoading && bloqueado && (
+            <div className="text-center py-8 space-y-6">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
+                <Lock className="w-7 h-7" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Sin asambleas disponibles
+                </h2>
+                <p className="mt-2 text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+                  No tienes saldo de asambleas para este conjunto. Compra asambleas Pro para crear nuevas.
+                </p>
+              </div>
+              {(() => {
+                const pasarelaUrl = process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
+                const planProUrl = process.env.NEXT_PUBLIC_PLAN_PRO_URL
+                const href = pasarelaUrl
+                  ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}conjunto_id=${encodeURIComponent(selectedConjuntoId ?? '')}`
+                  : (planProUrl && planProUrl !== '#') ? planProUrl : '#'
+                const openInNewTab = !!href && href !== '#'
+                return (
+                  <a
+                    href={href}
+                    target={openInNewTab ? '_blank' : undefined}
+                    rel={openInNewTab ? 'noopener noreferrer' : undefined}
+                    className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all"
+                  >
+                    <ShoppingCart className="w-5 h-5 mr-2" />
+                    Comprar Asamblea Pro
+                  </a>
+                )
+              })()}
+              <div className="pt-4">
+                <Link href="/dashboard/asambleas">
+                  <Button type="button" variant="outline">
+                    Volver a Asambleas
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {!statusLoading && !bloqueado && !statusError && selectedConjuntoId && (
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Nombre */}
             <div>
@@ -219,6 +337,7 @@ export default function NuevaAsambleaPage() {
               </Button>
             </div>
           </form>
+          )}
         </div>
       </main>
     </div>

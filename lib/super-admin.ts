@@ -1,3 +1,5 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+
 /**
  * Utilidad para reconocer al SUPER_ADMIN.
  * Configura SUPER_ADMIN_EMAIL en .env con tu correo (reemplaza TU_CORREO_AQUÍ).
@@ -24,4 +26,28 @@ export function isAdminEmail(email: string | undefined): boolean {
   const configured = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase()
   if (!configured || !email) return false
   return email.trim().toLowerCase() === configured
+}
+
+export interface TransaccionPagoPayload {
+  organization_id: string
+  monto: number
+  wompi_transaction_id: string | null
+  estado: string
+}
+
+/**
+ * Registra una transacción de pago en pagos_log (para Dinero total recaudado en Super Admin).
+ * Usado por el webhook de Wompi.
+ */
+export async function registrarTransaccionPago(
+  supabase: SupabaseClient,
+  payload: TransaccionPagoPayload
+): Promise<{ error: Error | null }> {
+  const { error } = await supabase.from('pagos_log').insert({
+    organization_id: payload.organization_id,
+    monto: payload.monto,
+    wompi_transaction_id: payload.wompi_transaction_id,
+    estado: payload.estado,
+  })
+  return { error: error ? new Error(error.message) : null }
 }

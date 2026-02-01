@@ -33,6 +33,7 @@ import { Select } from '@/components/ui/select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { planEfectivo } from '@/lib/plan-utils'
+import { getEffectivePlanLimits, findPlanByKey, type PlanFromApi } from '@/lib/plan-limits'
 import { useToast } from '@/components/providers/ToastProvider'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 
@@ -200,14 +201,22 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       setAsamblea(asambleaData)
 
-      // Plan del conjunto (considera vigencia plan_active_until)
+      // Plan del conjunto (considera vigencia plan_active_until) y tokens
       const { data: orgPlan } = await supabase
         .from('organizations')
-        .select('plan_type, plan_active_until')
+        .select('plan_type, plan_active_until, tokens_disponibles')
         .eq('id', asambleaData.organization_id)
         .single()
-      const row = orgPlan as { plan_type?: string; plan_active_until?: string | null } | null
-      setPlanType(planEfectivo(row?.plan_type, row?.plan_active_until))
+      const row = orgPlan as { plan_type?: string; plan_active_until?: string | null; tokens_disponibles?: number } | null
+      const plan = planEfectivo(row?.plan_type, row?.plan_active_until)
+      setPlanType(plan)
+      const tokens = Math.max(0, Number(row?.tokens_disponibles ?? 0))
+      const planesRes = await fetch('/api/planes')
+      const planesData = planesRes.ok ? await planesRes.json() : null
+      const planesList = (planesData?.planes ?? []) as PlanFromApi[]
+      const planFromApi = findPlanByKey(planesList, plan ?? 'free')
+      const limits = getEffectivePlanLimits(plan, tokens, planFromApi)
+      setPlanLimits(limits)
 
       // Cargar preguntas
       const { data: preguntasData, error: preguntasError } = await supabase
@@ -808,6 +817,30 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const handleChangeEstadoAsamblea = async (nuevoEstado: 'borrador' | 'activa' | 'finalizada') => {
     if (!asamblea) return
+
+    if (nuevoEstado === 'activa' && preguntas.length > 2) {
+      try {
+        const res = await fetch('/api/dashboard/descontar-token-asamblea-pro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ asamblea_id: asamblea.id }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (res.status === 402) {
+          toast.error(data.error || 'No tienes tokens disponibles para activar esta asamblea Pro.')
+          return
+        }
+        if (!res.ok) {
+          toast.error(data.error || 'Error al descontar token')
+          return
+        }
+      } catch (e) {
+        console.error('Descontar token:', e)
+        toast.error('Error al activar asamblea Pro')
+        return
+      }
+    }
 
     try {
       const { error } = await supabase

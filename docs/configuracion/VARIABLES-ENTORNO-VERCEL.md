@@ -46,11 +46,11 @@ Lista de **todas** las variables de entorno que debe tener el proyecto en Vercel
 Bloque listo para **Vercel → Settings → Environment Variables**. Son llaves de **prueba (Sandbox)**; cuando Wompi te active producción, sustituye por las de producción.
 
 ```
-NEXT_PUBLIC_WOMPI_LLAVE_PUBLICA=pub_test_aGHqimadrTMPu1CCE10ISDBUSK9NURwb
-WOMPI_INTEGRIDAD=test_integrity_55x6A2jue80RD0p1phURdgLtJLRybQE8
-WOMPI_LLAVE_PRIVADA=prv_test_qjjPb9Y3QQZHeRfEWlAcwS0Y5j0gxneq
-WOMPI_EVENTOS=test_events_oR6WKYwkq4u1MrVW5EUsrvsf5h88KDJB
+NEXT_PUBLIC_WOMPI_LLAVE_PUBLICA=pub_test_aGHqimadrTMPu1CCE1OISDbUSk9NURwb
+WOMPI_INTEGRIDAD=test_integrity_55x6A2jue80RD0plphURdgLtJLRybQE8
+WOMPI_EVENTOS=test_events_oR6WKYwkq4ulMrVW5EUsrvsf5h88KDJB
 ```
+(WOMPI_LLAVE_PRIVADA solo si el backend llama a la API de Wompi.)
 
 **En el panel de Wompi** (Configuraciones avanzadas → Seguimiento de transacciones), pon en **URL de Eventos** esta URL (no `/dashboard`):
 

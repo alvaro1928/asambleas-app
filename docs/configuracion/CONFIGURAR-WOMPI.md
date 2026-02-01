@@ -66,7 +66,8 @@ El webhook **`/api/pagos/webhook`** está preparado para Wompi:
 
 - **Evento:** `transaction.updated`.
 - **Firma:** se verifica la integridad con **SHA256** usando el secreto **Integridad** de Wompi (variable `WOMPI_INTEGRIDAD`). Wompi envía en el payload un objeto `signature` con `properties`, `timestamp` y `checksum`; el servidor concatena los valores indicados en `properties`, el `timestamp` y tu secreto, calcula SHA256 y lo compara con `checksum` (o con el header `X-Event-Checksum`).
-- **Referencia:** debe tener el formato **`REF_<uuid_conjunto>_<timestamp>`**. Ejemplo: `REF_550e8400-e29b-41d4-a716-446655440000_1234567890`. El webhook extrae el UUID del conjunto de ahí y actualiza ese conjunto a plan Pro (365 días, `subscription_status: active`).
+- **Referencia:** debe tener el formato **`REF_<conjunto_id>_<timestamp>`**. Ejemplo: `REF_550e8400-e29b-41d4-a716-446655440000_1234567890`. El webhook extrae el UUID del conjunto de ahí.
+- **Lógica APPROVED:** se lee el precio del Plan Pro en la tabla `planes` (campo `precio_por_asamblea_cop` donde `key = 'pro'`). Si el monto del pago coincide con ese precio (en COP o en centavos según Wompi), se suma **1** a `tokens_disponibles` del conjunto y se registra la transacción en **`pagos_log`** con estado `APPROVED`, para que cuente en "Dinero total recaudado" del Super Admin.
 - **Si el pago no es APPROVED:** se registra la transacción en **`pagos_log`** (con el estado recibido, p. ej. DECLINED, ERROR) cuando se puede extraer el `conjunto_id` de la referencia, para que puedas revisarlo.
 
 Al crear la transacción en Wompi (Widget o backend), configura la **referencia** con ese formato para que el webhook sepa a qué conjunto activar el plan.

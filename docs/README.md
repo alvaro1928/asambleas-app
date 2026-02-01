@@ -2,7 +2,13 @@
 
 Índice de la documentación del proyecto. Todo está organizado en subcarpetas por tema.
 
-**Orden recomendado de lectura:** Guías de uso → Configuración → Despliegue → Referencia / Supabase → Pruebas → UX y mejoras.
+**Orden recomendado de lectura:** [Resumen de la aplicación](#resumen-de-la-aplicación) → Guías de uso → Configuración → Despliegue → Referencia / Supabase → Pruebas → UX y mejoras.
+
+---
+
+## Resumen de la aplicación
+
+- **[Resumen funcional y técnico](RESUMEN-APLICACION.md)** – Todo lo que tiene la app: funcionalidades por rol (admin, votantes, super-admin), stack, rutas, APIs, librerías, componentes, BD y UX.
 
 ---
 

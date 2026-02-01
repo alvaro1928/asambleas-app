@@ -3,16 +3,14 @@
 @tailwind utilities;
 
 /*
-  Paleta basada en psicología del color y marketing:
-  - Primary (confianza, acciones principales): azul/índigo → calma, credibilidad.
-  - Success (éxito, progreso): verde esmeralda → crecimiento, confirmación.
-  - Fondos con ligero calor para sensación acogedora (regla 60-30-10).
-  Ver docs/ux/COLORES-PSICOLOGIA-Y-MARKETING.md
+  Paleta basada en psicología del color y marketing.
+  --color-primary puede sobrescribirse desde configuracion_global.color_principal_hex (Super Admin → Ajustes).
+  La landing y la app aplican ese valor al cargar la configuración.
 */
 :root {
   --background: #fafaf9;
   --foreground: #1c1917;
-  /* Primary: confianza y acción (60% fondo, 30% superficies, 10% acento) */
+  /* Primary: editable desde Super Admin → Ajustes (color_principal_hex). Valor por defecto: */
   --color-primary: #4f46e5;
   --color-primary-hover: #4338ca;
   --color-primary-light: #eef2ff;

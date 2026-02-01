@@ -18,9 +18,9 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('planes')
-      .select('key, nombre, precio_cop_anual, max_preguntas_por_asamblea, incluye_acta_detallada')
+      .select('key, nombre, precio_por_asamblea_cop, max_preguntas_por_asamblea, incluye_acta_detallada')
       .eq('activo', true)
-      .order('precio_cop_anual', { ascending: true })
+      .order('precio_por_asamblea_cop', { ascending: true })
 
     if (error) {
       console.error('GET /api/planes:', error)

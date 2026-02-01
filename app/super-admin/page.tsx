@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Shield, Building2, Loader2, LogOut, Gift, Users, DollarSign, Settings2, Save, Search } from 'lucide-react'
+import { Shield, Building2, Loader2, LogOut, Gift, Users, DollarSign, Settings2, Save, Search, Layout } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/providers/ToastProvider'
 
@@ -16,7 +17,7 @@ interface PlanRow {
   id: string
   key: string
   nombre: string
-  precio_cop_anual: number
+  precio_por_asamblea_cop: number
   activo?: boolean
   max_preguntas_por_asamblea?: number
   incluye_acta_detallada?: boolean
@@ -24,7 +25,7 @@ interface PlanRow {
 
 type EditingPlanValue = {
   nombre: string
-  precio_cop_anual: number
+  precio_por_asamblea_cop: number
   max_preguntas_por_asamblea: number
   incluye_acta_detallada: boolean
 }
@@ -62,6 +63,10 @@ export default function SuperAdminPage() {
   const [filterPlan, setFilterPlan] = useState('all')
   const [mostrandoConjuntos, setMostrandoConjuntos] = useState(50)
   const PASOS_PAGINACION = 50
+  const [landingTitulo, setLandingTitulo] = useState('')
+  const [landingSubtitulo, setLandingSubtitulo] = useState('')
+  const [landingWhatsapp, setLandingWhatsapp] = useState('')
+  const [savingLanding, setSavingLanding] = useState(false)
 
   useEffect(() => {
     checkAndLoad()
@@ -83,11 +88,11 @@ export default function SuperAdminPage() {
     const res = await fetch('/api/super-admin/planes', { credentials: 'include' })
     if (!res.ok) return
     const data = await res.json()
-    const list = (data.planes || []).map((p: PlanRow & { max_preguntas_por_asamblea?: number; incluye_acta_detallada?: boolean }) => ({
+    const list = (data.planes || []).map((p: PlanRow & { precio_por_asamblea_cop?: number; max_preguntas_por_asamblea?: number; incluye_acta_detallada?: boolean }) => ({
       id: p.id,
       key: p.key,
       nombre: p.nombre,
-      precio_cop_anual: Number(p.precio_cop_anual) || 0,
+      precio_por_asamblea_cop: Number(p.precio_por_asamblea_cop) || 0,
       activo: p.activo,
       max_preguntas_por_asamblea: typeof p.max_preguntas_por_asamblea === 'number' ? p.max_preguntas_por_asamblea : (p.key === 'free' ? 2 : 999),
       incluye_acta_detallada: typeof p.incluye_acta_detallada === 'boolean' ? p.incluye_acta_detallada : p.key !== 'free',
@@ -97,7 +102,7 @@ export default function SuperAdminPage() {
     list.forEach((p: PlanRow) => {
       edit[p.key] = {
         nombre: p.nombre,
-        precio_cop_anual: p.precio_cop_anual,
+        precio_por_asamblea_cop: p.precio_por_asamblea_cop,
         max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? (p.key === 'free' ? 2 : 999),
         incluye_acta_detallada: p.incluye_acta_detallada ?? p.key !== 'free',
       }
@@ -122,6 +127,14 @@ export default function SuperAdminPage() {
       }
 
       await loadPlanes()
+
+      const configRes = await fetch('/api/super-admin/configuracion-landing', { credentials: 'include' })
+      if (configRes.ok) {
+        const configData = await configRes.json()
+        setLandingTitulo(configData.titulo ?? '')
+        setLandingSubtitulo(configData.subtitulo ?? '')
+        setLandingWhatsapp(configData.whatsapp_number ?? '')
+      }
 
       const res = await fetch('/api/super-admin/conjuntos', {
         credentials: 'include',
@@ -202,6 +215,33 @@ export default function SuperAdminPage() {
     await handleAplicarPlan(id, 'pro')
   }
 
+  const handleSaveLanding = async () => {
+    setSavingLanding(true)
+    try {
+      const res = await fetch('/api/super-admin/configuracion-landing', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          titulo: landingTitulo.trim(),
+          subtitulo: landingSubtitulo.trim(),
+          whatsapp_number: landingWhatsapp.trim() || null,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Error al guardar')
+        return
+      }
+      toast.success('Landing actualizada')
+    } catch (e) {
+      console.error('Guardar landing:', e)
+      toast.error('Error al guardar')
+    } finally {
+      setSavingLanding(false)
+    }
+  }
+
   const handleSavePlan = async (key: string) => {
     const edit = editingPlan[key]
     if (!edit) return
@@ -214,7 +254,7 @@ export default function SuperAdminPage() {
         body: JSON.stringify({
           key,
           nombre: edit.nombre.trim(),
-          precio_cop_anual: Math.max(0, Math.round(edit.precio_cop_anual)),
+          precio_por_asamblea_cop: Math.max(0, Math.round(edit.precio_por_asamblea_cop)),
           max_preguntas_por_asamblea: Math.max(0, Math.round(edit.max_preguntas_por_asamblea)),
           incluye_acta_detallada: edit.incluye_acta_detallada,
         }),
@@ -232,7 +272,7 @@ export default function SuperAdminPage() {
             ? {
                 ...p,
                 nombre: edit.nombre.trim(),
-                precio_cop_anual: Math.max(0, Math.round(edit.precio_cop_anual)),
+                precio_por_asamblea_cop: Math.max(0, Math.round(edit.precio_por_asamblea_cop)),
                 max_preguntas_por_asamblea: Math.max(0, Math.round(edit.max_preguntas_por_asamblea)),
                 incluye_acta_detallada: edit.incluye_acta_detallada,
               }
@@ -327,21 +367,75 @@ export default function SuperAdminPage() {
               </p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => router.push('/dashboard')}
-            className="gap-2"
-            title="Volver al panel principal del dashboard"
-          >
-            <LogOut className="w-4 h-4" />
-            Ir al Dashboard
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link href="/super-admin/ajustes">
+              <Button variant="outline" className="gap-2" title="Ajustes globales: landing y color principal">
+                Ajustes
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/dashboard')}
+              className="gap-2"
+              title="Volver al panel principal del dashboard"
+            >
+              <LogOut className="w-4 h-4" />
+              Ir al Dashboard
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Personalización de Landing */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-500/10 border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+            <Layout className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Personalización de Landing
+            </h2>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título (hero)</label>
+              <input
+                type="text"
+                value={landingTitulo}
+                onChange={(e) => setLandingTitulo(e.target.value)}
+                placeholder="Ej. Asambleas digitales para propiedad horizontal"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subtítulo (hero)</label>
+              <textarea
+                value={landingSubtitulo}
+                onChange={(e) => setLandingSubtitulo(e.target.value)}
+                placeholder="Ej. Votaciones en tiempo real, actas y auditoría..."
+                rows={2}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">WhatsApp de contacto</label>
+              <input
+                type="text"
+                value={landingWhatsapp}
+                onChange={(e) => setLandingWhatsapp(e.target.value)}
+                placeholder="Ej. 573001234567 (código país + número)"
+                className="w-full max-w-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Vacío = no mostrar botón WhatsApp en la landing</p>
+            </div>
+            <Button onClick={handleSaveLanding} disabled={savingLanding} className="gap-2">
+              {savingLanding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Guardar cambios
+            </Button>
+          </div>
+        </div>
+
         {/* Administración de planes */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-500/10 border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
             <Settings2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -354,7 +448,7 @@ export default function SuperAdminPage() {
                 <tr>
                   <th className="px-6 py-4">Key</th>
                   <th className="px-6 py-4">Nombre</th>
-                  <th className="px-6 py-4">Precio / año (COP)</th>
+                  <th className="px-6 py-4">Precio / Asamblea (COP)</th>
                   <th className="px-6 py-4">Max preguntas / asamblea</th>
                   <th className="px-6 py-4">Acta detallada</th>
                   <th className="px-6 py-4">Qué cubre</th>
@@ -385,7 +479,7 @@ export default function SuperAdminPage() {
                               setEditingPlan((prev) => ({
                                 ...prev,
                                 [p.key]: {
-                                  ...(prev[p.key] ?? { nombre: p.nombre, precio_cop_anual: p.precio_cop_anual, max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
+                                  ...(prev[p.key] ?? { nombre: p.nombre, precio_por_asamblea_cop: p.precio_por_asamblea_cop, max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
                                   nombre: e.target.value,
                                 },
                               }))
@@ -397,13 +491,13 @@ export default function SuperAdminPage() {
                           <input
                             type="number"
                             min={0}
-                            value={edit?.precio_cop_anual ?? p.precio_cop_anual}
+                            value={edit?.precio_por_asamblea_cop ?? p.precio_por_asamblea_cop}
                             onChange={(e) =>
                               setEditingPlan((prev) => ({
                                 ...prev,
                                 [p.key]: {
-                                  ...(prev[p.key] ?? { nombre: p.nombre, precio_cop_anual: p.precio_cop_anual, max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
-                                  precio_cop_anual: Number(e.target.value) || 0,
+                                  ...(prev[p.key] ?? { nombre: p.nombre, precio_por_asamblea_cop: p.precio_por_asamblea_cop, max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
+                                  precio_por_asamblea_cop: Number(e.target.value) || 0,
                                 },
                               }))
                             }
@@ -419,7 +513,7 @@ export default function SuperAdminPage() {
                               setEditingPlan((prev) => ({
                                 ...prev,
                                 [p.key]: {
-                                  ...(prev[p.key] ?? { nombre: p.nombre, precio_cop_anual: p.precio_cop_anual, max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
+                                  ...(prev[p.key] ?? { nombre: p.nombre, precio_por_asamblea_cop: p.precio_por_asamblea_cop, max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
                                   max_preguntas_por_asamblea: Math.max(0, parseInt(e.target.value, 10) || 0),
                                 },
                               }))
@@ -437,7 +531,7 @@ export default function SuperAdminPage() {
                                 setEditingPlan((prev) => ({
                                   ...prev,
                                   [p.key]: {
-                                    ...(prev[p.key] ?? { nombre: p.nombre, precio_cop_anual: p.precio_cop_anual, max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
+                                    ...(prev[p.key] ?? { nombre: p.nombre, precio_por_asamblea_cop: p.precio_por_asamblea_cop, max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
                                     incluye_acta_detallada: e.target.checked,
                                   },
                                 }))

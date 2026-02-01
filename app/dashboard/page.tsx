@@ -34,6 +34,7 @@ export default function DashboardPage() {
     distribucionTipo: []
   })
   const [planType, setPlanType] = useState<'free' | 'pro' | 'pilot' | null>(null)
+  const [tokensDisponibles, setTokensDisponibles] = useState<number>(0)
   const [selectedConjuntoId, setSelectedConjuntoId] = useState<string | null>(null)
   const router = useRouter()
 
@@ -116,15 +117,17 @@ export default function DashboardPage() {
       // Conjunto activo y plan
       const conjId = localStorage.getItem('selectedConjuntoId')
       setSelectedConjuntoId(conjId)
+      if (!conjId) setTokensDisponibles(0)
 
       if (conjId) {
         const { data: orgPlan } = await supabase
           .from('organizations')
-          .select('plan_type, plan_active_until')
+          .select('plan_type, plan_active_until, tokens_disponibles')
           .eq('id', conjId)
           .maybeSingle()
-        const row = orgPlan as { plan_type?: string; plan_active_until?: string | null } | null
+        const row = orgPlan as { plan_type?: string; plan_active_until?: string | null; tokens_disponibles?: number } | null
         setPlanType(planEfectivo(row?.plan_type, row?.plan_active_until))
+        setTokensDisponibles(Math.max(0, Number(row?.tokens_disponibles ?? 0)))
 
         const { data: unidades, error } = await supabase
           .from('unidades')
@@ -208,6 +211,12 @@ export default function DashboardPage() {
             </h1>
             <div className="flex items-center space-x-4">
               <ConjuntoSelector />
+              {selectedConjuntoId && (planType === 'pro' || planType === 'free') && (
+                <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Asambleas Pro:</span>
+                  <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles}</span>
+                </div>
+              )}
               <div className="flex items-center space-x-3">
               {user?.email && isAdminEmail(user.email) && (
                 <UiTooltip content="Panel de super administrador: gestionar conjuntos y planes de suscripción">
@@ -328,7 +337,7 @@ export default function DashboardPage() {
 
           {/* Suscripción */}
           {selectedConjuntoId && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <svg
                   className="w-5 h-5 text-indigo-500"
@@ -415,7 +424,7 @@ export default function DashboardPage() {
           )}
 
           {/* Action Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
             <div className="text-center space-y-6">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-100 dark:bg-indigo-900/30 rounded-full">
                 <svg
@@ -515,7 +524,7 @@ export default function DashboardPage() {
             {/* Total Unidades */}
             <UiTooltip content="Ver listado de unidades, editar y gestionar coeficientes">
               <Link href="/dashboard/unidades">
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-700 transition-all cursor-pointer">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-700 transition-all cursor-pointer">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
@@ -544,7 +553,7 @@ export default function DashboardPage() {
             </UiTooltip>
 
             {/* Suma Coeficientes */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700" title="La Ley 675 exige que la suma de coeficientes sea 100%. Verde = correcto.">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700" title="La Ley 675 exige que la suma de coeficientes sea 100%. Verde = correcto.">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-3">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
@@ -590,7 +599,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Censo de Datos */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700" title="Porcentaje de unidades con email y teléfono completos para contacto.">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700" title="Porcentaje de unidades con email y teléfono completos para contacto.">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
@@ -627,7 +636,7 @@ export default function DashboardPage() {
             {/* Conjuntos */}
             <UiTooltip content="Ver y editar los conjuntos residenciales que gestionas">
               <Link href="/dashboard/conjuntos">
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
