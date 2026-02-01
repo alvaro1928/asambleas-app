@@ -524,8 +524,10 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                                 maxBarSize={28}
                                 label={{
                                   position: 'right',
-                                  formatter: (v: number, _name: string, props: { payload?: { aprueba?: boolean } }) =>
-                                    props.payload?.aprueba ? `${v}% APROBADO` : `${v}%`,
+                                  formatter: (v: number, ...args: unknown[]) => {
+                                    const payload = (args[0] as { payload?: { aprueba?: boolean } })?.payload
+                                    return payload?.aprueba ? `${v}% APROBADO` : `${v}%`
+                                  },
                                   fontSize: 11,
                                   fill: '#374151'
                                 }}
