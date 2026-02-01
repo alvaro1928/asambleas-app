@@ -30,8 +30,8 @@ type EditingPlanValue = {
   precio_por_asamblea_cop: number
   max_preguntas_por_asamblea: number
   incluye_acta_detallada: boolean
-  tokens_iniciales: number | null
-  vigencia_meses: number | null
+  tokens_iniciales: number | string | null
+  vigencia_meses: number | string | null
 }
 
 interface ConjuntoRow {
@@ -336,8 +336,8 @@ export default function SuperAdminPage() {
     if (!edit) return
     setSavingPlanKey(key)
     try {
-      const tokensIniciales = key === 'pro' ? null : (edit.tokens_iniciales === null || edit.tokens_iniciales === '' ? (key === 'free' ? 2 : 10) : Math.max(0, Math.round(Number(edit.tokens_iniciales))))
-      const vigenciaMeses = key === 'free' ? null : (edit.vigencia_meses === null || edit.vigencia_meses === '' ? (key === 'pilot' ? 3 : 12) : Math.max(0, Math.round(Number(edit.vigencia_meses))))
+      const tokensIniciales = key === 'pro' ? null : (edit.tokens_iniciales == null || edit.tokens_iniciales === '' ? (key === 'free' ? 2 : 10) : Math.max(0, Math.round(Number(edit.tokens_iniciales))))
+      const vigenciaMeses = key === 'free' ? null : (edit.vigencia_meses == null || edit.vigencia_meses === '' ? (key === 'pilot' ? 3 : 12) : Math.max(0, Math.round(Number(edit.vigencia_meses))))
       const res = await fetch('/api/super-admin/planes', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
