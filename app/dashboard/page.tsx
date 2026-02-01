@@ -206,9 +206,9 @@ export default function DashboardPage() {
               {selectedConjuntoId && planType != null && (
                 <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
                   <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                    {planType === 'pro' ? 'Tokens:' : 'Tokens:'}
-                  </span>
-                  <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                    Tokens (conjunto):
+                    </span>
+                    <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
                     {planType === 'pro' ? 'Ilimitado' : tokensDisponibles}
                   </span>
                 </div>
@@ -372,7 +372,7 @@ export default function DashboardPage() {
                           : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                     }`}
                   >
-                    {planType === 'pro' ? 'Pro' : planType === 'pilot' ? 'Pilot' : 'Gratis'}
+                    {planType === 'pro' ? 'Pro' : planType === 'pilot' ? 'Piloto' : 'Gratis'}
                   </span>
                 </div>
                 {planType === 'free' && (
@@ -414,20 +414,15 @@ export default function DashboardPage() {
               {(planType === 'free' || planType === 'pilot') && (
                 <div className="mt-3 space-y-1">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Tokens: <span className="font-semibold text-gray-900 dark:text-white">{tokensDisponibles}</span>
+                    Tokens del conjunto: <span className="font-semibold text-gray-900 dark:text-white">{tokensDisponibles}</span>
                     {planType === 'free' && ' (Gratis incluye 2)'}
-                    {planType === 'pilot' && ' (Pilot incluye 10)'}.
-                    Cada asamblea nueva o con más de 2 preguntas consume 1 token — igual que en las apps de IA.
+                    {planType === 'pilot' && ' (Piloto hasta 3 meses)'}.
+                    Se descontan al crear o activar asambleas; cuando el conjunto se quede sin tokens, compra más.
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    ¿Necesitas más? Compra tokens bajo demanda ({formatPrecioCop(precioProCop ?? 0)}/token) o actualiza a Plan Pro y ten asambleas ilimitadas.
+                    Compra tokens bajo demanda ({formatPrecioCop(precioProCop ?? 0)}/token) o actualiza a Plan Pro y ten asambleas ilimitadas.
                   </p>
                 </div>
-              )}
-              {planType === 'free' && !process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL && process.env.NEXT_PUBLIC_PLAN_PRO_URL && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  Configura <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">NEXT_PUBLIC_PASARELA_PAGOS_URL</code> para comprar tokens desde la app.
-                </p>
               )}
             </div>
           )}

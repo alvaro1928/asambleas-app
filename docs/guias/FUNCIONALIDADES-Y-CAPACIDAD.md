@@ -43,7 +43,7 @@
 
 ### Dashboard principal
 - Métricas: conjuntos, unidades, coeficientes, censo.
-- Gráfico de distribución por tipo de unidad.
+- Tokens de la cuenta: se descontan al crear o activar asambleas; cuando se queden sin tokens, compran más o actualizan a Plan Pro.
 - Enlaces rápidos a asambleas, unidades, conjuntos, configuración.
 
 ---

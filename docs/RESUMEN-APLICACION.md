@@ -50,9 +50,8 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 
 **Dashboard principal**
 - Métricas: conjuntos, unidades, coeficientes, censo.
-- Gráfico de distribución por tipo de unidad (Recharts).
 - Enlaces rápidos a asambleas, unidades, conjuntos, configuración.
-- Información de plan (free/pro/pilot) y enlaces a pago/contacto si están configurados.
+- **Tokens de la cuenta:** se van descontando al crear o activar asambleas; cuando se queden sin tokens, compran más o actualizan a Plan Pro. Información de plan (free/pro/pilot) y enlaces a pago/contacto (configurados en Super Admin → Ajustes).
 
 **Configuración**
 - Perfil de usuario y datos de la organización del conjunto activo (`/dashboard/configuracion`).
@@ -82,8 +81,10 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - Ruta protegida: `/super-admin`.
 
 **Funcionalidad**
-- **Tabla de conjuntos**: listado de todos los conjuntos con plan actual (free/pro/pilot); **Aplicar plan** por fila; atajo "Pro 1 año".
-- **Tabla de planes**: edición de nombre, precio COP anual, **max_preguntas_por_asamblea**, **incluye_acta_detallada**; botón Guardar por plan.
+- **Tabla de conjuntos (cuentas):** listado con plan actual (free/pro/pilot), **tokens de la cuenta** (editable por fila), **Aplicar plan** por fila, atajo "Pro 1 año". Los tokens son por cuenta y se descontan al usar funcionalidades; el super admin puede ajustar el saldo.
+- **Tabla de planes:** edición de nombre, **precio por asamblea (COP)**, **tokens_iniciales**, **vigencia_meses**, **max_preguntas_por_asamblea**, **incluye_acta_detallada**; botón Guardar por plan.
+- **Ajustes** (`/super-admin/ajustes`): color principal de la landing, número de WhatsApp de contacto. La URL de Plan Pro y el precio se leen de la tabla de planes y de la configuración global.
+- **Carga masiva piloto:** subida de CSV con `organization_id` o `nombre` para asignar plan Piloto (vigencia y tokens según el plan Piloto).
 - **Activar Cortesía** (piloto): asignar plan pro manualmente sin pasarela.
 - **Exportar lista** de conjuntos (CSV).
 - Filtros por nombre de conjunto y por plan.
@@ -131,8 +132,10 @@ app/
 │   ├── planes/             # GET planes (público)
 │   ├── pagos/webhook/      # Webhook Wompi (pagos)
 │   └── super-admin/
-│       ├── conjuntos/      # GET/PATCH conjuntos (plan)
-│       └── planes/         # GET/PATCH planes (límites)
+│       ├── conjuntos/      # GET/PATCH conjuntos (plan, tokens)
+│       ├── planes/         # GET/PATCH planes (límites, precio, tokens_iniciales, vigencia_meses)
+│       ├── configuracion-landing/  # GET/PATCH color, WhatsApp (Ajustes)
+│       └── carga-masiva-piloto/   # POST carga masiva plan Piloto
 ├── dashboard/              # Todas las rutas protegidas por sesión
 │   ├── page.tsx            # Dashboard principal
 │   ├── configuracion/
@@ -189,7 +192,7 @@ app/
 
 - **Supabase:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`; opcional `SUPABASE_SERVICE_ROLE_KEY` (super-admin).
 - **Auth:** `NEXT_PUBLIC_ADMIN_EMAIL` / `SUPER_ADMIN_EMAIL` (super-admin).
-- **Opcional:** `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_PASARELA_PAGOS_URL`, `NEXT_PUBLIC_PLAN_PRO_URL`, Wompi (webhook), etc.
+- **Opcional:** `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_PASARELA_PAGOS_URL`; Wompi (webhook). La URL de Plan Pro, el precio por token y el WhatsApp se configuran en **Super Admin → Ajustes** y en la tabla de **Planes** (BD).
 
 ### 2.8 Diseño y UX
 
@@ -214,9 +217,9 @@ npx tsc --noEmit # Verificar tipos sin emitir
 
 ## 4. Documentación relacionada
 
+- **Índice general:** [docs/README.md](README.md) — lista ordenada de toda la documentación.
 - **Guías:** `docs/guias/` (votación, códigos de acceso, importación unidades, poderes, estadísticas, funcionalidades).
-- **Configuración:** `docs/configuracion/` (variables Vercel, Wompi).
+- **Configuración:** `docs/configuracion/` (variables Vercel, Wompi; landing/precio/WhatsApp en Super Admin).
 - **Despliegue:** `docs/despliegue/` (Vercel, checklist, cambios producción).
 - **Supabase:** `docs/supabase/` (scripts, RLS, plantillas email, auditoría).
 - **Referencia:** `docs/referencia/` (auth, super-admin, cumplimiento, seguridad).
-- **Índice:** `docs/README.md`.

@@ -16,8 +16,14 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 | 6 | **OPTIMIZAR-INDICES-SLOW-QUERIES.sql** | Índices para mejorar rendimiento (votos, preguntas, opciones, unidades, asambleas). |
 | 7 | **ROL-SUPER-ADMIN.sql** | Rol super admin: tabla `app_config`, función `is_super_admin()` y políticas RLS para acceso total sin depender de `organization_id`. Después: `UPDATE app_config SET value = 'tu@correo.com' WHERE key = 'super_admin_email';` |
 | 8 | **WOMPI-CONJUNTOS-Y-PAGOS-LOG.sql** | Integración Wompi: en `organizations` añade `subscription_status`, `wompi_reference` (y asegura `plan_type`, `plan_active_until`). Crea tabla `pagos_log` (id, organization_id, monto, wompi_transaction_id, estado, created_at). RLS en `pagos_log` para que solo el backend (service_role) escriba. |
-| 9 | **PLANES-TABLA-Y-SEED.sql** | Tabla **planes** (key, nombre, precio_cop_anual) para administrar planes desde super-admin. Seed: free, pro, pilot. Permite editar nombres y precios sin variables de entorno. |
-| 10 | **AGREGAR-LIMITES-PLANES.sql** | En **planes**: columnas `max_preguntas_por_asamblea` e `incluye_acta_detallada`. La app usa estos valores para el límite de preguntas por asamblea y para habilitar/ocultar acta con auditoría. |
+| 9 | **PLANES-TABLA-Y-SEED.sql** | Tabla **planes** (key, nombre, precio_cop_anual) para administrar planes desde super-admin. Seed: free, pro, pilot. |
+| 10 | **AGREGAR-LIMITES-PLANES.sql** | En **planes**: columnas `max_preguntas_por_asamblea` e `incluye_acta_detallada`. Límite de preguntas por asamblea y acta con auditoría. |
+| 11 | **PRECIO-POR-ASAMBLEA-Y-TOKENS.sql** | En **planes**: `precio_por_asamblea_cop`. En **organizations**: `tokens_disponibles`. Tokens por cuenta; se descontan al usar funcionalidades. |
+| 12 | **TOKENS-CONJUNTOS.sql** | Asegura columna `tokens_disponibles` en organizations. Plan Pro por asamblea: la cuenta consume 1 token al activar asamblea Pro. |
+| 13 | **AGREGAR-TOKENS-INICIALES-PLANES.sql** | En **planes**: `tokens_iniciales` (Gratis: 2, Piloto: 10, Pro: null = ilimitado). Se asignan al conjunto al tener ese plan. |
+| 14 | **AGREGAR-VIGENCIA-PLANES.sql** | En **planes**: `vigencia_meses` (Gratis: null, Piloto: 3, Pro: 12). Duración al asignar el plan a una cuenta. |
+| 15 | **CONFIGURACION-GLOBAL-LANDING.sql** | Tabla o filas de configuración global para landing (color, WhatsApp, etc.). |
+| 16 | **AGREGAR-COLOR-PRINCIPAL-CONFIG.sql** | Columna o clave `color_principal_hex` para la landing. Se edita en Super Admin → Ajustes. |
 
 ---
 
@@ -34,6 +40,12 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 8. WOMPI-CONJUNTOS-Y-PAGOS-LOG.sql
 9. PLANES-TABLA-Y-SEED.sql
 10. AGREGAR-LIMITES-PLANES.sql
+11. PRECIO-POR-ASAMBLEA-Y-TOKENS.sql
+12. TOKENS-CONJUNTOS.sql
+13. AGREGAR-TOKENS-INICIALES-PLANES.sql
+14. AGREGAR-VIGENCIA-PLANES.sql
+15. CONFIGURACION-GLOBAL-LANDING.sql
+16. AGREGAR-COLOR-PRINCIPAL-CONFIG.sql
 ```
 
 ---
@@ -45,3 +57,5 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 - **3 y 4:** Imprescindibles para el modelo de negocio (planes, límite de preguntas, acta Pro) y para el webhook de pagos.
 - **5:** Opcional si no usas umbral de aprobación por pregunta.
 - **6:** Recomendado si tienes muchas votaciones o consultas lentas.
+- **11–14:** Modelo de negocio: tokens por cuenta, precio por asamblea, tokens iniciales y vigencia por plan. Imprescindibles para Super Admin (planes y conjuntos).
+- **15–16:** Configuración global (landing, color). Necesarios para Super Admin → Ajustes.

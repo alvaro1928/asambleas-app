@@ -19,6 +19,7 @@ El proyecto ha sido preparado y testeado para despliegue en producción.
 - [x] No hay credenciales hardcodeadas
 - [x] `.env.local` configurado para desarrollo
 - [x] `.env.local` incluido en `.gitignore`
+- **Lista completa:** [docs/configuracion/VARIABLES-ENTORNO-VERCEL.md](../configuracion/VARIABLES-ENTORNO-VERCEL.md) (Supabase, Auth, Super Admin, Wompi; landing/precio/WhatsApp se configuran en Super Admin → Ajustes).
 
 ### ✅ **3. Autenticación**
 - [x] Magic Link con URLs dinámicas

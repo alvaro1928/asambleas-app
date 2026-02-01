@@ -6,10 +6,10 @@ import { planEfectivo } from '@/lib/plan-utils'
 
 /**
  * POST /api/dashboard/descontar-token-asamblea-pro
- * Descuenta 1 token del conjunto cuando se activa una asamblea Pro
- * (asamblea con más de 2 preguntas). Solo se aplica si la asamblea está en borrador
- * y el conjunto tiene tokens_disponibles >= 1.
- * Devuelve 200 si se descontó o si no aplica descuento; 402 si no hay tokens.
+ * Descuenta 1 token del conjunto cuando se activa una asamblea con más de 2 preguntas
+ * (uso Pro). Solo aplica para planes Free/Pilot; Pro es ilimitado.
+ * Los tokens son del conjunto (organization); las cuentas (admins) administran conjuntos.
+ * Devuelve 200 si se descontó o si no aplica; 402 si no hay tokens.
  */
 export async function POST(request: NextRequest) {
   try {

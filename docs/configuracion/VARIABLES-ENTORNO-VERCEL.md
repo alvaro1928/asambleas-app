@@ -62,13 +62,9 @@ Luego pulsa **Guardar** para que Wompi envíe los eventos de pago a tu app.
 
 ---
 
-## 5. Landing y contacto (Plan Pro / WhatsApp)
+## 5. Landing, contacto y precio (ahora en Administración)
 
-| Variable | Obligatoria | Dónde sacarla | Uso |
-|----------|-------------|---------------|-----|
-| **`NEXT_PUBLIC_PLAN_PRO_URL`** | Opcional | URL de ventas/contacto o WhatsApp | Enlaces "Plan Pro" y "Actualizar a Pro". Tras pagar, el usuario vuelve al **mismo dashboard** y recarga para ver privilegios Pro. |
-| **`NEXT_PUBLIC_PRECIO_PRO_ANUAL`** | Opcional | Precio en COP por año (ej. `200000`) | Lo que cobras por Plan Pro por conjunto/año. Por defecto 200.000 COP. Se muestra en dashboard y landing. Para Wompi: valor × 100 = centavos. |
-| **`NEXT_PUBLIC_WHATSAPP_NUMBER`** | Opcional | Número WhatsApp con código país (ej. `573001234567`) | Botones de contacto por WhatsApp en la landing. |
+**Ya no se configuran por variables de entorno.** La URL de Plan Pro, el precio por token/asamblea, el número de WhatsApp y el color principal de la landing se gestionan desde **Super Admin → Ajustes** y desde la tabla de **Planes** (precio por asamblea). No hace falta definir `NEXT_PUBLIC_PLAN_PRO_URL`, `NEXT_PUBLIC_PRECIO_PRO_ANUAL` ni `NEXT_PUBLIC_WHATSAPP_NUMBER` en Vercel; la app lee esos valores de la base de datos.
 
 ---
 
@@ -95,11 +91,6 @@ WOMPI_INTEGRIDAD=test_integrity_xxxxxxxxxxxx
 # NEXT_PUBLIC_PASARELA_PAGOS_URL=https://checkout.wompi.co/...
 # WOMPI_LLAVE_PRIVADA=...   # solo si el backend llama a la API de Wompi
 # WOMPI_EVENTOS=...         # opcional, no usada en el webhook actual
-
-# ========== Landing / contacto / precio Pro ==========
-# NEXT_PUBLIC_PLAN_PRO_URL=https://wa.me/573001234567
-# NEXT_PUBLIC_PRECIO_PRO_ANUAL=200000
-# NEXT_PUBLIC_WHATSAPP_NUMBER=573001234567
 ```
 
 ---

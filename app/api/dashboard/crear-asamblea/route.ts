@@ -6,7 +6,8 @@ import { planEfectivo } from '@/lib/plan-utils'
 
 /**
  * POST /api/dashboard/crear-asamblea
- * Crea una asamblea y, si el plan no es pilot, descuenta 1 token del conjunto.
+ * Crea una asamblea y, si el plan no es Pro (Free/Pilot), descuenta 1 token del conjunto.
+ * Los tokens son del conjunto (organization); las cuentas (admins) administran conjuntos.
  * Requiere sesión y que el usuario tenga perfil en la organización.
  */
 export async function POST(request: NextRequest) {

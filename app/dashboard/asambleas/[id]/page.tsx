@@ -495,7 +495,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        toast.error(data.error || 'Error al registrar votos')
+        const msg = res.status === 403
+          ? 'No tienes permiso para registrar votos en esta asamblea. Verifica que pertenezcas al conjunto.'
+          : (data.error || 'Error al registrar votos')
+        toast.error(msg)
         return
       }
       setSuccessMessage(data.message || 'Votos registrados correctamente')
@@ -833,11 +836,15 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         })
         const data = await res.json().catch(() => ({}))
         if (res.status === 402) {
-          toast.error(data.error || 'No tienes tokens disponibles para activar esta asamblea Pro.')
+          setSinTokensModalOpen(true)
+          return
+        }
+        if (res.status === 403) {
+          toast.error('No tienes permiso para este conjunto. No es un tema de tokens.')
           return
         }
         if (!res.ok) {
-          toast.error(data.error || 'Error al descontar token')
+          toast.error(data.error || 'Error al activar asamblea')
           return
         }
       } catch (e) {

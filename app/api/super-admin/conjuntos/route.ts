@@ -151,7 +151,12 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { id, plan_type, activar_cortesia } = body as { id?: string; plan_type?: string; activar_cortesia?: boolean }
+    const { id, plan_type, activar_cortesia, tokens_disponibles } = body as {
+      id?: string
+      plan_type?: string
+      activar_cortesia?: boolean
+      tokens_disponibles?: number
+    }
 
     if (!id) {
       return NextResponse.json({ error: 'Falta id del conjunto' }, { status: 400 })
@@ -170,6 +175,20 @@ export async function PATCH(request: NextRequest) {
       serviceRoleKey,
       { auth: { persistSession: false } }
     )
+
+    // Solo actualizar tokens del conjunto (sin cambiar plan). Tokens son del conjunto (organization).
+    if (tokens_disponibles !== undefined && plan_type === undefined && !activar_cortesia) {
+      const value = Math.max(0, Math.round(Number(tokens_disponibles)))
+      const { error } = await admin
+        .from('organizations')
+        .update({ tokens_disponibles: value })
+        .eq('id', id)
+      if (error) {
+        console.error('super-admin PATCH tokens:', error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      return NextResponse.json({ ok: true })
+    }
 
     if (activar_cortesia) {
       const now = new Date()
@@ -204,7 +223,19 @@ export async function PATCH(request: NextRequest) {
     if (plan_type === 'pro' || plan_type === 'pilot') {
       const now = new Date()
       const activeUntil = new Date(now)
-      activeUntil.setDate(activeUntil.getDate() + 365)
+      const { data: planRow } = await admin
+        .from('planes')
+        .select('vigencia_meses')
+        .eq('key', plan_type)
+        .maybeSingle()
+      const vigenciaMeses = planRow != null && typeof (planRow as { vigencia_meses?: number | null }).vigencia_meses === 'number'
+        ? Math.max(0, (planRow as { vigencia_meses: number }).vigencia_meses)
+        : plan_type === 'pilot' ? 3 : 12
+      if (vigenciaMeses > 0) {
+        activeUntil.setMonth(activeUntil.getMonth() + vigenciaMeses)
+      } else {
+        activeUntil.setDate(activeUntil.getDate() + 365)
+      }
       payload.subscription_status = 'active'
       payload.plan_active_until = activeUntil.toISOString()
       if (plan_type === 'pro') (payload as Record<string, number | null>).tokens_disponibles = 0
@@ -214,15 +245,21 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (plan_type === 'free' || plan_type === 'pilot') {
-      const { data: planRow } = await admin
-        .from('planes')
-        .select('tokens_iniciales')
-        .eq('key', plan_type)
-        .maybeSingle()
-      const tokensIniciales = planRow != null && typeof (planRow as { tokens_iniciales?: number | null }).tokens_iniciales === 'number'
-        ? Math.max(0, (planRow as { tokens_iniciales: number }).tokens_iniciales)
-        : plan_type === 'free' ? 2 : 10
-      ;(payload as Record<string, number>).tokens_disponibles = tokensIniciales
+      let tokensValue: number
+      if (typeof tokens_disponibles === 'number' && tokens_disponibles >= 0) {
+        tokensValue = Math.max(0, Math.round(tokens_disponibles))
+      } else {
+        const { data: planRow } = await admin
+          .from('planes')
+          .select('tokens_iniciales')
+          .eq('key', plan_type)
+          .maybeSingle()
+        const tokensIniciales = planRow != null && typeof (planRow as { tokens_iniciales?: number | null }).tokens_iniciales === 'number'
+          ? Math.max(0, (planRow as { tokens_iniciales: number }).tokens_iniciales)
+          : plan_type === 'free' ? 2 : 10
+        tokensValue = tokensIniciales
+      }
+      ;(payload as Record<string, number>).tokens_disponibles = tokensValue
     }
 
     const { error } = await admin

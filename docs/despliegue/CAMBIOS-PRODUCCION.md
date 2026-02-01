@@ -101,11 +101,14 @@ Ve a: **Authentication → URL Configuration**
    https://tu-app.vercel.app
    ```
 
-2. **Redirect URLs (agregar ambas):**
+2. **Redirect URLs (agregar todas):**
    ```
    http://localhost:3000/auth/callback
    https://tu-app.vercel.app/auth/callback
+   http://localhost:3000/auth/callback/oauth
+   https://tu-app.vercel.app/auth/callback/oauth
    ```
+   (OAuth para Google usa `/auth/callback/oauth`.)
 
 ---
 

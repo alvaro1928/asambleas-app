@@ -1,36 +1,40 @@
 # Asambleas App
 
-Aplicación SaaS construida con Next.js y Supabase.
+Aplicación SaaS para asambleas de propiedades horizontales: votaciones, quórum, poderes y actas. Construida con Next.js y Supabase.
 
-## Configuración
+## Configuración rápida
 
-1. Instala las dependencias:
-```bash
-npm install
-```
+1. **Instalar dependencias**
+   ```bash
+   npm install
+   ```
 
-2. Configura las variables de entorno en `.env.local`:
-```
-NEXT_PUBLIC_SUPABASE_URL=tu_url_de_supabase
-NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_clave_anonima
-```
+2. **Variables de entorno** — Crea `.env.local` con al menos:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=tu_url_de_supabase
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_clave_anonima
+   ```
+   Lista completa: **[docs/configuracion/VARIABLES-ENTORNO-VERCEL.md](docs/configuracion/VARIABLES-ENTORNO-VERCEL.md)**.
 
-3. Ejecuta el script SQL en tu proyecto de Supabase:
-   - Ve a tu proyecto en Supabase
-   - Abre el SQL Editor
-   - Copia y pega el contenido de `supabase/schema.sql`
-   - Ejecuta el script
+3. **Base de datos** — En Supabase (SQL Editor) ejecuta los scripts en el orden indicado en **[docs/supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md](docs/supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md)** (empezando por `schema.sql` si es proyecto nuevo).
 
-4. Inicia el servidor de desarrollo:
-```bash
-npm run dev
-```
+4. **Arrancar**
+   ```bash
+   npm run dev
+   ```
 
-## Estructura
+## Modelo de negocio (resumen)
 
-- `app/` - Rutas y componentes de Next.js App Router
-- `lib/` - Utilidades y configuración (incluye `supabase.ts`)
-- `supabase/` - Scripts SQL (documentación en `docs/supabase/`)
-- `docs/` - Documentación del proyecto (guías, configuración, despliegue, referencia)
+- **Tokens por cuenta:** cada cuenta (conjunto) tiene un saldo de tokens que se va descontando al crear o activar asambleas. Cuando se quedan sin tokens, compran más o actualizan a Plan Pro (ilimitado).
+- **Planes:** Gratis (2 tokens iniciales), Piloto (10, vigencia configurable), Pro (ilimitado, vigencia configurable). Precio por token/asamblea y ajustes de landing (color, WhatsApp) se configuran en **Super Admin → Ajustes** y en la tabla de **Planes**.
 
-Para ver toda la documentación: **[docs/README.md](docs/README.md)**.
+## Estructura del proyecto
+
+- `app/` — Rutas y componentes (Next.js App Router)
+- `lib/` — Utilidades y configuración (Supabase, auth, planes)
+- `supabase/` — Scripts SQL (ver orden en `docs/supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md`)
+- `docs/` — Documentación (índice en **[docs/README.md](docs/README.md)**)
+
+## Documentación
+
+Índice completo: **[docs/README.md](docs/README.md)** — resumen de la app, guías de uso, configuración, despliegue, Supabase, referencia técnica, pruebas y UX.

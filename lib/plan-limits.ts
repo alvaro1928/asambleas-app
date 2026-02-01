@@ -1,7 +1,8 @@
 /**
  * Límites parametrizables por plan (desde tabla planes).
- * Plan Pro por asamblea: para usar funciones Pro (más de 2 preguntas, acta detallada)
- * el conjunto debe tener tokens_disponibles > 0.
+ * Los tokens son del conjunto (organization); las cuentas (admins) administran conjuntos.
+ * Pro y Pilot pueden usar funciones Pro (más de 2 preguntas, acta detallada); Pro es ilimitado.
+ * Free y Pilot consumen tokens del conjunto al crear o activar asambleas.
  */
 
 export interface PlanLimits {
@@ -46,20 +47,21 @@ export function getPlanLimits(planKey: string | null | undefined, planFromApi?: 
 
 /**
  * Indica si el conjunto puede usar funciones Pro (más de 2 preguntas, acta detallada).
- * Pilot: siempre. Pro: solo si tokens_disponibles > 0. Free: no.
+ * Pilot: siempre. Pro: ilimitado (siempre). Free: no.
+ * Los tokens son del conjunto (organization); las cuentas (admins) administran conjuntos.
  */
 export function canUseProFeatures(
   planKey: string | null | undefined,
-  tokensDisponibles: number
+  _tokensDisponibles: number
 ): boolean {
   if (planKey === 'pilot') return true
-  if (planKey === 'pro') return tokensDisponibles > 0
+  if (planKey === 'pro') return true
   return false
 }
 
 /**
- * Límites efectivos según plan y tokens. Para usar Pro (más de 2 preguntas, acta detallada)
- * se requiere tokens_disponibles > 0 si el plan es Pro; Pilot siempre tiene Pro.
+ * Límites efectivos según plan. Pro y Pilot pueden usar más de 2 preguntas y acta detallada.
+ * Free no. Los tokens (del conjunto) solo se consumen en Free/Pilot al crear o activar asambleas.
  */
 export function getEffectivePlanLimits(
   planKey: string | null | undefined,

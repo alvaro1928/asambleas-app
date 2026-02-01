@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button'
 export type ComprarTokensVariant = 'blocked' | 'low' | 'inline' | 'modal'
 
 type ComprarTokensCTAProps = {
-  /** ID del conjunto para la URL de pago */
+  /** ID del conjunto (cuenta) para la URL de pago */
   conjuntoId: string | null
-  /** Precio en COP por token (por asamblea) para mostrar */
+  /** Precio en COP por token para mostrar */
   precioCop?: number | null
   /** Plan actual: free muestra "Actualizar a Pro", pilot muestra "Pasar a Pro ilimitado" */
   planType?: 'free' | 'pilot' | 'pro' | null
@@ -62,7 +62,7 @@ export function ComprarTokensCTA({
       : 'Más potencia para tus asambleas'
 
   const subtitulo = isBlocked
-    ? 'Como en las apps de IA: cada asamblea nueva o con más de 2 preguntas consume 1 token. Compra más tokens o actualiza a Plan Pro y ten asambleas ilimitadas.'
+    ? 'Los tokens son del conjunto que administras; se descontan al crear o activar asambleas. Compra más tokens o actualiza a Plan Pro y ten asambleas ilimitadas.'
     : isLow
       ? 'Compra más tokens ahora y no te quedes sin poder crear o activar asambleas. O actualiza a Pro y olvídate de los límites.'
       : 'Compra tokens bajo demanda o actualiza a Plan Pro para asambleas ilimitadas, actas detalladas y más preguntas.'
@@ -152,7 +152,7 @@ export function ComprarTokensCTA({
 
       {showComprar && typeof precioCop === 'number' && precioCop > 0 && (isBlocked || isLow) && (
         <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-          Cada token = 1 asamblea nueva o 1 asamblea Pro (más de 2 preguntas). Al pagar recibes 1 token al instante; recarga el dashboard para ver tu saldo.
+          Los tokens son del conjunto que administras; cada uno se descuenta al crear o activar una asamblea. Al pagar recibes 1 token al instante; recarga el dashboard para ver el saldo del conjunto.
         </p>
       )}
     </div>

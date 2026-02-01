@@ -7,6 +7,7 @@ import { planEfectivo } from '@/lib/plan-utils'
 /**
  * GET /api/dashboard/organization-status?organization_id=xxx
  * Devuelve plan_type, plan_active_until, tokens_disponibles y plan_efectivo del conjunto.
+ * Los tokens son del conjunto (organization); las cuentas (admins) administran conjuntos.
  * Solo si el usuario tiene perfil en esa organización.
  */
 export async function GET(request: NextRequest) {

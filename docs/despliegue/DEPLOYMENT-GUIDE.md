@@ -8,7 +8,7 @@ Esta guía te ayudará a configurar correctamente la autenticación Magic Link p
 
 ### **Archivo `.env.local` (Desarrollo)**
 
-Asegúrate de tener estas variables en tu archivo local:
+Asegúrate de tener estas variables en tu archivo local. **Para la lista completa de variables** (Supabase, Auth, Super Admin, Wompi), ver **[docs/configuracion/VARIABLES-ENTORNO-VERCEL.md](../configuracion/VARIABLES-ENTORNO-VERCEL.md)**.
 
 ```env
 # Supabase
@@ -56,11 +56,14 @@ Después de desplegar en Vercel, obtendrás una URL como:
 https://tu-app.vercel.app
 ```
 
-#### **Redirect URLs (agregar ambas):**
+#### **Redirect URLs (agregar todas):**
 ```
 http://localhost:3000/auth/callback
 https://tu-app.vercel.app/auth/callback
+http://localhost:3000/auth/callback/oauth
+https://tu-app.vercel.app/auth/callback/oauth
 ```
+(OAuth para Google usa `/auth/callback/oauth`.)
 
 > **Importante:** Deja ambas URLs. La de localhost para desarrollo y la de Vercel para producción.
 

@@ -1,6 +1,7 @@
 -- =====================================================
--- tokens_iniciales en planes: cuántos tokens tiene el
--- conjunto al tener ese plan (Gratis 2, Pilot 10, Pro ilimitado = null).
+-- tokens_iniciales en planes: cuántos tokens tiene la
+-- cuenta al tener ese plan. Gratis: 2; Piloto: 10 (hasta 3 meses); Pro: ilimitado (null).
+-- Ajusta en Super Admin > Planes y se refleja en toda la app.
 -- =====================================================
 
 ALTER TABLE planes
