@@ -508,8 +508,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                               <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
                               <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 11 }} />
                               <Tooltip
-                                formatter={(value: number) => [`${value}%`, 'Coeficiente']}
-                                labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName}
+                                formatter={(value: number | undefined) => [`${value ?? 0}%`, 'Coeficiente']}
+                                labelFormatter={(_: unknown, payload?: { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName ?? ''}
                               />
                               <ReferenceLine
                                 x={umbral}
