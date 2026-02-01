@@ -8,7 +8,6 @@ import { User } from '@supabase/supabase-js'
 import ConjuntoSelector from '@/components/ConjuntoSelector'
 import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
 import { Tooltip as UiTooltip } from '@/components/ui/tooltip'
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { isAdminEmail } from '@/lib/super-admin'
 import { planEfectivo } from '@/lib/plan-utils'
 import { useToast } from '@/components/providers/ToastProvider'
@@ -17,7 +16,6 @@ interface UnidadMetrics {
   total: number
   sumaCoeficientes: number
   censoDatos: number
-  distribucionTipo: { name: string; value: number; color: string }[]
 }
 
 export default function DashboardPage() {
@@ -30,8 +28,7 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = useState<UnidadMetrics>({
     total: 0,
     sumaCoeficientes: 0,
-    censoDatos: 0,
-    distribucionTipo: []
+    censoDatos: 0
   })
   const [planType, setPlanType] = useState<'free' | 'pro' | 'pilot' | null>(null)
   const [tokensDisponibles, setTokensDisponibles] = useState<number>(0)
@@ -165,33 +162,10 @@ export default function DashboardPage() {
           ).length
           const censoDatos = total > 0 ? (unidadesCompletas / total) * 100 : 0
 
-          // Calcular distribución por tipo
-          const tipoCount: { [key: string]: number } = {}
-          unidades.forEach(u => {
-            const tipo = u.tipo || 'sin tipo'
-            tipoCount[tipo] = (tipoCount[tipo] || 0) + 1
-          })
-
-          const colores: { [key: string]: string } = {
-            'apartamento': '#6366f1',
-            'casa': '#10b981',
-            'local': '#f59e0b',
-            'parqueadero': '#8b5cf6',
-            'bodega': '#ec4899',
-            'sin tipo': '#6b7280'
-          }
-
-          const distribucionTipo = Object.entries(tipoCount).map(([name, value]) => ({
-            name: name.charAt(0).toUpperCase() + name.slice(1),
-            value,
-            color: colores[name.toLowerCase()] || '#6b7280'
-          }))
-
           setMetrics({
             total,
             sumaCoeficientes,
-            censoDatos,
-            distribucionTipo
+            censoDatos
           })
         }
       }
@@ -699,65 +673,6 @@ export default function DashboardPage() {
             </Link>
             </UiTooltip>
           </div>
-
-          {/* Gráfico de Distribución por Tipo */}
-          {metrics.distribucionTipo.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
-                Distribución por Tipo de Unidad
-              </h3>
-              <div className="grid md:grid-cols-2 gap-8">
-                {/* Gráfico de Torta */}
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={metrics.distribucionTipo}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {metrics.distribucionTipo.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* Lista de Tipos */}
-                <div className="flex flex-col justify-center space-y-4">
-                  {metrics.distribucionTipo.map((tipo) => (
-                    <div key={tipo.name} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: tipo.color }}
-                        />
-                        <span className="text-gray-700 dark:text-gray-300 font-medium">
-                          {tipo.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <span className="text-gray-900 dark:text-white font-bold">
-                          {tipo.value}
-                        </span>
-                        <span className="text-gray-500 dark:text-gray-400 text-sm">
-                          ({((tipo.value / metrics.total) * 100).toFixed(1)}%)
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </main>
     </div>
