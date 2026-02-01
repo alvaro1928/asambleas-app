@@ -1,30 +1,45 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { 
-  ArrowLeft, 
-  Users, 
-  QrCode, 
-  ExternalLink, 
-  RefreshCw, 
+import {
+  ArrowLeft,
+  Users,
+  QrCode,
+  RefreshCw,
   Clock,
   Building2,
   Vote,
-  BarChart3,
-  CheckCircle2
+  CheckCircle2,
+  Copy,
+  Search,
+  UserCheck,
+  UserX,
+  Radio
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { QRCodeSVG } from 'qrcode.react'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  ReferenceLine
+} from 'recharts'
 
 interface Asamblea {
   id: string
   nombre: string
   codigo_acceso: string
   estado: string
+  organization_id?: string
 }
 
 interface Asistente {
@@ -34,6 +49,15 @@ interface Asistente {
   hora_llegada: string
   torre: string
   numero: string
+  coeficiente: number
+}
+
+interface UnidadFila {
+  id: string
+  torre: string
+  numero: string
+  nombre_propietario: string
+  email_propietario: string
   coeficiente: number
 }
 
@@ -52,31 +76,53 @@ interface PreguntaAvance {
   total_votos: number
   total_coeficiente: number
   coeficiente_total_conjunto?: number
+  umbral_aprobacion?: number | null
+}
+
+interface ResultadoOpcion {
+  opcion_id: string
+  opcion_texto: string
+  color: string
+  votos_cantidad: number
+  votos_coeficiente: number
+  porcentaje_coeficiente_total: number
+}
+
+interface PreguntaConResultados {
+  id: string
+  texto_pregunta: string
+  umbral_aprobacion: number | null
+  resultados: ResultadoOpcion[]
 }
 
 export default function AsambleaAccesoPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [asamblea, setAsamblea] = useState<Asamblea | null>(null)
   const [asistentes, setAsistentes] = useState<Asistente[]>([])
+  const [yaVotaron, setYaVotaron] = useState<UnidadFila[]>([])
+  const [faltantes, setFaltantes] = useState<UnidadFila[]>([])
   const [loading, setLoading] = useState(true)
   const [recargando, setRecargando] = useState(false)
   const [urlPublica, setUrlPublica] = useState('')
   const [quorum, setQuorum] = useState<QuorumData | null>(null)
   const [preguntasAvance, setPreguntasAvance] = useState<PreguntaAvance[]>([])
+  const [preguntasConResultados, setPreguntasConResultados] = useState<PreguntaConResultados[]>([])
+  const [searchSesion, setSearchSesion] = useState('')
+  const [searchYaVotaron, setSearchYaVotaron] = useState('')
+  const [searchFaltantes, setSearchFaltantes] = useState('')
+  const [copiado, setCopiado] = useState(false)
 
   useEffect(() => {
     loadAsamblea()
     loadAsistentes()
     loadAvanceVotaciones()
 
-    // Polling cada 10 segundos (ingresos + avance de votaciones)
     const interval = setInterval(() => {
       loadAsistentes(true)
       loadAvanceVotaciones()
     }, 10000)
 
     return () => clearInterval(interval)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when id changes, interval uses loadAsistentes/loadAvanceVotaciones
   }, [params.id])
 
   const loadAsamblea = async () => {
@@ -89,16 +135,14 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       const { data, error } = await supabase
         .from('asambleas')
-        .select('id, nombre, codigo_acceso, estado')
+        .select('id, nombre, codigo_acceso, estado, organization_id')
         .eq('id', params.id)
         .eq('organization_id', selectedConjuntoId)
         .single()
 
       if (error) throw error
       setAsamblea(data)
-      
-      const origin = window.location.origin
-      setUrlPublica(`${origin}/votar/${data.codigo_acceso}`)
+      setUrlPublica(`${window.location.origin}/votar/${data.codigo_acceso}`)
     } catch (error) {
       console.error('Error cargando asamblea:', error)
       router.push('/dashboard/asambleas')
@@ -110,38 +154,24 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     else setRecargando(true)
 
     try {
-      // Solo sesiones con actividad reciente (últimos 5 min); requiere columna ultima_actividad (AGREGAR-ULTIMA-ACTIVIDAD-QUORUM.sql)
       const cincoMinAtras = new Date(Date.now() - 5 * 60 * 1000).toISOString()
-
       const baseQuery = () =>
         supabase
           .from('quorum_asamblea')
           .select(`
-            id,
-            email_propietario,
-            hora_llegada,
-            unidades (
-              torre,
-              numero,
-              coeficiente,
-              nombre_propietario
-            )
+            id, email_propietario, hora_llegada,
+            unidades ( torre, numero, coeficiente, nombre_propietario )
           `)
           .eq('asamblea_id', params.id)
           .eq('presente_virtual', true)
           .order('hora_llegada', { ascending: false })
 
       let result = await baseQuery().gte('ultima_actividad', cincoMinAtras)
-
-      // Si falla (ej. columna ultima_actividad no existe), repetir sin filtro de actividad
-      if (result.error) {
-        result = await baseQuery()
-      }
-
+      if (result.error) result = await baseQuery()
       const { data, error } = result
       if (error) throw error
 
-      const formattedAsistentes: Asistente[] = (data || []).map((item: any) => ({
+      const formatted: Asistente[] = (data || []).map((item: any) => ({
         id: item.id,
         email_propietario: item.email_propietario,
         nombre_propietario: item.unidades?.nombre_propietario || 'S/N',
@@ -150,8 +180,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         numero: item.unidades?.numero || 'S/N',
         coeficiente: item.unidades?.coeficiente || 0
       }))
-
-      setAsistentes(formattedAsistentes)
+      setAsistentes(formatted)
     } catch (error) {
       console.error('Error cargando asistentes:', error)
     } finally {
@@ -162,12 +191,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
   const loadAvanceVotaciones = async () => {
     try {
-      // Quórum de la asamblea (unidades que ya votaron / total)
       const { data: rpcData, error: rpcError } = await supabase.rpc('calcular_quorum_asamblea', {
         p_asamblea_id: params.id
       })
 
-      if (!rpcError && rpcData && rpcData.length > 0) {
+      if (!rpcError && rpcData?.length) {
         const q = rpcData[0] as QuorumData
         setQuorum({
           total_unidades: q.total_unidades ?? 0,
@@ -177,57 +205,156 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           porcentaje_participacion_coeficiente: q.porcentaje_participacion_coeficiente ?? 0,
           quorum_alcanzado: q.quorum_alcanzado ?? false
         })
-      } else {
-        setQuorum(null)
-      }
+      } else setQuorum(null)
 
-      // Preguntas abiertas y avance por pregunta
-      const { data: preguntasData, error: preguntasError } = await supabase
+      const { data: preguntasData } = await supabase
         .from('preguntas')
-        .select('id, texto_pregunta')
+        .select('id, texto_pregunta, umbral_aprobacion')
         .eq('asamblea_id', params.id)
         .eq('estado', 'abierta')
         .order('created_at', { ascending: true })
 
-      if (preguntasError || !preguntasData?.length) {
-        setPreguntasAvance([])
-        return
-      }
-
       const avances: PreguntaAvance[] = []
-      for (const p of preguntasData) {
-        const { data: statsData, error: statsError } = await supabase.rpc('calcular_estadisticas_pregunta', {
+      const conResultados: PreguntaConResultados[] = []
+
+      for (const p of preguntasData || []) {
+        const { data: statsData } = await supabase.rpc('calcular_estadisticas_pregunta', {
           p_pregunta_id: p.id
         })
-        if (!statsError && statsData && statsData.length > 0) {
-          const s = statsData[0] as { total_votos?: number; total_coeficiente?: number; coeficiente_total_conjunto?: number }
-          avances.push({
-            id: p.id,
-            texto_pregunta: p.texto_pregunta,
-            total_votos: Number(s.total_votos) || 0,
-            total_coeficiente: Number(s.total_coeficiente) || 0,
-            coeficiente_total_conjunto: s.coeficiente_total_conjunto != null ? Number(s.coeficiente_total_conjunto) : undefined
-          })
-        } else {
-          avances.push({
-            id: p.id,
-            texto_pregunta: p.texto_pregunta,
-            total_votos: 0,
-            total_coeficiente: 0
-          })
+        const s = statsData?.[0] as any
+        const totalCoef = Number(s?.total_coeficiente) || 0
+        const coefConjunto = s?.coeficiente_total_conjunto != null ? Number(s.coeficiente_total_conjunto) : undefined
+        avances.push({
+          id: p.id,
+          texto_pregunta: p.texto_pregunta,
+          total_votos: Number(s?.total_votos) || 0,
+          total_coeficiente: totalCoef,
+          coeficiente_total_conjunto: coefConjunto,
+          umbral_aprobacion: p.umbral_aprobacion ?? null
+        })
+
+        let resultados: ResultadoOpcion[] = []
+        if (s?.resultados) {
+          const raw = typeof s.resultados === 'string' ? JSON.parse(s.resultados || '[]') : s.resultados
+          resultados = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+            opcion_id: r.opcion_id,
+            opcion_texto: r.opcion_texto || r.texto_opcion || 'Opción',
+            color: r.color || '#6366f1',
+            votos_cantidad: Number(r.votos_cantidad) || 0,
+            votos_coeficiente: Number(r.votos_coeficiente) || 0,
+            porcentaje_coeficiente_total: Number(r.porcentaje_coeficiente_total) || 0
+          }))
         }
+        conResultados.push({
+          id: p.id,
+          texto_pregunta: p.texto_pregunta,
+          umbral_aprobacion: p.umbral_aprobacion ?? null,
+          resultados
+        })
       }
       setPreguntasAvance(avances)
+      setPreguntasConResultados(conResultados)
+
+      const orgId = asamblea?.organization_id
+      if (!orgId) return
+
+      const { data: votosData } = await supabase
+        .from('votos')
+        .select('unidad_id')
+        .in('pregunta_id', (preguntasData || []).map((x) => x.id))
+
+      const unidadIdsVotaron = [...new Set((votosData || []).map((v: any) => v.unidad_id).filter(Boolean))]
+
+      if (unidadIdsVotaron.length > 0) {
+        const { data: unidadesVotaron } = await supabase
+          .from('unidades')
+          .select('id, torre, numero, nombre_propietario, email_propietario, coeficiente')
+          .in('id', unidadIdsVotaron)
+        setYaVotaron((unidadesVotaron || []).map((u: any) => ({
+          id: u.id,
+          torre: u.torre || 'S/T',
+          numero: u.numero || 'S/N',
+          nombre_propietario: u.nombre_propietario || 'S/N',
+          email_propietario: u.email_propietario || '',
+          coeficiente: Number(u.coeficiente) || 0
+        })))
+      } else setYaVotaron([])
+
+      const { data: todasUnidades } = await supabase
+        .from('unidades')
+        .select('id, torre, numero, nombre_propietario, email_propietario, coeficiente')
+        .eq('organization_id', orgId)
+
+      const idsVotaronSet = new Set(unidadIdsVotaron)
+      const faltantesList = (todasUnidades || []).filter((u: any) => !idsVotaronSet.has(u.id)).map((u: any) => ({
+        id: u.id,
+        torre: u.torre || 'S/T',
+        numero: u.numero || 'S/N',
+        nombre_propietario: u.nombre_propietario || 'S/N',
+        email_propietario: u.email_propietario || '',
+        coeficiente: Number(u.coeficiente) || 0
+      }))
+      setFaltantes(faltantesList)
     } catch (error) {
-      console.error('Error cargando avance de votaciones:', error)
+      console.error('Error cargando avance:', error)
     }
   }
+
+  useEffect(() => {
+    if (asamblea?.organization_id) loadAvanceVotaciones()
+  }, [asamblea?.organization_id])
+
+  const copiarEnlace = async () => {
+    try {
+      await navigator.clipboard.writeText(urlPublica)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      // ignore
+    }
+  }
+
+  const filtro = (texto: string, query: string) => {
+    const q = query.trim().toLowerCase()
+    if (!q) return true
+    return texto.toLowerCase().includes(q)
+  }
+
+  const asistentesFiltrados = useMemo(() => {
+    if (!searchSesion.trim()) return asistentes
+    return asistentes.filter(
+      (a) =>
+        filtro(`${a.torre} ${a.numero}`, searchSesion) ||
+        filtro(a.nombre_propietario, searchSesion) ||
+        filtro(a.email_propietario, searchSesion)
+    )
+  }, [asistentes, searchSesion])
+
+  const yaVotaronFiltrados = useMemo(() => {
+    if (!searchYaVotaron.trim()) return yaVotaron
+    return yaVotaron.filter(
+      (u) =>
+        filtro(`${u.torre} ${u.numero}`, searchYaVotaron) ||
+        filtro(u.nombre_propietario, searchYaVotaron) ||
+        filtro(u.email_propietario, searchYaVotaron)
+    )
+  }, [yaVotaron, searchYaVotaron])
+
+  const faltantesFiltrados = useMemo(() => {
+    if (!searchFaltantes.trim()) return faltantes
+    return faltantes.filter(
+      (u) =>
+        filtro(`${u.torre} ${u.numero}`, searchFaltantes) ||
+        filtro(u.nombre_propietario, searchFaltantes) ||
+        filtro(u.email_propietario, searchFaltantes)
+    )
+  }, [faltantes, searchFaltantes])
 
   if (loading && !asamblea) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
           <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando control de acceso...</p>
         </div>
       </div>
@@ -236,10 +363,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-4">
               <Link
                 href={`/dashboard/asambleas/${params.id}`}
@@ -248,85 +374,72 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 <ArrowLeft className="w-6 h-6" />
               </Link>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Control de Acceso y QR
-                </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {asamblea?.nombre}
-                </p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Control de Acceso y QR</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{asamblea?.nombre}</p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  loadAsistentes(true)
-                  loadAvanceVotaciones()
-                }}
-                disabled={recargando}
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
-                Actualizar
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                loadAsistentes(true)
+                loadAvanceVotaciones()
+              }}
+              disabled={recargando}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
+              Actualizar
+            </Button>
+          </div>
+
+          {/* URL de votación: superior central, fuente grande, Copiar Enlace */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-4xl mx-auto">
+            <label className="sr-only">Enlace de votación</label>
+            <input
+              type="text"
+              readOnly
+              value={urlPublica}
+              className="flex-1 min-w-0 px-4 py-3 text-base sm:text-lg font-mono bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-indigo-700 dark:text-indigo-300 truncate"
+              aria-label="URL de votación"
+            />
+            <Button
+              onClick={copiarEnlace}
+              className="shrink-0 bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center gap-2"
+            >
+              <Copy className="w-4 h-4" />
+              {copiado ? '¡Copiado!' : 'Copiar Enlace'}
+            </Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Panel Izquierdo: QR y Link */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Columna izquierda: QR + Resumen + Gráfica */}
           <div className="lg:col-span-1 space-y-6">
-            <Card className="border-indigo-200 dark:border-indigo-900 shadow-md overflow-hidden">
-              <CardHeader className="bg-indigo-600 text-white">
+            <Card className="border-indigo-200 dark:border-indigo-900 overflow-hidden">
+              <CardHeader className="bg-indigo-600 text-white py-4">
                 <CardTitle className="text-lg flex items-center">
                   <QrCode className="w-5 h-5 mr-2" />
                   Código QR de Acceso
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-8 flex flex-col items-center">
-                <div className="bg-white p-6 rounded-2xl shadow-inner border border-gray-100 mb-6">
+              <CardContent className="p-6 flex flex-col items-center">
+                <div className="bg-white p-4 rounded-xl shadow-inner border border-gray-100 mb-4">
                   {urlPublica && (
-                    <QRCodeSVG 
-                      value={urlPublica} 
-                      size={200}
-                      level="H"
-                      includeMargin={true}
-                    />
+                    <QRCodeSVG value={urlPublica} size={180} level="H" includeMargin />
                   )}
                 </div>
-                <p className="text-center text-sm text-gray-600 dark:text-gray-400 mb-6">
+                <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">
                   Los asambleístas deben escanear este código para ingresar a la votación.
                 </p>
-                <div className="w-full p-4 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">
-                    URL de Votación
-                  </p>
-                  <div className="flex items-center justify-between gap-2 overflow-hidden">
-                    <code className="text-xs text-indigo-600 dark:text-indigo-400 truncate">
-                      {urlPublica}
-                    </code>
-                    <a 
-                      href={urlPublica} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="p-2 bg-white dark:bg-gray-700 rounded-md shadow-sm border border-gray-200 dark:border-gray-600 hover:bg-gray-50"
-                    >
-                      <ExternalLink className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                    </a>
-                  </div>
-                </div>
-                <div className="mt-6 w-full text-center">
-                   <p className="text-2xl font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 py-3 rounded-lg border border-indigo-100 dark:border-indigo-800">
-                     CÓDIGO: {asamblea?.codigo_acceso}
-                   </p>
-                </div>
+                <p className="text-xl font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 py-2 px-4 rounded-lg">
+                  CÓDIGO: {asamblea?.codigo_acceso}
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="shadow-sm">
+            <Card>
               <CardHeader>
                 <CardTitle className="text-md flex items-center">
                   <Building2 className="w-4 h-4 mr-2 text-gray-500" />
@@ -347,146 +460,231 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </CardContent>
             </Card>
 
-            {/* Avance de votaciones: misma pantalla para el administrador */}
-            <Card className="shadow-sm border-emerald-200 dark:border-emerald-900">
-              <CardHeader>
-                <CardTitle className="text-md flex items-center">
-                  <Vote className="w-4 h-4 mr-2 text-emerald-600" />
-                  Avance de votaciones
-                </CardTitle>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Se actualiza cada 10 segundos. Ideal para proyectar en pantalla.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {quorum ? (
-                  <>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-600 dark:text-gray-400">Unidades que ya votaron</span>
-                        <span className="font-bold text-gray-900 dark:text-white">
-                          {quorum.unidades_votantes} / {quorum.total_unidades}
-                        </span>
-                      </div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-500 dark:bg-emerald-600 transition-all duration-500"
-                          style={{ width: `${Math.min(100, quorum.porcentaje_participacion_nominal)}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                        <span>{quorum.porcentaje_participacion_nominal.toFixed(1)}% nominal</span>
-                        <span>{quorum.porcentaje_participacion_coeficiente.toFixed(1)}% coeficiente</span>
-                      </div>
-                      {quorum.quorum_alcanzado && (
-                        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
-                          <CheckCircle2 className="w-4 h-4 shrink-0" />
-                          Quórum alcanzado
-                        </div>
-                      )}
-                    </div>
-                    {preguntasAvance.length > 0 && (
-                      <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
-                        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2 flex items-center">
-                          <BarChart3 className="w-3 h-3 mr-1" />
-                          Preguntas abiertas
-                        </p>
-                        <ul className="space-y-2">
-                          {preguntasAvance.map((p) => (
-                            <li key={p.id} className="text-sm flex justify-between items-start gap-2">
-                              <span className="text-gray-700 dark:text-gray-300 line-clamp-2 flex-1 min-w-0">
-                                {p.texto_pregunta}
-                              </span>
-                              <span className="shrink-0 font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                                {p.total_votos} votos
-                                {p.coeficiente_total_conjunto != null && p.coeficiente_total_conjunto > 0
-                                  ? ` (${((p.total_coeficiente / p.coeficiente_total_conjunto) * 100).toFixed(1)}%)`
-                                  : ''}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {preguntasAvance.length === 0 && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-100 dark:border-gray-800">
-                        No hay preguntas con votación abierta en este momento.
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    No hay datos de avance. Abre preguntas para votación en el detalle de la asamblea.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Panel Derecho: Lista de Asistentes */}
-          <div className="lg:col-span-2">
-            <Card className="shadow-md h-full min-h-[600px]">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 sticky top-0 z-10">
-                <div>
-                  <CardTitle className="text-lg flex items-center">
-                    <Users className="w-5 h-5 mr-2 text-green-600" />
-                    Registro de Ingresos en Tiempo Real
+            {/* Gráfica de barras horizontal con umbral y APROBADO */}
+            {preguntasConResultados.length > 0 && (
+              <Card className="border-emerald-200 dark:border-emerald-900">
+                <CardHeader>
+                  <CardTitle className="text-md flex items-center">
+                    <Vote className="w-4 h-4 mr-2 text-emerald-600" />
+                    Avance de votaciones
                   </CardTitle>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Solo se muestran quienes tienen sesión activa (al salir o cerrar la pestaña desaparecen del listado).
+                    Se actualiza cada 10 s. Ideal para proyectar en pantalla.
                   </p>
-                </div>
-                <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs px-3 py-1 rounded-full font-bold animate-pulse flex items-center">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                  EN VIVO
-                </span>
-              </CardHeader>
-              <CardContent className="p-0">
-                {asistentes.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-                    <Clock className="w-12 h-12 mb-4 opacity-20" />
-                    <p>Esperando el primer ingreso...</p>
-                    <p className="text-sm">Muestra el QR a los asambleístas para comenzar</p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {quorum && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">Unidades que ya votaron</span>
+                      <span className="font-bold">
+                        {quorum.unidades_votantes} / {quorum.total_unidades}
+                      </span>
+                    </div>
+                  )}
+                  {preguntasConResultados.map((preg) => {
+                    const data = preg.resultados.map((r) => ({
+                      name: r.opcion_texto.length > 20 ? r.opcion_texto.slice(0, 18) + '…' : r.opcion_texto,
+                      fullName: r.opcion_texto,
+                      porcentaje: Math.round(r.porcentaje_coeficiente_total * 100) / 100,
+                      color: r.color,
+                      aprueba: preg.umbral_aprobacion != null && r.porcentaje_coeficiente_total >= preg.umbral_aprobacion
+                    }))
+                    const umbral = preg.umbral_aprobacion ?? 50
+                    return (
+                      <div key={preg.id} className="space-y-2">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 line-clamp-2">
+                          {preg.texto_pregunta}
+                        </p>
+                        <div className="h-[220px] w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                              layout="vertical"
+                              data={data}
+                              margin={{ top: 8, right: 30, left: 80, bottom: 8 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                              <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
+                              <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 11 }} />
+                              <Tooltip
+                                formatter={(value: number) => [`${value}%`, 'Coeficiente']}
+                                labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName}
+                              />
+                              <ReferenceLine
+                                x={umbral}
+                                stroke={data.some((d) => d.aprueba) ? '#10b981' : '#ef4444'}
+                                strokeWidth={2}
+                                strokeDasharray="4 2"
+                                label={{ value: `Umbral ${umbral}%`, position: 'insideTopRight', fill: '#9ca3af', fontSize: 10 }}
+                              />
+                              <Bar
+                                dataKey="porcentaje"
+                                radius={[0, 4, 4, 0]}
+                                maxBarSize={28}
+                                label={{
+                                  position: 'right',
+                                  formatter: (v: number, _name: string, props: { payload?: { aprueba?: boolean } }) =>
+                                    props.payload?.aprueba ? `${v}% APROBADO` : `${v}%`,
+                                  fontSize: 11,
+                                  fill: '#374151'
+                                }}
+                              >
+                                {data.map((entry, index) => (
+                                  <Cell
+                                    key={entry.name + index}
+                                    fill={entry.aprueba ? '#10b981' : entry.color}
+                                    stroke={entry.aprueba ? '#059669' : undefined}
+                                    strokeWidth={entry.aprueba ? 2 : 0}
+                                  />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Triple listado: Sesión Activa | Ya Votaron | Faltantes */}
+          <div className="lg:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100vh-12rem)] min-h-[480px]">
+              {/* Sesión Activa */}
+              <Card className="flex flex-col overflow-hidden">
+                <CardHeader className="py-3 px-4 border-b flex-shrink-0 bg-green-50 dark:bg-green-900/20">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="text-sm flex items-center gap-1.5">
+                      <Radio className="w-4 h-4 text-green-600" />
+                      Sesión Activa
+                    </CardTitle>
+                    <span className="text-xs font-bold text-green-700 dark:text-green-400 bg-green-200 dark:bg-green-800/50 px-2 py-0.5 rounded-full">
+                      EN VIVO
+                    </span>
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                      <thead className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 uppercase text-xs">
-                        <tr>
-                          <th className="px-6 py-4">Hora</th>
-                          <th className="px-6 py-4">Unidad</th>
-                          <th className="px-6 py-4">Propietario / Email</th>
-                          <th className="px-6 py-4 text-right">Coeficiente</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {asistentes.map((asistente) => (
-                          <tr key={asistente.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors animate-in fade-in slide-in-from-top-1">
-                            <td className="px-6 py-4 text-gray-500 whitespace-nowrap">
-                              {new Date(asistente.hora_llegada).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="font-bold text-gray-900 dark:text-white">
-                                {asistente.torre} - {asistente.numero}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex flex-col">
-                                <span className="font-medium text-gray-900 dark:text-white">{asistente.nombre_propietario}</span>
-                                <span className="text-xs text-gray-500 truncate max-w-[200px]">{asistente.email_propietario}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-right font-mono text-indigo-600 dark:text-indigo-400 font-bold">
-                              {asistente.coeficiente.toFixed(4)}%
-                            </td>
-                          </tr>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Conectados ahora (ping quórum)
+                  </p>
+                  <div className="relative mt-2">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="search"
+                      placeholder="Buscar..."
+                      value={searchSesion}
+                      onChange={(e) => setSearchSesion(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
+                  <div className="flex-1 overflow-y-auto overscroll-contain">
+                    {asistentesFiltrados.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-gray-500">
+                        <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                        Esperando el primer ingreso...
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {asistentesFiltrados.map((a) => (
+                          <li key={a.id} className="px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            <div className="font-medium text-gray-900 dark:text-white">{a.torre} - {a.numero}</div>
+                            <div className="text-gray-600 dark:text-gray-400 truncate">{a.nombre_propietario}</div>
+                            <div className="text-xs text-gray-500 truncate">{a.email_propietario}</div>
+                            <div className="text-xs font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">{a.coeficiente.toFixed(2)}%</div>
+                          </li>
                         ))}
-                      </tbody>
-                    </table>
+                      </ul>
+                    )}
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              {/* Ya Votaron */}
+              <Card className="flex flex-col overflow-hidden">
+                <CardHeader className="py-3 px-4 border-b flex-shrink-0">
+                  <CardTitle className="text-sm flex items-center gap-1.5">
+                    <UserCheck className="w-4 h-4 text-emerald-600" />
+                    Ya Votaron
+                  </CardTitle>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Tienen registro en votos
+                  </p>
+                  <div className="relative mt-2">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="search"
+                      placeholder="Buscar..."
+                      value={searchYaVotaron}
+                      onChange={(e) => setSearchYaVotaron(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
+                  <div className="flex-1 overflow-y-auto overscroll-contain">
+                    {yaVotaronFiltrados.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-gray-500">Ninguna unidad ha votado aún.</div>
+                    ) : (
+                      <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {yaVotaronFiltrados.map((u) => (
+                          <li key={u.id} className="px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
+                            <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
+                            <div className="text-xs text-gray-500 truncate">{u.email_propietario}</div>
+                            <div className="text-xs font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">{u.coeficiente.toFixed(2)}%</div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Faltantes por Votar */}
+              <Card className="flex flex-col overflow-hidden border-amber-200 dark:border-amber-800">
+                <CardHeader className="py-3 px-4 border-b flex-shrink-0 bg-amber-50 dark:bg-amber-900/20">
+                  <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
+                    <UserX className="w-4 h-4" />
+                    Faltantes por Votar
+                  </CardTitle>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Quórum − Ya votaron (prioridad)
+                  </p>
+                  <div className="relative mt-2">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="search"
+                      placeholder="Buscar..."
+                      value={searchFaltantes}
+                      onChange={(e) => setSearchFaltantes(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
+                  <div className="flex-1 overflow-y-auto overscroll-contain">
+                    {faltantesFiltrados.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-gray-500 flex items-center gap-2 justify-center">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                        Todas las unidades ya votaron.
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {faltantesFiltrados.map((u) => (
+                          <li key={u.id} className="px-4 py-2 text-sm hover:bg-amber-50/50 dark:hover:bg-amber-900/10">
+                            <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
+                            <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
+                            <div className="text-xs text-gray-500 truncate">{u.email_propietario}</div>
+                            <div className="text-xs font-mono text-amber-600 dark:text-amber-400 mt-0.5">{u.coeficiente.toFixed(2)}%</div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </main>

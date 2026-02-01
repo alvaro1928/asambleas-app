@@ -970,7 +970,15 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center flex-wrap gap-3">
+              {/* Billetera de tokens — visible en todas las páginas de administrador */}
+              <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
+                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens</span>
+                {costoOperacion > 0 && (
+                  <span className="text-xs text-slate-500 dark:text-slate-400">(costo/op: {costoOperacion})</span>
+                )}
+              </div>
               {getEstadoBadge(asamblea.estado)}
               {asamblea.estado === 'borrador' && (
                 puedeOperar ? (
@@ -1144,8 +1152,41 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Información de la Asamblea */}
-          <div className="lg:col-span-1">
+          {/* Columna izquierda: Billetera + Información + Acceso */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Billetera de tokens — siempre visible en detalle de asamblea */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2h-2m-4-1V7a2 2 0 012-2h2a2 2 0 012 2v1M11 14l2 2 4-4" />
+                </svg>
+                Billetera de tokens
+              </h2>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Saldo:</span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300">
+                    {tokensDisponibles} tokens
+                  </span>
+                </div>
+                {costoOperacion > 0 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Costo por operación (activar, acta, registro manual): <strong>{costoOperacion} tokens</strong>
+                  </p>
+                )}
+                {costoOperacion > 0 && tokensDisponibles < costoOperacion && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400"
+                    onClick={() => setSinTokensModalOpen(true)}
+                  >
+                    Comprar tokens
+                  </Button>
+                )}
+              </div>
+            </div>
+
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
                 Información

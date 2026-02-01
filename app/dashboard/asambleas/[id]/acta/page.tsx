@@ -86,6 +86,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [coefPoderes, setCoefPoderes] = useState(0)
   const [auditoria, setAuditoria] = useState<Record<string, AuditRow[]>>({})
   const [incluyeActaDetallada, setIncluyeActaDetallada] = useState(false)
+  const [tokensDisponibles, setTokensDisponibles] = useState(0)
+  const [costoOperacion, setCostoOperacion] = useState(0)
 
   useEffect(() => {
     loadData()
@@ -267,8 +269,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
             Tokens insuficientes
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
             La descarga del acta con auditoría requiere tener en tu billetera al menos tantos tokens como unidades tiene el conjunto (1 token = 1 unidad). Recarga tokens o compra más para acceder.
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            Tu billetera: <strong>{tokensDisponibles} tokens</strong>
+            {costoOperacion > 0 && <> • Costo por operación: {costoOperacion} tokens</>}
           </p>
           <Link href={`/dashboard/asambleas/${params.id}`}>
             <Button variant="outline" className="mb-4">
@@ -284,13 +290,22 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   return (
     <div className="min-h-screen bg-white text-gray-900">
       {/* Barra de acciones: oculta al imprimir */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 p-4 flex items-center justify-between print:hidden">
-        <Link href={`/dashboard/asambleas/${params.id}`}>
-          <Button variant="outline" size="sm">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver
-          </Button>
-        </Link>
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 p-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <div className="flex items-center gap-3">
+          <Link href={`/dashboard/asambleas/${params.id}`}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Volver
+            </Button>
+          </Link>
+          <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 border border-slate-200">
+            <span className="text-xs font-medium text-slate-600">Billetera:</span>
+            <span className="text-sm font-bold text-indigo-600">{tokensDisponibles} tokens</span>
+            {costoOperacion > 0 && (
+              <span className="text-xs text-slate-500">(costo/op: {costoOperacion})</span>
+            )}
+          </div>
+        </div>
         <Button onClick={handlePrint} className="bg-indigo-600 hover:bg-indigo-700">
           <Printer className="w-4 h-4 mr-2" />
           Imprimir / Guardar como PDF

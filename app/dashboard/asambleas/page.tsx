@@ -43,6 +43,8 @@ export default function AsambleasPage() {
   const [conjuntoName, setConjuntoName] = useState('')
   const [searchNombre, setSearchNombre] = useState('')
   const [filterEstado, setFilterEstado] = useState<string>('all')
+  const [tokensDisponibles, setTokensDisponibles] = useState(0)
+  const [costoOperacion, setCostoOperacion] = useState(0)
 
   useEffect(() => {
     loadAsambleas()
@@ -73,6 +75,12 @@ export default function AsambleasPage() {
       if (org) {
         setConjuntoName(org.name)
       }
+
+      // Billetera de tokens (visible en todas las páginas de administrador)
+      const statusRes = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(selectedConjuntoId)}`)
+      const statusData = statusRes.ok ? await statusRes.json() : null
+      setTokensDisponibles(Math.max(0, Number(statusData?.tokens_disponibles ?? 0)))
+      setCostoOperacion(Math.max(0, Number(statusData?.costo_operacion ?? 0)))
 
       // Obtener asambleas del conjunto
       const { data: asambleasData, error } = await supabase
@@ -174,12 +182,21 @@ export default function AsambleasPage() {
                 </p>
               </div>
             </div>
-            <Link href="/dashboard/asambleas/nueva" title="Crear una nueva asamblea para este conjunto">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
+                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens</span>
+                {costoOperacion > 0 && (
+                  <span className="text-xs text-slate-500 dark:text-slate-400">(costo/op: {costoOperacion})</span>
+                )}
+              </div>
+              <Link href="/dashboard/asambleas/nueva" title="Crear una nueva asamblea para este conjunto">
               <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" title="Crear una nueva asamblea para este conjunto">
                 <Plus className="w-4 h-4 mr-2" />
                 Nueva Asamblea
               </Button>
             </Link>
+            </div>
           </div>
         </div>
       </header>
