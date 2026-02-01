@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -509,7 +509,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                               <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 11 }} />
                               <Tooltip
                                 formatter={(value: number | undefined) => [`${value ?? 0}%`, 'Coeficiente']}
-                                labelFormatter={(_: unknown, payload?: { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName ?? ''}
+                                labelFormatter={(_: ReactNode, payload: readonly { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName ?? ''}
                               />
                               <ReferenceLine
                                 x={umbral}
