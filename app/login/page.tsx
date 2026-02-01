@@ -78,7 +78,10 @@ export default function LoginPage() {
 
   const getOAuthCallbackUrl = () => {
     const base = getCallbackUrl()
-    return base.replace(/\/auth\/callback\/?$/, '') + '/auth/callback/oauth'
+    const oauthBase = base.replace(/\/auth\/callback\/?$/, '') + '/auth/callback/oauth'
+    const redirectTo = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') : null
+    const next = redirectTo && redirectTo.startsWith('/') ? redirectTo : '/dashboard'
+    return `${oauthBase}?next=${encodeURIComponent(next)}`
   }
 
   const handleGoogleLogin = async () => {

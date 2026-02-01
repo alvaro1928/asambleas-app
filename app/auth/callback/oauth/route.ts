@@ -1,21 +1,23 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * Callback OAuth (Google, etc.) en el servidor.
- * Las cookies de la petición incluyen el code_verifier de PKCE,
- * así el intercambio funciona aunque el usuario haya cerrado sesión antes.
+ * Las cookies deben escribirse en la MISMA respuesta que devolvemos (el redirect),
+ * sino el navegador no las recibe y el usuario llega a /dashboard sin sesión (o a /).
  */
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const code = searchParams.get('code')
+  const requestUrl = new URL(request.url)
+  const code = requestUrl.searchParams.get('code')
+  const next = requestUrl.searchParams.get('next') || '/dashboard'
 
   if (!code) {
     return NextResponse.redirect(new URL('/login?error=missing_code', request.url))
   }
 
-  const cookieStore = await cookies()
+  // Crear la respuesta de redirect primero; las cookies se escribirán en esta respuesta
+  const redirectUrl = new URL(next.startsWith('/') ? next : '/dashboard', request.url)
+  const response = NextResponse.redirect(redirectUrl)
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,21 +25,13 @@ export async function GET(request: NextRequest) {
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value
+          return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value, ...options })
-          } catch {
-            // Ignorar si ya se enviaron headers
-          }
+          response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value: '', ...options })
-          } catch {
-            // Ignorar
-          }
+          response.cookies.set({ name, value: '', ...options })
         },
       },
     }
@@ -50,5 +44,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, request.url))
   }
 
-  return NextResponse.redirect(new URL('/dashboard', request.url))
+  return response
 }
