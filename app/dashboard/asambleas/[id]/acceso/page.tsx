@@ -123,6 +123,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     }, 10000)
 
     return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run on mount and when id changes; loaders are stable
   }, [params.id])
 
   const loadAsamblea = async () => {
@@ -263,7 +264,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         .select('unidad_id')
         .in('pregunta_id', (preguntasData || []).map((x) => x.id))
 
-      const unidadIdsVotaron = [...new Set((votosData || []).map((v: any) => v.unidad_id).filter(Boolean))]
+      const unidadIdsVotaron = Array.from(new Set((votosData || []).map((v: any) => v.unidad_id).filter(Boolean)))
 
       if (unidadIdsVotaron.length > 0) {
         const { data: unidadesVotaron } = await supabase
@@ -302,6 +303,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
   useEffect(() => {
     if (asamblea?.organization_id) loadAvanceVotaciones()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when org id is available for yaVotaron/faltantes
   }, [asamblea?.organization_id])
 
   const copiarEnlace = async () => {
