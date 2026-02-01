@@ -147,20 +147,20 @@ export default function DashboardPage() {
         setUnidadesCount(unidades)
         setCostoOperacion(Math.max(0, Number(statusData?.costo_operacion ?? unidades)))
 
-        const { data: unidades, error } = await supabase
+        const { data: unidadesData, error } = await supabase
           .from('unidades')
           .select('*')
           .eq('organization_id', conjId)
 
-        if (!error && unidades) {
-          const total = unidades.length
+        if (!error && unidadesData) {
+          const total = unidadesData.length
           setUnidadesCount(total)
 
           // Calcular suma de coeficientes
-          const sumaCoeficientes = unidades.reduce((sum, u) => sum + u.coeficiente, 0)
+          const sumaCoeficientes = unidadesData.reduce((sum, u) => sum + u.coeficiente, 0)
 
           // Calcular censo de datos (unidades con email Y teléfono)
-          const unidadesCompletas = unidades.filter(
+          const unidadesCompletas = unidadesData.filter(
             u => u.email_propietario && u.telefono_propietario
           ).length
           const censoDatos = total > 0 ? (unidadesCompletas / total) * 100 : 0
