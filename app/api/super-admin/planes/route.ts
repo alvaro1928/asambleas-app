@@ -102,8 +102,8 @@ export async function PATCH(request: NextRequest) {
       precio_por_asamblea_cop?: number
       max_preguntas_por_asamblea?: number
       incluye_acta_detallada?: boolean
-      tokens_iniciales?: number | null
-      vigencia_meses?: number | null
+      tokens_iniciales?: number | string | null
+      vigencia_meses?: number | string | null
     }
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -129,8 +129,14 @@ export async function PATCH(request: NextRequest) {
     if (typeof precio_por_asamblea_cop === 'number' && precio_por_asamblea_cop >= 0) updates.precio_por_asamblea_cop = precio_por_asamblea_cop
     if (typeof max_preguntas_por_asamblea === 'number' && max_preguntas_por_asamblea >= 0) updates.max_preguntas_por_asamblea = max_preguntas_por_asamblea
     if (typeof incluye_acta_detallada === 'boolean') updates.incluye_acta_detallada = incluye_acta_detallada
-    if (tokens_iniciales !== undefined) updates.tokens_iniciales = tokens_iniciales === null || tokens_iniciales === '' ? null : Math.max(0, Number(tokens_iniciales))
-    if (vigencia_meses !== undefined) updates.vigencia_meses = vigencia_meses === null || vigencia_meses === '' ? null : Math.max(0, Math.round(Number(vigencia_meses)))
+    if (tokens_iniciales !== undefined) {
+      const isNullish = tokens_iniciales === null || tokens_iniciales === ''
+      updates.tokens_iniciales = isNullish ? null : Math.max(0, Number(tokens_iniciales))
+    }
+    if (vigencia_meses !== undefined) {
+      const isNullish = vigencia_meses === null || vigencia_meses === ''
+      updates.vigencia_meses = isNullish ? null : Math.max(0, Math.round(Number(vigencia_meses)))
+    }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'Falta al menos un campo: nombre, precio_por_asamblea_cop, max_preguntas_por_asamblea, incluye_acta_detallada, tokens_iniciales o vigencia_meses' }, { status: 400 })
