@@ -207,9 +207,22 @@ export async function PATCH(request: NextRequest) {
       activeUntil.setDate(activeUntil.getDate() + 365)
       payload.subscription_status = 'active'
       payload.plan_active_until = activeUntil.toISOString()
+      if (plan_type === 'pro') (payload as Record<string, number | null>).tokens_disponibles = 0
     } else {
       payload.subscription_status = 'inactive'
       payload.plan_active_until = null
+    }
+
+    if (plan_type === 'free' || plan_type === 'pilot') {
+      const { data: planRow } = await admin
+        .from('planes')
+        .select('tokens_iniciales')
+        .eq('key', plan_type)
+        .maybeSingle()
+      const tokensIniciales = planRow != null && typeof (planRow as { tokens_iniciales?: number | null }).tokens_iniciales === 'number'
+        ? Math.max(0, (planRow as { tokens_iniciales: number }).tokens_iniciales)
+        : plan_type === 'free' ? 2 : 10
+      ;(payload as Record<string, number>).tokens_disponibles = tokensIniciales
     }
 
     const { error } = await admin

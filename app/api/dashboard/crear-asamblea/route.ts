@@ -89,10 +89,10 @@ export async function POST(request: NextRequest) {
     )
     const tokens = Number((org as { tokens_disponibles?: number }).tokens_disponibles ?? 0)
 
-    // Si no es pilot, requiere al menos 1 token
-    if (plan !== 'pilot' && tokens < 1) {
+    // Solo Pro es ilimitado. Free y Pilot consumen 1 token por asamblea nueva.
+    if (plan !== 'pro' && tokens < 1) {
       return NextResponse.json(
-        { error: 'No tienes asambleas disponibles. Compra más en Plan Pro.', code: 'SIN_TOKENS' },
+        { error: 'No tienes tokens disponibles. Compra asambleas Pro o actualiza tu plan.', code: 'SIN_TOKENS' },
         { status: 402 }
       )
     }
@@ -116,8 +116,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    // Descontar 1 token si no es pilot
-    if (plan !== 'pilot') {
+    // Descontar 1 token para Free y Pilot (Pro es ilimitado)
+    if (plan !== 'pro') {
       await admin
         .from('organizations')
         .update({

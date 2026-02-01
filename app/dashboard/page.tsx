@@ -6,10 +6,10 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import ConjuntoSelector from '@/components/ConjuntoSelector'
+import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
 import { Tooltip as UiTooltip } from '@/components/ui/tooltip'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { isAdminEmail } from '@/lib/super-admin'
-import { formatPrecioPro } from '@/lib/precio-pro'
 import { planEfectivo } from '@/lib/plan-utils'
 import { useToast } from '@/components/providers/ToastProvider'
 
@@ -35,8 +35,12 @@ export default function DashboardPage() {
   })
   const [planType, setPlanType] = useState<'free' | 'pro' | 'pilot' | null>(null)
   const [tokensDisponibles, setTokensDisponibles] = useState<number>(0)
+  const [precioProCop, setPrecioProCop] = useState<number | null>(null)
   const [selectedConjuntoId, setSelectedConjuntoId] = useState<string | null>(null)
   const router = useRouter()
+
+  const formatPrecioCop = (cop: number) =>
+    new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(cop)
 
   useEffect(() => {
     checkUser()
@@ -103,8 +107,22 @@ export default function DashboardPage() {
     }
   }
 
+  const loadPrecioPro = async () => {
+    try {
+      const res = await fetch('/api/planes')
+      const data = (await res.json()) as { planes?: Array<{ key: string; precio_por_asamblea_cop?: number }> }
+      const pro = data?.planes?.find(p => p.key === 'pro')
+      if (pro != null && typeof pro.precio_por_asamblea_cop === 'number') {
+        setPrecioProCop(pro.precio_por_asamblea_cop)
+      }
+    } catch {
+      // ignorar
+    }
+  }
+
   const loadStats = async (userId: string) => {
     try {
+      loadPrecioPro()
       // Contar conjuntos del usuario
       const { data: profiles } = await supabase
         .from('profiles')
@@ -211,10 +229,14 @@ export default function DashboardPage() {
             </h1>
             <div className="flex items-center space-x-4">
               <ConjuntoSelector />
-              {selectedConjuntoId && (planType === 'pro' || planType === 'free') && (
+              {selectedConjuntoId && planType != null && (
                 <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Asambleas Pro:</span>
-                  <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles}</span>
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                    {planType === 'pro' ? 'Tokens:' : 'Tokens:'}
+                  </span>
+                  <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                    {planType === 'pro' ? 'Ilimitado' : tokensDisponibles}
+                  </span>
                 </div>
               )}
               <div className="flex items-center space-x-3">
@@ -299,6 +321,16 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
+          )}
+
+          {/* Banner: sin tokens o pocos tokens (estilo apps de IA) */}
+          {selectedConjuntoId && (planType === 'free' || planType === 'pilot') && tokensDisponibles <= 1 && (
+            <ComprarTokensCTA
+              conjuntoId={selectedConjuntoId}
+              precioCop={precioProCop}
+              planType={planType}
+              variant={tokensDisponibles === 0 ? 'blocked' : 'low'}
+            />
           )}
 
           {/* Welcome Card */}
@@ -405,19 +437,22 @@ export default function DashboardPage() {
                   })()
                 )}
               </div>
-              {planType === 'free' && (
+              {(planType === 'free' || planType === 'pilot') && (
                 <div className="mt-3 space-y-1">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Plan Pro: <span className="font-semibold text-gray-900 dark:text-white">{formatPrecioPro()}</span> por año (por conjunto).
+                    Tokens: <span className="font-semibold text-gray-900 dark:text-white">{tokensDisponibles}</span>
+                    {planType === 'free' && ' (Gratis incluye 2)'}
+                    {planType === 'pilot' && ' (Pilot incluye 10)'}.
+                    Cada asamblea nueva o con más de 2 preguntas consume 1 token — igual que en las apps de IA.
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Al pagar, vuelve a este mismo dashboard y recarga la página para ver tu plan Pro activo con todos los privilegios (actas, más preguntas, etc.).
+                    ¿Necesitas más? Compra tokens bajo demanda ({formatPrecioCop(precioProCop ?? 0)}/token) o actualiza a Plan Pro y ten asambleas ilimitadas.
                   </p>
                 </div>
               )}
               {planType === 'free' && !process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL && process.env.NEXT_PUBLIC_PLAN_PRO_URL && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  El botón enlaza a contacto/ventas. Configura <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">NEXT_PUBLIC_PASARELA_PAGOS_URL</code> para la pasarela de pagos.
+                  Configura <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">NEXT_PUBLIC_PASARELA_PAGOS_URL</code> para comprar tokens desde la app.
                 </p>
               )}
             </div>

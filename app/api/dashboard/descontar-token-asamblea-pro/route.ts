@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { planEfectivo } from '@/lib/plan-utils'
 
 /**
  * POST /api/dashboard/descontar-token-asamblea-pro
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     const { data: org, error: orgError } = await admin
       .from('organizations')
-      .select('tokens_disponibles, plan_type')
+      .select('tokens_disponibles, plan_type, plan_active_until')
       .eq('id', orgId)
       .single()
 
@@ -107,11 +108,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Conjunto no encontrado' }, { status: 404 })
     }
 
-    const planType = (org as { plan_type?: string }).plan_type
+    const planEf = planEfectivo(
+      (org as { plan_type?: string }).plan_type,
+      (org as { plan_active_until?: string }).plan_active_until
+    )
     const tokens = Math.max(0, Number((org as { tokens_disponibles?: number }).tokens_disponibles ?? 0))
 
-    if (planType === 'pilot') {
-      return NextResponse.json({ ok: true, descontado: false, motivo: 'plan_pilot' })
+    if (planEf === 'pro') {
+      return NextResponse.json({ ok: true, descontado: false, motivo: 'plan_pro_ilimitado' })
     }
 
     if (tokens < 1) {

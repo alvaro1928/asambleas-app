@@ -4,11 +4,12 @@ import { useState, FormEvent, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Save, Calendar, Lock, ShoppingCart } from 'lucide-react'
+import { ArrowLeft, Save, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
 import type { PlanType } from '@/lib/plan-utils'
 
 type OrganizationStatus = {
@@ -24,6 +25,7 @@ export default function NuevaAsambleaPage() {
   const [status, setStatus] = useState<OrganizationStatus | null>(null)
   const [statusLoading, setStatusLoading] = useState(true)
   const [statusError, setStatusError] = useState('')
+  const [precioProCop, setPrecioProCop] = useState<number | null>(null)
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -46,17 +48,21 @@ export default function NuevaAsambleaPage() {
     setStatusLoading(true)
     setStatusError('')
 
-    fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(conjId)}`)
-      .then((res) => {
+    Promise.all([
+      fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(conjId)}`).then((res) => {
         if (!res.ok) throw new Error(res.status === 403 ? 'Sin acceso a este conjunto' : 'Error al cargar el estado')
         return res.json()
-      })
-      .then((data) => {
+      }),
+      fetch('/api/planes').then((r) => r.json()).catch(() => ({ planes: [] })),
+    ])
+      .then(([data, planesData]) => {
         if (!cancelled) {
           setStatus({
             plan_efectivo: data.plan_efectivo ?? 'free',
             tokens_disponibles: Number(data.tokens_disponibles ?? 0),
           })
+          const pro = (planesData?.planes ?? []).find((p: { key: string }) => p.key === 'pro')
+          if (pro?.precio_por_asamblea_cop != null) setPrecioProCop(Number(pro.precio_por_asamblea_cop))
         }
       })
       .catch((err) => {
@@ -74,7 +80,7 @@ export default function NuevaAsambleaPage() {
   const planEfectivo = status?.plan_efectivo ?? null
   const tokensDisponibles = status?.tokens_disponibles ?? 0
   const puedeCrear =
-    planEfectivo === 'pilot' || (planEfectivo !== null && tokensDisponibles >= 1)
+    planEfectivo === 'pro' || (planEfectivo !== null && tokensDisponibles >= 1)
   const bloqueado = !statusLoading && !statusError && selectedConjuntoId && !puedeCrear
 
   const handleSubmit = async (e: FormEvent) => {
@@ -126,7 +132,7 @@ export default function NuevaAsambleaPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         if (res.status === 402 && (data as { code?: string }).code === 'SIN_TOKENS') {
-          setError('No tienes asambleas disponibles. Compra más en Plan Pro.')
+          setError('')
           setStatus((prev) => (prev ? { ...prev, tokens_disponibles: 0 } : null))
           return
         }
@@ -193,38 +199,14 @@ export default function NuevaAsambleaPage() {
           )}
 
           {!statusLoading && bloqueado && (
-            <div className="text-center py-8 space-y-6">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
-                <Lock className="w-7 h-7" />
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Sin asambleas disponibles
-                </h2>
-                <p className="mt-2 text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-                  No tienes saldo de asambleas para este conjunto. Compra asambleas Pro para crear nuevas.
-                </p>
-              </div>
-              {(() => {
-                const pasarelaUrl = process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
-                const planProUrl = process.env.NEXT_PUBLIC_PLAN_PRO_URL
-                const href = pasarelaUrl
-                  ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}conjunto_id=${encodeURIComponent(selectedConjuntoId ?? '')}`
-                  : (planProUrl && planProUrl !== '#') ? planProUrl : '#'
-                const openInNewTab = !!href && href !== '#'
-                return (
-                  <a
-                    href={href}
-                    target={openInNewTab ? '_blank' : undefined}
-                    rel={openInNewTab ? 'noopener noreferrer' : undefined}
-                    className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all"
-                  >
-                    <ShoppingCart className="w-5 h-5 mr-2" />
-                    Comprar Asamblea Pro
-                  </a>
-                )
-              })()}
-              <div className="pt-4">
+            <div className="space-y-6">
+              <ComprarTokensCTA
+                conjuntoId={selectedConjuntoId}
+                precioCop={precioProCop}
+                planType={planEfectivo ?? 'free'}
+                variant="blocked"
+              />
+              <div className="flex justify-center">
                 <Link href="/dashboard/asambleas">
                   <Button type="button" variant="outline">
                     Volver a Asambleas

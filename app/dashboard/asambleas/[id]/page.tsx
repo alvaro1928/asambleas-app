@@ -32,6 +32,7 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
 import { planEfectivo } from '@/lib/plan-utils'
 import { getEffectivePlanLimits, findPlanByKey, type PlanFromApi } from '@/lib/plan-limits'
 import { useToast } from '@/components/providers/ToastProvider'
@@ -134,6 +135,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   // Plan del conjunto activo y límites parametrizables (desde tabla planes)
   const [planType, setPlanType] = useState<'free' | 'pro' | 'pilot' | null>(null)
   const [planLimits, setPlanLimits] = useState({ max_preguntas_por_asamblea: 2, incluye_acta_detallada: false })
+  const [precioProCop, setPrecioProCop] = useState<number | null>(null)
+  const [sinTokensModalOpen, setSinTokensModalOpen] = useState(false)
 
   // Registrar voto a nombre de un residente (admin)
   const [showRegistroVotoAdmin, setShowRegistroVotoAdmin] = useState(false)
@@ -217,6 +220,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       const planFromApi = findPlanByKey(planesList, plan ?? 'free')
       const limits = getEffectivePlanLimits(plan, tokens, planFromApi)
       setPlanLimits(limits)
+      const proPlan = findPlanByKey(planesList, 'pro')
+      if (proPlan?.precio_por_asamblea_cop != null) setPrecioProCop(proPlan.precio_por_asamblea_cop)
 
       // Cargar preguntas
       const { data: preguntasData, error: preguntasError } = await supabase
@@ -2042,6 +2047,19 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Sin tokens al activar asamblea Pro (estilo apps de IA) */}
+      <Dialog open={sinTokensModalOpen} onOpenChange={setSinTokensModalOpen}>
+        <DialogContent className="max-w-lg">
+          <ComprarTokensCTA
+            conjuntoId={asamblea?.organization_id ?? null}
+            precioCop={precioProCop}
+            planType={planType ?? 'free'}
+            variant="modal"
+            onClose={() => setSinTokensModalOpen(false)}
+          />
         </DialogContent>
       </Dialog>
     </div>
