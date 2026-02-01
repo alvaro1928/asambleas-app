@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button'
 export type ComprarTokensVariant = 'blocked' | 'low' | 'inline' | 'modal'
 
 type ComprarTokensCTAProps = {
-  /** ID del conjunto (cuenta) para la URL de pago */
-  conjuntoId: string | null
+  /** ID del conjunto (contexto; opcional para reportes) */
+  conjuntoId?: string | null
+  /** user_id del gestor: la pasarela debe usar REF_<user_id>_<timestamp> para acreditar tokens en su billetera */
+  userId?: string | null
   /** Precio en COP por token para mostrar */
   precioCop?: number | null
   /** Plan actual: free muestra "Actualizar a Pro", pilot muestra "Pasar a Pro ilimitado" */
@@ -33,7 +35,8 @@ function formatPrecio(cop: number) {
 }
 
 export function ComprarTokensCTA({
-  conjuntoId,
+  conjuntoId = null,
+  userId = null,
   precioCop,
   planType = 'free',
   variant = 'blocked',
@@ -43,9 +46,12 @@ export function ComprarTokensCTA({
 }: ComprarTokensCTAProps) {
   const pasarelaUrl = process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
   const planProUrl = process.env.NEXT_PUBLIC_PLAN_PRO_URL
+  const params = new URLSearchParams()
+  if (userId) params.set('user_id', userId)
+  if (conjuntoId) params.set('conjunto_id', conjuntoId)
   const hrefComprar =
-    conjuntoId && pasarelaUrl
-      ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}conjunto_id=${encodeURIComponent(conjuntoId)}`
+    pasarelaUrl && userId
+      ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}${params.toString()}`
       : null
   const hrefPro = planProUrl && planProUrl !== '#' ? planProUrl : null
   const showComprar = !hideComprar && hrefComprar
@@ -62,10 +68,10 @@ export function ComprarTokensCTA({
       : 'Más potencia para tus asambleas'
 
   const subtitulo = isBlocked
-    ? 'Los tokens son del conjunto que administras; se descontan al crear o activar asambleas. Compra más tokens o actualiza a Plan Pro y ten asambleas ilimitadas.'
+    ? 'Los tokens son de tu billetera (gestor). Cada operación (Activar votación, Acta con auditoría, Registro manual) consume tantos tokens como unidades tiene el conjunto (1 token = 1 unidad). Compra más para seguir operando.'
     : isLow
-      ? 'Compra más tokens ahora y no te quedes sin poder crear o activar asambleas. O actualiza a Pro y olvídate de los límites.'
-      : 'Compra tokens bajo demanda o actualiza a Plan Pro para asambleas ilimitadas, actas detalladas y más preguntas.'
+      ? 'Compra más tokens ahora y no te quedes sin poder activar votaciones, descargar actas o registrar votos manuales.'
+      : 'Compra tokens para tu billetera; cada operación consume 1 token por unidad del conjunto.'
 
   return (
     <div
@@ -130,9 +136,9 @@ export function ComprarTokensCTA({
           <a
             href={
               hrefPro
-                ? (conjuntoId ? `${hrefPro}${hrefPro.includes('?') ? '&' : '?'}conjunto_id=${encodeURIComponent(conjuntoId)}` : hrefPro)
-                : conjuntoId && pasarelaUrl
-                  ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}conjunto_id=${encodeURIComponent(conjuntoId)}`
+                ? (conjuntoId || userId ? `${hrefPro}${hrefPro.includes('?') ? '&' : '?'}${params.toString()}` : hrefPro)
+                : (userId || conjuntoId) && pasarelaUrl
+                  ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}${params.toString()}`
                   : '#'
             }
             target={hrefPro ? '_blank' : undefined}
@@ -140,7 +146,7 @@ export function ComprarTokensCTA({
             className="inline-flex items-center justify-center px-5 py-2.5 border-2 border-indigo-500 dark:border-indigo-400 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 font-semibold rounded-xl transition-all text-sm"
           >
             <Crown className="w-4 h-4 mr-2" />
-            {planType === 'free' ? 'Actualizar a Plan Pro' : 'Pasar a Pro ilimitado'}
+            {planType === 'free' ? 'Comprar más créditos' : 'Ver opciones de créditos'}
           </a>
         )}
         {isModal && onClose && (
@@ -152,7 +158,7 @@ export function ComprarTokensCTA({
 
       {showComprar && typeof precioCop === 'number' && precioCop > 0 && (isBlocked || isLow) && (
         <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-          Los tokens son del conjunto que administras; cada uno se descuenta al crear o activar una asamblea. Al pagar recibes 1 token al instante; recarga el dashboard para ver el saldo del conjunto.
+          Los tokens se acreditan en tu billetera (gestor). 1 token = 1 unidad por operación. Recarga el dashboard para ver tu saldo.
         </p>
       )}
     </div>

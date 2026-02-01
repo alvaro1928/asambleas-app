@@ -17,6 +17,8 @@ export default function SuperAdminAjustesPage() {
   const [subtituloLanding, setSubtituloLanding] = useState('')
   const [colorPrincipalHex, setColorPrincipalHex] = useState('#4f46e5')
   const [whatsappNumber, setWhatsappNumber] = useState('')
+  const [precioPorTokenCop, setPrecioPorTokenCop] = useState<number | ''>(10000)
+  const [bonoBienvenidaTokens, setBonoBienvenidaTokens] = useState<number | ''>(50)
 
   const isAllowed = (email: string | undefined) => {
     if (!email) return false
@@ -48,6 +50,8 @@ export default function SuperAdminAjustesPage() {
       setTituloLanding(data.titulo ?? '')
       setSubtituloLanding(data.subtitulo ?? '')
       setColorPrincipalHex(data.color_principal_hex && /^#[0-9A-Fa-f]{6}$/.test(data.color_principal_hex) ? data.color_principal_hex : '#4f46e5')
+      if (data.precio_por_token_cop != null) setPrecioPorTokenCop(data.precio_por_token_cop)
+      if (data.bono_bienvenida_tokens != null) setBonoBienvenidaTokens(data.bono_bienvenida_tokens)
       setLoading(false)
     }
     load()
@@ -65,6 +69,8 @@ export default function SuperAdminAjustesPage() {
           subtitulo: subtituloLanding.trim(),
           color_principal_hex: /^#[0-9A-Fa-f]{6}$/.test(colorPrincipalHex) ? colorPrincipalHex : '#4f46e5',
           whatsapp_number: whatsappNumber.trim() || null,
+          precio_por_token_cop: typeof precioPorTokenCop === 'number' ? precioPorTokenCop : (typeof precioPorTokenCop === 'string' && precioPorTokenCop !== '' ? parseInt(precioPorTokenCop, 10) : null),
+          bono_bienvenida_tokens: typeof bonoBienvenidaTokens === 'number' ? bonoBienvenidaTokens : (typeof bonoBienvenidaTokens === 'string' && bonoBienvenidaTokens !== '' ? parseInt(bonoBienvenidaTokens, 10) : null),
         }),
       })
       if (!res.ok) {
@@ -106,7 +112,7 @@ export default function SuperAdminAjustesPage() {
             <Shield className="w-8 h-8 text-amber-500" />
             <div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">Ajustes globales</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Landing y color principal</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Landing, color principal y configuración de negocio</p>
             </div>
           </div>
         </div>
@@ -163,6 +169,35 @@ export default function SuperAdminAjustesPage() {
                 placeholder="Ej. 573001234567"
                 className="w-full max-w-xs rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
               />
+            </div>
+            <hr className="border-gray-200 dark:border-gray-700" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Configuración de Negocio</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Precio por token y bono de bienvenida. La landing y el dashboard muestran estos valores.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Precio por token (COP)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={precioPorTokenCop}
+                  onChange={(e) => setPrecioPorTokenCop(e.target.value === '' ? '' : parseInt(e.target.value, 10) || 0)}
+                  placeholder="10000"
+                  className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Precio mostrado al comprar créditos (tokens).</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bono de bienvenida (tokens)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={bonoBienvenidaTokens}
+                  onChange={(e) => setBonoBienvenidaTokens(e.target.value === '' ? '' : parseInt(e.target.value, 10) || 0)}
+                  placeholder="50"
+                  className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tokens gratuitos que recibe cada nuevo gestor.</p>
+              </div>
             </div>
             <Button onClick={handleSave} disabled={saving} className="gap-2">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}

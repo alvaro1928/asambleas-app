@@ -28,7 +28,7 @@ function formatPrecioCop(cop: number): string {
 }
 
 function buildWhatsAppUrl(whatsappNumber: string, nombreConjunto: string) {
-  const text = `Deseo activar el plan Pro para mi conjunto: ${nombreConjunto.trim() || '[Nombre]'}`
+  const text = `Quiero comprar créditos (tokens) para mi conjunto: ${nombreConjunto.trim() || '[Nombre]'}`
   return `https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`
 }
 
@@ -38,16 +38,35 @@ export default function Home() {
   const [subtitulo, setSubtitulo] = useState('Votaciones en tiempo real, actas y auditoría. Pensado para administradores y consejos de administración.')
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [colorPrincipalHex, setColorPrincipalHex] = useState<string>('#4f46e5')
-  const [precioProCop, setPrecioProCop] = useState<number | null>(null)
+  const [precioPorTokenCop, setPrecioPorTokenCop] = useState<number | null>(null)
+  const [bonoBienvenidaTokens, setBonoBienvenidaTokens] = useState<number | null>(null)
 
   useEffect(() => {
     fetch('/api/configuracion-global')
       .then((res) => res.ok ? res.json() : null)
-      .then((data: { titulo?: string | null; subtitulo?: string | null; whatsapp_number?: string | null; color_principal_hex?: string | null } | null) => {
+      .then((data: {
+        titulo?: string | null
+        subtitulo?: string | null
+        whatsapp_number?: string | null
+        color_principal_hex?: string | null
+        precio_por_token_cop?: number | null
+        bono_bienvenida_tokens?: number | null
+      } | null) => {
         if (data?.titulo) setTitulo(data.titulo)
         if (data?.subtitulo) setSubtitulo(data.subtitulo)
         if (data?.whatsapp_number) setWhatsappNumber(data.whatsapp_number)
         if (data?.color_principal_hex && /^#[0-9A-Fa-f]{6}$/.test(data.color_principal_hex)) setColorPrincipalHex(data.color_principal_hex)
+        if (data?.precio_por_token_cop != null) setPrecioPorTokenCop(Number(data.precio_por_token_cop))
+        if (data?.bono_bienvenida_tokens != null) setBonoBienvenidaTokens(Number(data.bono_bienvenida_tokens))
+        if (data?.precio_por_token_cop == null) {
+          fetch('/api/planes')
+            .then((r) => (r.ok ? r.json() : null))
+            .then((planesData: { planes?: Array<{ key: string; precio_por_asamblea_cop?: number }> } | null) => {
+              const pro = planesData?.planes?.find((p) => p.key === 'pro')
+              if (pro?.precio_por_asamblea_cop != null) setPrecioPorTokenCop(pro.precio_por_asamblea_cop)
+            })
+            .catch(() => {})
+        }
       })
       .catch(() => {})
   }, [])
@@ -57,18 +76,6 @@ export default function Home() {
       document.documentElement.style.setProperty('--color-primary', colorPrincipalHex)
     }
   }, [colorPrincipalHex])
-
-  useEffect(() => {
-    fetch('/api/planes')
-      .then((res) => res.ok ? res.json() : null)
-      .then((data: { planes?: Array<{ key: string; precio_por_asamblea_cop?: number }> } | null) => {
-        const pro = data?.planes?.find((p) => p.key === 'pro')
-        if (pro != null && typeof pro.precio_por_asamblea_cop === 'number') {
-          setPrecioProCop(pro.precio_por_asamblea_cop)
-        }
-      })
-      .catch(() => {})
-  }, [])
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -151,21 +158,21 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Precios */}
+      {/* Precios y créditos */}
       <section className="py-16 md:py-20 bg-slate-950 border-b border-slate-800">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl md:text-4xl font-bold text-center text-white mb-2">
-            Planes para tu conjunto
+            Créditos y acceso por asamblea
           </h2>
           <p className="text-center text-slate-400 max-w-xl mx-auto mb-12">
-            Elige el plan que mejor se adapte al tamaño y necesidades de tu propiedad horizontal.
+            Billetera de tokens por gestor. Cada operación (activar votación, acta con auditoría) consume 1 token por unidad del conjunto. Nuevos gestores reciben {bonoBienvenidaTokens ?? 50} tokens de bienvenida.
           </p>
 
           <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-            {/* Gratis */}
+            {/* Acceso gratuito */}
             <Card className="flex flex-col rounded-2xl border-slate-700/50 bg-slate-800/50 shadow-lg shadow-indigo-500/10">
               <CardHeader>
-                <CardTitle className="text-xl text-white">Gratis</CardTitle>
+                <CardTitle className="text-xl text-white">Acceso gratuito</CardTitle>
                 <p className="text-2xl font-bold mt-2 text-white">$0</p>
                 <p className="text-sm text-slate-400">Para probar la plataforma</p>
               </CardHeader>
@@ -173,15 +180,15 @@ export default function Home() {
                 <ul className="space-y-2 text-sm text-slate-300">
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    {bonoBienvenidaTokens ?? 50} tokens de bienvenida
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
                     Hasta 2 preguntas por asamblea
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
                     Votación y quórum en tiempo real
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    Un conjunto
                   </li>
                   <li className="flex items-center gap-2 text-slate-500">
                     <span className="w-4 h-4 shrink-0" />
@@ -198,17 +205,17 @@ export default function Home() {
               </CardFooter>
             </Card>
 
-            {/* Pro */}
+            {/* Comprar créditos (tokens) */}
             <Card className="flex flex-col relative rounded-2xl border-2 bg-slate-800/50 shadow-lg" style={{ borderColor: `${colorPrincipalHex}99` }}>
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-white text-xs font-semibold" style={{ backgroundColor: colorPrincipalHex }}>
                 Recomendado
               </div>
               <CardHeader>
-                <CardTitle className="text-xl" style={{ color: colorPrincipalHex }}>Pro</CardTitle>
+                <CardTitle className="text-xl" style={{ color: colorPrincipalHex }}>Créditos (tokens)</CardTitle>
                 <p className="text-2xl font-bold mt-2 text-white">
-                  {precioProCop != null ? `${formatPrecioCop(precioProCop)} / asamblea` : '—'}
+                  {precioPorTokenCop != null ? `${formatPrecioCop(precioPorTokenCop)} / token` : '—'}
                 </p>
-                <p className="text-sm text-slate-400">Para conjuntos que requieren actas</p>
+                <p className="text-sm text-slate-400">1 token = 1 unidad por operación</p>
               </CardHeader>
               <CardContent className="flex-1 space-y-3">
                 <ul className="space-y-2 text-sm text-slate-300">
@@ -218,15 +225,15 @@ export default function Home() {
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    Todo lo del plan Gratis
+                    Descarga de acta con auditoría
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    Descarga de acta
+                    Registro de voto manual
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    Reporte de auditoría
+                    Usa tu billetera en varios conjuntos
                   </li>
                 </ul>
                 {whatsappNumber && (
@@ -254,12 +261,12 @@ export default function Home() {
                   >
                     <Button className="w-full rounded-2xl bg-green-600 hover:bg-green-700 gap-2 shadow-lg">
                       <MessageCircle className="w-4 h-4" />
-                      Activar Plan Pro por WhatsApp
+                      Comprar créditos por WhatsApp
                     </Button>
                   </a>
                 ) : (
                   <a href={PLAN_PRO_URL} target="_blank" rel="noopener noreferrer" className="w-full">
-                    <Button className="w-full rounded-2xl shadow-lg" style={{ backgroundColor: colorPrincipalHex }}>Ver Plan Pro</Button>
+                    <Button className="w-full rounded-2xl shadow-lg" style={{ backgroundColor: colorPrincipalHex }}>Comprar créditos</Button>
                   </a>
                 )}
               </CardFooter>
@@ -276,7 +283,7 @@ export default function Home() {
                 <ul className="space-y-2 text-sm text-slate-300">
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
-                    Todo lo del plan Pro
+                    Todo lo de créditos por token
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -295,7 +302,7 @@ export default function Home() {
               <CardFooter>
                 {whatsappNumber ? (
                   <a
-                    href={`https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, me interesa un plan personalizado para mi(s) conjunto(s).')}`}
+                    href={`https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, me interesa un paquete personalizado de créditos para mi(s) conjunto(s).')}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full"

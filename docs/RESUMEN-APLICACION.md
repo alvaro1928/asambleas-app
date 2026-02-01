@@ -51,7 +51,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 **Dashboard principal**
 - Métricas: conjuntos, unidades, coeficientes, censo.
 - Enlaces rápidos a asambleas, unidades, conjuntos, configuración.
-- **Tokens de la cuenta:** se van descontando al crear o activar asambleas; cuando se queden sin tokens, compran más o actualizan a Plan Pro. Información de plan (free/pro/pilot) y enlaces a pago/contacto (configurados en Super Admin → Ajustes).
+- **Billetera de tokens por gestor:** el saldo (`tokens_disponibles`) está en el perfil del usuario (gestor), no por conjunto. **1 token = 1 unidad de vivienda.** Cada operación (Activar votación, Descarga de acta con auditoría, Registro de voto manual) consume tantos tokens como unidades tiene el conjunto. Si el gestor no tiene suficientes tokens, se bloquean esas acciones y se muestra CTA para comprar más. Los nuevos gestores reciben 50 tokens de bienvenida. Enlaces a pago/contacto en Super Admin → Ajustes.
 
 **Configuración**
 - Perfil de usuario y datos de la organización del conjunto activo (`/dashboard/configuracion`).
@@ -81,18 +81,24 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - Ruta protegida: `/super-admin`.
 
 **Funcionalidad**
-- **Tabla de conjuntos (cuentas):** listado con plan actual (free/pro/pilot), **tokens de la cuenta** (editable por fila), **Aplicar plan** por fila, atajo "Pro 1 año". Los tokens son por cuenta y se descontan al usar funcionalidades; el super admin puede ajustar el saldo.
-- **Tabla de planes:** edición de nombre, **precio por asamblea (COP)**, **tokens_iniciales**, **vigencia_meses**, **max_preguntas_por_asamblea**, **incluye_acta_detallada**; botón Guardar por plan.
-- **Ajustes** (`/super-admin/ajustes`): color principal de la landing, número de WhatsApp de contacto. La URL de Plan Pro y el precio se leen de la tabla de planes y de la configuración global.
-- **Carga masiva piloto:** subida de CSV con `organization_id` o `nombre` para asignar plan Piloto (vigencia y tokens según el plan Piloto).
-- **Activar Cortesía** (piloto): asignar plan pro manualmente sin pasarela.
+- **Tabla de conjuntos (cuentas):** listado; los **tokens** están en **profiles** (billetera por gestor), no por conjunto. El super admin puede gestionar planes y precios.
+- **Tabla de planes:** edición de nombre, **precio por token (COP)** (`precio_por_asamblea_cop`), etc.; botón Guardar por plan. El webhook acredita tokens en el perfil del gestor cuando la referencia es `REF_<user_id>_<timestamp>`.
+- **Ajustes** (`/super-admin/ajustes`): color principal de la landing, número de WhatsApp de contacto. URL de compra de tokens y precio desde la tabla de planes.
 - **Exportar lista** de conjuntos (CSV).
-- Filtros por nombre de conjunto y por plan.
-- Toasts para éxito/error al guardar o aplicar plan.
+- Filtros por nombre de conjunto.
+- Toasts para éxito/error al guardar.
 
 ---
 
 ## 2. Resumen técnico
+
+### 2.0 Modelo de negocio: Billetera de Tokens por Gestor
+
+- **Saldo:** `profiles.tokens_disponibles` (por usuario/gestor). El gestor usa su billetera en todos sus conjuntos.
+- **Equivalencia:** **1 token = 1 unidad de vivienda.** El costo de una operación en un conjunto = número de unidades de ese conjunto.
+- **Operaciones que consumen tokens:** Activar votación (cambiar asamblea a activa), Descarga de acta con auditoría, Registro de voto manual. Se bloquean si `tokens_gestor < unidades_del_conjunto`.
+- **Regalo de bienvenida:** cada nuevo gestor recibe 50 tokens al registrarse (trigger o default en `profiles`).
+- **Compra:** la pasarela debe usar referencia **`REF_<user_id>_<timestamp>`**; el webhook acredita 1 token en `profiles` del gestor.
 
 ### 2.1 Stack
 

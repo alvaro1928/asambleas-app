@@ -5,8 +5,8 @@ import { registrarTransaccionPago } from '@/lib/super-admin'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-/** Referencia Wompi: REF_<conjunto_id>_<timestamp> */
-function extractConjuntoIdFromReference(reference: string | null | undefined): string | null {
+/** Referencia Wompi (modelo Billetera por Gestor): REF_<user_id>_<timestamp> */
+function extractUserIdFromReference(reference: string | null | undefined): string | null {
   if (!reference || typeof reference !== 'string') return null
   const parts = reference.trim().split('_')
   if (parts.length < 2) return null
@@ -81,15 +81,11 @@ export async function GET() {
 /**
  * POST /api/pagos/webhook
  * Webhook Wompi: evento transaction.updated.
+ * Modelo Billetera de Tokens por Gestor (sin suscripciones ni planes anuales).
  *
- * Variables de entorno:
- *   NEXT_PUBLIC_WOMPI_PUBLIC_KEY = Llave pública Wompi (frontend/checkout).
- *   WEBHOOK_PAGOS_SECRET = Secreto para validar firma de integridad (SHA256).
- *
- * Validación: firma SHA256 con WEBHOOK_PAGOS_SECRET.
- * Activación APPROVED: precio en planes (fila pro); si monto coincide, suma 1 a
- * tokens_disponibles del conjunto_id de la referencia (REF_<conjunto_id>_<timestamp>).
- * Registro: lib/super-admin.registrarTransaccionPago.
+ * Seguridad: validación SHA256 con WEBHOOK_PAGOS_SECRET.
+ * Idempotencia: si la transacción ya está registrada en pagos_log como APPROVED, no se vuelve a acreditar.
+ * Referencia: REF_<user_id>_<timestamp>. APPROVED: suma tokens comprados a profiles.tokens_disponibles del gestor.
  */
 export async function POST(request: NextRequest) {
   const secret = process.env.WEBHOOK_PAGOS_SECRET
@@ -129,70 +125,136 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
-  const conjuntoId = extractConjuntoIdFromReference(reference)
+  const userId = extractUserIdFromReference(reference)
 
   if (status === 'APPROVED') {
-    if (!conjuntoId) {
-      await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Referencia sin UUID válido (REF_CONJUNTOID_TIMESTAMP)')
-      return NextResponse.json({ error: 'Referencia inválida: se espera REF_<conjunto_id>_<timestamp>' }, { status: 400 })
+    if (!userId) {
+      await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Referencia sin UUID válido (REF_USERID_TIMESTAMP)')
+      return NextResponse.json({ error: 'Referencia inválida: se espera REF_<user_id>_<timestamp>' }, { status: 400 })
     }
 
-    const { data: org } = await supabase.from('organizations').select('id, tokens_disponibles').eq('id', conjuntoId).maybeSingle()
-    if (!org) {
-      await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Conjunto no encontrado')
-      return NextResponse.json({ error: 'Conjunto no encontrado' }, { status: 404 })
+    // Idempotencia: no procesar el mismo pago dos veces
+    if (txId) {
+      const { data: existingLog } = await supabase
+        .from('pagos_log')
+        .select('id, estado')
+        .eq('wompi_transaction_id', txId)
+        .eq('estado', 'APPROVED')
+        .limit(1)
+        .maybeSingle()
+      if (existingLog) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('tokens_disponibles')
+          .eq('user_id', userId)
+          .limit(1)
+          .maybeSingle()
+        const currentTokens = Math.max(0, Number((prof as { tokens_disponibles?: number } | null)?.tokens_disponibles ?? 0))
+        return NextResponse.json({
+          received: true,
+          skipped: 'already_processed',
+          user_id: userId,
+          tokens_disponibles: currentTokens,
+        }, { status: 200 })
+      }
     }
 
-    const { data: planPro } = await supabase
-      .from('planes')
-      .select('precio_por_asamblea_cop')
-      .eq('key', 'pro')
+    const { data: configRow } = await supabase
+      .from('configuracion_global')
+      .select('precio_por_token_cop')
+      .eq('key', 'landing')
       .maybeSingle()
 
-    const precioCop = planPro ? Number((planPro as { precio_por_asamblea_cop?: number }).precio_por_asamblea_cop ?? 0) : 0
+    let precioCop = configRow?.precio_por_token_cop != null ? Number(configRow.precio_por_token_cop) : 0
+    if (precioCop <= 0) {
+      const { data: planPro } = await supabase
+        .from('planes')
+        .select('precio_por_asamblea_cop')
+        .eq('key', 'pro')
+        .maybeSingle()
+      precioCop = planPro ? Number((planPro as { precio_por_asamblea_cop?: number }).precio_por_asamblea_cop ?? 0) : 0
+    }
     const montoCoincide =
       precioCop > 0 &&
       (amountInCents === Math.round(precioCop) || amountInCents === Math.round(precioCop * 100))
 
     if (!montoCoincide) {
-      await logPaymentError(supabase, conjuntoId, reference, txId, amountInCents, status, `Monto no coincide con Plan Pro (precio COP: ${precioCop})`)
+      await logPaymentError(supabase, null, reference, txId, amountInCents, status, `Monto no coincide con precio por token (precio COP: ${precioCop})`)
       return NextResponse.json({ received: true, skipped: 'monto_no_coincide' }, { status: 200 })
     }
 
-    const tokensActuales = Math.max(0, Number((org as { tokens_disponibles?: number }).tokens_disponibles ?? 0))
+    const { data: perfiles } = await supabase
+      .from('profiles')
+      .select('id, user_id, tokens_disponibles, organization_id')
+      .eq('user_id', userId)
+
+    let perfilesGestor: Array<{ tokens_disponibles?: number; organization_id?: string }> = Array.isArray(perfiles) ? perfiles : perfiles ? [perfiles] : []
+    if (perfilesGestor.length === 0) {
+      const { data: byId } = await supabase
+        .from('profiles')
+        .select('id, user_id, tokens_disponibles, organization_id')
+        .eq('id', userId)
+        .limit(1)
+      perfilesGestor = Array.isArray(byId) ? byId : byId ? [byId] : []
+      if (perfilesGestor.length === 0) {
+        await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Usuario/gestor no encontrado en profiles')
+        return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
+      }
+    }
+    const firstProfile = perfilesGestor[0] as { tokens_disponibles?: number; organization_id?: string } | undefined
+    const tokensActuales = Math.max(0, Number(firstProfile?.tokens_disponibles ?? 0))
+    const tokensComprados = 1
+    const nuevoSaldo = tokensActuales + tokensComprados
+    const orgIdForLog = firstProfile?.organization_id ?? null
+
     const { error: updateError } = await supabase
-      .from('organizations')
-      .update({ tokens_disponibles: tokensActuales + 1 })
-      .eq('id', conjuntoId)
+      .from('profiles')
+      .update({ tokens_disponibles: nuevoSaldo })
+      .eq('user_id', userId)
 
     if (updateError) {
-      await logPaymentError(supabase, conjuntoId, reference, txId, amountInCents, status, updateError.message)
-      return NextResponse.json({ error: 'Error al actualizar tokens', details: updateError.message }, { status: 500 })
+      const byIdUpdate = await supabase
+        .from('profiles')
+        .update({ tokens_disponibles: nuevoSaldo })
+        .eq('id', userId)
+      if (byIdUpdate.error) {
+        await logPaymentError(supabase, orgIdForLog, reference, txId, amountInCents, status, updateError.message)
+        return NextResponse.json({ error: 'Error al actualizar tokens', details: updateError.message }, { status: 500 })
+      }
     }
 
-    const { error: logError } = await registrarTransaccionPago(supabase, {
-      organization_id: conjuntoId,
-      monto: amountInCents,
-      wompi_transaction_id: txId,
-      estado: 'APPROVED',
-    })
-    if (logError) {
-      console.error('[webhook pagos] Error al registrar transacción:', logError.message)
+    if (orgIdForLog) {
+      const { error: logError } = await registrarTransaccionPago(supabase, {
+        organization_id: orgIdForLog,
+        monto: amountInCents,
+        wompi_transaction_id: txId,
+        estado: 'APPROVED',
+      })
+      if (logError) {
+        console.error('[webhook pagos] Error al registrar transacción:', logError.message)
+      }
     }
 
     return NextResponse.json({
       received: true,
-      organization_id: conjuntoId,
-      tokens_disponibles: tokensActuales + 1,
+      user_id: userId,
+      tokens_disponibles: nuevoSaldo,
+      tokens_comprados: tokensComprados,
     })
   }
 
-  // Pago no aprobado: registrar transacción para revisión (solo si podemos asociar a un conjunto)
-  if (conjuntoId) {
-    const { data: org } = await supabase.from('organizations').select('id').eq('id', conjuntoId).maybeSingle()
-    if (org) {
+  // Pago no aprobado: registrar para revisión si tenemos user_id y un org para el log
+  if (userId) {
+    const { data: perfiles } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('user_id', userId)
+      .limit(1)
+    const first = Array.isArray(perfiles) ? perfiles[0] : perfiles
+    const orgId = (first as { organization_id?: string } | undefined)?.organization_id
+    if (orgId) {
       await registrarTransaccionPago(supabase, {
-        organization_id: conjuntoId,
+        organization_id: orgId,
         monto: amountInCents,
         wompi_transaction_id: txId,
         estado: status || 'UNKNOWN',

@@ -50,7 +50,7 @@ export async function GET() {
 
     const { data, error } = await admin
       .from('configuracion_global')
-      .select('id, key, titulo, subtitulo, whatsapp_number, color_principal_hex')
+      .select('id, key, titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens')
       .eq('key', 'landing')
       .maybeSingle()
 
@@ -66,6 +66,8 @@ export async function GET() {
       subtitulo?: string | null
       whatsapp_number?: string | null
       color_principal_hex?: string | null
+      precio_por_token_cop?: number | null
+      bono_bienvenida_tokens?: number | null
     } | null
 
     return NextResponse.json({
@@ -75,6 +77,8 @@ export async function GET() {
       subtitulo: row?.subtitulo ?? '',
       whatsapp_number: row?.whatsapp_number ?? '',
       color_principal_hex: row?.color_principal_hex ?? '',
+      precio_por_token_cop: row?.precio_por_token_cop != null ? Number(row.precio_por_token_cop) : null,
+      bono_bienvenida_tokens: row?.bono_bienvenida_tokens != null ? Number(row.bono_bienvenida_tokens) : null,
     })
   } catch (e) {
     console.error('super-admin configuracion-landing GET:', e)
@@ -117,11 +121,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { titulo, subtitulo, whatsapp_number, color_principal_hex } = body as {
+    const { titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens } = body as {
       titulo?: string
       subtitulo?: string
       whatsapp_number?: string
       color_principal_hex?: string
+      precio_por_token_cop?: number
+      bono_bienvenida_tokens?: number
     }
 
     const admin = createClient(
@@ -130,14 +136,16 @@ export async function PATCH(request: NextRequest) {
       { auth: { persistSession: false } }
     )
 
-    const updates: Record<string, string | null> = {}
+    const updates: Record<string, string | number | null> = {}
     if (titulo !== undefined) updates.titulo = typeof titulo === 'string' ? titulo : null
     if (subtitulo !== undefined) updates.subtitulo = typeof subtitulo === 'string' ? subtitulo : null
     if (whatsapp_number !== undefined) updates.whatsapp_number = typeof whatsapp_number === 'string' ? whatsapp_number : null
     if (color_principal_hex !== undefined) updates.color_principal_hex = typeof color_principal_hex === 'string' && /^#[0-9A-Fa-f]{6}$/.test(color_principal_hex) ? color_principal_hex : null
+    if (precio_por_token_cop !== undefined) updates.precio_por_token_cop = typeof precio_por_token_cop === 'number' && precio_por_token_cop >= 0 ? precio_por_token_cop : null
+    if (bono_bienvenida_tokens !== undefined) updates.bono_bienvenida_tokens = typeof bono_bienvenida_tokens === 'number' && bono_bienvenida_tokens >= 0 ? bono_bienvenida_tokens : null
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'Falta al menos un campo: titulo, subtitulo, whatsapp_number o color_principal_hex' }, { status: 400 })
+      return NextResponse.json({ error: 'Falta al menos un campo: titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop o bono_bienvenida_tokens' }, { status: 400 })
     }
 
     updates.updated_at = new Date().toISOString()
@@ -157,6 +165,8 @@ export async function PATCH(request: NextRequest) {
           subtitulo: updates.subtitulo ?? null,
           whatsapp_number: updates.whatsapp_number ?? null,
           color_principal_hex: updates.color_principal_hex ?? null,
+          precio_por_token_cop: updates.precio_por_token_cop ?? null,
+          bono_bienvenida_tokens: updates.bono_bienvenida_tokens ?? null,
         })
         .select()
         .single()
@@ -169,7 +179,7 @@ export async function PATCH(request: NextRequest) {
 
     const { data: updated, error } = await admin
       .from('configuracion_global')
-      .update(updates)
+      .update(updates as Record<string, unknown>)
       .eq('key', 'landing')
       .select()
       .single()

@@ -2,11 +2,14 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { getCostoEnTokens } from '@/lib/costo-tokens'
 
 /**
  * POST /api/admin/registrar-voto
- * Permite al administrador registrar uno o varios votos a nombre de un residente
- * (p. ej. personas mayores que no usan tecnología).
+ * Modelo Billetera de Tokens por Gestor.
+ * Permite al administrador registrar uno o varios votos a nombre de un residente.
+ * Requiere tokens_gestor >= unidades_del_conjunto (1 token = 1 unidad).
+ * Tras éxito, descuenta el costo (unidades) del perfil del gestor.
  * Body: { asamblea_id, unidad_id, votante_email, votante_nombre, votos: [{ pregunta_id, opcion_id }] }
  */
 export async function POST(request: NextRequest) {
@@ -55,8 +58,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceRoleKey) {
+      return NextResponse.json({ error: 'Configuración del servidor incompleta' }, { status: 500 })
+    }
+    const admin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+      { auth: { persistSession: false } }
+    )
+
     // Verificar que el usuario tiene acceso al conjunto de la asamblea
-    const { data: asambleaRow } = await supabase
+    const { data: asambleaRow } = await admin
       .from('asambleas')
       .select('id, organization_id')
       .eq('id', asamblea_id)
@@ -74,6 +87,33 @@ export async function POST(request: NextRequest) {
     const userOrgIds = (profiles ?? []).map((p) => p.organization_id).filter(Boolean)
     if (!userOrgIds.includes(asambleaRow.organization_id)) {
       return NextResponse.json({ error: 'No tienes acceso a esta asamblea' }, { status: 403 })
+    }
+
+    // Billetera: verificar tokens del gestor >= costo (unidades del conjunto)
+    const { count: unidadesCount } = await admin
+      .from('unidades')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', asambleaRow.organization_id)
+    const unidades = Math.max(0, unidadesCount ?? 0)
+    const costo = getCostoEnTokens(unidades)
+
+    const { data: perfilesGestor } = await admin
+      .from('profiles')
+      .select('tokens_disponibles')
+      .eq('user_id', session.user.id)
+    const firstProfile = Array.isArray(perfilesGestor) ? perfilesGestor[0] : perfilesGestor
+    const tokensGestor = Math.max(0, Number(firstProfile?.tokens_disponibles ?? 0))
+
+    if (tokensGestor < costo) {
+      return NextResponse.json(
+        {
+          error: `Tokens insuficientes. El registro manual consume ${costo} tokens (1 por unidad; este conjunto tiene ${unidades} unidades).`,
+          code: 'SIN_TOKENS',
+          costo,
+          unidades,
+        },
+        { status: 402 }
+      )
     }
 
     // Verificar que la unidad pertenece al mismo conjunto
@@ -112,17 +152,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!serviceRoleKey) {
-      return NextResponse.json({ error: 'Configuración del servidor incompleta' }, { status: 500 })
-    }
-
-    const admin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-      { auth: { persistSession: false } }
-    )
-
     const email = String(votante_email).toLowerCase().trim()
     const nombre = (votante_nombre || 'Residente').trim()
     const nombreAudit = nombre + ' (registrado por administrador)'
@@ -151,12 +180,33 @@ export async function POST(request: NextRequest) {
     }
 
     const allOk = results.every((r) => r.success)
+
+    // Billetera: tras registrar votos con éxito, descontar costo del gestor
+    if (allOk && costo > 0) {
+      const nuevoSaldo = Math.max(0, tokensGestor - costo)
+      let updateError = (await admin
+        .from('profiles')
+        .update({ tokens_disponibles: nuevoSaldo })
+        .eq('user_id', session.user.id)).error
+      if (updateError) {
+        const byId = await admin
+          .from('profiles')
+          .update({ tokens_disponibles: nuevoSaldo })
+          .eq('id', session.user.id)
+        updateError = byId.error
+      }
+      if (updateError) {
+        console.error('[api/admin/registrar-voto] Error al descontar tokens:', updateError.message)
+      }
+    }
+
     return NextResponse.json({
       success: allOk,
       results,
       message: allOk
         ? 'Votos registrados correctamente'
         : 'Algunos votos no se pudieron registrar',
+      ...(allOk && costo > 0 ? { tokens_descontados: costo } : {}),
     }, { status: allOk ? 200 : 207 })
   } catch (e) {
     console.error('[api/admin/registrar-voto]', e)

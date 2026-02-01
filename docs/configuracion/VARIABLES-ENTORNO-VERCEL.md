@@ -31,15 +31,17 @@ Lista de **todas** las variables de entorno que debe tener el proyecto en Vercel
 
 ---
 
-## 4. Wompi (pagos Plan Pro)
+## 4. Wompi (pagos – Billetera de Tokens por Gestor)
+
+Modelo **Billetera de Tokens por Gestor**: los tokens pertenecen al usuario (gestor), no al conjunto. Al aprobar un pago, el webhook suma tokens al **perfil del gestor** (`profiles.tokens_disponibles`). La referencia de la transacción Wompi debe ser **`REF_<user_id>_<timestamp>`** (donde `user_id` es el UUID del gestor en Auth), para que el webhook acredite los tokens al usuario correcto. La pasarela o checkout debe construir la referencia con el `user_id` del gestor logueado.
 
 | Variable | Obligatoria | Dónde sacarla | Uso |
 |----------|-------------|---------------|-----|
 | **`NEXT_PUBLIC_WOMPI_LLAVE_PUBLICA`** | Sí (si usas pagos) | Wompi → Llave pública | Frontend: Widget / checkout. |
-| **`WOMPI_INTEGRIDAD`** | Sí (si usas webhook) | Wompi → Secretos para integración técnica → **Integridad** | Backend: verificación SHA256 del webhook `transaction.updated` en `/api/pagos/webhook`. |
-| **`NEXT_PUBLIC_PASARELA_PAGOS_URL`** | Opcional | URL de checkout hospedado por Wompi | Botón "Actualizar a Pro" del dashboard: redirige a esta URL con `?conjunto_id=<uuid>`. |
-| **`WOMPI_LLAVE_PRIVADA`** | Opcional | Wompi → Llave privada | Solo si tu backend llama a la API de Wompi (consultar transacción, reversar, etc.). |
-| **`WOMPI_EVENTOS`** | Opcional | Wompi → Secretos → Eventos | No la usamos hoy en el webhook (verificamos con Integridad). |
+| **`WEBHOOK_PAGOS_SECRET`** o **`WOMPI_INTEGRIDAD`** | Sí (si usas webhook) | Wompi → Secretos → Integridad | Backend: verificación SHA256 del webhook `transaction.updated` en `/api/pagos/webhook`. |
+| **`NEXT_PUBLIC_PASARELA_PAGOS_URL`** | Opcional | URL de checkout | Redirige con `?conjunto_id=<uuid>` (display). **La referencia enviada a Wompi debe ser REF_<user_id>_<timestamp>.** |
+| **`WOMPI_LLAVE_PRIVADA`** | Opcional | Wompi → Llave privada | Solo si el backend llama a la API de Wompi. |
+| **`WOMPI_EVENTOS`** | Opcional | Wompi → Secretos → Eventos | No usada en el webhook actual. |
 
 ### Llaves Wompi (prueba) – copiar y pegar en Vercel
 

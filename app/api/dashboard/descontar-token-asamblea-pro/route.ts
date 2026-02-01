@@ -2,14 +2,14 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { planEfectivo } from '@/lib/plan-utils'
+import { getCostoEnTokens } from '@/lib/costo-tokens'
 
 /**
  * POST /api/dashboard/descontar-token-asamblea-pro
- * Descuenta 1 token del conjunto cuando se activa una asamblea con más de 2 preguntas
- * (uso Pro). Solo aplica para planes Free/Pilot; Pro es ilimitado.
- * Los tokens son del conjunto (organization); las cuentas (admins) administran conjuntos.
- * Devuelve 200 si se descontó o si no aplica; 402 si no hay tokens.
+ * Modelo Billetera de Tokens por Gestor.
+ * Al activar votación: costo = unidades del conjunto (1 token = 1 unidad).
+ * Descuenta del perfil del gestor (todas las filas del mismo user_id).
+ * Devuelve 200 si se descontó; 402 si no hay tokens suficientes.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -71,12 +71,20 @@ export async function POST(request: NextRequest) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('id')
-      .eq('id', session.user.id)
+      .eq('user_id', session.user.id)
       .eq('organization_id', orgId)
       .maybeSingle()
 
     if (!profile) {
-      return NextResponse.json({ error: 'No tienes acceso a este conjunto' }, { status: 403 })
+      const { data: byId } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', session.user.id)
+        .eq('organization_id', orgId)
+        .maybeSingle()
+      if (!byId) {
+        return NextResponse.json({ error: 'No tienes acceso a este conjunto' }, { status: 403 })
+      }
     }
 
     const estado = (asamblea as { estado?: string }).estado
@@ -84,59 +92,61 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, descontado: false, motivo: 'asamblea_ya_activada' })
     }
 
-    const { count, error: countError } = await admin
-      .from('preguntas')
+    const { count: unidadesCount } = await admin
+      .from('unidades')
       .select('*', { count: 'exact', head: true })
-      .eq('asamblea_id', asamblea_id)
+      .eq('organization_id', orgId)
 
-    if (countError) {
-      return NextResponse.json({ error: countError.message }, { status: 500 })
-    }
+    const unidades = Math.max(0, unidadesCount ?? 0)
+    const costo = getCostoEnTokens(unidades)
 
-    const numPreguntas = count ?? 0
-    if (numPreguntas <= 2) {
-      return NextResponse.json({ ok: true, descontado: false, motivo: 'asamblea_basica' })
-    }
+    const { data: perfilesGestor } = await admin
+      .from('profiles')
+      .select('tokens_disponibles')
+      .eq('user_id', session.user.id)
 
-    const { data: org, error: orgError } = await admin
-      .from('organizations')
-      .select('tokens_disponibles, plan_type, plan_active_until')
-      .eq('id', orgId)
-      .single()
+    const firstProfile = Array.isArray(perfilesGestor) ? perfilesGestor[0] : perfilesGestor
+    const tokensActuales = Math.max(0, Number(firstProfile?.tokens_disponibles ?? 0))
 
-    if (orgError || !org) {
-      return NextResponse.json({ error: 'Conjunto no encontrado' }, { status: 404 })
-    }
-
-    const planEf = planEfectivo(
-      (org as { plan_type?: string }).plan_type,
-      (org as { plan_active_until?: string }).plan_active_until
-    )
-    const tokens = Math.max(0, Number((org as { tokens_disponibles?: number }).tokens_disponibles ?? 0))
-
-    if (planEf === 'pro') {
-      return NextResponse.json({ ok: true, descontado: false, motivo: 'plan_pro_ilimitado' })
-    }
-
-    if (tokens < 1) {
+    if (tokensActuales < costo) {
       return NextResponse.json(
-        { error: 'No tienes tokens disponibles para activar esta asamblea Pro.', code: 'SIN_TOKENS' },
+        {
+          error: `Tokens insuficientes. Necesitas ${costo} (1 por unidad; este conjunto tiene ${unidades} unidades).`,
+          code: 'SIN_TOKENS',
+          costo,
+          unidades,
+        },
         { status: 402 }
       )
     }
 
-    const { error: updateError } = await admin
-      .from('organizations')
-      .update({ tokens_disponibles: tokens - 1 })
-      .eq('id', orgId)
+    const nuevoSaldo = Math.max(0, tokensActuales - costo)
 
+    let updateError = (await admin
+      .from('profiles')
+      .update({ tokens_disponibles: nuevoSaldo })
+      .eq('user_id', session.user.id)).error
+
+    if (updateError) {
+      const byId = await admin
+        .from('profiles')
+        .update({ tokens_disponibles: nuevoSaldo })
+        .eq('id', session.user.id)
+      updateError = byId.error
+    }
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true, descontado: true, tokens_restantes: tokens - 1 })
+    return NextResponse.json({
+      ok: true,
+      descontado: true,
+      tokens_restantes: nuevoSaldo,
+      costo,
+      unidades,
+    })
   } catch (e) {
     console.error('descontar-token-asamblea-pro:', e)
-    return NextResponse.json({ error: 'Error al descontar token' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al descontar tokens' }, { status: 500 })
   }
 }

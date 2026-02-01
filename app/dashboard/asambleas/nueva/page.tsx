@@ -10,11 +10,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
-import type { PlanType } from '@/lib/plan-utils'
 
 type OrganizationStatus = {
-  plan_efectivo: PlanType
   tokens_disponibles: number
+  unidades_conjunto: number
+  costo_operacion: number
+  puede_operar: boolean
 }
 
 export default function NuevaAsambleaPage() {
@@ -27,6 +28,7 @@ export default function NuevaAsambleaPage() {
   const [statusError, setStatusError] = useState('')
   const [statusCode, setStatusCode] = useState<number | null>(null)
   const [precioProCop, setPrecioProCop] = useState<number | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -49,6 +51,10 @@ export default function NuevaAsambleaPage() {
     setStatusLoading(true)
     setStatusError('')
 
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!cancelled && user?.id) setUserId(user.id)
+    })
+
     Promise.all([
       fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(conjId)}`).then(async (res) => {
         if (!res.ok) {
@@ -59,18 +65,24 @@ export default function NuevaAsambleaPage() {
         }
         return res.json()
       }),
+      fetch('/api/configuracion-global').then((r) => r.ok ? r.json() : null).catch(() => null),
       fetch('/api/planes').then((r) => r.json()).catch(() => ({ planes: [] })),
     ])
-      .then(([data, planesData]) => {
+      .then(([data, configData, planesData]) => {
         if (!cancelled) {
           setStatus({
-            plan_efectivo: data.plan_efectivo ?? 'free',
             tokens_disponibles: Number(data.tokens_disponibles ?? 0),
+            unidades_conjunto: Number(data.unidades_conjunto ?? 0),
+            costo_operacion: Number(data.costo_operacion ?? 0),
+            puede_operar: !!data.puede_operar,
           })
           setStatusError('')
           setStatusCode(null)
-          const pro = (planesData?.planes ?? []).find((p: { key: string }) => p.key === 'pro')
-          if (pro?.precio_por_asamblea_cop != null) setPrecioProCop(Number(pro.precio_por_asamblea_cop))
+          if (configData?.precio_por_token_cop != null) setPrecioProCop(Number(configData.precio_por_token_cop))
+          else {
+            const pro = (planesData?.planes ?? []).find((p: { key: string }) => p.key === 'pro')
+            if (pro?.precio_por_asamblea_cop != null) setPrecioProCop(Number(pro.precio_por_asamblea_cop))
+          }
         }
       })
       .catch((err: { code?: number; message?: string } | Error) => {
@@ -90,10 +102,10 @@ export default function NuevaAsambleaPage() {
     }
   }, [])
 
-  const planEfectivo = status?.plan_efectivo ?? null
   const tokensDisponibles = status?.tokens_disponibles ?? 0
-  const puedeCrear =
-    planEfectivo === 'pro' || (planEfectivo !== null && tokensDisponibles >= 1)
+  const costoOperacion = status?.costo_operacion ?? 0
+  const puedeOperar = status?.puede_operar ?? false
+  const puedeCrear = !!status && !statusError
   const bloqueado = !statusLoading && !statusError && selectedConjuntoId && !puedeCrear
 
   const handleSubmit = async (e: FormEvent) => {
@@ -261,13 +273,14 @@ export default function NuevaAsambleaPage() {
               <div className="flex items-center gap-2 rounded-xl bg-amber-100 dark:bg-amber-900/30 px-4 py-3 border border-amber-200 dark:border-amber-800">
                 <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                 <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                  No hay tokens en el conjunto. Se descontan al crear o activar asambleas; compra más o actualiza a Plan Pro.
+                  No hay suficientes tokens en tu billetera. Se descontan al activar votación, descargar acta o registrar votos manuales; compra más créditos.
                 </p>
               </div>
               <ComprarTokensCTA
                 conjuntoId={selectedConjuntoId}
+                userId={userId}
                 precioCop={precioProCop}
-                planType={planEfectivo ?? 'free'}
+                planType="free"
                 variant="blocked"
               />
               <div className="flex justify-center">

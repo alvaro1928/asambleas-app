@@ -33,7 +33,6 @@ import { Select } from '@/components/ui/select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
-import { planEfectivo } from '@/lib/plan-utils'
 import { getEffectivePlanLimits, findPlanByKey, type PlanFromApi } from '@/lib/plan-limits'
 import { useToast } from '@/components/providers/ToastProvider'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
@@ -132,11 +131,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [editOpciones, setEditOpciones] = useState<OpcionPregunta[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
 
-  // Plan del conjunto activo y límites parametrizables (desde tabla planes)
-  const [planType, setPlanType] = useState<'free' | 'pro' | 'pilot' | null>(null)
+  // Billetera de tokens por gestor: puede_operar = tokens >= unidades del conjunto
+  const [puedeOperar, setPuedeOperar] = useState(false)
+  const [tokensDisponibles, setTokensDisponibles] = useState(0)
+  const [costoOperacion, setCostoOperacion] = useState(0)
   const [planLimits, setPlanLimits] = useState({ max_preguntas_por_asamblea: 2, incluye_acta_detallada: false })
   const [precioProCop, setPrecioProCop] = useState<number | null>(null)
   const [sinTokensModalOpen, setSinTokensModalOpen] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
   // Registrar voto a nombre de un residente (admin)
   const [showRegistroVotoAdmin, setShowRegistroVotoAdmin] = useState(false)
@@ -181,6 +183,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         router.push('/login')
         return
       }
+      setUserId(user.id)
 
       const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
       if (!selectedConjuntoId) {
@@ -204,24 +207,29 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       setAsamblea(asambleaData)
 
-      // Plan del conjunto (considera vigencia plan_active_until) y tokens
-      const { data: orgPlan } = await supabase
-        .from('organizations')
-        .select('plan_type, plan_active_until, tokens_disponibles')
-        .eq('id', asambleaData.organization_id)
-        .single()
-      const row = orgPlan as { plan_type?: string; plan_active_until?: string | null; tokens_disponibles?: number } | null
-      const plan = planEfectivo(row?.plan_type, row?.plan_active_until)
-      setPlanType(plan)
-      const tokens = Math.max(0, Number(row?.tokens_disponibles ?? 0))
+      // Billetera por gestor: organization-status devuelve tokens, unidades y puede_operar
+      const orgId = asambleaData.organization_id
+      const statusRes = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(orgId ?? '')}`)
+      const statusData = statusRes.ok ? await statusRes.json() : null
+      const tokens = Math.max(0, Number(statusData?.tokens_disponibles ?? 0))
+      const unidades = Math.max(0, Number(statusData?.unidades_conjunto ?? 0))
+      const costo = Math.max(0, Number(statusData?.costo_operacion ?? 0))
+      const puede = !!statusData?.puede_operar
+      setTokensDisponibles(tokens)
+      setCostoOperacion(costo)
+      setPuedeOperar(puede)
+      const limits = getEffectivePlanLimits(tokens, unidades)
+      setPlanLimits(limits)
+      const configRes = await fetch('/api/configuracion-global')
+      const configData = configRes.ok ? await configRes.json() : null
+      if (configData?.precio_por_token_cop != null) setPrecioProCop(Number(configData.precio_por_token_cop))
       const planesRes = await fetch('/api/planes')
       const planesData = planesRes.ok ? await planesRes.json() : null
       const planesList = (planesData?.planes ?? []) as PlanFromApi[]
-      const planFromApi = findPlanByKey(planesList, plan ?? 'free')
-      const limits = getEffectivePlanLimits(plan, tokens, planFromApi)
-      setPlanLimits(limits)
-      const proPlan = findPlanByKey(planesList, 'pro')
-      if (proPlan?.precio_por_asamblea_cop != null) setPrecioProCop(proPlan.precio_por_asamblea_cop)
+      if (configData?.precio_por_token_cop == null) {
+        const proPlan = findPlanByKey(planesList, 'pro')
+        if (proPlan?.precio_por_asamblea_cop != null) setPrecioProCop(proPlan.precio_por_asamblea_cop)
+      }
 
       // Cargar preguntas
       const { data: preguntasData, error: preguntasError } = await supabase
@@ -439,6 +447,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const handleAbrirRegistroVotoAdmin = async () => {
     if (!asamblea?.organization_id) return
+    if (!puedeOperar) {
+      setSinTokensModalOpen(true)
+      return
+    }
     setShowRegistroVotoAdmin(true)
     setUnidadRegistroVoto('')
     setVotanteEmailRegistro('')
@@ -495,6 +507,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
+        if (res.status === 402) {
+          setShowRegistroVotoAdmin(false)
+          setSinTokensModalOpen(true)
+          toast.error(data.error || 'Tokens insuficientes para registrar votos.')
+          return
+        }
         const msg = res.status === 403
           ? 'No tienes permiso para registrar votos en esta asamblea. Verifica que pertenezcas al conjunto.'
           : (data.error || 'Error al registrar votos')
@@ -955,16 +973,28 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             <div className="flex items-center space-x-3">
               {getEstadoBadge(asamblea.estado)}
               {asamblea.estado === 'borrador' && (
-                <Button
-                  onClick={() => handleChangeEstadoAsamblea('activa')}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  Activar
-                </Button>
+                puedeOperar ? (
+                  <Button
+                    onClick={() => handleChangeEstadoAsamblea('activa')}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    Activar
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => setSinTokensModalOpen(true)}
+                    variant="outline"
+                    className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400"
+                    title="Se requieren tokens suficientes (costo = unidades del conjunto)"
+                  >
+                    <Lock className="w-4 h-4 mr-2" />
+                    Activar (requiere tokens)
+                  </Button>
+                )
               )}
               {(asamblea.estado === 'finalizada' || asamblea.estado === 'activa' || preguntas.some(p => p.estado === 'cerrada')) && (
-                (planType === 'pro' || planType === 'pilot') ? (
+                puedeOperar ? (
                   <Link href={`/dashboard/asambleas/${params.id}/acta`}>
                     <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400">
                       <FileText className="w-4 h-4 mr-2" />
@@ -972,16 +1002,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     </Button>
                   </Link>
                 ) : (
-                  <a
-                    href={process.env.NEXT_PUBLIC_PLAN_PRO_URL || '#'}
-                    target={process.env.NEXT_PUBLIC_PLAN_PRO_URL ? '_blank' : undefined}
-                    rel={process.env.NEXT_PUBLIC_PLAN_PRO_URL ? 'noopener noreferrer' : undefined}
+                  <Button
+                    variant="outline"
+                    className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400"
+                    onClick={() => setSinTokensModalOpen(true)}
                   >
-                    <Button variant="outline" className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400">
-                      <FileText className="w-4 h-4 mr-2" />
-                      Disponible en Plan Pro
-                    </Button>
-                  </a>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Acta (requiere tokens suficientes)
+                  </Button>
                 )
               )}
             </div>
@@ -1088,18 +1116,30 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           )}
         </div>
 
-        {/* Registrar voto a nombre de un residente (p. ej. personas mayores) */}
+        {/* Registrar voto a nombre de un residente (p. ej. personas mayores) — requiere tokens */}
         {preguntasAbiertas.length > 0 && (
           <div className="mb-6 flex justify-end">
-            <Button
-              variant="outline"
-              onClick={handleAbrirRegistroVotoAdmin}
-              className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-              title="Registrar el voto de un residente que no puede votar en línea (p. ej. persona mayor)"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Registrar voto a nombre de un residente
-            </Button>
+            {puedeOperar ? (
+              <Button
+                variant="outline"
+                onClick={handleAbrirRegistroVotoAdmin}
+                className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                title="Registrar el voto de un residente que no puede votar en línea (p. ej. persona mayor)"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Registrar voto a nombre de un residente
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setSinTokensModalOpen(true)}
+                className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400"
+                title="Se requieren tokens suficientes (costo = unidades del conjunto)"
+              >
+                <Lock className="w-4 h-4 mr-2" />
+                Registrar voto (requiere tokens)
+              </Button>
+            )}
           </div>
         )}
 
@@ -1307,7 +1347,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     Límite del plan alcanzado
                   </AlertTitle>
                   <AlertDescription className="text-amber-800 dark:text-amber-200">
-                    Tu plan permite hasta {planLimits.max_preguntas_por_asamblea} pregunta{planLimits.max_preguntas_por_asamblea !== 1 ? 's' : ''} por asamblea. Actualiza a Plan Pro para crear más preguntas.
+                    Con tu saldo actual puedes tener hasta {planLimits.max_preguntas_por_asamblea} pregunta{planLimits.max_preguntas_por_asamblea !== 1 ? 's' : ''} por asamblea. Compra más créditos para crear más preguntas.
                     {process.env.NEXT_PUBLIC_PLAN_PRO_URL && (
                       <a
                         href={process.env.NEXT_PUBLIC_PLAN_PRO_URL}
@@ -2062,8 +2102,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         <DialogContent className="max-w-lg">
           <ComprarTokensCTA
             conjuntoId={asamblea?.organization_id ?? null}
+            userId={userId}
             precioCop={precioProCop}
-            planType={planType ?? 'free'}
+            planType="free"
             variant="modal"
             onClose={() => setSinTokensModalOpen(false)}
           />

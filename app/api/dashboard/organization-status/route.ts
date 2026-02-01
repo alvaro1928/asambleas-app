@@ -2,12 +2,12 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { planEfectivo } from '@/lib/plan-utils'
+import { getCostoEnTokens } from '@/lib/costo-tokens'
 
 /**
  * GET /api/dashboard/organization-status?organization_id=xxx
- * Devuelve plan_type, plan_active_until, tokens_disponibles y plan_efectivo del conjunto.
- * Los tokens son del conjunto (organization); las cuentas (admins) administran conjuntos.
+ * Modelo Billetera de Tokens por Gestor.
+ * Devuelve tokens_disponibles del gestor (perfil), unidades del conjunto y costo (1 token = 1 unidad).
  * Solo si el usuario tiene perfil en esa organización.
  */
 export async function GET(request: NextRequest) {
@@ -44,65 +44,63 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', session.user.id)
-      .eq('organization_id', organizationId)
-      .maybeSingle()
+    const userId = session.user.id
 
-    if (!profile) {
+    // Verificar acceso: usuario tiene perfil en esta organización (user_id o id = auth uid)
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, user_id, tokens_disponibles')
+      .eq('organization_id', organizationId)
+
+    const list = Array.isArray(profiles) ? profiles : profiles ? [profiles] : []
+    const profileAccess = list.find(
+      (p: { user_id?: string; id?: string }) => p.user_id === userId || p.id === userId
+    )
+
+    if (!profileAccess) {
       return NextResponse.json(
         { error: 'No tienes acceso a este conjunto' },
         { status: 403 }
       )
     }
 
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!serviceRoleKey) {
-      return NextResponse.json(
-        { error: 'Configuración del servidor incompleta' },
-        { status: 500 }
-      )
+    // Tokens del gestor: leer de cualquier perfil del usuario (user_id o id)
+    let tokensDisponibles = Math.max(0, Number(profileAccess?.tokens_disponibles ?? 0))
+    const { data: allProfiles } = await supabase
+      .from('profiles')
+      .select('tokens_disponibles')
+      .eq('user_id', userId)
+    if (Array.isArray(allProfiles) && allProfiles[0]) {
+      tokensDisponibles = Math.max(0, Number(allProfiles[0].tokens_disponibles ?? 0))
+    } else {
+      const { data: byId } = await supabase
+        .from('profiles')
+        .select('tokens_disponibles')
+        .eq('id', userId)
+        .limit(1)
+        .maybeSingle()
+      if (byId) tokensDisponibles = Math.max(0, Number(byId.tokens_disponibles ?? 0))
     }
 
-    const admin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-      { auth: { persistSession: false } }
-    )
+    // Unidades del conjunto (costo = unidades; 1 token = 1 unidad)
+    const { count: unidadesCount } = await supabase
+      .from('unidades')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId)
 
-    const { data: org, error: orgError } = await admin
-      .from('organizations')
-      .select('plan_type, plan_active_until, tokens_disponibles')
-      .eq('id', organizationId)
-      .single()
-
-    if (orgError || !org) {
-      return NextResponse.json(
-        { error: 'Conjunto no encontrado' },
-        { status: 404 }
-      )
-    }
-
-    const planType = (org as { plan_type?: string }).plan_type ?? null
-    const planActiveUntil = (org as { plan_active_until?: string | null })
-      .plan_active_until ?? null
-    const tokensDisponibles = Number(
-      (org as { tokens_disponibles?: number }).tokens_disponibles ?? 0
-    )
-    const plan = planEfectivo(planType, planActiveUntil)
+    const unidades = Math.max(0, unidadesCount ?? 0)
+    const costo = getCostoEnTokens(unidades)
 
     return NextResponse.json({
-      plan_type: planType,
-      plan_active_until: planActiveUntil,
       tokens_disponibles: tokensDisponibles,
-      plan_efectivo: plan,
+      unidades_conjunto: unidades,
+      costo_operacion: costo,
+      puede_operar: tokensDisponibles >= costo,
     })
   } catch (e) {
     console.error('organization-status:', e)
     return NextResponse.json(
-      { error: 'Error al obtener el estado del conjunto' },
+      { error: 'Error al obtener el estado' },
       { status: 500 }
     )
   }

@@ -27,7 +27,7 @@ Añade esto en **`.env.local`** (y en Vercel o tu hosting):
 |----------|----------------|----------------|
 | **`NEXT_PUBLIC_WOMPI_LLAVE_PUBLICA`** | Wompi → **Llave pública** | Widget o checkout en el frontend (pago desde la app). |
 | **`WOMPI_INTEGRIDAD`** | Wompi → Secretos para integración técnica → **Integridad** | Para que `/api/pagos/webhook` verifique la firma SHA256 y nadie más pueda activar planes. |
-| **`NEXT_PUBLIC_PASARELA_PAGOS_URL`** (opcional) | Si usas **página de pago hospedada** por Wompi | El botón "Actualizar a Pro" del dashboard llevará a esa URL con `?conjunto_id=<uuid>`. |
+| **`NEXT_PUBLIC_PASARELA_PAGOS_URL`** (opcional) | Si usas **página de pago hospedada** | El botón "Comprar más tokens" llevará a esa URL con `?user_id=<uuid>` (y opcionalmente `conjunto_id`). La pasarela debe crear la transacción Wompi con referencia **`REF_<user_id>_<timestamp>`**. |
 
 Ejemplo (pruebas con llaves `test_`):
 
@@ -60,17 +60,17 @@ En **producción** sustituye por las llaves de producción (sin prefijo `test_`)
    - Pégalo en Wompi en "Event Secret" (o el nombre que use Wompi).  
    - **El mismo valor** debe estar en tu `.env` como **`WOMPI_INTEGRIDAD`**.
 
-### Referencia del pago (para saber a qué conjunto activar Pro)
+### Referencia del pago (Billetera por Gestor)
 
-El webhook **`/api/pagos/webhook`** está preparado para Wompi:
+El webhook **`/api/pagos/webhook`** está preparado para Wompi con el modelo **Billetera de Tokens por Gestor**:
 
 - **Evento:** `transaction.updated`.
-- **Firma:** se verifica la integridad con **SHA256** usando el secreto **Integridad** de Wompi (variable `WOMPI_INTEGRIDAD`). Wompi envía en el payload un objeto `signature` con `properties`, `timestamp` y `checksum`; el servidor concatena los valores indicados en `properties`, el `timestamp` y tu secreto, calcula SHA256 y lo compara con `checksum` (o con el header `X-Event-Checksum`).
-- **Referencia:** debe tener el formato **`REF_<conjunto_id>_<timestamp>`**. Ejemplo: `REF_550e8400-e29b-41d4-a716-446655440000_1234567890`. El webhook extrae el UUID del conjunto de ahí.
-- **Lógica APPROVED:** se lee el precio del Plan Pro en la tabla `planes` (campo `precio_por_asamblea_cop` donde `key = 'pro'`). Si el monto del pago coincide con ese precio (en COP o en centavos según Wompi), se suma **1** a `tokens_disponibles` de la cuenta (conjunto) y se registra la transacción en **`pagos_log`** con estado `APPROVED`, para que cuente en "Dinero total recaudado" del Super Admin.
-- **Si el pago no es APPROVED:** se registra la transacción en **`pagos_log`** (con el estado recibido, p. ej. DECLINED, ERROR) cuando se puede extraer el `conjunto_id` de la referencia, para que puedas revisarlo.
+- **Firma:** se verifica la integridad con **SHA256** usando el secreto de Wompi (variable `WEBHOOK_PAGOS_SECRET` o `WOMPI_INTEGRIDAD`). El servidor concatena los valores indicados en `signature.properties`, el `timestamp` y el secreto, calcula SHA256 y lo compara con `checksum`.
+- **Referencia:** debe tener el formato **`REF_<user_id>_<timestamp>`**. Ejemplo: `REF_550e8400-e29b-41d4-a716-446655440000_1234567890`. El webhook extrae el **user_id** del gestor (auth.uid) de ahí. La pasarela de pagos debe recibir `user_id` en la URL (p. ej. desde el dashboard con `?user_id=xxx`) y usarlo al crear la transacción en Wompi.
+- **Lógica APPROVED:** se lee el precio por token en la tabla `planes` (campo `precio_por_asamblea_cop` donde `key = 'pro'`). Si el monto coincide, se suma **1** a **`profiles.tokens_disponibles`** de todas las filas del gestor (`user_id`). Se registra en **`pagos_log`** con `organization_id` del primer perfil del usuario (para reportes).
+- **Si el pago no es APPROVED:** se registra en **`pagos_log`** cuando hay `user_id` y un perfil con `organization_id`, para revisión.
 
-Al crear la transacción en Wompi (Widget o backend), configura la **referencia** con ese formato para que el webhook sepa a qué conjunto activar el plan.
+Al crear la transacción en Wompi (Widget o pasarela hospedada), usa la **referencia** `REF_<user_id>_<timestamp>` para que el webhook acredite los tokens en la billetera del gestor.
 
 ---
 

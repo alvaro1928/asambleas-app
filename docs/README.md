@@ -10,7 +10,7 @@
 
 | Documento | Descripción |
 |-----------|-------------|
-| **[RESUMEN-APLICACION.md](RESUMEN-APLICACION.md)** | Resumen funcional (por rol: admin, votantes, super-admin) y técnico (stack, rutas, APIs, BD, tokens y planes). Punto de entrada para entender la app. |
+| **[RESUMEN-APLICACION.md](RESUMEN-APLICACION.md)** | Resumen funcional (por rol: admin, votantes, super-admin) y técnico (stack, rutas, APIs, BD, **billetera de tokens por gestor**: 1 token = 1 unidad). Punto de entrada para entender la app. |
 
 ---
 

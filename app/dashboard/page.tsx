@@ -9,7 +9,6 @@ import ConjuntoSelector from '@/components/ConjuntoSelector'
 import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
 import { Tooltip as UiTooltip } from '@/components/ui/tooltip'
 import { isAdminEmail } from '@/lib/super-admin'
-import { planEfectivo } from '@/lib/plan-utils'
 import { useToast } from '@/components/providers/ToastProvider'
 
 interface UnidadMetrics {
@@ -30,8 +29,8 @@ export default function DashboardPage() {
     sumaCoeficientes: 0,
     censoDatos: 0
   })
-  const [planType, setPlanType] = useState<'free' | 'pro' | 'pilot' | null>(null)
   const [tokensDisponibles, setTokensDisponibles] = useState<number>(0)
+  const [costoOperacion, setCostoOperacion] = useState<number>(0)
   const [precioProCop, setPrecioProCop] = useState<number | null>(null)
   const [selectedConjuntoId, setSelectedConjuntoId] = useState<string | null>(null)
   const router = useRouter()
@@ -106,6 +105,12 @@ export default function DashboardPage() {
 
   const loadPrecioPro = async () => {
     try {
+      const configRes = await fetch('/api/configuracion-global')
+      const configData = (await configRes.json()) as { precio_por_token_cop?: number | null }
+      if (configData?.precio_por_token_cop != null) {
+        setPrecioProCop(Number(configData.precio_por_token_cop))
+        return
+      }
       const res = await fetch('/api/planes')
       const data = (await res.json()) as { planes?: Array<{ key: string; precio_por_asamblea_cop?: number }> }
       const pro = data?.planes?.find(p => p.key === 'pro')
@@ -129,20 +134,18 @@ export default function DashboardPage() {
       const uniqueOrgs = new Set(profiles?.map(p => p.organization_id).filter(Boolean))
       setConjuntosCount(uniqueOrgs.size)
 
-      // Conjunto activo y plan
+      // Conjunto activo: tokens del gestor (billetera) y costo para este conjunto (1 token = 1 unidad)
       const conjId = localStorage.getItem('selectedConjuntoId')
       setSelectedConjuntoId(conjId)
       if (!conjId) setTokensDisponibles(0)
 
       if (conjId) {
-        const { data: orgPlan } = await supabase
-          .from('organizations')
-          .select('plan_type, plan_active_until, tokens_disponibles')
-          .eq('id', conjId)
-          .maybeSingle()
-        const row = orgPlan as { plan_type?: string; plan_active_until?: string | null; tokens_disponibles?: number } | null
-        setPlanType(planEfectivo(row?.plan_type, row?.plan_active_until))
-        setTokensDisponibles(Math.max(0, Number(row?.tokens_disponibles ?? 0)))
+        const statusRes = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(conjId)}`, { credentials: 'include' })
+        const statusData = statusRes.ok ? await statusRes.json().catch(() => ({})) : null
+        setTokensDisponibles(Math.max(0, Number(statusData?.tokens_disponibles ?? 0)))
+        const unidades = Math.max(0, Number(statusData?.unidades_conjunto ?? 0))
+        setUnidadesCount(unidades)
+        setCostoOperacion(Math.max(0, Number(statusData?.costo_operacion ?? unidades)))
 
         const { data: unidades, error } = await supabase
           .from('unidades')
@@ -183,7 +186,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
           <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando...</p>
@@ -193,9 +196,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-slate-50 dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <header className="bg-white dark:bg-gray-800 shadow-soft border-b border-slate-200 dark:border-gray-700 rounded-b-2xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -203,19 +206,24 @@ export default function DashboardPage() {
             </h1>
             <div className="flex items-center space-x-4">
               <ConjuntoSelector />
-              {selectedConjuntoId && planType != null && (
+              {selectedConjuntoId && (
                 <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
                   <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Tokens (conjunto):
-                    </span>
-                    <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
-                    {planType === 'pro' ? 'Ilimitado' : tokensDisponibles}
+                    Billetera:
                   </span>
+                  <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                    {tokensDisponibles} tokens
+                  </span>
+                  {costoOperacion > 0 && (
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      (costo por operación: {costoOperacion})
+                    </span>
+                  )}
                 </div>
               )}
               <div className="flex items-center space-x-3">
               {user?.email && isAdminEmail(user.email) && (
-                <UiTooltip content="Panel de super administrador: gestionar conjuntos y planes de suscripción">
+                <UiTooltip content="Panel de super administrador: conjuntos, créditos y configuración">
                   <a
                     href="/super-admin"
                     onClick={(e) => {
@@ -298,11 +306,11 @@ export default function DashboardPage() {
           )}
 
           {/* Banner: sin tokens o pocos tokens (estilo apps de IA) */}
-          {selectedConjuntoId && (planType === 'free' || planType === 'pilot') && tokensDisponibles <= 1 && (
+          {selectedConjuntoId && tokensDisponibles < costoOperacion && costoOperacion > 0 && (
             <ComprarTokensCTA
               conjuntoId={selectedConjuntoId}
+              userId={user?.id ?? undefined}
               precioCop={precioProCop}
-              planType={planType}
               variant={tokensDisponibles === 0 ? 'blocked' : 'low'}
             />
           )}
@@ -341,86 +349,35 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Suscripción */}
+          {/* Billetera de tokens */}
           {selectedConjuntoId && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-indigo-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                  />
+                <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2h-2m-4-1V7a2 2 0 012-2h2a2 2 0 012 2v1M11 14l2 2 4-4" />
                 </svg>
-                Suscripción
+                Billetera de tokens
               </h3>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-gray-600 dark:text-gray-400">Plan actual:</span>
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
-                      planType === 'pro'
-                        ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'
-                        : planType === 'pilot'
-                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    {planType === 'pro' ? 'Pro' : planType === 'pilot' ? 'Piloto' : 'Gratis'}
+                  <span className="text-gray-600 dark:text-gray-400">Saldo:</span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300">
+                    {tokensDisponibles} tokens
                   </span>
+                  {costoOperacion > 0 && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      (1 token = 1 unidad; costo por operación: {costoOperacion})
+                    </span>
+                  )}
                 </div>
-                {planType === 'free' && (
-                  (() => {
-                    const pasarelaUrl = process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
-                    const planProUrl = process.env.NEXT_PUBLIC_PLAN_PRO_URL
-                    const href = pasarelaUrl
-                      ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}conjunto_id=${encodeURIComponent(selectedConjuntoId ?? '')}`
-                      : (planProUrl && planProUrl !== '#') ? planProUrl : null
-                    const openInNewTab = !!href && href !== '#'
-                    if (!href || href === '#') {
-                      return (
-                        <UiTooltip content="Configura la URL de pago o contacto en las variables de entorno para habilitar este botón">
-                          <button
-                            type="button"
-                            onClick={() => toast.info('Configura NEXT_PUBLIC_PASARELA_PAGOS_URL o NEXT_PUBLIC_PLAN_PRO_URL en las variables de entorno para habilitar el pago o contacto.')}
-                            className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all text-sm"
-                          >
-                            Actualizar a Pro
-                          </button>
-                        </UiTooltip>
-                      )
-                    }
-                    return (
-                      <UiTooltip content="Ir a la pasarela de pago o contacto para activar el Plan Pro en este conjunto">
-                        <a
-                          href={href}
-                          target={openInNewTab ? '_blank' : undefined}
-                          rel={openInNewTab ? 'noopener noreferrer' : undefined}
-                          className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all text-sm"
-                        >
-                          Actualizar a Pro
-                        </a>
-                      </UiTooltip>
-                    )
-                  })()
-                )}
               </div>
-              {(planType === 'free' || planType === 'pilot') && (
+              {costoOperacion > 0 && (
                 <div className="mt-3 space-y-1">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Tokens del conjunto: <span className="font-semibold text-gray-900 dark:text-white">{tokensDisponibles}</span>
-                    {planType === 'free' && ' (Gratis incluye 2)'}
-                    {planType === 'pilot' && ' (Piloto hasta 3 meses)'}.
-                    Se descontan al crear o activar asambleas; cuando el conjunto se quede sin tokens, compra más.
+                    Activar votación, descargar acta con auditoría y registro manual consumen <strong>{costoOperacion} tokens</strong>. Compra más si tu billetera tiene menos.
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Compra tokens bajo demanda ({formatPrecioCop(precioProCop ?? 0)}/token) o actualiza a Plan Pro y ten asambleas ilimitadas.
+                    Compra tokens ({formatPrecioCop(precioProCop ?? 0)}/token). Nuevos gestores reciben 50 tokens de regalo.
                   </p>
                 </div>
               )}

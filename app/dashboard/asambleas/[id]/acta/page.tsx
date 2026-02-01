@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Download, FileText, Printer, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { planEfectivo } from '@/lib/plan-utils'
 
 interface Asamblea {
   id: string
@@ -86,7 +85,6 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [totalPoderes, setTotalPoderes] = useState(0)
   const [coefPoderes, setCoefPoderes] = useState(0)
   const [auditoria, setAuditoria] = useState<Record<string, AuditRow[]>>({})
-  const [planType, setPlanType] = useState<'free' | 'pro' | 'pilot'>('free')
   const [incluyeActaDetallada, setIncluyeActaDetallada] = useState(false)
 
   useEffect(() => {
@@ -117,12 +115,17 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
       const { data: orgData } = await supabase
         .from('organizations')
-        .select('name, plan_type, plan_active_until')
+        .select('name')
         .eq('id', asambleaData.organization_id)
         .single()
-      const org = orgData as { name?: string; plan_type?: string; plan_active_until?: string | null } | null
+      const org = orgData as { name?: string } | null
       setConjunto(org && typeof org.name === 'string' ? { name: org.name } : null)
-      setPlanType(planEfectivo(org?.plan_type, org?.plan_active_until))
+
+      // Billetera por gestor: acta con auditoría requiere tokens >= unidades del conjunto
+      const orgId = asambleaData.organization_id
+      const statusRes = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(orgId ?? '')}`)
+      const statusData = statusRes.ok ? await statusRes.json() : null
+      setIncluyeActaDetallada(!!statusData?.puede_operar)
 
       const { data: preguntasData } = await supabase
         .from('preguntas')
@@ -256,18 +259,16 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     )
   }
 
-  const planProUrl = process.env.NEXT_PUBLIC_PLAN_PRO_URL || '#'
-
   if (!incluyeActaDetallada) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700 text-center">
           <FileText className="w-16 h-16 text-amber-500 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-            Acta y Auditoría en Plan Pro
+            Tokens insuficientes
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            La descarga del acta y el reporte de auditoría están disponibles en Plan Pro o Pilot. Actualiza tu plan para acceder.
+            La descarga del acta con auditoría requiere tener en tu billetera al menos tantos tokens como unidades tiene el conjunto (1 token = 1 unidad). Recarga tokens o compra más para acceder.
           </p>
           <Link href={`/dashboard/asambleas/${params.id}`}>
             <Button variant="outline" className="mb-4">
@@ -275,13 +276,6 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               Volver a la asamblea
             </Button>
           </Link>
-          {planProUrl !== '#' && (
-            <a href={planProUrl} target="_blank" rel="noopener noreferrer" className="block">
-              <Button className="w-full bg-indigo-600 hover:bg-indigo-700">
-                Disponible en Plan Pro — Contactar soporte / ventas
-              </Button>
-            </a>
-          )}
         </div>
       </div>
     )

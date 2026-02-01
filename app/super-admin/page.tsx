@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Shield, Building2, Loader2, LogOut, Gift, Users, DollarSign, Settings2, Save, Search, Layout } from 'lucide-react'
+import { Shield, Building2, Loader2, LogOut, Gift, Users, DollarSign, Settings2, Save, Search, Layout, BarChart3, Zap, Coins } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/providers/ToastProvider'
 
@@ -47,6 +47,14 @@ interface ResumenPagos {
   dinero_total_centavos: number
 }
 
+interface EstadoSistema {
+  tokens_vendidos: number
+  tokens_regalados_estimado: number
+  bono_bienvenida: number
+  total_gestores: number
+  ranking_gestores: Array<{ user_id: string; email: string | null; full_name: string | null; tokens_disponibles: number }>
+}
+
 const PLAN_OPTIONS = [
   { value: 'free', label: 'Gratis' },
   { value: 'pro', label: 'Pro' },
@@ -77,6 +85,7 @@ export default function SuperAdminPage() {
   const [cargaMasivaFile, setCargaMasivaFile] = useState<File | null>(null)
   const [cargaMasivaLoading, setCargaMasivaLoading] = useState(false)
   const [cargaMasivaResult, setCargaMasivaResult] = useState<{ exitosos: number; fallidos: number; resultados: { fila: number; ok: boolean; error?: string }[] } | null>(null)
+  const [estadoSistema, setEstadoSistema] = useState<EstadoSistema | null>(null)
 
   useEffect(() => {
     checkAndLoad()
@@ -391,7 +400,7 @@ export default function SuperAdminPage() {
   )
 
   const exportarCSV = () => {
-    const headers = ['Nombre', 'Plan', 'Estado suscripción']
+    const headers = ['Nombre', 'Plan', 'Estado']
     const rows = conjuntosFiltrados.map((c) => [
       c.name,
       c.plan_type,
@@ -449,7 +458,7 @@ export default function SuperAdminPage() {
                 Super Administración
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Planes, conjuntos y pagos
+                Conjuntos, créditos y configuración
               </p>
             </div>
           </div>
@@ -473,6 +482,76 @@ export default function SuperAdminPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Estado del Sistema */}
+        {estadoSistema != null && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-500/10 border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Estado del sistema (tokens)
+              </h2>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-4 shadow-soft">
+                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium">
+                    <DollarSign className="w-4 h-4" />
+                    Tokens vendidos
+                  </div>
+                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{estadoSistema.tokens_vendidos}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total acreditados por pagos (APPROVED)</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-4 shadow-soft">
+                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium">
+                    <Gift className="w-4 h-4" />
+                    Tokens regalados (est.)
+                  </div>
+                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{estadoSistema.tokens_regalados_estimado}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{estadoSistema.bono_bienvenida} × {estadoSistema.total_gestores} gestores</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-4 shadow-soft">
+                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium">
+                    <Users className="w-4 h-4" />
+                    Gestores
+                  </div>
+                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{estadoSistema.total_gestores}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Usuarios con al menos un conjunto</p>
+                </div>
+              </div>
+              {estadoSistema.ranking_gestores.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                    <Coins className="w-4 h-4" />
+                    Ranking de gestores por saldo disponible
+                  </h3>
+                  <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 uppercase text-xs">
+                        <tr>
+                          <th className="px-4 py-3">#</th>
+                          <th className="px-4 py-3">Email / Nombre</th>
+                          <th className="px-4 py-3 text-right">Tokens disponibles</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                        {estadoSistema.ranking_gestores.map((g, i) => (
+                          <tr key={g.user_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <td className="px-4 py-3 font-medium text-slate-500 dark:text-slate-400">{i + 1}</td>
+                            <td className="px-4 py-3 text-gray-900 dark:text-white">
+                              {g.email ?? g.full_name ?? g.user_id.slice(0, 8) + '…'}
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{g.tokens_disponibles}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Personalización de Landing */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-500/10 border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
@@ -951,7 +1030,7 @@ export default function SuperAdminPage() {
                           onClick={() => handleActivarCortesiaPiloto(c.id)}
                           disabled={updatingId === c.id || c.plan_type === 'pro'}
                           className="gap-2"
-                          title="Activar Plan Pro por 1 año sin pago (cortesía o piloto)"
+                          title="Asignar créditos por cortesía (sin pago)"
                         >
                           {updatingId === c.id ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
