@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Zap, ShoppingCart, Crown } from 'lucide-react'
+import { Zap, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export type ComprarTokensVariant = 'blocked' | 'low' | 'inline' | 'modal'
@@ -13,7 +13,7 @@ type ComprarTokensCTAProps = {
   userId?: string | null
   /** Precio en COP por token para mostrar */
   precioCop?: number | null
-  /** Plan actual: free muestra "Actualizar a Pro", pilot muestra "Pasar a Pro ilimitado" */
+  /** Obsoleto: modelo unificado Billetera de Gestor (solo tokens). No mostrar Plan Pro/Piloto. */
   planType?: 'free' | 'pilot' | 'pro' | null
   /** blocked = sin tokens; low = pocos tokens; inline = en línea; modal = contenido para modal */
   variant?: ComprarTokensVariant
@@ -45,7 +45,6 @@ export function ComprarTokensCTA({
   onClose,
 }: ComprarTokensCTAProps) {
   const pasarelaUrl = process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
-  const planProUrl = process.env.NEXT_PUBLIC_PLAN_PRO_URL
   const params = new URLSearchParams()
   if (userId) params.set('user_id', userId)
   if (conjuntoId) params.set('conjunto_id', conjuntoId)
@@ -53,9 +52,7 @@ export function ComprarTokensCTA({
     pasarelaUrl && userId
       ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}${params.toString()}`
       : null
-  const hrefPro = planProUrl && planProUrl !== '#' ? planProUrl : null
   const showComprar = !hideComprar && hrefComprar
-  const showPro = planType === 'free' || planType === 'pilot'
 
   const isBlocked = variant === 'blocked'
   const isLow = variant === 'low'
@@ -79,12 +76,17 @@ export function ComprarTokensCTA({
         isModal
           ? `space-y-4 ${className}`
           : isBlocked
-            ? `rounded-2xl border-2 border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-6 sm:p-8 ${className}`
+            ? `rounded-3xl border-2 border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-6 sm:p-8 ${className}`
             : isLow
-              ? `rounded-2xl border border-amber-200 dark:border-amber-700 bg-amber-50/80 dark:bg-amber-900/20 p-5 ${className}`
-              : `rounded-xl bg-slate-100 dark:bg-slate-800/50 p-4 ${className}`
+              ? `rounded-3xl border border-amber-200 dark:border-amber-700 bg-amber-50/80 dark:bg-amber-900/20 p-5 ${className}`
+              : `rounded-3xl bg-slate-100 dark:bg-slate-800/50 p-4 ${className}`
       }
     >
+      {(isModal && (isBlocked || isLow)) && (
+        <p className="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-2">
+          Saldo insuficiente para esta operación.
+        </p>
+      )}
       <div className="flex items-start gap-3">
         <div
           className={
@@ -121,7 +123,7 @@ export function ComprarTokensCTA({
             href={hrefComprar ?? '#'}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all text-sm"
+            className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-3xl shadow-md hover:shadow-lg transition-all text-sm"
           >
             <ShoppingCart className="w-4 h-4 mr-2" />
             Comprar más tokens
@@ -130,23 +132,6 @@ export function ComprarTokensCTA({
                 ({formatPrecio(precioCop)} / token)
               </span>
             )}
-          </a>
-        )}
-        {showPro && (hrefPro || pasarelaUrl) && (
-          <a
-            href={
-              hrefPro
-                ? (conjuntoId || userId ? `${hrefPro}${hrefPro.includes('?') ? '&' : '?'}${params.toString()}` : hrefPro)
-                : (userId || conjuntoId) && pasarelaUrl
-                  ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}${params.toString()}`
-                  : '#'
-            }
-            target={hrefPro ? '_blank' : undefined}
-            rel={hrefPro ? 'noopener noreferrer' : undefined}
-            className="inline-flex items-center justify-center px-5 py-2.5 border-2 border-indigo-500 dark:border-indigo-400 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 font-semibold rounded-xl transition-all text-sm"
-          >
-            <Crown className="w-4 h-4 mr-2" />
-            {planType === 'free' ? 'Comprar más créditos' : 'Ver opciones de créditos'}
           </a>
         )}
         {isModal && onClose && (

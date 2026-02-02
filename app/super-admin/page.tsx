@@ -82,9 +82,6 @@ export default function SuperAdminPage() {
   const [savingLanding, setSavingLanding] = useState(false)
   const [tokensConjunto, setTokensConjunto] = useState<Record<string, string>>({})
   const [updatingTokensId, setUpdatingTokensId] = useState<string | null>(null)
-  const [cargaMasivaFile, setCargaMasivaFile] = useState<File | null>(null)
-  const [cargaMasivaLoading, setCargaMasivaLoading] = useState(false)
-  const [cargaMasivaResult, setCargaMasivaResult] = useState<{ exitosos: number; fallidos: number; resultados: { fila: number; ok: boolean; error?: string }[] } | null>(null)
   const [estadoSistema, setEstadoSistema] = useState<EstadoSistema | null>(null)
 
   useEffect(() => {
@@ -228,41 +225,6 @@ export default function SuperAdminPage() {
     }
   }
 
-  const handleCargaMasivaPiloto = async () => {
-    if (!cargaMasivaFile) {
-      toast.error('Selecciona un archivo CSV')
-      return
-    }
-    setCargaMasivaLoading(true)
-    setCargaMasivaResult(null)
-    try {
-      const formData = new FormData()
-      formData.append('file', cargaMasivaFile)
-      const res = await fetch('/api/super-admin/carga-masiva-piloto', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        toast.error(data.error || 'Error en carga masiva')
-        return
-      }
-      setCargaMasivaResult({
-        exitosos: data.exitosos ?? 0,
-        fallidos: data.fallidos ?? 0,
-        resultados: data.resultados ?? [],
-      })
-      toast.success(`${data.exitosos ?? 0} cuenta(s) piloto asignada(s)`)
-      if ((data.exitosos ?? 0) > 0) await checkAndLoad()
-    } catch (e) {
-      console.error('Carga masiva:', e)
-      toast.error('Error en carga masiva')
-    } finally {
-      setCargaMasivaLoading(false)
-    }
-  }
-
   const handleAplicarPlan = async (id: string, planType: string) => {
     setUpdatingId(id)
     try {
@@ -400,7 +362,7 @@ export default function SuperAdminPage() {
   )
 
   const exportarCSV = () => {
-    const headers = ['Nombre', 'Plan', 'Estado']
+    const headers = ['Nombre', 'Tipo', 'Estado']
     const rows = conjuntosFiltrados.map((c) => [
       c.name,
       c.plan_type,
@@ -599,192 +561,10 @@ export default function SuperAdminPage() {
           </div>
         </div>
 
-        {/* Administración de planes */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-500/10 border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
-            <Settings2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Administración de planes
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 uppercase text-xs">
-                <tr>
-                  <th className="px-6 py-4">Key</th>
-                  <th className="px-6 py-4">Nombre</th>
-                  <th className="px-6 py-4">Precio / Asamblea (COP)</th>
-                  <th className="px-6 py-4">Tokens iniciales</th>
-                  <th className="px-6 py-4">Vigencia (meses)</th>
-                  <th className="px-6 py-4">Max preguntas / asamblea</th>
-                  <th className="px-6 py-4">Acta detallada</th>
-                  <th className="px-6 py-4">Qué cubre</th>
-                  <th className="px-6 py-4 text-right">Acción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {planes.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
-                      No hay planes. Ejecuta <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">supabase/PLANES-TABLA-Y-SEED.sql</code> y <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">supabase/AGREGAR-LIMITES-PLANES.sql</code> en Supabase.
-                    </td>
-                  </tr>
-                ) : (
-                  planes.map((p) => {
-                    const edit = editingPlan[p.key]
-                    const maxPreg = edit?.max_preguntas_por_asamblea ?? p.max_preguntas_por_asamblea ?? 2
-                    const actaDet = edit?.incluye_acta_detallada ?? p.incluye_acta_detallada ?? false
-                    const queCubre = `${maxPreg} pregunta${maxPreg !== 1 ? 's' : ''}/asamblea · ${actaDet ? 'Acta con auditoría' : 'Sin acta detallada'}`
-                    return (
-                      <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td className="px-6 py-4 font-mono text-gray-600 dark:text-gray-400">{p.key}</td>
-                        <td className="px-6 py-4">
-                          <input
-                            type="text"
-                            value={edit?.nombre ?? p.nombre}
-                            onChange={(e) =>
-                              setEditingPlan((prev) => ({
-                                ...prev,
-                                [p.key]: {
-                                  ...(prev[p.key] ?? { nombre: p.nombre, precio_por_asamblea_cop: p.precio_por_asamblea_cop, tokens_iniciales: p.tokens_iniciales ?? (p.key === 'pro' ? null : p.key === 'free' ? 2 : 10), vigencia_meses: p.vigencia_meses ?? (p.key === 'free' ? null : p.key === 'pilot' ? 3 : 12), max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
-                                  nombre: e.target.value,
-                                },
-                              }))
-                            }
-                            className="w-full max-w-[140px] rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-gray-900 dark:text-white"
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          <input
-                            type="number"
-                            min={0}
-                            value={edit?.precio_por_asamblea_cop ?? p.precio_por_asamblea_cop}
-                            onChange={(e) =>
-                              setEditingPlan((prev) => ({
-                                ...prev,
-                                [p.key]: {
-                                  ...(prev[p.key] ?? { nombre: p.nombre, precio_por_asamblea_cop: p.precio_por_asamblea_cop, tokens_iniciales: p.tokens_iniciales ?? (p.key === 'pro' ? null : p.key === 'free' ? 2 : 10), vigencia_meses: p.vigencia_meses ?? (p.key === 'free' ? null : p.key === 'pilot' ? 3 : 12), max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
-                                  precio_por_asamblea_cop: Number(e.target.value) || 0,
-                                },
-                              }))
-                            }
-                            className="w-full max-w-[100px] rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-gray-900 dark:text-white"
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          {p.key === 'pro' ? (
-                            <span className="text-gray-500 dark:text-gray-400 text-sm">Ilimitado</span>
-                          ) : (
-                            <input
-                              type="number"
-                              min={0}
-                              value={edit?.tokens_iniciales ?? p.tokens_iniciales ?? (p.key === 'free' ? 2 : 10)}
-                              onChange={(e) =>
-                                setEditingPlan((prev) => ({
-                                  ...prev,
-                                  [p.key]: {
-...(prev[p.key] ?? { nombre: p.nombre, precio_por_asamblea_cop: p.precio_por_asamblea_cop, tokens_iniciales: p.tokens_iniciales ?? (p.key === 'pro' ? null : p.key === 'free' ? 2 : 10), vigencia_meses: p.vigencia_meses ?? (p.key === 'free' ? null : p.key === 'pilot' ? 3 : 12), max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
-                                  tokens_iniciales: e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10) || 0),
-                                  },
-                                }))
-                              }
-                              className="w-full max-w-[80px] rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-gray-900 dark:text-white"
-                              title="Tokens que se asignan al crear/cambiar a este plan"
-                            />
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          {p.key === 'free' ? (
-                            <span className="text-gray-500 dark:text-gray-400 text-sm">—</span>
-                          ) : (
-                            <input
-                              type="number"
-                              min={0}
-                              value={edit?.vigencia_meses ?? p.vigencia_meses ?? (p.key === 'pilot' ? 3 : 12)}
-                              onChange={(e) =>
-                                setEditingPlan((prev) => ({
-                                  ...prev,
-                                  [p.key]: {
-                                    ...(prev[p.key] ?? { nombre: p.nombre, precio_por_asamblea_cop: p.precio_por_asamblea_cop, tokens_iniciales: p.tokens_iniciales ?? (p.key === 'pro' ? null : p.key === 'free' ? 2 : 10), vigencia_meses: p.vigencia_meses ?? (p.key === 'pilot' ? 3 : 12), max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
-                                    vigencia_meses: e.target.value === '' ? null : Math.max(0, parseInt(e.target.value, 10) || 0),
-                                  },
-                                }))
-                              }
-                              className="w-full max-w-[80px] rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-gray-900 dark:text-white"
-                              title="Duración en meses al asignar este plan a una cuenta"
-                            />
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <input
-                            type="number"
-                            min={0}
-                            value={edit?.max_preguntas_por_asamblea ?? p.max_preguntas_por_asamblea ?? 2}
-                            onChange={(e) =>
-                              setEditingPlan((prev) => ({
-                                ...prev,
-                                [p.key]: {
-                                  ...(prev[p.key] ?? { nombre: p.nombre, precio_por_asamblea_cop: p.precio_por_asamblea_cop, tokens_iniciales: p.tokens_iniciales ?? (p.key === 'pro' ? null : p.key === 'free' ? 2 : 10), vigencia_meses: p.vigencia_meses ?? (p.key === 'pilot' ? 3 : 12), max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
-                                  max_preguntas_por_asamblea: Math.max(0, parseInt(e.target.value, 10) || 0),
-                                },
-                              }))
-                            }
-                            className="w-full max-w-[80px] rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-gray-900 dark:text-white"
-                            title="Máximo de preguntas de votación por asamblea; la app aplica este límite"
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          <label className="inline-flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={edit?.incluye_acta_detallada ?? p.incluye_acta_detallada ?? false}
-                              onChange={(e) =>
-                                setEditingPlan((prev) => ({
-                                  ...prev,
-                                [p.key]: {
-                                  ...(prev[p.key] ?? { nombre: p.nombre, precio_por_asamblea_cop: p.precio_por_asamblea_cop, tokens_iniciales: p.tokens_iniciales ?? (p.key === 'pro' ? null : p.key === 'free' ? 2 : 10), vigencia_meses: p.vigencia_meses ?? (p.key === 'free' ? null : p.key === 'pilot' ? 3 : 12), max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? 2, incluye_acta_detallada: p.incluye_acta_detallada ?? false }),
-                                  incluye_acta_detallada: e.target.checked,
-                                },
-                                }))
-                              }
-                              className="rounded border-gray-300 dark:border-gray-600"
-                              title="Si está marcado, el plan permite descargar acta con auditoría detallada"
-                            />
-                            <span className="text-xs text-gray-600 dark:text-gray-400">{edit?.incluye_acta_detallada ?? p.incluye_acta_detallada ? 'Sí' : 'No'}</span>
-                          </label>
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-600 dark:text-gray-400 max-w-[180px]">
-                          {queCubre}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSavePlan(p.key)}
-                            disabled={savingPlanKey === p.key}
-                            className="gap-1"
-                            title="Guardar nombre, precio y límites de este plan"
-                          >
-                            {savingPlanKey === p.key ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Save className="w-4 h-4" />
-                            )}
-                            Guardar
-                          </Button>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
 
-        {/* Resumen: total conjuntos y por plan */}
+        {/* Resumen: total conjuntos (modelo Billetera Central por tokens) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 p-5">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
                 <Building2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
@@ -795,24 +575,11 @@ export default function SuperAdminPage() {
               </div>
             </div>
           </div>
-          {PLAN_OPTIONS.map((opt) => (
-            <div key={opt.value} className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700">
-                  <Gift className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Plan {opt.label}</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{resumenPorPlan[opt.value] ?? 0}</p>
-                </div>
-              </div>
-            </div>
-          ))}
         </div>
 
         {resumen != null && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 p-5">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
                   <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
@@ -825,7 +592,7 @@ export default function SuperAdminPage() {
                 </div>
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 p-5">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
                   <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -841,54 +608,8 @@ export default function SuperAdminPage() {
           </div>
         )}
 
-        {/* Carga masiva piloto */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Carga masiva de cuentas piloto</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Sube un CSV con columna <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">organization_id</code> o <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">nombre</code>. Cada fila se asignará como plan Piloto (3 meses) con los tokens del plan Piloto.
-            </p>
-          </div>
-          <div className="p-6 space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                type="file"
-                accept=".csv"
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  setCargaMasivaFile(f ?? null)
-                  setCargaMasivaResult(null)
-                }}
-                className="text-sm text-gray-600 dark:text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded file:border-0 file:bg-indigo-100 file:text-indigo-700 dark:file:bg-indigo-900/30 dark:file:text-indigo-300"
-              />
-              <Button
-                onClick={handleCargaMasivaPiloto}
-                disabled={!cargaMasivaFile || cargaMasivaLoading}
-                className="gap-2"
-              >
-                {cargaMasivaLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Cargar CSV
-              </Button>
-            </div>
-            {cargaMasivaResult && (
-              <div className="rounded-lg border border-gray-200 dark:border-gray-600 p-4 text-sm">
-                <p className="font-medium text-gray-900 dark:text-white">
-                  Exitosos: {cargaMasivaResult.exitosos} · Fallidos: {cargaMasivaResult.fallidos}
-                </p>
-                {cargaMasivaResult.resultados.filter((r) => !r.ok).length > 0 && (
-                  <ul className="mt-2 space-y-1 text-amber-700 dark:text-amber-400 max-h-32 overflow-y-auto">
-                    {cargaMasivaResult.resultados.filter((r) => !r.ok).map((r, idx) => (
-                      <li key={idx}>Fila {r.fila}: {r.error}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Conjuntos (cuentas) */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Cuentas (conjuntos)</h2>
             <div className="flex flex-wrap items-center gap-3">
@@ -927,8 +648,8 @@ export default function SuperAdminPage() {
               <thead className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 uppercase text-xs">
                 <tr>
                   <th className="px-6 py-4">Nombre</th>
-                  <th className="px-6 py-4">Plan actual</th>
-                  <th className="px-6 py-4">Estado suscripción</th>
+                  <th className="px-6 py-4">Tipo</th>
+                  <th className="px-6 py-4">Estado</th>
                   <th className="px-6 py-4">Asignar plan</th>
                   <th className="px-6 py-4 text-right">Acción rápida</th>
                 </tr>
@@ -964,7 +685,7 @@ export default function SuperAdminPage() {
                                 : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                           }`}
                         >
-                          {c.plan_type ?? 'free'}
+                          {c.plan_type === 'pro' ? 'Pro' : c.plan_type === 'pilot' ? 'Piloto' : 'Gratuito'}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -994,7 +715,7 @@ export default function SuperAdminPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
-                        {c.plan_status ?? '—'}
+                        {c.plan_status === 'active' ? 'Activo' : '—'}
                       </td>
                       <td className="px-6 py-4">
                         <select

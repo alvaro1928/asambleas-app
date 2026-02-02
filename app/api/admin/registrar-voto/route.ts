@@ -102,14 +102,14 @@ export async function POST(request: NextRequest) {
       .select('tokens_disponibles')
       .eq('user_id', session.user.id)
     const firstProfile = Array.isArray(perfilesGestor) ? perfilesGestor[0] : perfilesGestor
-    const tokensGestor = Math.max(0, Number(firstProfile?.tokens_disponibles ?? 0))
-
-    if (tokensGestor < costo) {
+    const tokensGestor = Math.max(0, Math.floor(Number(firstProfile?.tokens_disponibles ?? 0)))
+    const costoInt = Math.max(0, Math.floor(Number(costo)))
+    if (tokensGestor < costoInt) {
       return NextResponse.json(
         {
-          error: `Tokens insuficientes. El registro manual consume ${costo} tokens (1 por unidad; este conjunto tiene ${unidades} unidades).`,
+          error: `Tokens insuficientes. El registro manual consume ${costoInt} tokens (1 por unidad; este conjunto tiene ${unidades} unidades).`,
           code: 'SIN_TOKENS',
-          costo,
+          costo: costoInt,
           unidades,
         },
         { status: 402 }
@@ -182,8 +182,8 @@ export async function POST(request: NextRequest) {
     const allOk = results.every((r) => r.success)
 
     // Billetera: tras registrar votos con éxito, descontar costo del gestor
-    if (allOk && costo > 0) {
-      const nuevoSaldo = Math.max(0, tokensGestor - costo)
+    if (allOk && costoInt > 0) {
+      const nuevoSaldo = Math.max(0, tokensGestor - costoInt)
       let updateError = (await admin
         .from('profiles')
         .update({ tokens_disponibles: nuevoSaldo })
@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
       message: allOk
         ? 'Votos registrados correctamente'
         : 'Algunos votos no se pudieron registrar',
-      ...(allOk && costo > 0 ? { tokens_descontados: costo } : {}),
+      ...(allOk && costoInt > 0 ? { tokens_descontados: costoInt } : {}),
     }, { status: allOk ? 200 : 207 })
   } catch (e) {
     console.error('[api/admin/registrar-voto]', e)

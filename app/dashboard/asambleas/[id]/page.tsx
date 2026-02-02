@@ -33,7 +33,7 @@ import { Select } from '@/components/ui/select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
-import { getEffectivePlanLimits, findPlanByKey, type PlanFromApi } from '@/lib/plan-limits'
+import { getEffectivePlanLimits } from '@/lib/plan-limits'
 import { useToast } from '@/components/providers/ToastProvider'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 
@@ -223,13 +223,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       const configRes = await fetch('/api/configuracion-global')
       const configData = configRes.ok ? await configRes.json() : null
       if (configData?.precio_por_token_cop != null) setPrecioProCop(Number(configData.precio_por_token_cop))
-      const planesRes = await fetch('/api/planes')
-      const planesData = planesRes.ok ? await planesRes.json() : null
-      const planesList = (planesData?.planes ?? []) as PlanFromApi[]
-      if (configData?.precio_por_token_cop == null) {
-        const proPlan = findPlanByKey(planesList, 'pro')
-        if (proPlan?.precio_por_asamblea_cop != null) setPrecioProCop(proPlan.precio_por_asamblea_cop)
-      }
 
       // Cargar preguntas
       const { data: preguntasData, error: preguntasError } = await supabase
@@ -848,9 +841,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!asamblea) return
 
     if (nuevoEstado === 'activa') {
-      if (costoOperacion > 0 && tokensDisponibles < costoOperacion) {
+      if (!puedeOperar || (costoOperacion > 0 && tokensDisponibles < costoOperacion)) {
         setSinTokensModalOpen(true)
-        toast.error(`Saldo insuficiente: Necesitas ${costoOperacion} tokens (1 por unidad) para pasar a fase de votación.`)
+        toast.error('Saldo insuficiente para esta operación.')
         return
       }
       try {
@@ -987,7 +980,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             </div>
             <div className="flex items-center flex-wrap gap-3">
               {/* Billetera de tokens — visible en todas las páginas de administrador */}
-              <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
+              <div className="flex items-center gap-2 rounded-3xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
                 <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
                 <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens</span>
                 {costoOperacion > 0 && (
@@ -997,41 +990,57 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               {getEstadoBadge(asamblea.estado)}
               {asamblea.estado === 'borrador' && (
                 puedeOperar ? (
-                  <Button
-                    onClick={() => handleChangeEstadoAsamblea('activa')}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    <Play className="w-4 h-4 mr-2" />
-                    Activar
-                  </Button>
+                  <div className="flex flex-col gap-1">
+                    {costoOperacion > 0 && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Esta operación consumirá {costoOperacion} tokens. Saldo actual: {tokensDisponibles}.
+                      </p>
+                    )}
+                    <Button
+                      onClick={() => handleChangeEstadoAsamblea('activa')}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Activar
+                    </Button>
+                  </div>
                 ) : (
                   <Button
                     onClick={() => setSinTokensModalOpen(true)}
                     variant="outline"
-                    className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400"
-                    title="Se requieren tokens suficientes (costo = unidades del conjunto)"
+                    disabled
+                    className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 cursor-not-allowed"
+                    title="Saldo insuficiente para esta operación"
                   >
                     <Lock className="w-4 h-4 mr-2" />
-                    Activar (requiere tokens)
+                    Activar (saldo insuficiente)
                   </Button>
                 )
               )}
               {(asamblea.estado === 'finalizada' || asamblea.estado === 'activa' || preguntas.some(p => p.estado === 'cerrada')) && (
                 puedeOperar ? (
-                  <Link href={`/dashboard/asambleas/${params.id}/acta`}>
-                    <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400">
-                      <FileText className="w-4 h-4 mr-2" />
-                      {preguntas.some(p => p.estado === 'cerrada') ? 'Descargar acta (todas las preguntas y votos)' : 'Generar acta'}
-                    </Button>
-                  </Link>
+                  <div className="flex flex-col gap-1">
+                    {costoOperacion > 0 && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Esta operación consumirá {costoOperacion} tokens. Saldo actual: {tokensDisponibles}.
+                      </p>
+                    )}
+                    <Link href={`/dashboard/asambleas/${params.id}/acta`}>
+                      <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400">
+                        <FileText className="w-4 h-4 mr-2" />
+                        {preguntas.some(p => p.estado === 'cerrada') ? 'Descargar acta (todas las preguntas y votos)' : 'Generar acta'}
+                      </Button>
+                    </Link>
+                  </div>
                 ) : (
                   <Button
                     variant="outline"
-                    className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400"
-                    onClick={() => setSinTokensModalOpen(true)}
+                    disabled
+                    className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 cursor-not-allowed"
+                    title="Saldo insuficiente para esta operación"
                   >
                     <FileText className="w-4 h-4 mr-2" />
-                    Acta (requiere tokens suficientes)
+                    Acta (saldo insuficiente)
                   </Button>
                 )
               )}
@@ -1070,7 +1079,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Participación Nominal */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Unidades Votantes</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {quorum.unidades_votantes}/{quorum.total_unidades}
@@ -1087,7 +1096,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               </div>
 
               {/* Participación por Coeficiente */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Coeficiente Votante (Ley 675)</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {quorum.coeficiente_votante.toFixed(2)}%
@@ -1108,7 +1117,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               </div>
 
               {/* Unidades Pendientes */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pendientes de Votar</p>
                 <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                   {quorum.unidades_pendientes}
@@ -1143,24 +1152,31 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         {preguntasAbiertas.length > 0 && (
           <div className="mb-6 flex justify-end">
             {puedeOperar ? (
-              <Button
-                variant="outline"
-                onClick={handleAbrirRegistroVotoAdmin}
-                className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                title="Registrar el voto de un residente que no puede votar en línea (p. ej. persona mayor)"
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Registrar voto a nombre de un residente
-              </Button>
+              <div className="flex flex-col gap-1 items-end">
+                {costoOperacion > 0 && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Esta operación consumirá {costoOperacion} tokens. Saldo actual: {tokensDisponibles}.
+                  </p>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={handleAbrirRegistroVotoAdmin}
+                  className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                  title="Registrar el voto de un residente que no puede votar en línea (p. ej. persona mayor)"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Registrar voto a nombre de un residente
+                </Button>
+              </div>
             ) : (
               <Button
                 variant="outline"
-                onClick={() => setSinTokensModalOpen(true)}
-                className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400"
-                title="Se requieren tokens suficientes (costo = unidades del conjunto)"
+                disabled
+                className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 cursor-not-allowed"
+                title="Saldo insuficiente para esta operación"
               >
                 <Lock className="w-4 h-4 mr-2" />
-                Registrar voto (requiere tokens)
+                Registrar voto (saldo insuficiente)
               </Button>
             )}
           </div>
@@ -1170,7 +1186,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           {/* Columna izquierda: Billetera + Información + Acceso */}
           <div className="lg:col-span-1 space-y-6">
             {/* Billetera de tokens — siempre visible en detalle de asamblea */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2h-2m-4-1V7a2 2 0 012-2h2a2 2 0 012 2v1M11 14l2 2 4-4" />
@@ -1202,7 +1218,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
                 Información
               </h2>
@@ -1283,7 +1299,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 ) : (
                   <div className="space-y-4">
                     {/* Código de Acceso */}
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-3xl p-4 border border-green-200 dark:border-green-800">
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-semibold text-green-800 dark:text-green-200">
                           Código de Acceso
@@ -1379,7 +1395,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
           {/* Preguntas */}
           <div className="lg:col-span-2">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                   Preguntas de Votación
@@ -1454,7 +1470,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   {preguntas.map((pregunta, index) => (
                     <div
                       key={pregunta.id}
-                      className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+                      className="border border-gray-200 dark:border-gray-700 rounded-3xl p-4 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
                     >
                       {/* Header de la pregunta */}
                       <div className="flex items-start justify-between mb-3">
@@ -1533,7 +1549,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
                           {/* Si está abierta o cerrada, mostrar estadísticas */}
                           {(pregunta.estado === 'abierta' || pregunta.estado === 'cerrada') && estadisticas[pregunta.id] && (
-                            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
                               <div className="flex items-center justify-between mb-3">
                                 <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                                   📊 Resultados en tiempo real
@@ -1666,7 +1682,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       {/* Dialog: Nueva Pregunta */}
       <Dialog open={showNewPregunta} onOpenChange={setShowNewPregunta}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl">
           <DialogHeader>
             <DialogTitle>Agregar Pregunta</DialogTitle>
             <DialogDescription>
@@ -1829,7 +1845,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       {/* Dialog: Editar Pregunta */}
       <Dialog open={editingPregunta !== null} onOpenChange={() => setEditingPregunta(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl">
           <DialogHeader>
             <DialogTitle>Editar Pregunta</DialogTitle>
             <DialogDescription>
@@ -1985,7 +2001,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       {/* Dialog: Eliminar Pregunta */}
       <Dialog open={deletingPregunta !== null} onOpenChange={() => setDeletingPregunta(null)}>
-        <DialogContent>
+        <DialogContent className="rounded-3xl">
           <DialogHeader>
             <DialogTitle>¿Eliminar pregunta?</DialogTitle>
             <DialogDescription>
@@ -2034,7 +2050,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       {/* Dialog: Registrar voto a nombre de un residente */}
       <Dialog open={showRegistroVotoAdmin} onOpenChange={setShowRegistroVotoAdmin}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-blue-600" />
@@ -2094,7 +2110,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   {preguntasAbiertas.map((p) => {
                     const opciones = opcionesPreguntas[p.id] ?? []
                     return (
-                      <div key={p.id} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
+                      <div key={p.id} className="bg-gray-50 dark:bg-gray-800/50 rounded-3xl p-3">
                         <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 line-clamp-2">
                           {p.texto_pregunta}
                         </p>
@@ -2155,12 +2171,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       {/* Modal: Sin tokens al activar asamblea Pro (estilo apps de IA) */}
       <Dialog open={sinTokensModalOpen} onOpenChange={setSinTokensModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg rounded-3xl">
           <ComprarTokensCTA
             conjuntoId={asamblea?.organization_id ?? null}
             userId={userId}
             precioCop={precioProCop}
-            planType="free"
+            planType={null}
             variant="modal"
             onClose={() => setSinTokensModalOpen(false)}
           />

@@ -207,7 +207,7 @@ export default function NuevaAsambleaPage() {
             </div>
           </div>
           {!statusLoading && status && (
-            <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600 mt-3 sm:mt-0">
+            <div className="flex items-center gap-2 rounded-3xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600 mt-3 sm:mt-0">
               <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
               <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens</span>
               {costoOperacion > 0 && (
@@ -221,7 +221,7 @@ export default function NuevaAsambleaPage() {
 
       {/* Main Content */}
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
           {/* Sin permiso (403): no es tema de tokens */}
           {!statusLoading && statusError && statusCode === 403 && (
             <div className="mb-6 rounded-2xl border-2 border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-6">
@@ -281,7 +281,7 @@ export default function NuevaAsambleaPage() {
 
           {!statusLoading && bloqueado && (
             <div className="space-y-6">
-              <div className="flex items-center gap-2 rounded-xl bg-amber-100 dark:bg-amber-900/30 px-4 py-3 border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center gap-2 rounded-3xl bg-amber-100 dark:bg-amber-900/30 px-4 py-3 border border-amber-200 dark:border-amber-800">
                 <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                 <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
                   No hay suficientes tokens en tu billetera. Se descontan al activar votación, descargar acta o registrar votos manuales; compra más créditos.
@@ -291,7 +291,7 @@ export default function NuevaAsambleaPage() {
                 conjuntoId={selectedConjuntoId}
                 userId={userId}
                 precioCop={precioProCop}
-                planType="free"
+                planType={null}
                 variant="blocked"
               />
               <div className="flex justify-center">

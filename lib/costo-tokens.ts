@@ -21,11 +21,13 @@ export function getCostoEnTokens(unidadesCount: number): number {
  * Indica si el gestor puede realizar la operación (tiene suficientes tokens).
  * Se bloquean Activar Votación, Descarga de Acta con Auditoría y Registro de Voto Manual
  * si tokens_gestor < costo (unidades del conjunto).
+ * Comparación estricta con enteros para evitar redondeos o saldos negativos.
  */
 export function puedeRealizarOperacion(
   tokensGestor: number,
   unidadesDelConjunto: number
 ): boolean {
+  const tokens = Math.max(0, Math.floor(Number(tokensGestor)))
   const costo = getCostoEnTokens(unidadesDelConjunto)
-  return tokensGestor >= costo
+  return tokens >= costo
 }

@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
+import { Wallet, Plus, Lock, HelpCircle } from 'lucide-react'
 import ConjuntoSelector from '@/components/ConjuntoSelector'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
 import { Tooltip as UiTooltip } from '@/components/ui/tooltip'
 import { isAdminEmail } from '@/lib/super-admin'
@@ -32,7 +34,9 @@ export default function DashboardPage() {
   const [tokensDisponibles, setTokensDisponibles] = useState<number>(0)
   const [costoOperacion, setCostoOperacion] = useState<number>(0)
   const [precioProCop, setPrecioProCop] = useState<number | null>(null)
+  const [colorPrincipalHex, setColorPrincipalHex] = useState<string>('#4f46e5')
   const [selectedConjuntoId, setSelectedConjuntoId] = useState<string | null>(null)
+  const [guiaModalOpen, setGuiaModalOpen] = useState(false)
   const router = useRouter()
 
   const formatPrecioCop = (cop: number) =>
@@ -103,13 +107,12 @@ export default function DashboardPage() {
     }
   }
 
-  const loadPrecioPro = async () => {
+  const loadConfig = async () => {
     try {
       const configRes = await fetch('/api/configuracion-global')
-      const configData = (await configRes.json()) as { precio_por_token_cop?: number | null }
-      if (configData?.precio_por_token_cop != null) {
-        setPrecioProCop(Number(configData.precio_por_token_cop))
-      }
+      const configData = (await configRes.json()) as { precio_por_token_cop?: number | null; color_principal_hex?: string | null }
+      if (configData?.precio_por_token_cop != null) setPrecioProCop(Number(configData.precio_por_token_cop))
+      if (configData?.color_principal_hex && /^#[0-9A-Fa-f]{6}$/.test(configData.color_principal_hex)) setColorPrincipalHex(configData.color_principal_hex)
     } catch {
       // ignorar
     }
@@ -117,7 +120,7 @@ export default function DashboardPage() {
 
   const loadStats = async (userId: string) => {
     try {
-      loadPrecioPro()
+      loadConfig()
       // Contar conjuntos del usuario
       const { data: profiles } = await supabase
         .from('profiles')
@@ -179,39 +182,63 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0B0E14' }}>
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando...</p>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400"></div>
+          <p className="mt-4 text-slate-400">Cargando...</p>
         </div>
       </div>
     )
   }
 
+  const pasarelaUrl = process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
+  const recargarHref = pasarelaUrl && user?.id ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}user_id=${user.id}${selectedConjuntoId ? `&conjunto_id=${selectedConjuntoId}` : ''}` : null
+  const tokensInsuficientes = selectedConjuntoId && costoOperacion > 0 && tokensDisponibles < costoOperacion
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen" style={{ backgroundColor: '#0B0E14' }}>
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-soft border-b border-slate-200 dark:border-gray-700 rounded-b-2xl">
+      <header className="border-b rounded-b-3xl shadow-soft" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0B0E14' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h1 className="text-2xl font-bold text-white">
               Asambleas App
             </h1>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center flex-wrap gap-3">
               <ConjuntoSelector />
+              {/* Billetera: tarjeta de crédito compacta 210px, glassmorphism (Saldo = profiles.tokens_disponibles, Costo = unidades conjunto) */}
               {selectedConjuntoId && (
-                <div className="flex items-center gap-2 rounded-3xl px-4 py-2.5 border border-[rgba(255,255,255,0.1)] bg-indigo-500/10 dark:bg-indigo-400/10 shadow-sm">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
-                    Saldo (perfil):
-                  </span>
-                  <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-                    {tokensDisponibles} tokens
-                  </span>
-                  {costoOperacion > 0 && (
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      costo/op: {costoOperacion}
-                    </span>
-                  )}
+                <div className="w-[210px] rounded-3xl border border-white/20 bg-white/10 backdrop-blur-md shadow-lg overflow-hidden shrink-0">
+                  <div className="px-3.5 py-2.5 border-b border-white/10 flex items-center gap-2">
+                    <Wallet className="w-4 h-4 shrink-0" style={{ color: colorPrincipalHex }} />
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-200">Billetera</span>
+                  </div>
+                  <div className="px-3.5 py-3 space-y-2">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-400">Saldo</p>
+                      <p className="text-lg font-bold leading-tight" style={{ color: colorPrincipalHex }}>
+                        {tokensDisponibles} <span className="text-sm font-medium text-slate-300">tokens</span>
+                      </p>
+                    </div>
+                    {costoOperacion > 0 && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-slate-400">Costo por operación</p>
+                        <p className="text-sm font-semibold text-slate-200">{costoOperacion} tokens</p>
+                      </div>
+                    )}
+                    {recargarHref && (
+                      <a
+                        href={recargarHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-3xl text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+                        style={{ backgroundColor: colorPrincipalHex }}
+                      >
+                        <Plus className="w-4 h-4" />
+                        Recargar
+                      </a>
+                    )}
+                  </div>
                 </div>
               )}
               <div className="flex items-center space-x-3">
@@ -223,7 +250,7 @@ export default function DashboardPage() {
                       e.preventDefault()
                       window.location.href = '/super-admin'
                     }}
-                    className="px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-lg transition-colors inline-flex items-center space-x-2 cursor-pointer"
+                    className="px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-3xl transition-colors inline-flex items-center space-x-2 cursor-pointer"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -235,7 +262,7 @@ export default function DashboardPage() {
               <UiTooltip content="Cambiar contraseña, preferencias y datos de tu cuenta">
                 <Link
                   href="/dashboard/configuracion"
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors inline-flex items-center space-x-2"
+                  className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-3xl transition-colors inline-flex items-center space-x-2"
                 >
                 <svg
                   className="w-4 h-4"
@@ -262,7 +289,7 @@ export default function DashboardPage() {
               <UiTooltip content="Cerrar sesión y volver a la pantalla de inicio">
                 <button
                   onClick={handleSignOut}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-3xl transition-colors"
                 >
                   Cerrar sesión
                 </button>
@@ -274,14 +301,14 @@ export default function DashboardPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12" style={{ backgroundColor: '#0B0E14' }}>
         <div className="space-y-8">
           {/* Success Message */}
           {successMessage && (
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 animate-fade-in">
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-3xl p-4 animate-fade-in">
               <div className="flex items-start">
                 <svg
-                  className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 mr-3 flex-shrink-0"
+                  className="w-5 h-5 text-green-400 mt-0.5 mr-3 flex-shrink-0"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -291,7 +318,7 @@ export default function DashboardPage() {
                     clipRule="evenodd"
                   />
                 </svg>
-                <p className="text-sm text-green-800 dark:text-green-300 font-medium">
+                <p className="text-sm text-green-200 font-medium">
                   {successMessage}
                 </p>
               </div>
@@ -305,14 +332,15 @@ export default function DashboardPage() {
               userId={user?.id ?? undefined}
               precioCop={precioProCop}
               variant={tokensDisponibles === 0 ? 'blocked' : 'low'}
+              planType={null}
             />
           )}
 
           {/* Welcome Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
+          <div className="rounded-3xl shadow-xl p-8 border" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
             <div className="flex items-start space-x-4">
               <div className="flex-shrink-0">
-                <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: `${colorPrincipalHex}99` }}>
                   <svg
                     className="w-8 h-8 text-white"
                     fill="none"
@@ -329,56 +357,21 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="flex-1">
-                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                <h2 className="text-3xl font-bold text-white mb-2">
                   ¡Bienvenido!
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400 text-lg">
+                <p className="text-slate-300 text-lg">
                   {user?.email}
                 </p>
-                <p className="text-gray-500 dark:text-gray-500 mt-1">
+                <p className="text-slate-400 mt-1">
                   Estás listo para gestionar tus asambleas
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Billetera de tokens */}
-          {selectedConjuntoId && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2h-2m-4-1V7a2 2 0 012-2h2a2 2 0 012 2v1M11 14l2 2 4-4" />
-                </svg>
-                Billetera de tokens
-              </h3>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-gray-600 dark:text-gray-400">Saldo:</span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300">
-                    {tokensDisponibles} tokens
-                  </span>
-                  {costoOperacion > 0 && (
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      (1 token = 1 unidad; costo por operación: {costoOperacion})
-                    </span>
-                  )}
-                </div>
-              </div>
-              {costoOperacion > 0 && (
-                <div className="mt-3 space-y-1">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Activar votación, descargar acta con auditoría y registro manual consumen <strong>{costoOperacion} tokens</strong>. Compra más si tu billetera tiene menos.
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Compra tokens ({formatPrecioCop(precioProCop ?? 0)}/token). Nuevos gestores reciben 50 tokens de regalo.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Action Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
+          <div className="rounded-3xl shadow-lg p-8 border" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
             <div className="text-center space-y-6">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-100 dark:bg-indigo-900/30 rounded-full">
                 <svg
@@ -397,10 +390,10 @@ export default function DashboardPage() {
               </div>
 
               <div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-2xl font-bold text-white mb-2">
                   Comienza ahora
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="text-slate-400">
                   Crea tu primer conjunto residencial y empieza a gestionar tus asambleas
                 </p>
               </div>
@@ -409,7 +402,8 @@ export default function DashboardPage() {
                 <UiTooltip content="Crear un nuevo conjunto residencial para gestionar sus asambleas y unidades">
                   <Link
                     href="/dashboard/nuevo-conjunto"
-                    className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 space-x-2"
+                    className="inline-flex items-center justify-center px-8 py-4 text-white font-semibold rounded-3xl shadow-lg hover:opacity-90 transition-all duration-200 space-x-2"
+                    style={{ backgroundColor: colorPrincipalHex }}
                   >
                     <svg
                       className="w-5 h-5"
@@ -430,7 +424,7 @@ export default function DashboardPage() {
                 <UiTooltip content="Cargar unidades desde Excel o CSV con coeficientes y datos de propietarios">
                   <Link
                     href="/dashboard/unidades/importar"
-                    className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 space-x-2"
+                    className="inline-flex items-center justify-center px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-3xl shadow-lg hover:shadow-xl transition-all duration-200 space-x-2"
                   >
                     <svg
                       className="w-5 h-5"
@@ -448,26 +442,25 @@ export default function DashboardPage() {
                     <span>Importar Unidades</span>
                   </Link>
                 </UiTooltip>
-                <UiTooltip content="Ver y crear asambleas, preguntas y votaciones del conjunto">
-                  <Link
-                    href="/dashboard/asambleas"
-                    className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 space-x-2"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                <UiTooltip content={tokensInsuficientes ? 'Recarga tokens para gestionar este conjunto' : 'Ver y crear asambleas, preguntas y votaciones del conjunto'}>
+                  {tokensInsuficientes ? (
+                    <span className="inline-flex items-center justify-center px-8 py-4 rounded-3xl border-2 border-amber-400/60 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 font-semibold space-x-2 cursor-not-allowed opacity-90">
+                      <Lock className="w-5 h-5" />
+                      <span>Asambleas</span>
+                      <span className="text-xs font-normal block sm:inline">(Recarga tokens)</span>
+                    </span>
+                  ) : (
+                    <Link
+                      href="/dashboard/asambleas"
+                      className="inline-flex items-center justify-center px-8 py-4 text-white font-semibold rounded-3xl shadow-lg hover:opacity-90 transition-all duration-200 space-x-2"
+                      style={{ backgroundColor: colorPrincipalHex }}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                      />
-                    </svg>
-                    <span>Asambleas</span>
-                  </Link>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <span>Asambleas</span>
+                    </Link>
+                  )}
                 </UiTooltip>
               </div>
             </div>
@@ -479,16 +472,16 @@ export default function DashboardPage() {
             <div className="min-w-0 flex overflow-hidden w-full">
               <UiTooltip content="Ver listado de unidades, editar y gestionar coeficientes">
                 <Link href="/dashboard/unidades" className="block w-full min-w-0 flex-1 overflow-hidden">
-                  <div className="h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-700 transition-all cursor-pointer min-w-0 overflow-hidden w-full">
+                  <div className="h-full min-h-[180px] flex flex-col rounded-3xl shadow-lg p-5 border hover:shadow-xl hover:border-green-400/50 transition-all cursor-pointer min-w-0 overflow-hidden w-full" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
                     <div className="flex items-center justify-between mb-2 shrink-0">
-                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center shrink-0">
-                        <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0">
+                        <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                         </svg>
                       </div>
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">{metrics.total}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mt-auto min-w-0 truncate" title="Total Unidades • Clic para gestionar">
+                    <p className="text-2xl font-bold text-white shrink-0">{metrics.total}</p>
+                    <p className="text-sm text-slate-400 mt-1 mt-auto min-w-0 truncate" title="Total Unidades • Clic para gestionar">
                       Total Unidades • Clic para gestionar
                     </p>
                   </div>
@@ -498,12 +491,10 @@ export default function DashboardPage() {
 
             {/* Suma Coeficientes */}
             <div className="min-w-0 flex overflow-hidden w-full">
-              <div className="w-full h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 min-w-0 overflow-hidden" title="La Ley 675 exige que la suma de coeficientes sea 100%. Verde = correcto.">
+              <div className="w-full h-full min-h-[180px] flex flex-col rounded-3xl shadow-lg p-5 border min-w-0 overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }} title="La Ley 675 exige que la suma de coeficientes sea 100%. Verde = correcto.">
                 <div className="flex items-center justify-between mb-2 shrink-0">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                    Math.abs(metrics.sumaCoeficientes - 100) < 0.000001 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-100 dark:bg-yellow-900/30'
-                  }`}>
-                    <svg className={`w-6 h-6 ${Math.abs(metrics.sumaCoeficientes - 100) < 0.000001 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${Math.abs(metrics.sumaCoeficientes - 100) < 0.000001 ? 'bg-green-500/20' : 'bg-yellow-500/20'}`}>
+                    <svg className={`w-6 h-6 ${Math.abs(metrics.sumaCoeficientes - 100) < 0.000001 ? 'text-green-400' : 'text-yellow-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
                   </div>
@@ -513,25 +504,25 @@ export default function DashboardPage() {
                     <svg className="w-5 h-5 text-yellow-500 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                   )}
                 </div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">{metrics.sumaCoeficientes.toFixed(2)}%</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mt-auto min-w-0 truncate" title="Suma Coeficientes (Ley 675)">Suma Coeficientes (Ley 675)</p>
+                <p className="text-2xl font-bold text-white shrink-0">{metrics.sumaCoeficientes.toFixed(2)}%</p>
+                <p className="text-sm text-slate-400 mt-1 mt-auto min-w-0 truncate" title="Suma Coeficientes (Ley 675)">Suma Coeficientes (Ley 675)</p>
               </div>
             </div>
 
             {/* Censo de Datos */}
             <div className="min-w-0 flex overflow-hidden w-full">
-              <div className="w-full h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 min-w-0 overflow-hidden" title="Porcentaje de unidades con email y teléfono completos para contacto.">
+              <div className="w-full h-full min-h-[180px] flex flex-col rounded-3xl shadow-lg p-5 border min-w-0 overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }} title="Porcentaje de unidades con email y teléfono completos para contacto.">
                 <div className="flex items-center justify-between mb-2 shrink-0">
-                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center shrink-0">
-                    <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
                 </div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">{metrics.censoDatos.toFixed(0)}%</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 min-w-0 truncate" title="Datos de Contacto Completos">Datos de Contacto Completos</p>
+                <p className="text-2xl font-bold text-white shrink-0">{metrics.censoDatos.toFixed(0)}%</p>
+                <p className="text-sm text-slate-400 mt-1 min-w-0 truncate" title="Datos de Contacto Completos">Datos de Contacto Completos</p>
                 <div className="mt-auto pt-3 shrink-0">
-                  <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2 min-w-0">
+                  <div className="bg-slate-700 rounded-full h-2 min-w-0">
                     <div className="bg-blue-600 h-2 rounded-full transition-all duration-500" style={{ width: `${metrics.censoDatos}%` }} />
                   </div>
                 </div>
@@ -542,93 +533,103 @@ export default function DashboardPage() {
             <div className="min-w-0 flex overflow-hidden w-full">
               <UiTooltip content="Ver y editar los conjuntos residenciales que gestionas">
                 <Link href="/dashboard/conjuntos" className="block w-full min-w-0 flex-1 overflow-hidden">
-                  <div className="h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer min-w-0 overflow-hidden w-full">
+                  <div className="h-full min-h-[180px] flex flex-col rounded-3xl shadow-lg p-5 border hover:shadow-xl hover:border-purple-400/50 transition-all cursor-pointer min-w-0 overflow-hidden w-full" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
                     <div className="flex items-center justify-between mb-2 shrink-0">
-                      <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center shrink-0">
-                        <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center shrink-0">
+                        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
                       </div>
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">{conjuntosCount}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mt-auto min-w-0 truncate" title="Conjuntos Registrados">Conjuntos Registrados</p>
+                    <p className="text-2xl font-bold text-white shrink-0">{conjuntosCount}</p>
+                    <p className="text-sm text-slate-400 mt-1 mt-auto min-w-0 truncate" title="Conjuntos Registrados">Conjuntos Registrados</p>
                   </div>
                 </Link>
               </UiTooltip>
             </div>
           </div>
 
-          {/* Guía: Uso de tokens y qué permite la aplicación */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 sm:p-8 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-              <svg className="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+          {/* Botón para abrir Guía en modal */}
+          <div className="flex justify-center pt-4">
+            <button
+              type="button"
+              onClick={() => setGuiaModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-3xl border border-white/20 text-slate-200 hover:text-white hover:bg-white/10 transition-colors text-sm"
+            >
+              <HelpCircle className="w-4 h-4 text-violet-400" style={{ color: colorPrincipalHex }} />
               Guía: tokens y funcionalidades
-            </h3>
-
-            <div className="grid md:grid-cols-2 gap-8">
-              {/* Uso de tokens */}
-              <div className="space-y-4">
-                <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 text-sm">1</span>
-                  ¿Qué son los tokens y cuándo se consumen?
-                </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Los tokens son créditos de tu billetera. El costo de una operación equivale al número de unidades de tu conjunto (1 token = 1 unidad). Se descuentan <strong>en el momento</strong> en que realizas una de estas acciones:
-                </p>
-                <ul className="list-none space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                  <li className="flex items-start gap-2">
-                    <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
-                    <span><strong>Activar votación</strong> — Al abrir la votación para que los copropietarios voten en una asamblea.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
-                    <span><strong>Descargar acta con auditoría</strong> — Al generar el PDF del acta con detalle de votos y coeficientes.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
-                    <span><strong>Registro manual de voto</strong> — Cuando registras un voto en nombre de un copropietario desde el panel de control.</span>
-                  </li>
-                </ul>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Crear asambleas, preguntas o importar unidades <strong>no</strong> consume tokens. Si tu saldo es menor al costo por operación, no podrás activar votaciones ni descargar actas hasta que compres más tokens.
-                </p>
-              </div>
-
-              {/* Qué permite la aplicación */}
-              <div className="space-y-4">
-                <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 text-sm">2</span>
-                  ¿Qué puedes hacer con la aplicación?
-                </h4>
-                <ul className="list-none space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5 shrink-0">✓</span>
-                    <span><strong>Conjuntos y unidades</strong> — Registrar conjuntos residenciales, cargar unidades con coeficientes (Ley 675) y datos de contacto.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5 shrink-0">✓</span>
-                    <span><strong>Asambleas</strong> — Crear asambleas, definir preguntas y opciones de votación (Sí/No u otras).</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5 shrink-0">✓</span>
-                    <span><strong>Votaciones en línea</strong> — Enviar enlace a copropietarios para que voten desde el celular o PC; ver en tiempo real quién ha votado y resultados por coeficiente.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5 shrink-0">✓</span>
-                    <span><strong>Actas</strong> — Generar actas con resultados, umbral de aprobación y auditoría (consumen tokens).</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5 shrink-0">✓</span>
-                    <span><strong>Billetera de tokens</strong> — Comprar más tokens cuando lo necesites; los nuevos gestores reciben un bono de bienvenida.</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
+            </button>
           </div>
         </div>
       </main>
+
+      {/* Modal: Guía tokens y funcionalidades */}
+      <Dialog open={guiaModalOpen} onOpenChange={setGuiaModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border p-0" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0B0E14' }}>
+          <DialogHeader className="p-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+            <DialogTitle className="flex items-center gap-2 text-xl text-slate-200">
+              <HelpCircle className="w-6 h-6 text-violet-400" style={{ color: colorPrincipalHex }} />
+              Guía: tokens y funcionalidades
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-6 grid md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <h4 className="font-semibold text-slate-200 flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm" style={{ backgroundColor: `${colorPrincipalHex}30`, color: colorPrincipalHex }}>1</span>
+                ¿Qué son los tokens y cuándo se consumen?
+              </h4>
+              <p className="text-sm text-slate-400">
+                Los tokens son créditos de tu billetera. El costo de una operación equivale al número de unidades de tu conjunto (1 token = 1 unidad). Se descuentan <strong className="text-slate-300">en el momento</strong> en que realizas una de estas acciones:
+              </p>
+              <ul className="list-none space-y-2 text-sm text-slate-400">
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 shrink-0" style={{ color: colorPrincipalHex }}>•</span>
+                  <span><strong className="text-slate-300">Activar votación</strong> — Al abrir la votación para que los copropietarios voten en una asamblea.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 shrink-0" style={{ color: colorPrincipalHex }}>•</span>
+                  <span><strong className="text-slate-300">Descargar acta con auditoría</strong> — Al generar el PDF del acta con detalle de votos y coeficientes.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 shrink-0" style={{ color: colorPrincipalHex }}>•</span>
+                  <span><strong className="text-slate-300">Registro manual de voto</strong> — Cuando registras un voto en nombre de un copropietario desde el panel de control.</span>
+                </li>
+              </ul>
+              <p className="text-xs text-slate-500">
+                Crear asambleas, preguntas o importar unidades <strong>no</strong> consume tokens. Si tu saldo es menor al costo por operación, no podrás activar votaciones ni descargar actas hasta que compres más tokens.
+              </p>
+            </div>
+            <div className="space-y-4">
+              <h4 className="font-semibold text-slate-200 flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm">2</span>
+                ¿Qué puedes hacer con la aplicación?
+              </h4>
+              <ul className="list-none space-y-2 text-sm text-slate-400">
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>
+                  <span><strong className="text-slate-300">Conjuntos y unidades</strong> — Registrar conjuntos residenciales, cargar unidades con coeficientes (Ley 675) y datos de contacto.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>
+                  <span><strong className="text-slate-300">Asambleas</strong> — Crear asambleas, definir preguntas y opciones de votación (Sí/No u otras).</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>
+                  <span><strong className="text-slate-300">Votaciones en línea</strong> — Enviar enlace a copropietarios para que voten desde el celular o PC; ver en tiempo real quién ha votado y resultados por coeficiente.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>
+                  <span><strong className="text-slate-300">Actas</strong> — Generar actas con resultados, umbral de aprobación y auditoría (consumen tokens).</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>
+                  <span><strong className="text-slate-300">Billetera de tokens</strong> — Comprar más tokens cuando lo necesites; los nuevos gestores reciben un bono de bienvenida.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

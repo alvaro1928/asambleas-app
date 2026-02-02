@@ -361,15 +361,16 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     () => asistentes.filter((a) => !yaVotaronIds.has(a.id)),
     [asistentes, yaVotaronIds]
   )
-  const pendientesFiltrados = useMemo(() => {
-    if (!searchFaltantes.trim()) return pendientes
-    return pendientes.filter(
+  // Pendientes (Faltantes): todas las unidades que no han votado (con o sin sesión), para localizar y alcanzar quórum
+  const faltantesFiltrados = useMemo(() => {
+    if (!searchFaltantes.trim()) return faltantes
+    return faltantes.filter(
       (u) =>
         filtro(`${u.torre} ${u.numero}`, searchFaltantes) ||
         filtro(u.nombre_propietario, searchFaltantes) ||
         filtro(u.email_propietario, searchFaltantes)
     )
-  }, [pendientes, searchFaltantes])
+  }, [faltantes, searchFaltantes])
 
   if (loading && !asamblea) {
     return (
@@ -477,7 +478,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 flex flex-col items-center">
-                <div className="bg-white p-4 rounded-xl shadow-inner border border-gray-100 mb-4">
+                <div className="bg-white p-4 rounded-3xl shadow-inner border border-gray-100 mb-4">
                   {urlPublica && (
                     <QRCodeSVG value={urlPublica} size={180} level="H" includeMargin />
                   )}
@@ -485,7 +486,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">
                   Los asambleístas deben escanear este código para ingresar a la votación.
                 </p>
-                <p className="text-xl font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 py-2 px-4 rounded-lg">
+                <p className="text-xl font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 py-2 px-4 rounded-3xl">
                   CÓDIGO: {asamblea?.codigo_acceso}
                 </p>
               </CardContent>
@@ -539,7 +540,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       placeholder="Buscar..."
                       value={searchSesion}
                       onChange={(e) => setSearchSesion(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
                     />
                   </div>
                 </CardHeader>
@@ -583,7 +584,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       placeholder="Buscar..."
                       value={searchYaVotaron}
                       onChange={(e) => setSearchYaVotaron(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
                     />
                   </div>
                 </CardHeader>
@@ -607,7 +608,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </CardContent>
               </Card>
 
-              {/* Pendientes (Faltantes): (Unidades en Quórum) − (Ya votaron) — prioridad para el Gestor */}
+              {/* Pendientes (Faltantes): todas las unidades que no han votado (con o sin sesión), para localizar y alcanzar quórum */}
               <Card className="flex flex-col overflow-hidden rounded-3xl border border-amber-500/50 border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
                 <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-amber-50 dark:bg-amber-900/20">
                   <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
@@ -615,7 +616,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     Pendientes (Faltantes)
                   </CardTitle>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Conectados y aún no votan — prioridad para presionar votación
+                    Unidades que aún no han votado — para localizar y alcanzar quórum
                   </p>
                   <div className="relative mt-2">
                     <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -624,20 +625,20 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       placeholder="Buscar..."
                       value={searchFaltantes}
                       onChange={(e) => setSearchFaltantes(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
                     />
                   </div>
                 </CardHeader>
                 <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
                   <div className="flex-1 overflow-y-auto overscroll-contain">
-                    {pendientesFiltrados.length === 0 ? (
+                    {faltantesFiltrados.length === 0 ? (
                       <div className="p-4 text-center text-sm text-gray-500 flex items-center gap-2 justify-center">
                         <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                        Ningún conectado pendiente de votar.
+                        {faltantes.length === 0 ? 'Todas las unidades ya votaron.' : 'Ninguna unidad coincide con la búsqueda.'}
                       </div>
                     ) : (
                       <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {pendientesFiltrados.map((u) => (
+                        {faltantesFiltrados.map((u) => (
                           <li key={u.id} className="px-4 py-2 text-sm hover:bg-amber-50/50 dark:hover:bg-amber-900/10">
                             <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
                             <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
@@ -663,7 +664,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     Avance de votaciones (coeficiente)
                   </CardTitle>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Línea vertical = Umbral de Aprobación Legal. Se actualiza cada 10 s.
+                    Línea vertical = Mayoría necesaria (51%). Se actualiza cada 10 s.
                   </p>
                 </div>
                 <Button
@@ -671,7 +672,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   variant="outline"
                   size="sm"
                   onClick={() => setGraficaMaximizada(true)}
-                  className="shrink-0 rounded-xl border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                  className="shrink-0 rounded-3xl border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                   title="Ver gráfica en grande (pop-up)"
                 >
                   <Maximize2 className="w-4 h-4 mr-1" />
@@ -724,7 +725,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                               stroke={data.some((d) => d.aprueba) ? '#10b981' : '#f59e0b'}
                               strokeWidth={2}
                               strokeDasharray="4 2"
-                              label={{ value: `Umbral ${umbral}%`, position: 'insideTopRight', fill: '#94a3b8', fontSize: 11 }}
+                              label={{ value: `Mayoría necesaria (${umbral}%)`, position: 'insideTopRight', fill: '#94a3b8', fontSize: 11 }}
                             />
                             <Bar
                               dataKey="porcentaje"
@@ -761,7 +762,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                           {data.filter((d) => d.aprueba).map((d, i) => (
                             <span
                               key={i}
-                              className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold text-emerald-200 bg-emerald-900/40 border border-emerald-600"
+                              className="inline-flex items-center px-3 py-1.5 rounded-3xl text-sm font-bold text-emerald-200 bg-emerald-900/40 border border-emerald-600"
                               style={{ boxShadow: '0 0 12px rgba(16, 185, 129, 0.4)' }}
                             >
                               MAYORÍA ALCANZADA — {d.name}: {d.porcentaje}% ({d.votosCantidad} {d.votosCantidad !== 1 ? 'votos' : 'voto'})
@@ -845,7 +846,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                           stroke={data.some((d) => d.aprueba) ? '#10b981' : '#f59e0b'}
                           strokeWidth={2}
                           strokeDasharray="4 2"
-                          label={{ value: `Umbral ${umbral}%`, position: 'insideTopRight', fill: '#94a3b8', fontSize: 14 }}
+                          label={{ value: `Mayoría necesaria (${umbral}%)`, position: 'insideTopRight', fill: '#94a3b8', fontSize: 14 }}
                         />
                         <Bar
                           dataKey="porcentaje"
@@ -882,7 +883,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       {data.filter((d) => d.aprueba).map((d, i) => (
                         <span
                           key={i}
-                          className="inline-flex items-center px-4 py-2 rounded-xl text-base font-bold text-emerald-200 bg-emerald-900/40 border border-emerald-600"
+                          className="inline-flex items-center px-4 py-2 rounded-3xl text-base font-bold text-emerald-200 bg-emerald-900/40 border border-emerald-600"
                           style={{ boxShadow: '0 0 16px rgba(16, 185, 129, 0.5)' }}
                         >
                           MAYORÍA ALCANZADA — {d.fullName}: {d.porcentaje}% ({d.votosCantidad} {d.votosCantidad !== 1 ? 'votos' : 'voto'})

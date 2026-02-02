@@ -792,7 +792,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
       {/* Diálogo confirmación revocar poder */}
       <Dialog open={!!revocandoPoderId} onOpenChange={(open) => !open && setRevocandoPoderId(null)}>
-        <DialogContent>
+        <DialogContent className="rounded-3xl">
           <DialogHeader>
             <DialogTitle>¿Revocar este poder?</DialogTitle>
             <DialogDescription>

@@ -289,7 +289,7 @@ export default function UnidadesPage() {
         ) : (
           <div className="space-y-6">
             {/* Filtros */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Búsqueda */}
                 <div className="md:col-span-2">
@@ -331,7 +331,7 @@ export default function UnidadesPage() {
             </div>
 
             {/* Tabla */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -411,7 +411,7 @@ export default function UnidadesPage() {
 
       {/* Dialog de Edición */}
       <Dialog open={editingUnidad !== null} onOpenChange={() => setEditingUnidad(null)}>
-        <DialogContent>
+        <DialogContent className="rounded-3xl">
           <DialogHeader>
             <DialogTitle>Editar Unidad</DialogTitle>
             <DialogDescription>
@@ -491,7 +491,7 @@ export default function UnidadesPage() {
 
       {/* Dialog de Confirmación de Eliminación */}
       <Dialog open={deletingUnidad !== null} onOpenChange={() => setDeletingUnidad(null)}>
-        <DialogContent>
+        <DialogContent className="rounded-3xl">
           <DialogHeader>
             <DialogTitle>¿Eliminar unidad?</DialogTitle>
             <DialogDescription>

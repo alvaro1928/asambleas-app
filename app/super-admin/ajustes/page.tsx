@@ -128,7 +128,7 @@ export default function SuperAdminAjustesPage() {
                 value={tituloLanding}
                 onChange={(e) => setTituloLanding(e.target.value)}
                 placeholder="Ej. Asambleas digitales para propiedad horizontal"
-                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+                className="w-full rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
               />
             </div>
             <div>
@@ -138,7 +138,7 @@ export default function SuperAdminAjustesPage() {
                 onChange={(e) => setSubtituloLanding(e.target.value)}
                 placeholder="Ej. Votaciones en tiempo real, actas y auditoría..."
                 rows={3}
-                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+                className="w-full rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
               />
             </div>
             <div>
@@ -148,14 +148,14 @@ export default function SuperAdminAjustesPage() {
                   type="color"
                   value={colorPrincipalHex}
                   onChange={(e) => setColorPrincipalHex(e.target.value)}
-                  className="w-12 h-12 rounded-xl border border-gray-300 dark:border-gray-600 cursor-pointer"
+                  className="w-12 h-12 rounded-3xl border border-gray-300 dark:border-gray-600 cursor-pointer"
                 />
                 <input
                   type="text"
                   value={colorPrincipalHex}
                   onChange={(e) => setColorPrincipalHex(e.target.value)}
                   placeholder="#4f46e5"
-                  className="w-32 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 font-mono text-gray-900 dark:text-white"
+                  className="w-32 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 font-mono text-gray-900 dark:text-white"
                 />
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Se aplica como variable CSS --color-primary en la app (landing, botones, acentos).</p>
@@ -167,7 +167,7 @@ export default function SuperAdminAjustesPage() {
                 value={whatsappNumber}
                 onChange={(e) => setWhatsappNumber(e.target.value)}
                 placeholder="Ej. 573001234567"
-                className="w-full max-w-xs rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+                className="w-full max-w-xs rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
               />
             </div>
             <hr className="border-gray-200 dark:border-gray-700" />
@@ -182,7 +182,7 @@ export default function SuperAdminAjustesPage() {
                   value={precioPorTokenCop}
                   onChange={(e) => setPrecioPorTokenCop(e.target.value === '' ? '' : parseInt(e.target.value, 10) || 0)}
                   placeholder="10000"
-                  className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+                  className="w-full rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Precio mostrado al comprar créditos (tokens).</p>
               </div>
@@ -194,7 +194,7 @@ export default function SuperAdminAjustesPage() {
                   value={bonoBienvenidaTokens}
                   onChange={(e) => setBonoBienvenidaTokens(e.target.value === '' ? '' : parseInt(e.target.value, 10) || 0)}
                   placeholder="50"
-                  className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+                  className="w-full rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tokens gratuitos que recibe cada nuevo gestor.</p>
               </div>

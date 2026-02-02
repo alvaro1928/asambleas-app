@@ -139,6 +139,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       const statusRes = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(orgId ?? '')}`)
       const statusData = statusRes.ok ? await statusRes.json() : null
       setIncluyeActaDetallada(!!statusData?.puede_operar)
+      setTokensDisponibles(Math.max(0, Number(statusData?.tokens_disponibles ?? 0)))
+      setCostoOperacion(Math.max(0, Number(statusData?.costo_operacion ?? 0)))
 
       const { data: preguntasData } = await supabase
         .from('preguntas')
@@ -303,13 +305,13 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   if (!incluyeActaDetallada) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700 text-center">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-8 border border-gray-200 dark:border-gray-700 text-center">
           <FileText className="w-16 h-16 text-amber-500 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
             Tokens insuficientes
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            La descarga del acta con auditoría requiere tener en tu billetera al menos tantos tokens como unidades tiene el conjunto (1 token = 1 unidad). Recarga tokens o compra más para acceder.
+            Saldo insuficiente para esta operación. La descarga del acta con auditoría requiere tener en tu billetera al menos tantos tokens como unidades tiene el conjunto (1 token = 1 unidad). Recarga tokens o compra más para acceder.
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
             Tu billetera: <strong>{tokensDisponibles} tokens</strong>
@@ -337,13 +339,18 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               Volver
             </Button>
           </Link>
-          <div className="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 border border-slate-200">
+          <div className="flex items-center gap-2 rounded-3xl bg-slate-100 px-3 py-2 border border-slate-200">
             <span className="text-xs font-medium text-slate-600">Billetera:</span>
             <span className="text-sm font-bold text-indigo-600">{tokensDisponibles} tokens</span>
             {costoOperacion > 0 && (
               <span className="text-xs text-slate-500">(costo/op: {costoOperacion})</span>
             )}
           </div>
+          {costoOperacion > 0 && (
+            <p className="text-xs text-slate-500">
+              Esta operación consumirá {costoOperacion} tokens. Saldo actual: {tokensDisponibles}.
+            </p>
+          )}
         </div>
         <Button onClick={handlePrint} className="bg-indigo-600 hover:bg-indigo-700">
           <Printer className="w-4 h-4 mr-2" />

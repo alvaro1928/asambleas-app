@@ -106,21 +106,21 @@ export async function POST(request: NextRequest) {
       .eq('user_id', session.user.id)
 
     const firstProfile = Array.isArray(perfilesGestor) ? perfilesGestor[0] : perfilesGestor
-    const tokensActuales = Math.max(0, Number(firstProfile?.tokens_disponibles ?? 0))
-
-    if (tokensActuales < costo) {
+    const tokensActuales = Math.max(0, Math.floor(Number(firstProfile?.tokens_disponibles ?? 0)))
+    const costoInt = Math.max(0, Math.floor(Number(costo)))
+    if (tokensActuales < costoInt) {
       return NextResponse.json(
         {
-          error: `Tokens insuficientes. Necesitas ${costo} (1 por unidad; este conjunto tiene ${unidades} unidades).`,
+          error: `Tokens insuficientes. Necesitas ${costoInt} (1 por unidad; este conjunto tiene ${unidades} unidades).`,
           code: 'SIN_TOKENS',
-          costo,
+          costo: costoInt,
           unidades,
         },
         { status: 402 }
       )
     }
 
-    const nuevoSaldo = Math.max(0, tokensActuales - costo)
+    const nuevoSaldo = Math.max(0, tokensActuales - costoInt)
 
     let updateError = (await admin
       .from('profiles')
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       descontado: true,
       tokens_restantes: nuevoSaldo,
-      costo,
+      costo: costoInt,
       unidades,
     })
   } catch (e) {

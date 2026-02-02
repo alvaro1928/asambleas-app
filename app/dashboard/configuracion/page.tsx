@@ -270,7 +270,7 @@ export default function ConfiguracionPage() {
         <div className="space-y-8">
           {/* Messages */}
           {message && (
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-3xl p-4">
               <div className="flex items-start">
                 <svg
                   className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 mr-3"
@@ -289,7 +289,7 @@ export default function ConfiguracionPage() {
           )}
 
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-3xl p-4">
               <div className="flex items-start">
                 <svg
                   className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 mr-3"
@@ -310,7 +310,7 @@ export default function ConfiguracionPage() {
           {/* Perfil de Usuario */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-3xl flex items-center justify-center">
                 <svg
                   className="w-6 h-6 text-indigo-600 dark:text-indigo-400"
                   fill="none"
@@ -344,7 +344,7 @@ export default function ConfiguracionPage() {
                   type="email"
                   value={user?.email || ''}
                   disabled
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                  className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   El correo no se puede cambiar
@@ -360,14 +360,14 @@ export default function ConfiguracionPage() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Alvaro Contreras"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-3xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Guardando...' : 'Guardar Perfil'}
               </button>
@@ -377,7 +377,7 @@ export default function ConfiguracionPage() {
           {/* Cambiar contraseña */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-3xl flex items-center justify-center">
                 <svg
                   className="w-6 h-6 text-amber-600 dark:text-amber-400"
                   fill="none"
@@ -403,12 +403,12 @@ export default function ConfiguracionPage() {
             </div>
 
             {passwordMessage && (
-              <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-3xl p-4">
                 <p className="text-sm text-green-800 dark:text-green-300">{passwordMessage}</p>
               </div>
             )}
             {passwordError && (
-              <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-3xl p-4">
                 <p className="text-sm text-red-800 dark:text-red-300">{passwordError}</p>
               </div>
             )}
@@ -424,7 +424,7 @@ export default function ConfiguracionPage() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Mínimo 6 caracteres"
                   minLength={6}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
               <div>
@@ -437,13 +437,13 @@ export default function ConfiguracionPage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Repite la contraseña"
                   minLength={6}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
               <button
                 type="submit"
                 disabled={passwordSaving || !newPassword || !confirmPassword}
-                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-4 rounded-3xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {passwordSaving ? 'Guardando...' : 'Actualizar contraseña'}
               </button>
@@ -453,7 +453,7 @@ export default function ConfiguracionPage() {
           {/* Datos del Conjunto */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-3xl flex items-center justify-center">
                 <svg
                   className="w-6 h-6 text-purple-600 dark:text-purple-400"
                   fill="none"
@@ -489,7 +489,7 @@ export default function ConfiguracionPage() {
                   onChange={(e) => setOrgName(e.target.value)}
                   required
                   placeholder="Conjunto Residencial Los Cedros"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
@@ -502,7 +502,7 @@ export default function ConfiguracionPage() {
                   value={orgNit}
                   onChange={(e) => setOrgNit(e.target.value)}
                   placeholder="900.123.456-7"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
@@ -515,14 +515,14 @@ export default function ConfiguracionPage() {
                   onChange={(e) => setOrgAddress(e.target.value)}
                   placeholder="Calle 123 # 45-67, Bogotá"
                   rows={3}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={saving || !orgName}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-3xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Guardando...' : organization ? 'Actualizar Datos del Conjunto' : 'Registrar Conjunto'}
               </button>

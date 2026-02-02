@@ -90,12 +90,16 @@ export async function GET(request: NextRequest) {
 
     const unidades = Math.max(0, unidadesCount ?? 0)
     const costo = getCostoEnTokens(unidades)
+    // Validación estricta: solo puede operar si saldo >= costo (enteros; sin permitir negativos)
+    const tokensInt = Math.max(0, Math.floor(Number(tokensDisponibles)))
+    const costoInt = Math.max(0, Math.floor(Number(costo)))
+    const puedeOperar = tokensInt >= costoInt
 
     return NextResponse.json({
-      tokens_disponibles: tokensDisponibles,
+      tokens_disponibles: tokensInt,
       unidades_conjunto: unidades,
-      costo_operacion: costo,
-      puede_operar: tokensDisponibles >= costo,
+      costo_operacion: costoInt,
+      puede_operar: puedeOperar,
     })
   } catch (e) {
     console.error('organization-status:', e)
