@@ -1,5 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       typeof stressSecret === 'string' &&
       stressSecret === envSecret
 
-    let supabase: ReturnType<typeof createServerClient> | ReturnType<typeof createClient>
+    let supabase: SupabaseClient
     if (useStressBypass) {
       const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
