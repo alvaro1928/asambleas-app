@@ -339,26 +339,20 @@ export async function PATCH(request: NextRequest) {
       { auth: { persistSession: false } }
     )
 
-    let { error } = await admin
+    // Actualizar por user_id (auth uid) y también por id (por si la lista envió el id de la fila profile)
+    const { error: errUser } = await admin
       .from('profiles')
       .update({ tokens_disponibles: value })
       .eq('user_id', user_id)
 
-    if (error) {
-      const { data: byId } = await admin
-        .from('profiles')
-        .select('id')
-        .eq('id', user_id)
-        .limit(1)
-      if (byId && (Array.isArray(byId) ? byId.length : 1)) {
-        const { error: errId } = await admin
-          .from('profiles')
-          .update({ tokens_disponibles: value })
-          .eq('id', user_id)
-        if (!errId) return NextResponse.json({ ok: true })
-      }
-      console.error('super-admin gestores PATCH:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    const { error: errId } = await admin
+      .from('profiles')
+      .update({ tokens_disponibles: value })
+      .eq('id', user_id)
+
+    if (errUser && errId) {
+      console.error('super-admin gestores PATCH user_id:', errUser, 'id:', errId)
+      return NextResponse.json({ error: errUser?.message || errId?.message || 'Error al actualizar' }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true })
