@@ -56,7 +56,7 @@ export async function GET() {
       { auth: { persistSession: false } }
     )
 
-    // 1) Intentar listar desde profiles (varias variantes por esquema)
+    // 1) Listar gestores desde profiles. Soporta esquemas con id (auth user) o user_id.
     let gestores: Array<{ user_id: string; email: string | null; full_name: string | null; tokens_disponibles: number }> = []
 
     const trySelect = async (select: string, orderBy?: string) => {
@@ -82,11 +82,12 @@ export async function GET() {
       return Array.from(byUserId.values())
     }
 
-    const { data: rows1, error: e1 } = await trySelect('user_id, id, email, full_name, tokens_disponibles', 'tokens_disponibles')
-    if (!e1 && rows1 && rows1.length > 0) {
+    // Intentar primero con id (estándar Supabase: profiles.id = auth.users.id)
+    const { data: rowsId, error: eId } = await trySelect('id, email, full_name, tokens_disponibles', 'tokens_disponibles')
+    if (!eId && rowsId && rowsId.length > 0) {
       gestores = buildFromRows(
-        rows1,
-        (r) => (r as { user_id?: string; id?: string }).user_id ?? (r as { id?: string }).id,
+        rowsId,
+        (r) => (r as { id?: string }).id,
         (r) => (r as { email?: string | null }).email ?? null,
         (r) => (r as { full_name?: string | null }).full_name ?? null,
         (r) => Math.max(0, Number((r as { tokens_disponibles?: number }).tokens_disponibles ?? 0))
@@ -94,11 +95,11 @@ export async function GET() {
     }
 
     if (gestores.length === 0) {
-      const { data: rows2, error: e2 } = await trySelect('id, email, full_name, tokens_disponibles', 'tokens_disponibles')
-      if (!e2 && rows2 && rows2.length > 0) {
+      const { data: rows1, error: e1 } = await trySelect('user_id, id, email, full_name, tokens_disponibles', 'tokens_disponibles')
+      if (!e1 && rows1 && rows1.length > 0) {
         gestores = buildFromRows(
-          rows2,
-          (r) => (r as { id?: string }).id,
+          rows1,
+          (r) => (r as { user_id?: string; id?: string }).user_id ?? (r as { id?: string }).id,
           (r) => (r as { email?: string | null }).email ?? null,
           (r) => (r as { full_name?: string | null }).full_name ?? null,
           (r) => Math.max(0, Number((r as { tokens_disponibles?: number }).tokens_disponibles ?? 0))
@@ -119,29 +120,30 @@ export async function GET() {
       }
     }
 
-    // 2) Si sigue vacío: listar usuarios de Auth y cruzar con profiles para tokens
+    // 2) Si sigue vacío: listar usuarios de Auth y cruzar con profiles (solo id + tokens por compatibilidad)
     if (gestores.length === 0) {
       try {
         const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
         const users = usersData?.users ?? []
         const tokensByUserId: Record<string, number> = {}
-        const { data: profileRows } = await admin.from('profiles').select('user_id, id, tokens_disponibles')
-        const profileList = Array.isArray(profileRows) ? profileRows : profileRows ? [profileRows] : []
-        for (const p of profileList) {
-          const row = p as { user_id?: string; id?: string; tokens_disponibles?: number }
-          const uid = row.user_id ?? row.id
-          if (uid) {
-            const tok = Math.max(0, Number(row.tokens_disponibles ?? 0))
-            if (tok > (tokensByUserId[uid] ?? 0)) tokensByUserId[uid] = tok
+        const { data: profileById, error: errProf } = await admin.from('profiles').select('id, tokens_disponibles')
+        if (!errProf && profileById && profileById.length > 0) {
+          for (const p of profileById) {
+            const row = p as { id?: string; tokens_disponibles?: number }
+            if (row.id) {
+              const tok = Math.max(0, Number(row.tokens_disponibles ?? 0))
+              if (tok > (tokensByUserId[row.id] ?? 0)) tokensByUserId[row.id] = tok
+            }
           }
         }
-        const { data: profileById } = await admin.from('profiles').select('id, tokens_disponibles')
-        const byIdList = Array.isArray(profileById) ? profileById : profileById ? [profileById] : []
-        for (const p of byIdList) {
-          const row = p as { id?: string; tokens_disponibles?: number }
-          if (row.id) {
-            const tok = Math.max(0, Number(row.tokens_disponibles ?? 0))
-            if (tok > (tokensByUserId[row.id] ?? 0)) tokensByUserId[row.id] = tok
+        const { data: profileUser } = await admin.from('profiles').select('user_id, tokens_disponibles')
+        if (profileUser && profileUser.length > 0) {
+          for (const p of profileUser) {
+            const row = p as { user_id?: string; tokens_disponibles?: number }
+            if (row.user_id) {
+              const tok = Math.max(0, Number(row.tokens_disponibles ?? 0))
+              if (tok > (tokensByUserId[row.user_id] ?? 0)) tokensByUserId[row.user_id] = tok
+            }
           }
         }
         gestores = users.map((u) => ({

@@ -746,7 +746,9 @@ export default function SuperAdminPage() {
                 {gestoresFiltrados.length === 0 ? (
                   <tr>
                     <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
-                      {gestores.length === 0 ? 'No hay gestores registrados.' : 'Ningún gestor coincide con el filtro.'}
+                      {gestores.length === 0
+                        ? 'No hay gestores registrados. Los gestores son usuarios que inician sesión (Google o magic link); si ves 0 pero tú tienes tokens en el Dashboard, recarga la página o revisa que SUPABASE_SERVICE_ROLE_KEY esté configurada en el servidor.'
+                        : 'Ningún gestor coincide con el filtro.'}
                     </td>
                   </tr>
                 ) : (
@@ -911,7 +913,9 @@ export default function SuperAdminPage() {
                 {conjuntosVisibles.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                      {conjuntos.length === 0 ? 'No hay conjuntos registrados.' : 'Ningún conjunto coincide con el filtro.'}
+                      {conjuntos.length === 0
+                    ? 'No hay conjuntos registrados. Crea uno desde el Dashboard (Ir al Dashboard → Nuevo conjunto).'
+                    : 'Ningún conjunto coincide con el filtro.'}
                     </td>
                   </tr>
                 ) : (
