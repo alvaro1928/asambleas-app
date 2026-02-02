@@ -222,11 +222,13 @@ export async function GET() {
       }
     }
 
-    // 4) Solo desde profiles: select(*) y mapear cualquier columna id/user_id, email, full_name, tokens
+    // 4) Solo desde profiles: select(*) y mapear id/user_id, email, full_name, tokens_disponibles
     if (gestores.length === 0) {
       try {
-        const { data: rawRows } = await admin.from('profiles').select('*')
-        if (rawRows && rawRows.length > 0) {
+        const { data: rawRows, error: selectError } = await admin.from('profiles').select('*')
+        if (selectError) {
+          console.error('super-admin gestores select(*) error:', selectError)
+        } else if (rawRows && rawRows.length > 0) {
           const byUid = new Map<string, { user_id: string; email: string | null; full_name: string | null; tokens_disponibles: number }>()
           for (const row of rawRows) {
             const r = row as Record<string, unknown>
@@ -252,16 +254,21 @@ export async function GET() {
       }
     }
 
-    // Diagnóstico si sigue vacío: contar filas y mostrar columnas del primer registro
+    // Diagnóstico si sigue vacío: mostrar error real de Supabase o contar filas
     let hint: string | undefined
     if (gestores.length === 0) {
       try {
-        const { count } = await admin.from('profiles').select('*', { count: 'exact', head: true })
-        const { data: oneRow } = await admin.from('profiles').select('*').limit(1).maybeSingle()
-        const keys = oneRow && typeof oneRow === 'object' ? Object.keys(oneRow as object) : []
-        hint = count != null && count > 0
-          ? `Hay ${count} fila(s) en profiles. Columnas: ${keys.join(', ') || 'ninguna'}. Se esperan id o user_id para identificar al gestor.`
-          : 'No se pudo leer la tabla profiles (revisa SUPABASE_SERVICE_ROLE_KEY y que la clave sea del mismo proyecto que NEXT_PUBLIC_SUPABASE_URL).'
+        const { count, error: countError } = await admin.from('profiles').select('*', { count: 'exact', head: true })
+        const { data: oneRow, error: rowError } = await admin.from('profiles').select('*').limit(1).maybeSingle()
+        const errMsg = countError?.message ?? rowError?.message
+        if (errMsg) {
+          hint = `Supabase devolvió: ${errMsg}. Comprueba que NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY sean del mismo proyecto donde tienes la tabla profiles.`
+        } else if (count != null && count > 0) {
+          const keys = oneRow && typeof oneRow === 'object' ? Object.keys(oneRow as object) : []
+          hint = `Hay ${count} fila(s) en profiles. Columnas: ${keys.join(', ') || 'ninguna'}. Si no ves gestores, puede ser un problema de mapeo.`
+        } else {
+          hint = 'No se pudo leer la tabla profiles. Revisa que SUPABASE_SERVICE_ROLE_KEY sea del mismo proyecto que NEXT_PUBLIC_SUPABASE_URL (donde ejecutaste SELECT * FROM profiles).'
+        }
       } catch {
         hint = 'Error al diagnosticar la tabla profiles.'
       }
