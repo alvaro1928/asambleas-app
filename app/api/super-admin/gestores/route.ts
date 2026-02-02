@@ -222,6 +222,36 @@ export async function GET() {
       }
     }
 
+    // 4) Solo desde profiles: select(*) y mapear cualquier columna id/user_id, email, full_name, tokens
+    if (gestores.length === 0) {
+      try {
+        const { data: rawRows } = await admin.from('profiles').select('*')
+        if (rawRows && rawRows.length > 0) {
+          const byUid = new Map<string, { user_id: string; email: string | null; full_name: string | null; tokens_disponibles: number }>()
+          for (const row of rawRows) {
+            const r = row as Record<string, unknown>
+            const uid = (r.user_id as string) ?? (r.id as string)
+            if (!uid) continue
+            if (byUid.has(uid)) {
+              const existing = byUid.get(uid)!
+              const tok = Math.max(0, Number(r.tokens_disponibles ?? existing.tokens_disponibles ?? 0))
+              if (tok > existing.tokens_disponibles) byUid.set(uid, { ...existing, tokens_disponibles: tok })
+              continue
+            }
+            byUid.set(uid, {
+              user_id: uid,
+              email: (r.email as string) ?? null,
+              full_name: (r.full_name as string) ?? null,
+              tokens_disponibles: Math.max(0, Number(r.tokens_disponibles ?? 0)),
+            })
+          }
+          gestores = Array.from(byUid.values())
+        }
+      } catch (e) {
+        console.error('super-admin gestores select(*) fallback:', e)
+      }
+    }
+
     return NextResponse.json({ gestores })
   } catch (e) {
     console.error('super-admin gestores GET:', e)
