@@ -481,12 +481,12 @@ export default function DashboardPage() {
           </div>
 
           {/* Métricas Detalladas — grid con columnas iguales y sin overflow */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 min-w-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 min-w-0 w-full">
             {/* Total Unidades */}
-            <div className="min-w-0 flex">
+            <div className="min-w-0 flex overflow-hidden w-full">
               <UiTooltip content="Ver listado de unidades, editar y gestionar coeficientes">
-                <Link href="/dashboard/unidades" className="block w-full min-w-0">
-                  <div className="h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-700 transition-all cursor-pointer min-w-0">
+                <Link href="/dashboard/unidades" className="block w-full min-w-0 flex-1 overflow-hidden">
+                  <div className="h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-700 transition-all cursor-pointer min-w-0 overflow-hidden w-full">
                     <div className="flex items-center justify-between mb-2 shrink-0">
                       <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center shrink-0">
                         <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -504,8 +504,8 @@ export default function DashboardPage() {
             </div>
 
             {/* Suma Coeficientes */}
-            <div className="min-w-0 flex">
-              <div className="w-full h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 min-w-0" title="La Ley 675 exige que la suma de coeficientes sea 100%. Verde = correcto.">
+            <div className="min-w-0 flex overflow-hidden w-full">
+              <div className="w-full h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 min-w-0 overflow-hidden" title="La Ley 675 exige que la suma de coeficientes sea 100%. Verde = correcto.">
                 <div className="flex items-center justify-between mb-2 shrink-0">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
                     Math.abs(metrics.sumaCoeficientes - 100) < 0.000001 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-100 dark:bg-yellow-900/30'
@@ -526,8 +526,8 @@ export default function DashboardPage() {
             </div>
 
             {/* Censo de Datos */}
-            <div className="min-w-0 flex">
-              <div className="w-full h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 min-w-0" title="Porcentaje de unidades con email y teléfono completos para contacto.">
+            <div className="min-w-0 flex overflow-hidden w-full">
+              <div className="w-full h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 min-w-0 overflow-hidden" title="Porcentaje de unidades con email y teléfono completos para contacto.">
                 <div className="flex items-center justify-between mb-2 shrink-0">
                   <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center shrink-0">
                     <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -546,10 +546,10 @@ export default function DashboardPage() {
             </div>
 
             {/* Conjuntos Registrados */}
-            <div className="min-w-0 flex">
+            <div className="min-w-0 flex overflow-hidden w-full">
               <UiTooltip content="Ver y editar los conjuntos residenciales que gestionas">
-                <Link href="/dashboard/conjuntos" className="block w-full min-w-0">
-                  <div className="h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer min-w-0">
+                <Link href="/dashboard/conjuntos" className="block w-full min-w-0 flex-1 overflow-hidden">
+                  <div className="h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer min-w-0 overflow-hidden w-full">
                     <div className="flex items-center justify-between mb-2 shrink-0">
                       <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center shrink-0">
                         <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -416,6 +416,25 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               {copiado ? '¡Copiado!' : 'Copiar Enlace'}
             </Button>
           </div>
+
+          {/* Pregunta por la que están votando — en grande debajo del enlace */}
+          {preguntasConResultados.length > 0 && (
+            <div className="max-w-4xl mx-auto mt-4 px-2">
+              <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                Pregunta en votación
+              </p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-snug">
+                {preguntasConResultados.length === 1
+                  ? preguntasConResultados[0].texto_pregunta
+                  : preguntasConResultados.map((p, i) => (
+                      <span key={p.id}>
+                        {i + 1}. {p.texto_pregunta}
+                        {i < preguntasConResultados.length - 1 && ' · '}
+                      </span>
+                    ))}
+              </p>
+            </div>
+          )}
         </div>
       </header>
 
@@ -713,10 +732,10 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       {/* Modal: gráfica de avance en grande (pop-up) */}
       <Dialog open={graficaMaximizada} onOpenChange={setGraficaMaximizada}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="flex flex-row items-center justify-between gap-4 pr-8">
-            <DialogTitle className="flex items-center gap-2">
-              <Vote className="w-5 h-5 text-emerald-600" />
+        <DialogContent className="max-w-6xl w-[95vw] max-h-[95vh] overflow-y-auto p-8">
+          <DialogHeader className="flex flex-row items-center justify-between gap-4 pr-10">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Vote className="w-6 h-6 text-emerald-600" />
               Avance de votaciones (vista grande)
             </DialogTitle>
             <Button
@@ -730,18 +749,18 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               <X className="w-5 h-5" />
             </Button>
           </DialogHeader>
-          <div className="space-y-8 pt-4">
+          <div className="space-y-10 pt-4">
             {quorum && (
-              <div className="flex justify-between text-base">
+              <div className="flex justify-between text-lg">
                 <span className="text-gray-600 dark:text-gray-400">Unidades que ya votaron</span>
-                <span className="font-bold text-lg">
+                <span className="font-bold text-xl">
                   {quorum.unidades_votantes} / {quorum.total_unidades}
                 </span>
               </div>
             )}
             {preguntasConResultados.map((preg) => {
               const data = preg.resultados.map((r) => ({
-                name: r.opcion_texto.length > 24 ? r.opcion_texto.slice(0, 22) + '…' : r.opcion_texto,
+                name: r.opcion_texto.length > 28 ? r.opcion_texto.slice(0, 26) + '…' : r.opcion_texto,
                 fullName: r.opcion_texto,
                 porcentaje: Math.round(r.porcentaje_coeficiente_total * 100) / 100,
                 color: r.color,
@@ -749,20 +768,20 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               }))
               const umbral = preg.umbral_aprobacion ?? 50
               return (
-                <div key={preg.id} className="space-y-3">
-                  <p className="text-base font-medium text-gray-700 dark:text-gray-300">
+                <div key={preg.id} className="space-y-4">
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-snug">
                     {preg.texto_pregunta}
                   </p>
-                  <div className="h-[320px] w-full">
+                  <div className="min-h-[50vh] h-[55vh] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         layout="vertical"
                         data={data}
-                        margin={{ top: 12, right: 40, left: 120, bottom: 12 }}
+                        margin={{ top: 16, right: 50, left: 140, bottom: 16 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-                        <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 14 }} />
-                        <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 14 }} />
+                        <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 18 }} />
+                        <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 18 }} />
                         <Tooltip
                           formatter={(value: number | undefined) => [`${value ?? 0}%`, 'Coeficiente']}
                           labelFormatter={(_: ReactNode, payload: readonly { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName ?? ''}
@@ -772,12 +791,12 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                           stroke={data.some((d) => d.aprueba) ? '#10b981' : '#ef4444'}
                           strokeWidth={2}
                           strokeDasharray="4 2"
-                          label={{ value: `Umbral ${umbral}%`, position: 'insideTopRight', fill: '#9ca3af', fontSize: 12 }}
+                          label={{ value: `Umbral ${umbral}%`, position: 'insideTopRight', fill: '#9ca3af', fontSize: 14 }}
                         />
                         <Bar
                           dataKey="porcentaje"
-                          radius={[0, 6, 6, 0]}
-                          maxBarSize={40}
+                          radius={[0, 8, 8, 0]}
+                          maxBarSize={56}
                           label={{
                             position: 'right',
                             formatter: (label: unknown, ...args: unknown[]) => {
@@ -785,7 +804,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                               const payload = (args[0] as { payload?: { aprueba?: boolean } })?.payload
                               return payload?.aprueba ? `${v}% APROBADO` : `${v}%`
                             },
-                            fontSize: 14,
+                            fontSize: 18,
                             fill: '#374151'
                           }}
                         >
