@@ -615,24 +615,21 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  // Polling para actualizar estadísticas y votos cada 10 segundos
+  // Polling: actualizar listado de preguntas abiertas/cerradas y estadísticas cada 10 s (para que al cerrar/abrir una pregunta el votante vea el cambio)
   useEffect(() => {
-    if (step !== 'votar' || preguntas.length === 0 || unidades.length === 0) return
+    if (step !== 'votar' || !asamblea || unidades.length === 0) return
 
-    // Delay inicial de 5 segundos antes de empezar el polling
     const timeout = setTimeout(() => {
-      const interval = setInterval(() => {
-        cargarVotosActuales(preguntas.map(p => p.id), unidades)
-        cargarEstadisticas(preguntas.map(p => p.id))
+      const interval = setInterval(async () => {
+        await cargarPreguntas(unidades)
+        await cargarHistorial(unidades)
       }, 10000)
-
-      // Limpiar intervalo cuando el componente se desmonte
       return () => clearInterval(interval)
     }, 5000)
 
     return () => clearTimeout(timeout)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when step or list lengths change
-  }, [step, preguntas.length, unidades.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when step or asamblea changes
+  }, [step, asamblea?.asamblea_id, unidades.length])
 
   const formatFecha = (fecha: string) => {
     const date = new Date(fecha + 'T00:00:00')

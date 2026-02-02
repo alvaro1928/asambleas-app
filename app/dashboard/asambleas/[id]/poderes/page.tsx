@@ -89,6 +89,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   const [searchOtorgante, setSearchOtorgante] = useState('')
   const [searchReceptor, setSearchReceptor] = useState('')
   const [selectedOtorgante, setSelectedOtorgante] = useState<Unidad | null>(null)
+  const [selectedReceptor, setSelectedReceptor] = useState<Unidad | null>(null)
   const [emailReceptor, setEmailReceptor] = useState('')
   const [nombreReceptor, setNombreReceptor] = useState('')
   const [observaciones, setObservaciones] = useState('')
@@ -219,6 +220,11 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       return
     }
 
+    if (!selectedReceptor) {
+      toast.error('Debes seleccionar la unidad que recibe el poder (apoderado)')
+      return
+    }
+
     if (!emailReceptor.trim()) {
       toast.error('Debes ingresar el email del apoderado')
       return
@@ -250,6 +256,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       console.error('Error en validación:', error)
     }
 
+    const emailOtorgante = (selectedOtorgante as { email?: string; email_propietario?: string }).email_propietario ?? (selectedOtorgante as { email?: string }).email ?? ''
     setSavingPoder(true)
     try {
       const { error } = await supabase
@@ -257,7 +264,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
         .insert({
           asamblea_id: params.id,
           unidad_otorgante_id: selectedOtorgante.id,
-          email_otorgante: selectedOtorgante.email,
+          unidad_receptor_id: selectedReceptor?.id ?? null,
+          email_otorgante: emailOtorgante,
           nombre_otorgante: selectedOtorgante.nombre_propietario,
           email_receptor: emailReceptor.trim(),
           nombre_receptor: nombreReceptor.trim(),
@@ -271,6 +279,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       setTimeout(() => setSuccessMessage(''), 3000)
       setShowNewPoder(false)
       setSelectedOtorgante(null)
+      setSelectedReceptor(null)
       setEmailReceptor('')
       setNombreReceptor('')
       setObservaciones('')
@@ -330,11 +339,20 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   }
 
   const filteredOtorgantes = unidades.filter(u =>
-    !searchOtorgante || 
+    !searchOtorgante ||
     u.numero.toLowerCase().includes(searchOtorgante.toLowerCase()) ||
     u.torre.toLowerCase().includes(searchOtorgante.toLowerCase()) ||
     u.nombre_propietario.toLowerCase().includes(searchOtorgante.toLowerCase())
   )
+  const filteredReceptores = unidades.filter(u => {
+    if (!searchReceptor) return true
+    const num = (u as { numero?: string }).numero ?? ''
+    const torre = (u as { torre?: string }).torre ?? ''
+    const nom = (u as { nombre_propietario?: string }).nombre_propietario ?? ''
+    const em = (u as { email?: string; email_propietario?: string }).email_propietario ?? (u as { email?: string }).email ?? ''
+    const q = searchReceptor.toLowerCase()
+    return num.toLowerCase().includes(q) || torre.toLowerCase().includes(q) || nom.toLowerCase().includes(q) || em.toLowerCase().includes(q)
+  })
 
   const filteredPoderes = poderes.filter(p =>
     p.estado === 'activo' && (
@@ -697,19 +715,89 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            {/* Datos del Apoderado */}
+            {/* Unidad que recibe el poder (apoderado): seleccionar por unidad y autollenar correo/nombre */}
             <div className="border-t pt-4">
               <Label className="text-base font-semibold">
-                2. Datos del Apoderado <span className="text-red-500">*</span>
+                2. Unidad que recibe el poder (apoderado) <span className="text-red-500">*</span>
               </Label>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                La persona que votará en representación del propietario
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                Selecciona la unidad del apoderado; se autollenarán correo y nombre desde el registro de la unidad.
               </p>
+              <div className="mt-2 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Buscar por torre, número o propietario..."
+                  value={searchReceptor}
+                  onChange={(e) => setSearchReceptor(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              {selectedReceptor ? (
+                <div className="mt-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-emerald-900 dark:text-emerald-100">
+                        {selectedReceptor.torre} - {selectedReceptor.numero}
+                      </p>
+                      <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                        {(selectedReceptor as { nombre_propietario?: string }).nombre_propietario}
+                      </p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                        {(selectedReceptor as { email_propietario?: string; email?: string }).email_propietario ?? (selectedReceptor as { email?: string }).email}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedReceptor(null)
+                        setEmailReceptor('')
+                        setNombreReceptor('')
+                      }}
+                    >
+                      Cambiar
+                    </Button>
+                  </div>
+                </div>
+              ) : searchReceptor && (
+                <div className="mt-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                  {filteredReceptores.length === 0 ? (
+                    <p className="p-4 text-sm text-gray-500 dark:text-gray-400 text-center">
+                      No se encontraron unidades
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {filteredReceptores.slice(0, 10).map((unidad) => (
+                        <button
+                          key={unidad.id}
+                          type="button"
+                          onClick={() => {
+                            const u = unidad as { nombre_propietario?: string; email_propietario?: string; email?: string }
+                            setSelectedReceptor(unidad)
+                            setEmailReceptor(u.email_propietario ?? u.email ?? '')
+                            setNombreReceptor(u.nombre_propietario ?? '')
+                            setSearchReceptor('')
+                          }}
+                          className="w-full p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {unidad.torre} - {unidad.numero}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {(unidad as { nombre_propietario?: string }).nombre_propietario} • {(unidad as { email_propietario?: string; email?: string }).email_propietario ?? (unidad as { email?: string }).email}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
-              <div className="space-y-4">
+              <div className="space-y-4 mt-4">
                 <div>
                   <Label htmlFor="nombre-receptor">
-                    Nombre Completo del Apoderado <span className="text-red-500">*</span>
+                    Nombre del apoderado <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="nombre-receptor"
@@ -723,7 +811,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
                 <div>
                   <Label htmlFor="email-receptor">
-                    Email del Apoderado <span className="text-red-500">*</span>
+                    Email del apoderado <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="email-receptor"
@@ -734,7 +822,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                     className="mt-2"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Este email se usará para identificar al apoderado
+                    Se autollena al elegir la unidad; puedes editarlo si hace falta.
                   </p>
                 </div>
 
@@ -759,10 +847,12 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                 onClick={() => {
                   setShowNewPoder(false)
                   setSelectedOtorgante(null)
+                  setSelectedReceptor(null)
                   setEmailReceptor('')
                   setNombreReceptor('')
                   setObservaciones('')
                   setSearchOtorgante('')
+                  setSearchReceptor('')
                 }}
                 disabled={savingPoder}
               >
@@ -770,7 +860,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               </Button>
               <Button
                 onClick={handleCreatePoder}
-                disabled={savingPoder || !selectedOtorgante || !emailReceptor || !nombreReceptor}
+                disabled={savingPoder || !selectedOtorgante || !selectedReceptor || !emailReceptor.trim() || !nombreReceptor.trim()}
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
               >
                 {savingPoder ? (

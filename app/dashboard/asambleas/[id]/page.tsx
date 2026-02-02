@@ -722,12 +722,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   }
 
   const handleEditClick = async (pregunta: Pregunta) => {
-    // Solo permitir editar preguntas pendientes
-    if (pregunta.estado !== 'pendiente') {
-      toast.error('Solo se pueden editar preguntas que están pendientes (sin votos)')
-      return
-    }
-
     setEditingPregunta(pregunta)
     setEditForm({
       texto_pregunta: pregunta.texto_pregunta,
@@ -736,7 +730,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       umbral_aprobacion: (pregunta as Pregunta & { umbral_aprobacion?: number | null }).umbral_aprobacion ?? null
     })
 
-    // Cargar opciones actuales
+    // Cargar opciones actuales (solo editables si la pregunta está pendiente)
     const opcionesActuales = opcionesPreguntas[pregunta.id] || []
     setEditOpciones(opcionesActuales.map(op => ({
       id: op.id,
@@ -754,28 +748,41 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       return
     }
 
+    const esSoloTexto = editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada'
     const opcionesValidas = editOpciones.filter(o => o.texto_opcion.trim())
-    if (opcionesValidas.length < 2) {
+    if (!esSoloTexto && opcionesValidas.length < 2) {
       toast.error('Debes tener al menos 2 opciones de respuesta')
       return
     }
 
     setSavingEdit(true)
     try {
-      // Actualizar pregunta
+      // Siempre permitir actualizar texto y descripción (incluso si la pregunta está abierta o cerrada)
       const { error: updateError } = await supabase
         .from('preguntas')
         .update({
           texto_pregunta: editForm.texto_pregunta.trim(),
           descripcion: editForm.descripcion.trim() || null,
-          tipo_votacion: editForm.tipo_votacion,
-          umbral_aprobacion: editForm.umbral_aprobacion ?? null
+          ...(esSoloTexto ? {} : {
+            tipo_votacion: editForm.tipo_votacion,
+            umbral_aprobacion: editForm.umbral_aprobacion ?? null
+          })
         })
         .eq('id', editingPregunta.id)
 
       if (updateError) throw updateError
 
-      // Eliminar opciones anteriores
+      if (esSoloTexto) {
+        setPreguntas(prev => prev.map(p => p.id === editingPregunta.id
+          ? { ...p, texto_pregunta: editForm.texto_pregunta.trim(), descripcion: editForm.descripcion.trim() || '' }
+          : p))
+        setEditingPregunta(null)
+        setSavingEdit(false)
+        toast.success('Texto de la pregunta actualizado. Se verá el cambio en la página de acceso.')
+        return
+      }
+
+      // Eliminar opciones anteriores (solo cuando la pregunta está pendiente)
       const { error: deleteError } = await supabase
         .from('opciones_pregunta')
         .delete()
@@ -1494,23 +1501,18 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                           )}
                         </div>
                         <div className="flex items-center space-x-2 ml-4">
-                          {pregunta.estado === 'pendiente' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditClick(pregunta)}
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-1"
-                              title="Editar pregunta"
-                            >
-                              <Edit className="w-4 h-4" />
-                              <span className="hidden sm:inline text-xs">Editar</span>
-                            </Button>
-                          )}
-                          {pregunta.estado !== 'pendiente' && (
-                            <span className="text-xs text-gray-400 italic" title="Solo puedes editar preguntas pendientes sin votos">
-                              No editable
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditClick(pregunta)}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-1"
+                            title={pregunta.estado === 'pendiente' ? 'Editar pregunta completa' : 'Editar texto (se actualiza en acceso)'}
+                          >
+                            <Edit className="w-4 h-4" />
+                            <span className="hidden sm:inline text-xs">
+                              {pregunta.estado === 'pendiente' ? 'Editar' : 'Editar texto'}
                             </span>
-                          )}
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -1849,7 +1851,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           <DialogHeader>
             <DialogTitle>Editar Pregunta</DialogTitle>
             <DialogDescription>
-              Modifica los datos de la pregunta. Solo se pueden editar preguntas pendientes.
+              {editingPregunta && (editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada')
+                ? 'Puedes editar solo el texto y la descripción. El cambio se verá en la página de acceso.'
+                : 'Modifica los datos de la pregunta.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1879,6 +1883,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               />
             </div>
 
+            {editingPregunta && editingPregunta.estado === 'pendiente' && (
+            <>
             <div>
               <Label htmlFor="edit-tipo_votacion">Tipo de Votación</Label>
               <Select
@@ -1967,6 +1973,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 Mínimo 2 opciones. Puedes personalizar los textos y colores.
               </p>
             </div>
+            </>
+            )}
 
             <div className="flex space-x-3 pt-4">
               <Button

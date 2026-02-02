@@ -27,14 +27,15 @@ import {
 } from 'lucide-react'
 
 interface PoderRow {
-  torre: string
-  numero: string
-  email_apoderado: string
-  nombre_apoderado: string
+  torre_otorga: string
+  numero_otorga: string
+  torre_recibe: string
+  numero_recibe: string
   observaciones?: string
-  unidad_id?: string
-  email_otorgante?: string
-  nombre_otorgante?: string
+  email_apoderado?: string
+  nombre_apoderado?: string
+  unidad_otorgante_id?: string
+  unidad_receptor_id?: string
   error?: string
 }
 
@@ -85,32 +86,34 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
 
     jsonData.forEach((row, index) => {
       const rowNum = index + 2
-      const torre = String(row.torre || row.Torre || row.TORRE || row['Torre/Bloque'] || row.bloque || '').trim()
-      const numero = String(
-        row.numero || row.Numero || row['Unidad (Apto/Casa)'] || row.unidad || row.Unidad || row.Número || ''
+      const torreOtorga = String(
+        row['Torre otorga'] || row.torre_otorga || row.torre_otorgante || row.Torre || row.torre || ''
       ).trim()
-      const emailApoderado = String(
-        row['Email apoderado'] || row.email_apoderado || row.email_apoderado || row['Email Apoderado'] || row.email || ''
+      const numeroOtorga = String(
+        row['Número otorga'] || row.numero_otorga || row.numero_otorgante || row.Numero || row.numero || row['Unidad (otorga)'] || ''
       ).trim()
-      const nombreApoderado = String(
-        row['Nombre apoderado'] || row.nombre_apoderado || row['Nombre Apoderado'] || row.nombre_receptor || row.apoderado || ''
+      const torreRecibe = String(
+        row['Torre recibe'] || row.torre_recibe || row.torre_receptor || row['Torre/Bloque recibe'] || ''
+      ).trim()
+      const numeroRecibe = String(
+        row['Número recibe'] || row.numero_recibe || row.numero_receptor || row['Unidad (recibe)'] || row['Unidad (Apto/Casa)'] || row.unidad || ''
       ).trim()
       const observaciones = String(row.observaciones || row.Observaciones || '').trim() || undefined
 
-      if (!numero) {
-        errores.push(`Fila ${rowNum}: Falta el número de unidad`)
+      if (!numeroOtorga) {
+        errores.push(`Fila ${rowNum}: Falta número de unidad que otorga`)
         return
       }
-      if (!emailApoderado || !emailApoderado.includes('@')) {
-        errores.push(`Fila ${rowNum}: Email del apoderado inválido`)
+      if (!numeroRecibe) {
+        errores.push(`Fila ${rowNum}: Falta número de unidad que recibe el poder`)
         return
       }
 
       rowsProcesados.push({
-        torre: torre || '',
-        numero,
-        email_apoderado: emailApoderado.toLowerCase(),
-        nombre_apoderado: nombreApoderado || emailApoderado,
+        torre_otorga: torreOtorga || '',
+        numero_otorga: numeroOtorga,
+        torre_recibe: torreRecibe || '',
+        numero_recibe: numeroRecibe,
         observaciones,
       })
     })
@@ -174,17 +177,17 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('No hay usuario autenticado')
 
-      const unidadesByKey = new Map<string, { id: string; email: string; nombre_propietario: string }>()
+      const unidadesByKey = new Map<string, { id: string; email_propietario: string; nombre_propietario: string }>()
       const { data: unidadesData } = await supabase
         .from('unidades')
-        .select('id, torre, numero, email, nombre_propietario')
+        .select('id, torre, numero, email_propietario, nombre_propietario')
         .eq('organization_id', organizationId)
 
       unidadesData?.forEach((u: any) => {
-        const key = `${u.torre || ''}|${u.numero}`
+        const key = `${(u.torre || '').toString().trim()}|${(u.numero || '').toString().trim()}`
         unidadesByKey.set(key, {
           id: u.id,
-          email: u.email || '',
+          email_propietario: u.email_propietario || '',
           nombre_propietario: u.nombre_propietario || '',
         })
       })
@@ -200,6 +203,7 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
       const toInsert: Array<{
         asamblea_id: string
         unidad_otorgante_id: string
+        unidad_receptor_id: string | null
         email_otorgante: string
         nombre_otorgante: string
         email_receptor: string
@@ -210,27 +214,34 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
       const errores: string[] = []
 
       for (const row of rows) {
-        const key = `${row.torre}|${row.numero}`
-        const unidad = unidadesByKey.get(key)
-        if (!unidad) {
-          errores.push(`Unidad no encontrada: ${row.torre ? row.torre + ' - ' : ''}${row.numero}`)
+        const keyOtorga = `${row.torre_otorga}|${row.numero_otorga}`
+        const keyRecibe = `${row.torre_recibe}|${row.numero_recibe}`
+        const unidadOtorgante = unidadesByKey.get(keyOtorga)
+        const unidadReceptor = unidadesByKey.get(keyRecibe)
+        if (!unidadOtorgante) {
+          errores.push(`Unidad que otorga no encontrada: ${row.torre_otorga ? row.torre_otorga + ' - ' : ''}${row.numero_otorga}`)
           continue
         }
-        if (unidadesConPoder.has(unidad.id)) {
-          errores.push(`La unidad ${row.torre ? row.torre + ' - ' : ''}${row.numero} ya tiene un poder registrado`)
+        if (!unidadReceptor) {
+          errores.push(`Unidad que recibe no encontrada: ${row.torre_recibe ? row.torre_recibe + ' - ' : ''}${row.numero_recibe}`)
+          continue
+        }
+        if (unidadesConPoder.has(unidadOtorgante.id)) {
+          errores.push(`La unidad ${row.torre_otorga ? row.torre_otorga + ' - ' : ''}${row.numero_otorga} ya tiene un poder registrado`)
           continue
         }
         toInsert.push({
           asamblea_id: params.id,
-          unidad_otorgante_id: unidad.id,
-          email_otorgante: unidad.email || '',
-          nombre_otorgante: unidad.nombre_propietario || '',
-          email_receptor: row.email_apoderado,
-          nombre_receptor: row.nombre_apoderado,
+          unidad_otorgante_id: unidadOtorgante.id,
+          unidad_receptor_id: unidadReceptor.id,
+          email_otorgante: unidadOtorgante.email_propietario || '',
+          nombre_otorgante: unidadOtorgante.nombre_propietario || '',
+          email_receptor: unidadReceptor.email_propietario || '',
+          nombre_receptor: unidadReceptor.nombre_propietario || '',
           observaciones: row.observaciones || null,
           estado: 'activo',
         })
-        unidadesConPoder.add(unidad.id)
+        unidadesConPoder.add(unidadOtorgante.id)
       }
 
       if (errores.length > 0) {
@@ -261,10 +272,10 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
   const downloadTemplate = () => {
     const template = [
       {
-        'Torre/Bloque': 'A',
-        'Unidad (Apto/Casa)': '101',
-        'Email apoderado': 'apoderado@email.com',
-        'Nombre apoderado': 'María García',
+        'Torre otorga': 'A',
+        'Número otorga': '101',
+        'Torre recibe': 'A',
+        'Número recibe': '102',
         'Observaciones': '',
       },
     ]
@@ -308,8 +319,8 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Columnas esperadas</AlertTitle>
           <AlertDescription>
-            Torre/Bloque, Unidad (Apto/Casa), Email apoderado, Nombre apoderado. Opcional: Observaciones.
-            Las unidades deben existir en el conjunto y no tener ya un poder en esta asamblea.
+            Torre otorga, Número otorga (unidad que delega), Torre recibe, Número recibe (unidad del apoderado). Opcional: Observaciones.
+            El sistema asocia automáticamente los correos y nombres desde el registro de las unidades.
           </AlertDescription>
         </Alert>
 
@@ -366,19 +377,21 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Torre</TableHead>
-                    <TableHead>Unidad</TableHead>
-                    <TableHead>Email apoderado</TableHead>
-                    <TableHead>Nombre apoderado</TableHead>
+                    <TableHead>Torre otorga</TableHead>
+                    <TableHead>Número otorga</TableHead>
+                    <TableHead>Torre recibe</TableHead>
+                    <TableHead>Número recibe</TableHead>
+                    <TableHead>Observaciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rows.slice(0, 50).map((row, i) => (
                     <TableRow key={i}>
-                      <TableCell>{row.torre || '—'}</TableCell>
-                      <TableCell>{row.numero}</TableCell>
-                      <TableCell>{row.email_apoderado}</TableCell>
-                      <TableCell>{row.nombre_apoderado}</TableCell>
+                      <TableCell>{row.torre_otorga || '—'}</TableCell>
+                      <TableCell>{row.numero_otorga}</TableCell>
+                      <TableCell>{row.torre_recibe || '—'}</TableCell>
+                      <TableCell>{row.numero_recibe}</TableCell>
+                      <TableCell>{row.observaciones || '—'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -84,6 +84,15 @@ interface UnidadNoParticipo {
   coeficiente: number
 }
 
+/** Voto final de una unidad en una pregunta (para cuadro de auditoría de votaciones finales) */
+interface VotoFinalUnidad {
+  torre: string
+  numero: string
+  nombre_propietario: string | null
+  opcion_texto: string
+  coeficiente: number
+}
+
 export default function ActaPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -99,6 +108,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [tokensDisponibles, setTokensDisponibles] = useState(0)
   const [costoOperacion, setCostoOperacion] = useState(0)
   const [unidadesNoParticipation, setUnidadesNoParticipation] = useState<UnidadNoParticipo[]>([])
+  /** Por pregunta: lista de votos finales (una fila por unidad con su opción elegida) para el cuadro de auditoría */
+  const [votacionesFinalesPorPregunta, setVotacionesFinalesPorPregunta] = useState<Record<string, VotoFinalUnidad[]>>({})
 
   useEffect(() => {
     loadData()
@@ -218,6 +229,46 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         }
       }
       setAuditoria(auditMap)
+
+      // Votaciones finales por pregunta: una fila por unidad con su opción elegida (último voto por unidad)
+      const votacionesFinalesMap: Record<string, VotoFinalUnidad[]> = {}
+      for (const p of preguntasConOpciones) {
+        const { data: votosPregunta } = await supabase
+          .from('votos')
+          .select('unidad_id, opcion_id, created_at')
+          .eq('pregunta_id', p.id)
+          .order('created_at', { ascending: false })
+        // Quedarse con el último voto por unidad (created_at desc → primera aparición por unidad_id)
+        const porUnidad = new Map<string, { opcion_id: string }>()
+        for (const v of votosPregunta || []) {
+          const uid = (v as { unidad_id?: string }).unidad_id
+          const oid = (v as { opcion_id?: string }).opcion_id
+          if (uid && oid && !porUnidad.has(uid)) porUnidad.set(uid, { opcion_id: oid })
+        }
+        const unidadIds = Array.from(porUnidad.keys())
+        if (unidadIds.length === 0) {
+          votacionesFinalesMap[p.id] = []
+          continue
+        }
+        const { data: unidadesVotantes } = await supabase
+          .from('unidades')
+          .select('id, torre, numero, nombre_propietario, coeficiente')
+          .in('id', unidadIds)
+        const opcionesById = new Map(p.opciones.map((o) => [o.id, o.texto_opcion]))
+        const lista: VotoFinalUnidad[] = (unidadesVotantes || []).map((u: any) => {
+          const opcionId = porUnidad.get(u.id)?.opcion_id
+          return {
+            torre: u.torre ?? '',
+            numero: u.numero ?? '',
+            nombre_propietario: u.nombre_propietario ?? null,
+            opcion_texto: opcionId ? (opcionesById.get(opcionId) ?? opcionId) : '—',
+            coeficiente: Number(u.coeficiente) || 0,
+          }
+        })
+        lista.sort((a, b) => `${a.torre}-${a.numero}`.localeCompare(`${b.torre}-${b.numero}`))
+        votacionesFinalesMap[p.id] = lista
+      }
+      setVotacionesFinalesPorPregunta(votacionesFinalesMap)
 
       const { data: quorumData } = await supabase.rpc('calcular_quorum_asamblea', {
         p_asamblea_id: params.id,
@@ -430,9 +481,42 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       })()}
                     </div>
                   )}
+
+                  {/* Cuadro de votaciones finales: una fila por unidad con su voto final + totales */}
+                  {votacionesFinalesPorPregunta[pregunta.id] && votacionesFinalesPorPregunta[pregunta.id].length > 0 && (
+                    <div className="ml-4 mt-4 text-xs overflow-x-auto">
+                      <p className="font-semibold text-gray-700 mb-1">Votación final por unidad (auditoría — voto final de cada unidad y totales):</p>
+                      <table className="min-w-full border border-gray-300 mt-1">
+                        <thead>
+                          <tr className="bg-gray-100">
+                            <th className="border px-2 py-1 text-left">Unidad</th>
+                            <th className="border px-2 py-1 text-left">Propietario / Residente</th>
+                            <th className="border px-2 py-1 text-left">Voto final</th>
+                            <th className="border px-2 py-1 text-right">Coef. %</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {votacionesFinalesPorPregunta[pregunta.id].map((row, i) => (
+                            <tr key={i}>
+                              <td className="border px-2 py-1">{row.torre}-{row.numero}</td>
+                              <td className="border px-2 py-1">{row.nombre_propietario ?? '—'}</td>
+                              <td className="border px-2 py-1">{row.opcion_texto}</td>
+                              <td className="border px-2 py-1 text-right">{row.coeficiente.toFixed(2)}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {stats && stats.resultados && stats.resultados.length > 0 && (
+                        <p className="mt-2 text-gray-600 font-medium">
+                          Totales: {stats.resultados.map((r: any) => `${r.opcion_texto}: ${r.votos_cantidad ?? 0} unidad(es)`).join('; ')}.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {auditoria[pregunta.id] && auditoria[pregunta.id].length > 0 && (
                     <div className="ml-4 mt-3 text-xs overflow-x-auto">
-                      <p className="font-semibold text-gray-700 mb-1">Detalle de auditoría (quién votó, cuándo, dispositivo):</p>
+                      <p className="font-semibold text-gray-700 mb-1">Detalle de auditoría — transacciones (cambios, quién votó, cuándo, dispositivo):</p>
                       <table className="min-w-full border border-gray-300">
                         <thead>
                           <tr className="bg-gray-100">

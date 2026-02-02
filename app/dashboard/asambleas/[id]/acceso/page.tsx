@@ -654,9 +654,10 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             </div>
           </div>
 
-          {/* Gráfica de votación Pro: barras horizontales Recharts, % coeficiente + número de votos, umbral, badge MAYORÍA ALCANZADA */}
+          {/* Gráfica: ancho completo en fila inferior */}
           {preguntasConResultados.length > 0 && (
-            <Card className="mt-6 rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+            <div className="w-full lg:col-span-3 mt-6">
+              <Card className="w-full rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
               <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-[rgba(255,255,255,0.1)] py-4 px-6">
                 <div>
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -701,7 +702,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       <p className="text-base font-semibold text-slate-200 line-clamp-2">
                         {preg.texto_pregunta}
                       </p>
-                      <div className="h-[280px] w-full">
+                      <div className="h-[320px] min-h-[280px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart
                             layout="vertical"
@@ -774,7 +775,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   )
                 })}
               </CardContent>
-            </Card>
+              </Card>
+            </div>
           )}
         </div>
       </main>
