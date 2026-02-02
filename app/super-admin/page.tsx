@@ -55,9 +55,6 @@ export default function SuperAdminPage() {
   const [landingSubtitulo, setLandingSubtitulo] = useState('')
   const [landingWhatsapp, setLandingWhatsapp] = useState('')
   const [savingLanding, setSavingLanding] = useState(false)
-  const [tokensConjunto, setTokensConjunto] = useState<Record<string, string>>({})
-  const [agregarTokens, setAgregarTokens] = useState<Record<string, string>>({})
-  const [updatingTokensId, setUpdatingTokensId] = useState<string | null>(null)
   const [estadoSistema, setEstadoSistema] = useState<EstadoSistema | null>(null)
   const [gestores, setGestores] = useState<GestorRow[]>([])
   const [gestoresError, setGestoresError] = useState<string | null>(null)
@@ -230,69 +227,6 @@ export default function SuperAdminPage() {
     }
   }
 
-  const handleAplicarTokens = async (id: string) => {
-    const raw = tokensConjunto[id]
-    const value = raw === '' || raw === undefined ? null : Math.max(0, Math.round(Number(raw)))
-    if (value === null) return
-    setUpdatingTokensId(id)
-    try {
-      const res = await fetch('/api/super-admin/conjuntos', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ id, tokens_disponibles: value }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        toast.error(err.error || 'Error al actualizar tokens')
-        return
-      }
-      setConjuntos((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, tokens_disponibles: value } : c))
-      )
-      setTokensConjunto((prev) => ({ ...prev, [id]: '' }))
-      toast.success('Tokens actualizados')
-    } catch (e) {
-      console.error('Aplicar tokens:', e)
-      toast.error('Error al actualizar tokens')
-    } finally {
-      setUpdatingTokensId(null)
-    }
-  }
-
-  const handleAgregarTokens = async (id: string) => {
-    const c = conjuntos.find((x) => x.id === id)
-    const current = Math.max(0, Number(c?.tokens_disponibles ?? 0))
-    const raw = agregarTokens[id]
-    const sumar = raw === '' || raw === undefined ? 0 : Math.max(0, Math.round(Number(raw)))
-    if (sumar <= 0) return
-    const nuevoTotal = current + sumar
-    setUpdatingTokensId(id)
-    try {
-      const res = await fetch('/api/super-admin/conjuntos', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ id, tokens_disponibles: nuevoTotal }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        toast.error(err.error || 'Error al agregar tokens')
-        return
-      }
-      setConjuntos((prev) =>
-        prev.map((x) => (x.id === id ? { ...x, tokens_disponibles: nuevoTotal } : x))
-      )
-      setAgregarTokens((prev) => ({ ...prev, [id]: '' }))
-      toast.success(`Se agregaron ${sumar} tokens. Nuevo saldo: ${nuevoTotal}`)
-    } catch (e) {
-      console.error('Agregar tokens:', e)
-      toast.error('Error al agregar tokens')
-    } finally {
-      setUpdatingTokensId(null)
-    }
-  }
-
   const handleSaveLanding = async () => {
     setSavingLanding(true)
     try {
@@ -336,11 +270,8 @@ export default function SuperAdminPage() {
   const hayMas = conjuntosFiltrados.length > mostrandoConjuntos
 
   const exportarCSV = () => {
-    const headers = ['Nombre', 'Tokens']
-    const rows = conjuntosFiltrados.map((c) => [
-      c.name,
-      String(c.tokens_disponibles ?? 0)
-    ])
+    const headers = ['Nombre']
+    const rows = conjuntosFiltrados.map((c) => [c.name])
     const csv = [headers.join(','), ...rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))].join('\n')
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -713,10 +644,15 @@ export default function SuperAdminPage() {
           </div>
         )}
 
-        {/* Conjuntos (cuentas) */}
+        {/* Conjuntos (solo listado; los tokens son por gestor, no por conjunto) */}
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Cuentas (conjuntos)</h2>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Cuentas (conjuntos)</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                Listado de organizaciones. Los tokens se gestionan por gestor arriba, no por conjunto.
+              </p>
+            </div>
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -742,14 +678,13 @@ export default function SuperAdminPage() {
               <thead className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 uppercase text-xs">
                 <tr>
                   <th className="px-6 py-4">Nombre</th>
-                  <th className="px-6 py-4">Tokens (conjunto)</th>
-                  <th className="px-6 py-4 text-right">Acción</th>
+                  <th className="px-6 py-4 text-right">Tipo</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {conjuntosVisibles.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={2} className="px-6 py-12 text-center text-gray-500">
                       {conjuntos.length === 0
                     ? 'No hay conjuntos registrados. Crea uno desde el Dashboard (Ir al Dashboard → Nuevo conjunto).'
                     : 'Ningún conjunto coincide con el filtro.'}
@@ -769,51 +704,8 @@ export default function SuperAdminPage() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Saldo: {c.tokens_disponibles ?? 0}</span>
-                            <input
-                              type="number"
-                              min={0}
-                              placeholder="Nuevo total"
-                              value={tokensConjunto[c.id] ?? ''}
-                              onChange={(e) => setTokensConjunto((prev) => ({ ...prev, [c.id]: e.target.value }))}
-                              className="w-20 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white"
-                              title="Establecer nuevo saldo total"
-                            />
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={updatingTokensId === c.id}
-                              onClick={() => handleAplicarTokens(c.id)}
-                            >
-                              {updatingTokensId === c.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Aplicar'}
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <input
-                              type="number"
-                              min={0}
-                              placeholder="+ Agregar"
-                              value={agregarTokens[c.id] ?? ''}
-                              onChange={(e) => setAgregarTokens((prev) => ({ ...prev, [c.id]: e.target.value }))}
-                              className="w-20 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white"
-                              title="Cantidad a sumar al saldo actual"
-                            />
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={updatingTokensId === c.id || !(Number(agregarTokens[c.id]) > 0)}
-                              onClick={() => handleAgregarTokens(c.id)}
-                            >
-                              Sumar
-                            </Button>
-                          </div>
-                        </div>
-                      </td>
                       <td className="px-6 py-4 text-right text-gray-500 dark:text-gray-400 text-xs">
-                        Conjunto (organización)
+                        Organización
                       </td>
                     </tr>
                   ))
