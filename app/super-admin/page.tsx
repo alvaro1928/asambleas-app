@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Shield, Building2, Loader2, LogOut, Gift, Users, DollarSign, Settings2, Save, Search, Layout, BarChart3, Zap, Coins } from 'lucide-react'
+import { Shield, Building2, Loader2, LogOut, Gift, Users, DollarSign, Settings2, Save, Search, Layout, BarChart3, Zap, Coins, Receipt } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/providers/ToastProvider'
 
@@ -562,7 +562,13 @@ export default function SuperAdminPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link href="/super-admin/transacciones">
+              <Button variant="outline" className="gap-2" title="Ver transacciones y pagos registrados">
+                <Receipt className="w-4 h-4" />
+                Transacciones y pagos
+              </Button>
+            </Link>
             <Link href="/super-admin/ajustes">
               <Button variant="outline" className="gap-2" title="Ajustes globales: landing y color principal">
                 Ajustes

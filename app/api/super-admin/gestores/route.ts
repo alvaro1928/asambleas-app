@@ -10,8 +10,9 @@ function canAccess(email: string | undefined): boolean {
 
 /**
  * GET /api/super-admin/gestores
- * Lista todos los gestores (cuentas de administradores) con su saldo de tokens (profiles.tokens_disponibles).
- * Un gestor puede tener varios perfiles (uno por conjunto); se devuelve uno por user_id con su saldo.
+ * Lista todas las cuentas con perfil (incl. owner, admin, member) y su saldo de tokens.
+ * Así el super admin ve su propia cuenta y puede asignar tokens a cualquiera.
+ * Un usuario puede tener varios perfiles (uno por conjunto); se devuelve uno por user_id con su saldo.
  */
 export async function GET() {
   try {
@@ -55,17 +56,16 @@ export async function GET() {
       { auth: { persistSession: false } }
     )
 
+    // Sin filtrar por rol: listar todos los perfiles para que el super admin vea todas las cuentas (incl. la suya)
     const { data: rows, error: selectError } = await admin
       .from('profiles')
       .select('user_id, id, email, full_name, tokens_disponibles')
-      .in('role', ['owner', 'admin'])
       .order('tokens_disponibles', { ascending: false })
 
     if (selectError) {
       const fallback = await admin
         .from('profiles')
         .select('id, email, full_name, tokens_disponibles')
-        .in('role', ['owner', 'admin'])
         .order('tokens_disponibles', { ascending: false })
       if (fallback.error) {
         console.error('super-admin gestores GET:', fallback.error)
