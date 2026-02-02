@@ -157,6 +157,71 @@ export async function GET() {
       }
     }
 
+    // 3) Último recurso: leer solo id o user_id de profiles y obtener usuario por getUserById (no depende de listUsers)
+    if (gestores.length === 0) {
+      try {
+        const ids = new Set<string>()
+        const { data: onlyId } = await admin.from('profiles').select('id')
+        if (onlyId && onlyId.length > 0) {
+          for (const r of onlyId) {
+            const v = (r as { id?: string }).id
+            if (v) ids.add(v)
+          }
+        }
+        if (ids.size === 0) {
+          const { data: onlyUserId } = await admin.from('profiles').select('user_id')
+          if (onlyUserId && onlyUserId.length > 0) {
+            for (const r of onlyUserId) {
+              const v = (r as { user_id?: string }).user_id
+              if (v) ids.add(v)
+            }
+          }
+        }
+        const tokensByUid: Record<string, number> = {}
+        const { data: tokRows } = await admin.from('profiles').select('id, tokens_disponibles')
+        if (tokRows && tokRows.length > 0) {
+          for (const r of tokRows) {
+            const row = r as { id?: string; tokens_disponibles?: number }
+            if (row.id) {
+              const t = Math.max(0, Number(row.tokens_disponibles ?? 0))
+              if (t > (tokensByUid[row.id] ?? 0)) tokensByUid[row.id] = t
+            }
+          }
+        }
+        const { data: tokUser } = await admin.from('profiles').select('user_id, tokens_disponibles')
+        if (tokUser && tokUser.length > 0) {
+          for (const r of tokUser) {
+            const row = r as { user_id?: string; tokens_disponibles?: number }
+            if (row.user_id) {
+              const t = Math.max(0, Number(row.tokens_disponibles ?? 0))
+              if (t > (tokensByUid[row.user_id] ?? 0)) tokensByUid[row.user_id] = t
+            }
+          }
+        }
+        for (const uid of ids) {
+          const { data: userData } = await admin.auth.admin.getUserById(uid)
+          const u = userData?.user
+          if (u) {
+            gestores.push({
+              user_id: u.id,
+              email: u.email ?? null,
+              full_name: (u.user_metadata?.full_name as string) ?? (u.user_metadata?.name as string) ?? null,
+              tokens_disponibles: tokensByUid[u.id] ?? 0,
+            })
+          } else {
+            gestores.push({
+              user_id: uid,
+              email: null,
+              full_name: null,
+              tokens_disponibles: tokensByUid[uid] ?? 0,
+            })
+          }
+        }
+      } catch (e) {
+        console.error('super-admin gestores getUserById fallback:', e)
+      }
+    }
+
     return NextResponse.json({ gestores })
   } catch (e) {
     console.error('super-admin gestores GET:', e)

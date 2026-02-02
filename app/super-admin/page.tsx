@@ -92,6 +92,7 @@ export default function SuperAdminPage() {
   const [updatingTokensId, setUpdatingTokensId] = useState<string | null>(null)
   const [estadoSistema, setEstadoSistema] = useState<EstadoSistema | null>(null)
   const [gestores, setGestores] = useState<GestorRow[]>([])
+  const [gestoresError, setGestoresError] = useState<string | null>(null)
   const [tokensGestor, setTokensGestor] = useState<Record<string, string>>({})
   const [agregarTokensGestor, setAgregarTokensGestor] = useState<Record<string, string>>({})
   const [updatingTokensGestorId, setUpdatingTokensGestorId] = useState<string | null>(null)
@@ -208,9 +209,13 @@ export default function SuperAdminPage() {
       }
 
       const gestoresRes = await fetch('/api/super-admin/gestores', { credentials: 'include' })
+      setGestoresError(null)
       if (gestoresRes.ok) {
         const gestoresData = await gestoresRes.json()
         setGestores(gestoresData.gestores ?? [])
+      } else {
+        const errData = await gestoresRes.json().catch(() => ({}))
+        setGestoresError(errData.error || `Error ${gestoresRes.status} al cargar gestores`)
       }
     } catch (e) {
       console.error('Super admin load:', e)
@@ -745,10 +750,22 @@ export default function SuperAdminPage() {
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {gestoresFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
-                      {gestores.length === 0
-                        ? 'No hay gestores registrados. Los gestores son usuarios que inician sesión (Google o magic link); si ves 0 pero tú tienes tokens en el Dashboard, recarga la página o revisa que SUPABASE_SERVICE_ROLE_KEY esté configurada en el servidor.'
-                        : 'Ningún gestor coincide con el filtro.'}
+                    <td colSpan={3} className="px-6 py-12 text-center">
+                      <div className="text-gray-500 space-y-2">
+                        {gestoresError ? (
+                          <>
+                            <p className="font-medium text-amber-600 dark:text-amber-400">{gestoresError}</p>
+                            <p className="text-sm">Si dice &quot;SUPABASE_SERVICE_ROLE_KEY no configurada&quot;, añádela en Vercel → proyecto → Settings → Environment Variables.</p>
+                          </>
+                        ) : gestores.length === 0 ? (
+                          <>
+                            <p>No hay gestores en la lista. <strong>No hace falta registrarse aparte</strong>: si iniciaste sesión y ves tokens en el Dashboard, ya eres gestor.</p>
+                            <p className="text-sm">La lista se llena desde la base de datos (tabla <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">profiles</code>). Revisa que <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> esté en Vercel y vuelve a desplegar.</p>
+                          </>
+                        ) : (
+                          'Ningún gestor coincide con el filtro.'
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ) : (
