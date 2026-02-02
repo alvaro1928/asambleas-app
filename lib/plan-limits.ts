@@ -1,8 +1,9 @@
 /**
  * Límites bajo modelo Billetera de Tokens por Gestor.
- * 1 Token = 1 Unidad de Vivienda. Costo operación = unidades_del_conjunto.
+ * El dashboard solo usa tokens_disponibles del perfil del gestor (vía organization-status).
+ * 1 Token = 1 Unidad. Costo operación = unidades_del_conjunto.
  * Si tokens_gestor >= unidades_conjunto: puede Activar Votación, Acta con Auditoría, Registro manual.
- * Límites de preguntas/acta: si puede pagar (tokens >= cost), permite más de 2 preguntas y acta detallada.
+ * No hay planes obsoletos: solo dos conjuntos de límites según capacidad de pago (tokens).
  */
 
 import { getCostoEnTokens, puedeRealizarOperacion } from './costo-tokens'
@@ -12,12 +13,14 @@ export interface PlanLimits {
   incluye_acta_detallada: boolean
 }
 
-const LIMITES_BASICOS: PlanLimits = {
+/** Límites cuando el gestor no tiene tokens suficientes para la operación. */
+const LIMITES_SIN_TOKENS: PlanLimits = {
   max_preguntas_por_asamblea: 2,
   incluye_acta_detallada: false,
 }
 
-const LIMITES_PRO: PlanLimits = {
+/** Límites cuando el gestor tiene tokens suficientes (tokens >= unidades del conjunto). */
+const LIMITES_CON_TOKENS: PlanLimits = {
   max_preguntas_por_asamblea: 999,
   incluye_acta_detallada: true,
 }
@@ -48,14 +51,14 @@ export function getEffectivePlanLimits(
   unidadesDelConjunto: number
 ): PlanLimits {
   if (puedeRealizarOperacionPaga(tokensGestor, unidadesDelConjunto)) {
-    return LIMITES_PRO
+    return LIMITES_CON_TOKENS
   }
-  return LIMITES_BASICOS
+  return LIMITES_SIN_TOKENS
 }
 
 export { getCostoEnTokens, puedeRealizarOperacion } from './costo-tokens'
 
-/** Tipo para datos de plan desde API (precio, etc.) */
+/** Tipo para precios/config desde API (solo precios por token, sin suscripción ni planes anuales). */
 export interface PlanFromApi {
   key: string
   nombre?: string

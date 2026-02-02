@@ -74,6 +74,16 @@ interface AuditRow {
   user_agent?: string | null
 }
 
+interface UnidadNoParticipo {
+  id: string
+  torre: string
+  numero: string
+  nombre_propietario: string | null
+  email_propietario: string | null
+  telefono_propietario: string | null
+  coeficiente: number
+}
+
 export default function ActaPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -88,6 +98,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [incluyeActaDetallada, setIncluyeActaDetallada] = useState(false)
   const [tokensDisponibles, setTokensDisponibles] = useState(0)
   const [costoOperacion, setCostoOperacion] = useState(0)
+  const [unidadesNoParticipation, setUnidadesNoParticipation] = useState<UnidadNoParticipo[]>([])
 
   useEffect(() => {
     loadData()
@@ -230,6 +241,34 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       }
       setTotalPoderes(poderesData?.length || 0)
       setCoefPoderes(coef)
+
+      // Unidades que no votaron / no participaron: todas las unidades del conjunto menos las que tienen al menos un voto en alguna pregunta
+      const preguntaIds = (preguntasConOpciones || []).map((p) => p.id)
+      let unidadIdsVotaron: string[] = []
+      if (preguntaIds.length > 0) {
+        const { data: votosData } = await supabase
+          .from('votos')
+          .select('unidad_id')
+          .in('pregunta_id', preguntaIds)
+        unidadIdsVotaron = Array.from(new Set((votosData || []).map((v: any) => v.unidad_id).filter(Boolean)))
+      }
+      const { data: todasUnidades } = await supabase
+        .from('unidades')
+        .select('id, torre, numero, nombre_propietario, email_propietario, telefono_propietario, coeficiente')
+        .eq('organization_id', asambleaData.organization_id)
+      const setVotaron = new Set(unidadIdsVotaron)
+      const noParticiparon = (todasUnidades || [])
+        .filter((u: any) => !setVotaron.has(u.id))
+        .map((u: any) => ({
+          id: u.id,
+          torre: u.torre ?? '',
+          numero: u.numero ?? '',
+          nombre_propietario: u.nombre_propietario ?? null,
+          email_propietario: u.email_propietario ?? null,
+          telefono_propietario: u.telefono_propietario ?? null,
+          coeficiente: Number(u.coeficiente) || 0,
+        }))
+      setUnidadesNoParticipation(noParticiparon)
     } catch (e) {
       console.error(e)
       router.push('/dashboard/asambleas')
@@ -420,6 +459,44 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             })}
           </div>
         </section>
+
+        {unidadesNoParticipation.length > 0 && (
+          <section className="mt-10 break-inside-avoid">
+            <h2 className="text-lg font-bold uppercase mb-2">Unidades que no votaron o no participaron</h2>
+            <p className="text-sm text-gray-600 mb-3">
+              Detalle de las <strong>{unidadesNoParticipation.length}</strong> unidad{unidadesNoParticipation.length !== 1 ? 'es' : ''} que no registraron voto en ninguna pregunta de esta asamblea.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border border-gray-300 text-sm">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border px-2 py-1.5 text-left font-semibold">Torre</th>
+                    <th className="border px-2 py-1.5 text-left font-semibold">Número</th>
+                    <th className="border px-2 py-1.5 text-left font-semibold">Propietario / Residente</th>
+                    <th className="border px-2 py-1.5 text-left font-semibold">Email</th>
+                    <th className="border px-2 py-1.5 text-left font-semibold">Teléfono</th>
+                    <th className="border px-2 py-1.5 text-right font-semibold">Coeficiente %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unidadesNoParticipation.map((u) => (
+                    <tr key={u.id}>
+                      <td className="border px-2 py-1.5">{u.torre || '—'}</td>
+                      <td className="border px-2 py-1.5">{u.numero || '—'}</td>
+                      <td className="border px-2 py-1.5">{u.nombre_propietario || '—'}</td>
+                      <td className="border px-2 py-1.5">{u.email_propietario || '—'}</td>
+                      <td className="border px-2 py-1.5">{u.telefono_propietario || '—'}</td>
+                      <td className="border px-2 py-1.5 text-right">{u.coeficiente.toFixed(2)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Coeficiente total no participante: <strong>{unidadesNoParticipation.reduce((s, u) => s + u.coeficiente, 0).toFixed(2)}%</strong>.
+            </p>
+          </section>
+        )}
 
         <footer className="mt-12 pt-6 border-t border-gray-300 text-center text-sm text-gray-500">
           Documento generado como soporte de las votaciones. {new Date().toLocaleString('es-CO')}.

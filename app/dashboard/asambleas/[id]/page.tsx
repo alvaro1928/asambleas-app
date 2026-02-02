@@ -510,7 +510,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         if (res.status === 402) {
           setShowRegistroVotoAdmin(false)
           setSinTokensModalOpen(true)
-          toast.error(data.error || 'Tokens insuficientes para registrar votos.')
+          toast.error(
+            data.error ||
+              `Saldo insuficiente: Necesitas ${costoOperacion} tokens para procesar ${costoOperacion} unidades.`
+          )
           return
         }
         const msg = res.status === 403
@@ -862,12 +865,18 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           return
         }
         if (!res.ok) {
-          toast.error(data.error || 'Error al activar asamblea')
+          const msg =
+            res.status === 402
+              ? `Saldo insuficiente: Necesitas ${costoOperacion} tokens para procesar ${costoOperacion} unidades.`
+              : (data.error || 'Error al activar asamblea')
+          toast.error(msg)
           return
         }
       } catch (e) {
         console.error('Descontar token:', e)
-        toast.error('Error al activar asamblea Pro')
+        toast.error(
+          `Saldo insuficiente: Necesitas ${costoOperacion} tokens para procesar ${costoOperacion} unidades.`
+        )
         return
       }
     }
@@ -1385,10 +1394,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 <Alert className="mb-6 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
                   <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   <AlertTitle className="text-amber-900 dark:text-amber-100">
-                    Límite del plan alcanzado
+                    Límite por saldo de tokens
                   </AlertTitle>
                   <AlertDescription className="text-amber-800 dark:text-amber-200">
-                    Con tu saldo actual puedes tener hasta {planLimits.max_preguntas_por_asamblea} pregunta{planLimits.max_preguntas_por_asamblea !== 1 ? 's' : ''} por asamblea. Compra más créditos para crear más preguntas.
+                    Con tu saldo actual de tokens puedes tener hasta {planLimits.max_preguntas_por_asamblea} pregunta{planLimits.max_preguntas_por_asamblea !== 1 ? 's' : ''} por asamblea. Compra más créditos (tokens) para crear más preguntas.
                     {process.env.NEXT_PUBLIC_PLAN_PRO_URL && (
                       <a
                         href={process.env.NEXT_PUBLIC_PLAN_PRO_URL}

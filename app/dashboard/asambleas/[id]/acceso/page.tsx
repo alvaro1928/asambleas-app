@@ -115,6 +115,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [searchFaltantes, setSearchFaltantes] = useState('')
   const [copiado, setCopiado] = useState(false)
   const [graficaMaximizada, setGraficaMaximizada] = useState(false)
+  const [tokensDisponibles, setTokensDisponibles] = useState<number>(0)
+  const [totalUnidadesConjunto, setTotalUnidadesConjunto] = useState<number>(0)
 
   useEffect(() => {
     loadAsamblea()
@@ -148,6 +150,14 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       if (error) throw error
       setAsamblea(data)
       setUrlPublica(`${window.location.origin}/votar/${data.codigo_acceso}`)
+      if (data.organization_id) {
+        const res = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(data.organization_id)}`, { credentials: 'include' })
+        if (res.ok) {
+          const status = await res.json().catch(() => ({}))
+          setTokensDisponibles(Math.max(0, Number(status.tokens_disponibles ?? 0)))
+          setTotalUnidadesConjunto(Math.max(0, Number(status.unidades_conjunto ?? 0)))
+        }
+      }
     } catch (error) {
       console.error('Error cargando asamblea:', error)
       router.push('/dashboard/asambleas')
@@ -346,19 +356,24 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     )
   }, [yaVotaron, searchYaVotaron])
 
-  const faltantesFiltrados = useMemo(() => {
-    if (!searchFaltantes.trim()) return faltantes
-    return faltantes.filter(
+  const yaVotaronIds = useMemo(() => new Set(yaVotaron.map((u) => u.id)), [yaVotaron])
+  const pendientes = useMemo(
+    () => asistentes.filter((a) => !yaVotaronIds.has(a.id)),
+    [asistentes, yaVotaronIds]
+  )
+  const pendientesFiltrados = useMemo(() => {
+    if (!searchFaltantes.trim()) return pendientes
+    return pendientes.filter(
       (u) =>
         filtro(`${u.torre} ${u.numero}`, searchFaltantes) ||
         filtro(u.nombre_propietario, searchFaltantes) ||
         filtro(u.email_propietario, searchFaltantes)
     )
-  }, [faltantes, searchFaltantes])
+  }, [pendientes, searchFaltantes])
 
   if (loading && !asamblea) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0B0E14' }}>
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
           <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando control de acceso...</p>
@@ -367,9 +382,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     )
   }
 
+  const saldoInsuficiente = totalUnidadesConjunto > 0 && tokensDisponibles < totalUnidadesConjunto
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+    <div className="min-h-screen" style={{ backgroundColor: '#0B0E14' }}>
+      <header className="shadow-sm border-b border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: '#0B0E14' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-4">
@@ -380,7 +397,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 <ArrowLeft className="w-6 h-6" />
               </Link>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Control de Acceso y QR</h1>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Control de Acceso y Votaciones</h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">{asamblea?.nombre}</p>
               </div>
             </div>
@@ -392,27 +409,37 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 loadAvanceVotaciones()
               }}
               disabled={recargando}
+              className="rounded-2xl border-gray-200 dark:border-[rgba(255,255,255,0.1)]"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
               Actualizar
             </Button>
           </div>
 
-          {/* URL de votación: superior central, fuente grande, Copiar Enlace */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-4xl mx-auto">
+          {saldoInsuficiente && (
+            <div className="mb-4 rounded-2xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 flex items-center gap-3">
+              <span className="text-amber-400 font-semibold">Saldo insuficiente para procesar esta asamblea.</span>
+              <span className="text-slate-300 text-sm">Billetera: {tokensDisponibles} tokens · Se requieren {totalUnidadesConjunto} para esta operación.</span>
+            </div>
+          )}
+
+          {/* Link de votación: contenedor destacado parte superior central, fuente legible, Copiar Enlace con icono */}
+          <div className="w-full flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.1)] px-4 py-4 mb-4" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
             <label className="sr-only">Enlace de votación</label>
             <input
               type="text"
               readOnly
               value={urlPublica}
-              className="flex-1 min-w-0 px-4 py-3 text-base sm:text-lg font-mono bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-indigo-700 dark:text-indigo-300 truncate"
+              className="flex-1 min-w-0 px-4 py-3 text-base sm:text-lg bg-white/5 border border-[rgba(255,255,255,0.1)] rounded-2xl text-slate-200 truncate font-sans"
+              style={{ color: '#e2e8f0' }}
               aria-label="URL de votación"
             />
             <Button
               onClick={copiarEnlace}
-              className="shrink-0 bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center gap-2"
+              className="shrink-0 rounded-2xl font-semibold bg-white text-slate-800 hover:bg-slate-100 border border-[rgba(255,255,255,0.1)] flex items-center justify-center gap-2 py-3 px-5"
+              title="Copiar enlace al portapapeles"
             >
-              <Copy className="w-4 h-4" />
+              <Copy className="w-5 h-5" />
               {copiado ? '¡Copiado!' : 'Copiar Enlace'}
             </Button>
           </div>
@@ -438,11 +465,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" style={{ backgroundColor: '#0B0E14' }}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Columna izquierda: QR + Resumen + Gráfica */}
+          {/* Columna izquierda: QR + Resumen */}
           <div className="lg:col-span-1 space-y-6">
-            <Card className="border-indigo-200 dark:border-indigo-900 overflow-hidden">
+            <Card className="rounded-2xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
               <CardHeader className="bg-indigo-600 text-white py-4">
                 <CardTitle className="text-lg flex items-center">
                   <QrCode className="w-5 h-5 mr-2" />
@@ -464,7 +491,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="rounded-2xl border border-[rgba(255,255,255,0.1)] bg-slate-900/50 dark:bg-slate-800/50">
               <CardHeader>
                 <CardTitle className="text-md flex items-center">
                   <Building2 className="w-4 h-4 mr-2 text-gray-500" />
@@ -485,116 +512,14 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </CardContent>
             </Card>
 
-            {/* Gráfica de barras horizontal con umbral y APROBADO */}
-            {preguntasConResultados.length > 0 && (
-              <Card className="border-emerald-200 dark:border-emerald-900">
-                <CardHeader className="flex flex-row items-start justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-md flex items-center">
-                      <Vote className="w-4 h-4 mr-2 text-emerald-600" />
-                      Avance de votaciones
-                    </CardTitle>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Se actualiza cada 10 s. Ideal para proyectar en pantalla.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setGraficaMaximizada(true)}
-                    className="shrink-0 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                    title="Ver gráfica en grande (pop-up)"
-                  >
-                    <Maximize2 className="w-4 h-4 mr-1" />
-                    Ver grande
-                  </Button>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {quorum && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">Unidades que ya votaron</span>
-                      <span className="font-bold">
-                        {quorum.unidades_votantes} / {quorum.total_unidades}
-                      </span>
-                    </div>
-                  )}
-                  {preguntasConResultados.map((preg) => {
-                    const data = preg.resultados.map((r) => ({
-                      name: r.opcion_texto.length > 20 ? r.opcion_texto.slice(0, 18) + '…' : r.opcion_texto,
-                      fullName: r.opcion_texto,
-                      porcentaje: Math.round(r.porcentaje_coeficiente_total * 100) / 100,
-                      color: r.color,
-                      aprueba: preg.umbral_aprobacion != null && r.porcentaje_coeficiente_total >= preg.umbral_aprobacion
-                    }))
-                    const umbral = preg.umbral_aprobacion ?? 50
-                    return (
-                      <div key={preg.id} className="space-y-2">
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 line-clamp-2">
-                          {preg.texto_pregunta}
-                        </p>
-                        <div className="h-[220px] w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                              layout="vertical"
-                              data={data}
-                              margin={{ top: 8, right: 30, left: 80, bottom: 8 }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-                              <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
-                              <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 11 }} />
-                              <Tooltip
-                                formatter={(value: number | undefined) => [`${value ?? 0}%`, 'Coeficiente']}
-                                labelFormatter={(_: ReactNode, payload: readonly { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName ?? ''}
-                              />
-                              <ReferenceLine
-                                x={umbral}
-                                stroke={data.some((d) => d.aprueba) ? '#10b981' : '#ef4444'}
-                                strokeWidth={2}
-                                strokeDasharray="4 2"
-                                label={{ value: `Umbral ${umbral}%`, position: 'insideTopRight', fill: '#9ca3af', fontSize: 10 }}
-                              />
-                              <Bar
-                                dataKey="porcentaje"
-                                radius={[0, 4, 4, 0]}
-                                maxBarSize={28}
-                                label={{
-                                  position: 'right',
-                                  formatter: (label: unknown, ...args: unknown[]) => {
-                                    const v = Number(label ?? 0)
-                                    const payload = (args[0] as { payload?: { aprueba?: boolean } })?.payload
-                                    return payload?.aprueba ? `${v}% APROBADO` : `${v}%`
-                                  },
-                                  fontSize: 11,
-                                  fill: '#374151'
-                                }}
-                              >
-                                {data.map((entry, index) => (
-                                  <Cell
-                                    key={entry.name + index}
-                                    fill={entry.aprueba ? '#10b981' : entry.color}
-                                    stroke={entry.aprueba ? '#059669' : undefined}
-                                    strokeWidth={entry.aprueba ? 2 : 0}
-                                  />
-                                ))}
-                              </Bar>
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </CardContent>
-              </Card>
-            )}
-          </div>
+            </div>
 
-          {/* Triple listado: Sesión Activa | Ya Votaron | Faltantes */}
+          {/* Triple panel: Sesión Activa | Ya Votaron | Pendientes (Faltantes) */}
           <div className="lg:col-span-2">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100vh-12rem)] min-h-[480px]">
-              {/* Sesión Activa */}
-              <Card className="flex flex-col overflow-hidden">
-                <CardHeader className="py-3 px-4 border-b flex-shrink-0 bg-green-50 dark:bg-green-900/20">
+              {/* Sesión Activa: unidades con ping de quórum activo */}
+              <Card className="flex flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-green-50 dark:bg-green-900/20">
                   <div className="flex items-center justify-between gap-2">
                     <CardTitle className="text-sm flex items-center gap-1.5">
                       <Radio className="w-4 h-4 text-green-600" />
@@ -641,14 +566,14 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </CardContent>
               </Card>
 
-              {/* Ya Votaron */}
-              <Card className="flex flex-col overflow-hidden">
-                <CardHeader className="py-3 px-4 border-b flex-shrink-0">
-                  <CardTitle className="text-sm flex items-center gap-1.5">
-                    <UserCheck className="w-4 h-4 text-emerald-600" />
+              {/* Ya Votaron: unidades con registro en tabla votos para la pregunta actual */}
+              <Card className="flex flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0">
+                  <CardTitle className="text-sm flex items-center gap-1.5 text-slate-200">
+                    <UserCheck className="w-4 h-4 text-emerald-500" />
                     Ya Votaron
                   </CardTitle>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-slate-400 mt-1">
                     Tienen registro en votos
                   </p>
                   <div className="relative mt-2">
@@ -682,15 +607,15 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </CardContent>
               </Card>
 
-              {/* Faltantes por Votar */}
-              <Card className="flex flex-col overflow-hidden border-amber-200 dark:border-amber-800">
-                <CardHeader className="py-3 px-4 border-b flex-shrink-0 bg-amber-50 dark:bg-amber-900/20">
+              {/* Pendientes (Faltantes): (Unidades en Quórum) − (Ya votaron) — prioridad para el Gestor */}
+              <Card className="flex flex-col overflow-hidden rounded-2xl border border-amber-500/50 border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-amber-50 dark:bg-amber-900/20">
                   <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
                     <UserX className="w-4 h-4" />
-                    Faltantes por Votar
+                    Pendientes (Faltantes)
                   </CardTitle>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Quórum − Ya votaron (prioridad)
+                    Conectados y aún no votan — prioridad para presionar votación
                   </p>
                   <div className="relative mt-2">
                     <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -705,14 +630,14 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </CardHeader>
                 <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
                   <div className="flex-1 overflow-y-auto overscroll-contain">
-                    {faltantesFiltrados.length === 0 ? (
+                    {pendientesFiltrados.length === 0 ? (
                       <div className="p-4 text-center text-sm text-gray-500 flex items-center gap-2 justify-center">
                         <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                        Todas las unidades ya votaron.
+                        Ningún conectado pendiente de votar.
                       </div>
                     ) : (
                       <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {faltantesFiltrados.map((u) => (
+                        {pendientesFiltrados.map((u) => (
                           <li key={u.id} className="px-4 py-2 text-sm hover:bg-amber-50/50 dark:hover:bg-amber-900/10">
                             <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
                             <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
@@ -727,15 +652,138 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </Card>
             </div>
           </div>
+
+          {/* Gráfica de votación Pro: barras horizontales Recharts, % coeficiente + número de votos, umbral, badge MAYORÍA ALCANZADA */}
+          {preguntasConResultados.length > 0 && (
+            <Card className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+              <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-[rgba(255,255,255,0.1)] py-4 px-6">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Vote className="w-5 h-5 text-emerald-500" />
+                    Avance de votaciones (coeficiente)
+                  </CardTitle>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Línea vertical = Umbral de Aprobación Legal. Se actualiza cada 10 s.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setGraficaMaximizada(true)}
+                  className="shrink-0 rounded-xl border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                  title="Ver gráfica en grande (pop-up)"
+                >
+                  <Maximize2 className="w-4 h-4 mr-1" />
+                  Ver grande
+                </Button>
+              </CardHeader>
+              <CardContent className="p-6 space-y-8">
+                {quorum && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Unidades que ya votaron</span>
+                    <span className="font-bold">{quorum.unidades_votantes} / {quorum.total_unidades}</span>
+                  </div>
+                )}
+                {preguntasConResultados.map((preg) => {
+                  const data = preg.resultados.map((r) => ({
+                    name: r.opcion_texto.length > 24 ? r.opcion_texto.slice(0, 22) + '…' : r.opcion_texto,
+                    fullName: r.opcion_texto,
+                    porcentaje: Math.round(r.porcentaje_coeficiente_total * 100) / 100,
+                    votosCantidad: Number(r.votos_cantidad) || 0,
+                    color: r.color,
+                    aprueba: preg.umbral_aprobacion != null && r.porcentaje_coeficiente_total >= preg.umbral_aprobacion
+                  }))
+                  const umbral = preg.umbral_aprobacion ?? 51
+                  return (
+                    <div key={preg.id} className="space-y-3">
+                      <p className="text-base font-semibold text-slate-200 line-clamp-2">
+                        {preg.texto_pregunta}
+                      </p>
+                      <div className="h-[280px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            layout="vertical"
+                            data={data}
+                            margin={{ top: 12, right: 90, left: 100, bottom: 12 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#475569" opacity={0.3} />
+                            <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 12, fill: '#94a3b8' }} />
+                            <YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 13, fill: '#94a3b8' }} />
+                            <Tooltip
+                              formatter={(value: number | undefined, _name?: string, props?: unknown) => {
+                                const payload = (props as { payload?: { votosCantidad?: number } })?.payload
+                                const votos = payload?.votosCantidad ?? 0
+                                return [`${value ?? 0}% (${votos} ${votos !== 1 ? 'votos' : 'voto'})`, 'Coeficiente']
+                              }}
+                              labelFormatter={(_: ReactNode, payload: readonly { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName ?? ''}
+                              contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
+                            />
+                            <ReferenceLine
+                              x={umbral}
+                              stroke={data.some((d) => d.aprueba) ? '#10b981' : '#f59e0b'}
+                              strokeWidth={2}
+                              strokeDasharray="4 2"
+                              label={{ value: `Umbral ${umbral}%`, position: 'insideTopRight', fill: '#94a3b8', fontSize: 11 }}
+                            />
+                            <Bar
+                              dataKey="porcentaje"
+                              radius={[0, 6, 6, 0]}
+                              maxBarSize={40}
+                              label={{
+                                position: 'right',
+                                formatter: (label: unknown, ...args: unknown[]) => {
+                                  const v = Number(label ?? 0)
+                                  const payload = (args[0] as { payload?: { aprueba?: boolean; votosCantidad?: number } })?.payload
+                                  const votos = payload?.votosCantidad ?? 0
+                                  const suf = votos !== 1 ? 'votos' : 'voto'
+                                  if (payload?.aprueba) return `${v}% (${votos} ${suf}) MAYORÍA ALCANZADA`
+                                  return `${v}% (${votos} ${suf})`
+                                },
+                                fontSize: 12,
+                                fill: '#e2e8f0'
+                              }}
+                            >
+                              {data.map((entry, index) => (
+                                <Cell
+                                  key={entry.name + index}
+                                  fill={entry.aprueba ? '#10b981' : entry.color}
+                                  stroke={entry.aprueba ? '#059669' : undefined}
+                                  strokeWidth={entry.aprueba ? 2 : 0}
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      {data.some((d) => d.aprueba) && (
+                        <div className="flex flex-wrap gap-2">
+                          {data.filter((d) => d.aprueba).map((d, i) => (
+                            <span
+                              key={i}
+                              className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold text-emerald-200 bg-emerald-900/40 border border-emerald-600"
+                              style={{ boxShadow: '0 0 12px rgba(16, 185, 129, 0.4)' }}
+                            >
+                              MAYORÍA ALCANZADA — {d.name}: {d.porcentaje}% ({d.votosCantidad} {d.votosCantidad !== 1 ? 'votos' : 'voto'})
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </main>
 
       {/* Modal: gráfica de avance en grande (pop-up) */}
       <Dialog open={graficaMaximizada} onOpenChange={setGraficaMaximizada}>
-        <DialogContent className="max-w-6xl w-[95vw] max-h-[95vh] overflow-y-auto p-8">
+        <DialogContent className="max-w-6xl w-[95vw] max-h-[95vh] overflow-y-auto p-8 rounded-2xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: '#0B0E14' }}>
           <DialogHeader className="flex flex-row items-center justify-between gap-4 pr-10">
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <Vote className="w-6 h-6 text-emerald-600" />
+            <DialogTitle className="flex items-center gap-2 text-xl text-slate-100">
+              <Vote className="w-6 h-6 text-emerald-500" />
               Avance de votaciones (vista grande)
             </DialogTitle>
             <Button
@@ -763,13 +811,14 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 name: r.opcion_texto.length > 28 ? r.opcion_texto.slice(0, 26) + '…' : r.opcion_texto,
                 fullName: r.opcion_texto,
                 porcentaje: Math.round(r.porcentaje_coeficiente_total * 100) / 100,
+                votosCantidad: Number(r.votos_cantidad) || 0,
                 color: r.color,
                 aprueba: preg.umbral_aprobacion != null && r.porcentaje_coeficiente_total >= preg.umbral_aprobacion
               }))
-              const umbral = preg.umbral_aprobacion ?? 50
+              const umbral = preg.umbral_aprobacion ?? 51
               return (
                 <div key={preg.id} className="space-y-4">
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-snug">
+                  <p className="text-xl sm:text-2xl font-bold text-slate-100 leading-snug">
                     {preg.texto_pregunta}
                   </p>
                   <div className="min-h-[50vh] h-[55vh] w-full">
@@ -777,21 +826,26 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       <BarChart
                         layout="vertical"
                         data={data}
-                        margin={{ top: 16, right: 50, left: 140, bottom: 16 }}
+                        margin={{ top: 16, right: 120, left: 140, bottom: 16 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-                        <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 18 }} />
-                        <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 18 }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#475569" opacity={0.3} />
+                        <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 18, fill: '#94a3b8' }} />
+                        <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 18, fill: '#94a3b8' }} />
                         <Tooltip
-                          formatter={(value: number | undefined) => [`${value ?? 0}%`, 'Coeficiente']}
+                          formatter={(value: number | undefined, _n?: string, props?: unknown) => {
+                            const payload = (props as { payload?: { votosCantidad?: number } })?.payload
+                            const votos = payload?.votosCantidad ?? 0
+                            return [`${value ?? 0}% (${votos} ${votos !== 1 ? 'votos' : 'voto'})`, 'Coeficiente']
+                          }}
                           labelFormatter={(_: ReactNode, payload: readonly { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName ?? ''}
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
                         />
                         <ReferenceLine
                           x={umbral}
-                          stroke={data.some((d) => d.aprueba) ? '#10b981' : '#ef4444'}
+                          stroke={data.some((d) => d.aprueba) ? '#10b981' : '#f59e0b'}
                           strokeWidth={2}
                           strokeDasharray="4 2"
-                          label={{ value: `Umbral ${umbral}%`, position: 'insideTopRight', fill: '#9ca3af', fontSize: 14 }}
+                          label={{ value: `Umbral ${umbral}%`, position: 'insideTopRight', fill: '#94a3b8', fontSize: 14 }}
                         />
                         <Bar
                           dataKey="porcentaje"
@@ -801,11 +855,14 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                             position: 'right',
                             formatter: (label: unknown, ...args: unknown[]) => {
                               const v = Number(label ?? 0)
-                              const payload = (args[0] as { payload?: { aprueba?: boolean } })?.payload
-                              return payload?.aprueba ? `${v}% APROBADO` : `${v}%`
+                              const payload = (args[0] as { payload?: { aprueba?: boolean; votosCantidad?: number } })?.payload
+                              const votos = payload?.votosCantidad ?? 0
+                              const suf = votos !== 1 ? 'votos' : 'voto'
+                              if (payload?.aprueba) return `${v}% (${votos} ${suf}) MAYORÍA ALCANZADA`
+                              return `${v}% (${votos} ${suf})`
                             },
                             fontSize: 18,
-                            fill: '#374151'
+                            fill: '#e2e8f0'
                           }}
                         >
                           {data.map((entry, index) => (
@@ -820,6 +877,19 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
+                  {data.some((d) => d.aprueba) && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {data.filter((d) => d.aprueba).map((d, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center px-4 py-2 rounded-xl text-base font-bold text-emerald-200 bg-emerald-900/40 border border-emerald-600"
+                          style={{ boxShadow: '0 0 16px rgba(16, 185, 129, 0.5)' }}
+                        >
+                          MAYORÍA ALCANZADA — {d.fullName}: {d.porcentaje}% ({d.votosCantidad} {d.votosCantidad !== 1 ? 'votos' : 'voto'})
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}
