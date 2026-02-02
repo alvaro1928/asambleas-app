@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     }
 
     const orgNames: Record<string, string> = {}
-    const allOrgIds = [...new Set((logs || []).map((r) => (r as { organization_id: string }).organization_id).filter(Boolean))]
+    const allOrgIds = Array.from(new Set((logs || []).map((r) => (r as { organization_id: string }).organization_id).filter(Boolean)))
     if (allOrgIds.length > 0) {
       const { data: orgs } = await admin
         .from('organizations')
