@@ -9,8 +9,9 @@ import { NextRequest, NextResponse } from 'next/server'
  * Body: { pregunta_id, opcion_id, unidad_id, votante_email, votante_nombre?, es_poder?, poder_id? }
  * Objetivo latencia: < 200ms por voto (landing).
  *
- * En producción: si el header x-stress-test-secret coincide con STRESS_TEST_SECRET,
- * se permite el voto sin validar sesión (cliente service_role) para medir latencia real de BD.
+ * Bypass de estrés: si el header x-stress-test-secret coincide con STRESS_TEST_SECRET,
+ * se procesa el voto sin validar sesión de Supabase/NextAuth (cliente service_role).
+ * Útil para medir latencia real de BD en stress tests (local o producción).
  */
 export async function POST(request: NextRequest) {
   const startMs = typeof performance !== 'undefined' ? performance.now() : Date.now()
@@ -45,7 +46,6 @@ export async function POST(request: NextRequest) {
     const stressSecret = request.headers.get('x-stress-test-secret')
     const envSecret = process.env.STRESS_TEST_SECRET
     const useStressBypass =
-      process.env.NODE_ENV === 'production' &&
       typeof envSecret === 'string' &&
       envSecret.length > 0 &&
       typeof stressSecret === 'string' &&
