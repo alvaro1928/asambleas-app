@@ -55,6 +55,13 @@ interface EstadoSistema {
   ranking_gestores: Array<{ user_id: string; email: string | null; full_name: string | null; tokens_disponibles: number }>
 }
 
+interface GestorRow {
+  user_id: string
+  email: string | null
+  full_name: string | null
+  tokens_disponibles: number
+}
+
 const PLAN_OPTIONS = [
   { value: 'free', label: 'Gratis' },
   { value: 'pro', label: 'Pro' },
@@ -84,6 +91,11 @@ export default function SuperAdminPage() {
   const [agregarTokens, setAgregarTokens] = useState<Record<string, string>>({})
   const [updatingTokensId, setUpdatingTokensId] = useState<string | null>(null)
   const [estadoSistema, setEstadoSistema] = useState<EstadoSistema | null>(null)
+  const [gestores, setGestores] = useState<GestorRow[]>([])
+  const [tokensGestor, setTokensGestor] = useState<Record<string, string>>({})
+  const [agregarTokensGestor, setAgregarTokensGestor] = useState<Record<string, string>>({})
+  const [updatingTokensGestorId, setUpdatingTokensGestorId] = useState<string | null>(null)
+  const [searchGestor, setSearchGestor] = useState('')
 
   useEffect(() => {
     checkAndLoad()
@@ -188,11 +200,94 @@ export default function SuperAdminPage() {
         sel[c.id] = c.plan_type
       })
       setPlanSelect(sel)
+
+      const estadoRes = await fetch('/api/super-admin/estado-sistema', { credentials: 'include' })
+      if (estadoRes.ok) {
+        const estadoData = await estadoRes.json()
+        setEstadoSistema(estadoData)
+      }
+
+      const gestoresRes = await fetch('/api/super-admin/gestores', { credentials: 'include' })
+      if (gestoresRes.ok) {
+        const gestoresData = await gestoresRes.json()
+        setGestores(gestoresData.gestores ?? [])
+      }
     } catch (e) {
       console.error('Super admin load:', e)
       router.replace('/login?redirect=/super-admin')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleAplicarTokensGestor = async (userId: string) => {
+    const raw = tokensGestor[userId]
+    const value = raw === '' || raw === undefined ? null : Math.max(0, Math.round(Number(raw)))
+    if (value === null) return
+    setUpdatingTokensGestorId(userId)
+    try {
+      const res = await fetch('/api/super-admin/gestores', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ user_id: userId, tokens_disponibles: value }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Error al actualizar tokens')
+        return
+      }
+      setGestores((prev) =>
+        prev.map((g) => (g.user_id === userId ? { ...g, tokens_disponibles: value } : g))
+      )
+      setTokensGestor((prev) => ({ ...prev, [userId]: '' }))
+      toast.success('Tokens del gestor actualizados')
+      if (estadoSistema) {
+        const estadoRes = await fetch('/api/super-admin/estado-sistema', { credentials: 'include' })
+        if (estadoRes.ok) setEstadoSistema(await estadoRes.json())
+      }
+    } catch (e) {
+      console.error('Aplicar tokens gestor:', e)
+      toast.error('Error al actualizar tokens')
+    } finally {
+      setUpdatingTokensGestorId(null)
+    }
+  }
+
+  const handleAgregarTokensGestor = async (userId: string) => {
+    const g = gestores.find((x) => x.user_id === userId)
+    const current = Math.max(0, Number(g?.tokens_disponibles ?? 0))
+    const raw = agregarTokensGestor[userId]
+    const sumar = raw === '' || raw === undefined ? 0 : Math.max(0, Math.round(Number(raw)))
+    if (sumar <= 0) return
+    const nuevoTotal = current + sumar
+    setUpdatingTokensGestorId(userId)
+    try {
+      const res = await fetch('/api/super-admin/gestores', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ user_id: userId, tokens_disponibles: nuevoTotal }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Error al agregar tokens')
+        return
+      }
+      setGestores((prev) =>
+        prev.map((x) => (x.user_id === userId ? { ...x, tokens_disponibles: nuevoTotal } : x))
+      )
+      setAgregarTokensGestor((prev) => ({ ...prev, [userId]: '' }))
+      toast.success(`Se agregaron ${sumar} tokens. Nuevo saldo: ${nuevoTotal}`)
+      if (estadoSistema) {
+        const estadoRes = await fetch('/api/super-admin/estado-sistema', { credentials: 'include' })
+        if (estadoRes.ok) setEstadoSistema(await estadoRes.json())
+      }
+    } catch (e) {
+      console.error('Agregar tokens gestor:', e)
+      toast.error('Error al agregar tokens')
+    } finally {
+      setUpdatingTokensGestorId(null)
     }
   }
 
@@ -385,6 +480,15 @@ export default function SuperAdminPage() {
     return matchName && matchPlan
   })
   const conjuntosVisibles = conjuntosFiltrados.slice(0, mostrandoConjuntos)
+
+  const gestoresFiltrados = gestores.filter((g) => {
+    const q = searchGestor.trim().toLowerCase()
+    if (!q) return true
+    const email = (g.email ?? '').toLowerCase()
+    const name = (g.full_name ?? '').toLowerCase()
+    const uid = (g.user_id ?? '').toLowerCase()
+    return email.includes(q) || name.includes(q) || uid.includes(q)
+  })
   const hayMas = conjuntosFiltrados.length > mostrandoConjuntos
 
   const resumenPorPlan = conjuntos.reduce(
@@ -595,6 +699,114 @@ export default function SuperAdminPage() {
           </div>
         </div>
 
+        {/* Gestores (cuentas de administradores): asignar tokens a super admin */}
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg shadow-indigo-500/10 border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Gestores (cuentas de administradores)
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                Cuentas que acceden con Google o magic link. Aquí puedes ver el saldo de tokens y asignar más.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por email o nombre..."
+                  value={searchGestor}
+                  onChange={(e) => setSearchGestor(e.target.value)}
+                  className="pl-8 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm w-48 sm:w-64"
+                  title="Filtrar gestores"
+                />
+              </div>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Mostrando {gestoresFiltrados.length} de {gestores.length}
+              </span>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 uppercase text-xs">
+                <tr>
+                  <th className="px-6 py-4">Email / Nombre</th>
+                  <th className="px-6 py-4">Tokens</th>
+                  <th className="px-6 py-4 text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {gestoresFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
+                      {gestores.length === 0 ? 'No hay gestores registrados.' : 'Ningún gestor coincide con el filtro.'}
+                    </td>
+                  </tr>
+                ) : (
+                  gestoresFiltrados.map((g) => (
+                    <tr key={g.user_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-gray-400 shrink-0" />
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {g.email ?? g.full_name ?? g.user_id.slice(0, 8) + '…'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Saldo: {g.tokens_disponibles ?? 0}</span>
+                            <input
+                              type="number"
+                              min={0}
+                              placeholder="Nuevo total"
+                              value={tokensGestor[g.user_id] ?? ''}
+                              onChange={(e) => setTokensGestor((prev) => ({ ...prev, [g.user_id]: e.target.value }))}
+                              className="w-20 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white"
+                              title="Establecer nuevo saldo total"
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={updatingTokensGestorId === g.user_id}
+                              onClick={() => handleAplicarTokensGestor(g.user_id)}
+                            >
+                              {updatingTokensGestorId === g.user_id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Aplicar'}
+                            </Button>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <input
+                              type="number"
+                              min={0}
+                              placeholder="+ Agregar"
+                              value={agregarTokensGestor[g.user_id] ?? ''}
+                              onChange={(e) => setAgregarTokensGestor((prev) => ({ ...prev, [g.user_id]: e.target.value }))}
+                              className="w-20 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white"
+                              title="Cantidad a sumar al saldo actual"
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={updatingTokensGestorId === g.user_id || !(Number(agregarTokensGestor[g.user_id]) > 0)}
+                              onClick={() => handleAgregarTokensGestor(g.user_id)}
+                            >
+                              Sumar
+                            </Button>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right text-gray-500 dark:text-gray-400 text-xs">
+                        Cuenta gestor (Google / magic link)
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         {/* Resumen: total conjuntos (modelo Billetera Central por tokens) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

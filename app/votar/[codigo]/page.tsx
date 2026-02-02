@@ -615,21 +615,28 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  // Polling: actualizar listado de preguntas abiertas/cerradas y estadísticas cada 10 s (para que al cerrar/abrir una pregunta el votante vea el cambio)
+  // Polling: re-fetch unidades/poderes y listado de preguntas cada 10 s (para que al agregar un poder o cerrar/abrir pregunta el votante vea el cambio sin refrescar)
   useEffect(() => {
-    if (step !== 'votar' || !asamblea || unidades.length === 0) return
+    if (step !== 'votar' || !asamblea || !email.trim()) return
 
     const timeout = setTimeout(() => {
       const interval = setInterval(async () => {
-        await cargarPreguntas(unidades)
-        await cargarHistorial(unidades)
+        try {
+          const nuevasUnidades = await refrescarUnidades()
+          if (nuevasUnidades.length > 0) {
+            await cargarPreguntas(nuevasUnidades)
+            await cargarHistorial(nuevasUnidades)
+          }
+        } catch {
+          // Ignorar errores de red o validación en background
+        }
       }, 10000)
       return () => clearInterval(interval)
     }, 5000)
 
     return () => clearTimeout(timeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when step or asamblea changes
-  }, [step, asamblea?.asamblea_id, unidades.length])
+  }, [step, asamblea?.asamblea_id, email])
 
   const formatFecha = (fecha: string) => {
     const date = new Date(fecha + 'T00:00:00')
@@ -813,187 +820,8 @@ export default function VotacionPublicaPage() {
               </Button>
             </div>
           )}
-          {/* Header de Bienvenida */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mb-6 border border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div className="flex items-center justify-center sm:justify-start">
-                <div className="w-16 h-16 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-8 h-8 text-white" />
-                </div>
-                <div className="ml-4">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                    ¡Bienvenido!
-                  </h1>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
-                    {email}
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  marcarSalidaQuorum()
-                  setStep('email')
-                }}
-                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shrink-0"
-                title="Salir y volver a ingresar con otro correo"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Salir de la votación
-              </Button>
-            </div>
 
-            {/* Resumen de Unidades */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
-              <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                <Users className="w-5 h-5 mr-2 text-green-600 dark:text-green-400" />
-                Estás votando por:
-              </h3>
-
-              {/* Unidades Propias */}
-              {unidadesPropias.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    🏠 Tus unidades:
-                  </p>
-                  <div className="space-y-2">
-                    {unidadesPropias.map((unidad) => (
-                      <div key={unidad.id} className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold text-gray-900 dark:text-white">
-                            {unidad.torre} - {unidad.numero}
-                          </span>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            Coeficiente: {unidad.coeficiente.toFixed(6)}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Poderes */}
-              {unidadesPoderes.length > 0 && (
-                <div>
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    📝 Poderes otorgados:
-                  </p>
-                  <div className="space-y-2">
-                    {unidadesPoderes.map((unidad) => (
-                      <div key={unidad.id} className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-800">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-semibold text-gray-900 dark:text-white">
-                            {unidad.torre} - {unidad.numero}
-                          </span>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            Coeficiente: {unidad.coeficiente.toFixed(6)}%
-                          </span>
-                        </div>
-                        {unidad.nombre_otorgante && (
-                          <p className="text-xs text-purple-600 dark:text-purple-400">
-                            Poder de: {unidad.nombre_otorgante}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Total */}
-              <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-800">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-gray-900 dark:text-white">
-                    TOTAL:
-                  </span>
-                  <div className="text-right">
-                    <p className="font-bold text-gray-900 dark:text-white">
-                      {unidades.length} unidad{unidades.length !== 1 ? 'es' : ''}
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {totalCoeficiente.toFixed(6)}% del coeficiente total
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Botones de Acción */}
-            <div className="mt-6 flex gap-3 justify-center">
-              <Button
-                onClick={refrescarDatos}
-                disabled={recargando}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                title="Recargar preguntas y poderes asignados"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
-                {recargando ? 'Actualizando...' : 'Actualizar Todo (Preguntas y Poderes)'}
-              </Button>
-              
-              <Button
-                onClick={() => {
-                  setMostrarHistorial(!mostrarHistorial)
-                  if (!mostrarHistorial && preguntasCerradas.length === 0) {
-                    cargarHistorial(unidades)
-                  }
-                }}
-                variant="outline"
-                className="border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                title="Ver el historial de votos que has emitido"
-              >
-                <History className="w-4 h-4 mr-2" />
-                {mostrarHistorial ? 'Ocultar' : 'Ver'} Historial
-              </Button>
-
-              <Button
-                onClick={async () => {
-                  setDescargandoCertificado(true)
-                  try {
-                    const res = await fetch('/api/votar/certificado-mis-votos', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ codigo, email: email.trim() }),
-                    })
-                    const text = await res.text()
-                    if (!res.ok) {
-                      let msg = 'No se pudo generar el certificado.'
-                      try {
-                        const data = JSON.parse(text)
-                        if (data?.error) msg = data.error
-                      } catch {
-                        // ignorar
-                      }
-                      if (res.status === 429) {
-                        toast.info(msg)
-                      } else {
-                        toast.error(msg)
-                      }
-                      return
-                    }
-                    const blob = new Blob([text], { type: 'text/html;charset=utf-8' })
-                    const url = URL.createObjectURL(blob)
-                    window.open(url, '_blank', 'noopener,noreferrer')
-                    setTimeout(() => URL.revokeObjectURL(url), 60000)
-                    toast.success('Certificado abierto. Puedes imprimirlo o guardar como PDF.')
-                  } catch (e) {
-                    toast.error('Error al descargar el certificado.')
-                  } finally {
-                    setDescargandoCertificado(false)
-                  }
-                }}
-                disabled={descargandoCertificado}
-                variant="outline"
-                className="border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                title="Descargar un acta con el registro de tus votos (transparencia). Máximo 3 por hora. No consume tokens."
-              >
-                <FileDown className={`w-4 h-4 mr-2 ${descargandoCertificado ? 'animate-pulse' : ''}`} />
-                {descargandoCertificado ? 'Generando...' : 'Certificado de mis votos'}
-              </Button>
-            </div>
-          </div>
-
-          {/* Preguntas de Votación */}
+          {/* Cuadro de votación arriba: que se vea rápido en cel y web */}
           <div className="space-y-6">
             {preguntas.length === 0 ? (
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700 text-center">
@@ -1204,6 +1032,184 @@ export default function VotacionPublicaPage() {
                 )
               })
             )}
+          </div>
+
+          {/* Bienvenida y unidades (abajo para que el voto se vea primero en cel y web) */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mb-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div className="flex items-center justify-center sm:justify-start">
+                <div className="w-16 h-16 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-8 h-8 text-white" />
+                </div>
+                <div className="ml-4">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                    ¡Bienvenido!
+                  </h1>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
+                    {email}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  marcarSalidaQuorum()
+                  setStep('email')
+                }}
+                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shrink-0"
+                title="Salir y volver a ingresar con otro correo"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Salir de la votación
+              </Button>
+            </div>
+
+            {/* Resumen de Unidades */}
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
+              <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                <Users className="w-5 h-5 mr-2 text-green-600 dark:text-green-400" />
+                Estás votando por:
+              </h3>
+
+              {/* Unidades Propias */}
+              {unidadesPropias.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    🏠 Tus unidades:
+                  </p>
+                  <div className="space-y-2">
+                    {unidadesPropias.map((unidad) => (
+                      <div key={unidad.id} className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {unidad.torre} - {unidad.numero}
+                          </span>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            Coeficiente: {unidad.coeficiente.toFixed(6)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Poderes */}
+              {unidadesPoderes.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    📝 Poderes otorgados:
+                  </p>
+                  <div className="space-y-2">
+                    {unidadesPoderes.map((unidad) => (
+                      <div key={unidad.id} className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-800">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {unidad.torre} - {unidad.numero}
+                          </span>
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            Coeficiente: {unidad.coeficiente.toFixed(6)}%
+                          </span>
+                        </div>
+                        {unidad.nombre_otorgante && (
+                          <p className="text-xs text-purple-600 dark:text-purple-400">
+                            Poder de: {unidad.nombre_otorgante}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Total */}
+              <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-800">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    TOTAL:
+                  </span>
+                  <div className="text-right">
+                    <p className="font-bold text-gray-900 dark:text-white">
+                      {unidades.length} unidad{unidades.length !== 1 ? 'es' : ''}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {totalCoeficiente.toFixed(6)}% del coeficiente total
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Botones de Acción */}
+            <div className="mt-6 flex flex-wrap gap-3 justify-center">
+              <Button
+                onClick={refrescarDatos}
+                disabled={recargando}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                title="Recargar preguntas y poderes asignados"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
+                {recargando ? 'Actualizando...' : 'Actualizar Todo (Preguntas y Poderes)'}
+              </Button>
+              <Button
+                onClick={() => {
+                  setMostrarHistorial(!mostrarHistorial)
+                  if (!mostrarHistorial && preguntasCerradas.length === 0) {
+                    cargarHistorial(unidades)
+                  }
+                }}
+                variant="outline"
+                className="border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                title="Ver el historial de votos que has emitido"
+              >
+                <History className="w-4 h-4 mr-2" />
+                {mostrarHistorial ? 'Ocultar' : 'Ver'} Historial
+              </Button>
+              <Button
+                onClick={async () => {
+                  setDescargandoCertificado(true)
+                  try {
+                    const res = await fetch('/api/votar/certificado-mis-votos', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ codigo, email: email.trim() }),
+                    })
+                    const text = await res.text()
+                    if (!res.ok) {
+                      let msg = 'No se pudo generar el certificado.'
+                      try {
+                        const data = JSON.parse(text)
+                        if (data?.error) msg = data.error
+                      } catch {
+                        // ignorar
+                      }
+                      if (res.status === 429) {
+                        toast.info(msg)
+                      } else {
+                        toast.error(msg)
+                      }
+                      return
+                    }
+                    const blob = new Blob([text], { type: 'text/html;charset=utf-8' })
+                    const url = URL.createObjectURL(blob)
+                    window.open(url, '_blank', 'noopener,noreferrer')
+                    setTimeout(() => URL.revokeObjectURL(url), 60000)
+                    toast.success('Certificado abierto. Puedes imprimirlo o guardar como PDF.')
+                  } catch (e) {
+                    toast.error('Error al descargar el certificado.')
+                  } finally {
+                    setDescargandoCertificado(false)
+                  }
+                }}
+                disabled={descargandoCertificado}
+                variant="outline"
+                className="border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                title="Descargar un acta con el registro de tus votos (transparencia). Máximo 3 por hora. No consume tokens."
+              >
+                <FileDown className={`w-4 h-4 mr-2 ${descargandoCertificado ? 'animate-pulse' : ''}`} />
+                {descargandoCertificado ? 'Generando...' : 'Certificado de mis votos'}
+              </Button>
+            </div>
           </div>
 
           {/* Historial de Votaciones Cerradas */}
