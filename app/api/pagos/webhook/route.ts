@@ -203,7 +203,6 @@ export async function POST(request: NextRequest) {
     }
     const firstProfile = perfilesGestor[0] as { tokens_disponibles?: number; organization_id?: string } | undefined
     const tokensActuales = Math.max(0, Number(firstProfile?.tokens_disponibles ?? 0))
-    const tokensComprados = 1
     const nuevoSaldo = tokensActuales + tokensComprados
     const orgIdForLog = firstProfile?.organization_id ?? null
 

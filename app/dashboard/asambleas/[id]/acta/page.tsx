@@ -330,8 +330,38 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     }
   }
 
-  const handlePrint = () => {
-    window.print()
+  const [printing, setPrinting] = useState(false)
+  const [printError, setPrintError] = useState<string | null>(null)
+
+  const handlePrint = async () => {
+    if (!asamblea?.id) return
+    setPrintError(null)
+    setPrinting(true)
+    try {
+      const res = await fetch('/api/dashboard/descontar-token-acta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ asamblea_id: asamblea.id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.status === 402) {
+        setPrintError(data.error ?? `Saldo insuficiente: Necesitas ${costoOperacion} tokens y tienes ${tokensDisponibles}.`)
+        setPrinting(false)
+        return
+      }
+      if (!res.ok) {
+        setPrintError(data.error ?? 'Error al descontar tokens')
+        setPrinting(false)
+        return
+      }
+      if (data.tokens_restantes != null) setTokensDisponibles(Math.max(0, Number(data.tokens_restantes)))
+      window.print()
+    } catch (e) {
+      setPrintError('Error al procesar. Intenta de nuevo.')
+    } finally {
+      setPrinting(false)
+    }
   }
 
   const formatFecha = (fecha: string) => {
@@ -403,10 +433,15 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             </p>
           )}
         </div>
-        <Button onClick={handlePrint} className="bg-indigo-600 hover:bg-indigo-700">
-          <Printer className="w-4 h-4 mr-2" />
-          Imprimir / Guardar como PDF
-        </Button>
+        <div className="flex flex-col items-end gap-2">
+          {printError && (
+            <p className="text-sm text-amber-600 dark:text-amber-400">{printError}</p>
+          )}
+          <Button onClick={handlePrint} disabled={printing} className="bg-indigo-600 hover:bg-indigo-700">
+            {printing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
+            Imprimir / Guardar como PDF
+          </Button>
+        </div>
       </div>
 
       <main className="max-w-4xl mx-auto px-6 py-10 print:py-6">
@@ -475,7 +510,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                         const aprobado = maxPct >= (pregunta.umbral_aprobacion ?? 0)
                         return (
                           <p className={`text-sm font-semibold mt-2 ${aprobado ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
-                            Umbral: {pregunta.umbral_aprobacion}% — Resultado: {aprobado ? 'Aprobado' : 'No aprobado'} (máx. {maxPct.toFixed(1)}%).
+                            Mayoría necesaria ({pregunta.umbral_aprobacion}%) — Resultado: {aprobado ? 'Aprobado' : 'No aprobado'} (máx. {maxPct.toFixed(1)}%).
                           </p>
                         )
                       })()}

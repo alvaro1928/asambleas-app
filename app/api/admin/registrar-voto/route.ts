@@ -107,9 +107,10 @@ export async function POST(request: NextRequest) {
     if (tokensGestor < costoInt) {
       return NextResponse.json(
         {
-          error: `Tokens insuficientes. El registro manual consume ${costoInt} tokens (1 por unidad; este conjunto tiene ${unidades} unidades).`,
+          error: `Saldo insuficiente: Necesitas ${costoInt} tokens y tienes ${tokensGestor}.`,
           code: 'SIN_TOKENS',
           costo: costoInt,
+          saldo: tokensGestor,
           unidades,
         },
         { status: 402 }
@@ -181,22 +182,37 @@ export async function POST(request: NextRequest) {
 
     const allOk = results.every((r) => r.success)
 
-    // Billetera: tras registrar votos con éxito, descontar costo del gestor
+    // Billetera: tras registrar votos con éxito, descontar costo del gestor y registrar en billing_logs
     if (allOk && costoInt > 0) {
       const nuevoSaldo = Math.max(0, tokensGestor - costoInt)
-      let updateError = (await admin
+      const { error: updateByUser } = await admin
         .from('profiles')
         .update({ tokens_disponibles: nuevoSaldo })
-        .eq('user_id', session.user.id)).error
+        .eq('user_id', session.user.id)
+      let updateError = updateByUser
       if (updateError) {
-        const byId = await admin
+        const { error: updateById } = await admin
           .from('profiles')
           .update({ tokens_disponibles: nuevoSaldo })
           .eq('id', session.user.id)
-        updateError = byId.error
+        updateError = updateById
       }
       if (updateError) {
         console.error('[api/admin/registrar-voto] Error al descontar tokens:', updateError.message)
+      } else {
+        await admin
+          .from('billing_logs')
+          .insert({
+            user_id: session.user.id,
+            tipo_operacion: 'Registro_manual',
+            asamblea_id,
+            organization_id: asambleaRow.organization_id,
+            tokens_usados: costoInt,
+            saldo_restante: nuevoSaldo,
+            metadata: { unidad_id: unidad_id },
+          })
+          .then(() => {})
+          .catch((e) => console.error('billing_logs insert:', e))
       }
     }
 

@@ -89,6 +89,9 @@ export default function Home() {
                 </Button>
               </Link>
             </div>
+            <p className="mt-6 text-sm text-slate-400 max-w-xl">
+              Con Asambleas App pagas solo {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop) : '$1.500'} por unidad. Ahorra hasta un 75% frente a servicios tradicionales ($600.000+).
+            </p>
           </div>
         </div>
       </header>
@@ -170,6 +173,9 @@ export default function Home() {
                 Regístrate hoy y recibe {bonoBienvenidaTokens ?? 50} tokens gratis para tu primera asamblea
               </p>
             </div>
+            <p className="text-center text-slate-400 text-sm">
+              Con Asambleas App pagas solo {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop) : '$1.500'} por unidad. Ahorra hasta un 75% frente a servicios tradicionales ($600.000+).
+            </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
               <Link href="/login" className="inline-flex justify-center">

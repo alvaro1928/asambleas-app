@@ -35,12 +35,13 @@ export async function GET() {
       precio_por_token_cop?: number | null
       bono_bienvenida_tokens?: number | null
     } | null
+    const precioToken = row?.precio_por_token_cop != null ? Number(row.precio_por_token_cop) : 1500
     return NextResponse.json({
       titulo: row?.titulo ?? null,
       subtitulo: row?.subtitulo ?? null,
       whatsapp_number: row?.whatsapp_number ?? null,
       color_principal_hex: row?.color_principal_hex ?? null,
-      precio_por_token_cop: row?.precio_por_token_cop != null ? Number(row.precio_por_token_cop) : null,
+      precio_por_token_cop: precioToken,
       bono_bienvenida_tokens: row?.bono_bienvenida_tokens != null ? Number(row.bono_bienvenida_tokens) : null,
     })
   } catch (e) {

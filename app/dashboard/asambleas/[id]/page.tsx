@@ -870,10 +870,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           return
         }
         if (!res.ok) {
-          const msg =
-            res.status === 402
-              ? `Saldo insuficiente: Necesitas ${costoOperacion} tokens para procesar ${costoOperacion} unidades.`
-              : (data.error || 'Error al activar asamblea')
+          const msg = res.status === 402
+            ? (data.error ?? `Saldo insuficiente: Necesitas ${costoOperacion} tokens y tienes ${tokensDisponibles}.`)
+            : (data.error || 'Error al activar asamblea')
           toast.error(msg)
           return
         }
@@ -1212,16 +1211,15 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     Costo por operación (activar, acta, registro manual): <strong>{costoOperacion} tokens</strong>
                   </p>
                 )}
-                {costoOperacion > 0 && tokensDisponibles < costoOperacion && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400"
-                    onClick={() => setSinTokensModalOpen(true)}
-                  >
-                    Comprar tokens
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`w-full ${costoOperacion > 0 && tokensDisponibles < costoOperacion ? 'border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400' : ''}`}
+                  onClick={() => setSinTokensModalOpen(true)}
+                  title="Comprar más tokens para tu billetera"
+                >
+                  Comprar tokens
+                </Button>
               </div>
             </div>
 
@@ -1621,7 +1619,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                                 const aprobado = maxPct >= (pregunta.umbral_aprobacion ?? 0)
                                 return (
                                   <div className={`mt-3 py-2 px-3 rounded-lg text-center text-sm font-semibold ${aprobado ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'}`}>
-                                    Umbral: {pregunta.umbral_aprobacion}% — Resultado: {aprobado ? 'Aprobado' : 'No aprobado'} (máx. {maxPct.toFixed(1)}%)
+                                    Mayoría necesaria ({pregunta.umbral_aprobacion}%) — Resultado: {aprobado ? 'Aprobado' : 'No aprobado'} (máx. {maxPct.toFixed(1)}%)
                                   </div>
                                 )
                               })()}

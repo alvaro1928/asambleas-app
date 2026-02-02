@@ -37,6 +37,9 @@ export default function DashboardPage() {
   const [colorPrincipalHex, setColorPrincipalHex] = useState<string>('#4f46e5')
   const [selectedConjuntoId, setSelectedConjuntoId] = useState<string | null>(null)
   const [guiaModalOpen, setGuiaModalOpen] = useState(false)
+  const [modalCompraOpen, setModalCompraOpen] = useState(false)
+  const [compraRapida, setCompraRapida] = useState(true)
+  const [cantidadManual, setCantidadManual] = useState<number>(10)
   const router = useRouter()
 
   const formatPrecioCop = (cop: number) =>
@@ -192,7 +195,14 @@ export default function DashboardPage() {
   }
 
   const pasarelaUrl = process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
-  const recargarHref = pasarelaUrl && user?.id ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}user_id=${user.id}${selectedConjuntoId ? `&conjunto_id=${selectedConjuntoId}` : ''}` : null
+  const cantidadCompra = compraRapida ? Math.max(1, costoOperacion) : Math.max(1, cantidadManual)
+  const totalPagarCop = (precioProCop ?? 0) * cantidadCompra
+  const recargarHrefBase = pasarelaUrl && user?.id
+    ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}user_id=${user.id}${selectedConjuntoId ? `&conjunto_id=${selectedConjuntoId}` : ''}`
+    : null
+  const recargarHref = recargarHrefBase && (precioProCop ?? 0) > 0
+    ? `${recargarHrefBase}&cantidad=${cantidadCompra}&monto_cop=${totalPagarCop}`
+    : recargarHrefBase
   const tokensInsuficientes = selectedConjuntoId && costoOperacion > 0 && tokensDisponibles < costoOperacion
 
   return (
@@ -226,21 +236,94 @@ export default function DashboardPage() {
                         <p className="text-sm font-semibold text-slate-200">{costoOperacion} tokens</p>
                       </div>
                     )}
-                    {recargarHref && (
-                      <a
-                        href={recargarHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                    {precioProCop != null && precioProCop > 0 && (
+                      <p className="text-[10px] text-slate-500">Paga solo {formatPrecioCop(precioProCop)}/unidad · Ahorra hasta 75%</p>
+                    )}
+                    {recargarHref ? (
+                      <button
+                        type="button"
+                        onClick={() => setModalCompraOpen(true)}
                         className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-3xl text-white text-xs font-semibold hover:opacity-90 transition-opacity"
                         style={{ backgroundColor: colorPrincipalHex }}
                       >
                         <Plus className="w-4 h-4" />
-                        Recargar
-                      </a>
+                        Comprar tokens
+                      </button>
+                    ) : (
+                      <UiTooltip content="El administrador debe configurar la pasarela de pagos (Ajustes) para habilitar la compra">
+                        <span className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-3xl bg-slate-500/50 text-slate-300 text-xs font-semibold cursor-not-allowed">
+                          <Plus className="w-4 h-4" />
+                          Comprar tokens
+                        </span>
+                      </UiTooltip>
                     )}
                   </div>
                 </div>
               )}
+              {/* Modal compra: rápida (cantidad = unidades) o libre; total = cantidad × precio global */}
+              <Dialog open={modalCompraOpen} onOpenChange={setModalCompraOpen}>
+                <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle className="text-slate-100">Comprar tokens</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-2">
+                    <div className="flex gap-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="tipoCompra"
+                          checked={compraRapida}
+                          onChange={() => setCompraRapida(true)}
+                          className="rounded border-slate-500"
+                        />
+                        <span className="text-sm text-slate-200">Compra rápida</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="tipoCompra"
+                          checked={!compraRapida}
+                          onChange={() => setCompraRapida(false)}
+                          className="rounded border-slate-500"
+                        />
+                        <span className="text-sm text-slate-200">Compra libre</span>
+                      </label>
+                    </div>
+                    {compraRapida ? (
+                      <p className="text-sm text-slate-400">
+                        Cantidad: <strong className="text-slate-200">{Math.max(1, costoOperacion)}</strong> tokens (unidades de tu conjunto)
+                      </p>
+                    ) : (
+                      <div>
+                        <label className="block text-sm text-slate-400 mb-1">Cantidad de tokens</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={cantidadManual}
+                          onChange={(e) => setCantidadManual(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                          className="w-full rounded-2xl border border-slate-600 bg-slate-800 px-3 py-2 text-white"
+                        />
+                      </div>
+                    )}
+                    {precioProCop != null && precioProCop > 0 && (
+                      <p className="text-sm font-semibold text-slate-200">
+                        Total a pagar: {formatPrecioCop(totalPagarCop)} <span className="text-slate-400 font-normal">({cantidadCompra} × {formatPrecioCop(precioProCop)})</span>
+                      </p>
+                    )}
+                    <a
+                      href={recargarHref ?? '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setModalCompraOpen(false)}
+                      className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-3xl text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                      style={{ backgroundColor: colorPrincipalHex }}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Ir a pagar
+                    </a>
+                  </div>
+                </DialogContent>
+              </Dialog>
               <div className="flex items-center space-x-3">
               {user?.email && isAdminEmail(user.email) && (
                 <UiTooltip content="Panel de super administrador: conjuntos, créditos y configuración">

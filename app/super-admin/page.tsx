@@ -4,35 +4,14 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Shield, Building2, Loader2, LogOut, Gift, Users, DollarSign, Settings2, Save, Search, Layout, BarChart3, Zap, Coins, Receipt } from 'lucide-react'
+import { Shield, Building2, Loader2, LogOut, Gift, Users, DollarSign, Settings2, Save, Search, Layout, BarChart3, Coins, Receipt } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/providers/ToastProvider'
 
 /**
  * Super Administración: protegida solo para el email en NEXT_PUBLIC_ADMIN_EMAIL (Vercel / .env).
- * Incluye administración de planes (nombre, precio, límites) y asignación de plan por conjunto.
+ * Conjuntos, gestores (tokens por gestor), precio global en Ajustes. Sin planes ni suscripciones.
  */
-
-interface PlanRow {
-  id: string
-  key: string
-  nombre: string
-  precio_por_asamblea_cop: number
-  activo?: boolean
-  max_preguntas_por_asamblea?: number
-  incluye_acta_detallada?: boolean
-  tokens_iniciales?: number | null
-  vigencia_meses?: number | null
-}
-
-type EditingPlanValue = {
-  nombre: string
-  precio_por_asamblea_cop: number
-  max_preguntas_por_asamblea: number
-  incluye_acta_detallada: boolean
-  tokens_iniciales: number | string | null
-  vigencia_meses: number | string | null
-}
 
 interface ConjuntoRow {
   id: string
@@ -62,25 +41,14 @@ interface GestorRow {
   tokens_disponibles: number
 }
 
-const PLAN_OPTIONS = [
-  { value: 'free', label: 'Gratis' },
-  { value: 'pro', label: 'Pro' },
-  { value: 'pilot', label: 'Piloto' },
-]
-
 export default function SuperAdminPage() {
   const router = useRouter()
   const toast = useToast()
-  const [planes, setPlanes] = useState<PlanRow[]>([])
   const [conjuntos, setConjuntos] = useState<ConjuntoRow[]>([])
   const [resumen, setResumen] = useState<ResumenPagos | null>(null)
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
-  const [planSelect, setPlanSelect] = useState<Record<string, string>>({})
-  const [editingPlan, setEditingPlan] = useState<Record<string, EditingPlanValue>>({})
-  const [savingPlanKey, setSavingPlanKey] = useState<string | null>(null)
   const [searchConjunto, setSearchConjunto] = useState('')
-  const [filterPlan, setFilterPlan] = useState('all')
   const [mostrandoConjuntos, setMostrandoConjuntos] = useState(50)
   const PASOS_PAGINACION = 50
   const [landingTitulo, setLandingTitulo] = useState('')
@@ -106,43 +74,13 @@ export default function SuperAdminPage() {
 
   useEffect(() => {
     setMostrandoConjuntos(PASOS_PAGINACION)
-  }, [searchConjunto, filterPlan])
+  }, [searchConjunto])
 
   const isAllowed = (email: string | undefined) => {
     if (!email) return false
     const allowed = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? '').trim().toLowerCase()
     if (!allowed) return false
     return email.trim().toLowerCase() === allowed
-  }
-
-  const loadPlanes = async () => {
-    const res = await fetch('/api/super-admin/planes', { credentials: 'include' })
-    if (!res.ok) return
-    const data = await res.json()
-    const list = (data.planes || []).map((p: PlanRow & { precio_por_asamblea_cop?: number; max_preguntas_por_asamblea?: number; incluye_acta_detallada?: boolean; tokens_iniciales?: number | null; vigencia_meses?: number | null }) => ({
-      id: p.id,
-      key: p.key,
-      nombre: p.nombre,
-      precio_por_asamblea_cop: Number(p.precio_por_asamblea_cop) || 0,
-      activo: p.activo,
-      max_preguntas_por_asamblea: typeof p.max_preguntas_por_asamblea === 'number' ? p.max_preguntas_por_asamblea : (p.key === 'free' ? 2 : 999),
-      incluye_acta_detallada: typeof p.incluye_acta_detallada === 'boolean' ? p.incluye_acta_detallada : p.key !== 'free',
-      tokens_iniciales: p.tokens_iniciales ?? (p.key === 'pro' ? null : p.key === 'free' ? 2 : 10),
-      vigencia_meses: p.vigencia_meses ?? (p.key === 'free' ? null : p.key === 'pilot' ? 3 : 12),
-    }))
-    setPlanes(list)
-    const edit: Record<string, EditingPlanValue> = {}
-    list.forEach((p: PlanRow) => {
-      edit[p.key] = {
-        nombre: p.nombre,
-        precio_por_asamblea_cop: p.precio_por_asamblea_cop,
-        max_preguntas_por_asamblea: p.max_preguntas_por_asamblea ?? (p.key === 'free' ? 2 : 999),
-        incluye_acta_detallada: p.incluye_acta_detallada ?? p.key !== 'free',
-        tokens_iniciales: p.tokens_iniciales ?? (p.key === 'pro' ? null : p.key === 'free' ? 2 : 10),
-        vigencia_meses: p.vigencia_meses ?? (p.key === 'free' ? null : p.key === 'pilot' ? 3 : 12),
-      }
-    })
-    setEditingPlan(edit)
   }
 
   const checkAndLoad = async () => {
@@ -160,8 +98,6 @@ export default function SuperAdminPage() {
         router.replace('/login?redirect=/super-admin')
         return
       }
-
-      await loadPlanes()
 
       const configRes = await fetch('/api/super-admin/configuracion-landing', { credentials: 'include' })
       if (configRes.ok) {
@@ -197,11 +133,6 @@ export default function SuperAdminPage() {
       }))
       setConjuntos(rows)
       setResumen(data.resumen ?? null)
-      const sel: Record<string, string> = {}
-      rows.forEach((c: ConjuntoRow) => {
-        sel[c.id] = c.plan_type
-      })
-      setPlanSelect(sel)
 
       const estadoRes = await fetch('/api/super-admin/estado-sistema', { credentials: 'include' })
       if (estadoRes.ok) {
@@ -362,47 +293,6 @@ export default function SuperAdminPage() {
     }
   }
 
-  const handleAplicarPlan = async (id: string, planType: string) => {
-    setUpdatingId(id)
-    try {
-      const res = await fetch('/api/super-admin/conjuntos', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ id, plan_type: planType }),
-      })
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        toast.error(err.error || 'Error al aplicar plan')
-        return
-      }
-
-      setConjuntos((prev) =>
-        prev.map((c) =>
-          c.id === id
-            ? {
-                ...c,
-                plan_type: planType,
-                plan_status: planType === 'free' ? 'inactive' : 'active',
-              }
-            : c
-        )
-      )
-      setPlanSelect((prev) => ({ ...prev, [id]: planType }))
-      toast.success('Plan aplicado al conjunto correctamente')
-    } catch (e) {
-      console.error('Aplicar plan:', e)
-      toast.error('Error al aplicar plan')
-    } finally {
-      setUpdatingId(null)
-    }
-  }
-
-  const handleActivarCortesiaPiloto = async (id: string) => {
-    await handleAplicarPlan(id, 'pro')
-  }
-
   const handleSaveLanding = async () => {
     setSavingLanding(true)
     try {
@@ -430,63 +320,9 @@ export default function SuperAdminPage() {
     }
   }
 
-  const handleSavePlan = async (key: string) => {
-    const edit = editingPlan[key]
-    if (!edit) return
-    setSavingPlanKey(key)
-    try {
-      const tokensIniciales = key === 'pro' ? null : (edit.tokens_iniciales == null || edit.tokens_iniciales === '' ? (key === 'free' ? 2 : 10) : Math.max(0, Math.round(Number(edit.tokens_iniciales))))
-      const vigenciaMeses = key === 'free' ? null : (edit.vigencia_meses == null || edit.vigencia_meses === '' ? (key === 'pilot' ? 3 : 12) : Math.max(0, Math.round(Number(edit.vigencia_meses))))
-      const res = await fetch('/api/super-admin/planes', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          key,
-          nombre: edit.nombre.trim(),
-          precio_por_asamblea_cop: Math.max(0, Math.round(edit.precio_por_asamblea_cop)),
-          max_preguntas_por_asamblea: Math.max(0, Math.round(edit.max_preguntas_por_asamblea)),
-          incluye_acta_detallada: edit.incluye_acta_detallada,
-          tokens_iniciales: tokensIniciales,
-          vigencia_meses: vigenciaMeses,
-        }),
-      })
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        toast.error(err.error || 'Error al guardar plan')
-        return
-      }
-
-      setPlanes((prev) =>
-        prev.map((p) =>
-          p.key === key
-            ? {
-                ...p,
-                nombre: edit.nombre.trim(),
-                precio_por_asamblea_cop: Math.max(0, Math.round(edit.precio_por_asamblea_cop)),
-                max_preguntas_por_asamblea: Math.max(0, Math.round(edit.max_preguntas_por_asamblea)),
-                incluye_acta_detallada: edit.incluye_acta_detallada,
-                tokens_iniciales: key === 'pro' ? null : Math.max(0, Math.round(Number(edit.tokens_iniciales ?? 0))),
-                vigencia_meses: key === 'free' ? null : (edit.vigencia_meses == null || edit.vigencia_meses === '' ? (key === 'pilot' ? 3 : 12) : Math.max(0, Math.round(Number(edit.vigencia_meses)))),
-              }
-            : p
-        )
-      )
-      toast.success('Plan actualizado correctamente')
-    } catch (e) {
-      console.error('Guardar plan:', e)
-      toast.error('Error al guardar plan')
-    } finally {
-      setSavingPlanKey(null)
-    }
-  }
-
-  const conjuntosFiltrados = conjuntos.filter((c) => {
-    const matchName = !searchConjunto.trim() || c.name.toLowerCase().includes(searchConjunto.trim().toLowerCase())
-    const matchPlan = filterPlan === 'all' || c.plan_type === filterPlan
-    return matchName && matchPlan
-  })
+  const conjuntosFiltrados = conjuntos.filter((c) =>
+    !searchConjunto.trim() || c.name.toLowerCase().includes(searchConjunto.trim().toLowerCase())
+  )
   const conjuntosVisibles = conjuntosFiltrados.slice(0, mostrandoConjuntos)
 
   const gestoresFiltrados = gestores.filter((g) => {
@@ -499,20 +335,11 @@ export default function SuperAdminPage() {
   })
   const hayMas = conjuntosFiltrados.length > mostrandoConjuntos
 
-  const resumenPorPlan = conjuntos.reduce(
-    (acc, c) => {
-      acc[c.plan_type] = (acc[c.plan_type] || 0) + 1
-      return acc
-    },
-    {} as Record<string, number>
-  )
-
   const exportarCSV = () => {
-    const headers = ['Nombre', 'Tipo', 'Estado']
+    const headers = ['Nombre', 'Tokens']
     const rows = conjuntosFiltrados.map((c) => [
       c.name,
-      c.plan_type,
-      c.plan_status ?? ''
+      String(c.tokens_disponibles ?? 0)
     ])
     const csv = [headers.join(','), ...rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))].join('\n')
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
@@ -902,17 +729,6 @@ export default function SuperAdminPage() {
                   title="Filtrar conjuntos por nombre"
                 />
               </div>
-              <select
-                value={filterPlan}
-                onChange={(e) => setFilterPlan(e.target.value)}
-                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white"
-                title="Filtrar por plan actual"
-              >
-                <option value="all">Todos los planes</option>
-                {PLAN_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
               <Button variant="outline" size="sm" onClick={exportarCSV} title="Descargar lista de conjuntos en CSV">
                 Exportar CSV
               </Button>
@@ -926,17 +742,14 @@ export default function SuperAdminPage() {
               <thead className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 uppercase text-xs">
                 <tr>
                   <th className="px-6 py-4">Nombre</th>
-                  <th className="px-6 py-4">Tipo</th>
-                  <th className="px-6 py-4">Tokens</th>
-                  <th className="px-6 py-4">Estado</th>
-                  <th className="px-6 py-4">Asignar plan</th>
-                  <th className="px-6 py-4 text-right">Acción rápida</th>
+                  <th className="px-6 py-4">Tokens (conjunto)</th>
+                  <th className="px-6 py-4 text-right">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {conjuntosVisibles.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
                       {conjuntos.length === 0
                     ? 'No hay conjuntos registrados. Crea uno desde el Dashboard (Ir al Dashboard → Nuevo conjunto).'
                     : 'Ningún conjunto coincide con el filtro.'}
@@ -955,19 +768,6 @@ export default function SuperAdminPage() {
                             {c.name}
                           </span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            c.plan_type === 'pro'
-                              ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300'
-                              : c.plan_type === 'pilot'
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                          }`}
-                        >
-                          {c.plan_type === 'pro' ? 'Pro' : c.plan_type === 'pilot' ? 'Piloto' : 'Gratuito'}
-                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-2">
@@ -1012,52 +812,8 @@ export default function SuperAdminPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
-                        {c.plan_status === 'active' ? 'Activo' : '—'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <select
-                          value={planSelect[c.id] ?? c.plan_type}
-                          onChange={(e) => setPlanSelect((prev) => ({ ...prev, [c.id]: e.target.value }))}
-                          className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-white"
-                          title="Elegir el plan a asignar a este conjunto"
-                        >
-                          {PLAN_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="ml-2"
-                          disabled={updatingId === c.id || (planSelect[c.id] ?? c.plan_type) === c.plan_type}
-                          onClick={() => handleAplicarPlan(c.id, planSelect[c.id] ?? c.plan_type)}
-                        >
-                          {updatingId === c.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            'Aplicar'
-                          )}
-                        </Button>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleActivarCortesiaPiloto(c.id)}
-                          disabled={updatingId === c.id || c.plan_type === 'pro'}
-                          className="gap-2"
-                          title="Asignar créditos por cortesía (sin pago)"
-                        >
-                          {updatingId === c.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Gift className="w-4 h-4" />
-                          )}
-                          Pro 1 año
-                        </Button>
+                      <td className="px-6 py-4 text-right text-gray-500 dark:text-gray-400 text-xs">
+                        Conjunto (organización)
                       </td>
                     </tr>
                   ))

@@ -5,11 +5,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCostoEnTokens } from '@/lib/costo-tokens'
 
 /**
- * POST /api/dashboard/descontar-token-asamblea-pro
- * Modelo Billetera de Tokens por Gestor.
- * Al activar votación: costo = unidades del conjunto (1 token = 1 unidad).
- * Descuenta del perfil del gestor (todas las filas del mismo user_id).
- * Devuelve 200 si se descontó; 402 si no hay tokens suficientes.
+ * POST /api/dashboard/descontar-token-acta
+ * Trigger de cobro: ANTES de entregar el acta (PDF/impresión).
+ * Descuenta tokens del gestor (todas las filas del user_id en profiles).
+ * 402 si saldo < costo; mensaje: "Saldo insuficiente: Necesitas {costo} tokens y tienes {saldo}".
  */
 export async function POST(request: NextRequest) {
   try {
@@ -55,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     const { data: asamblea, error: asambleaError } = await admin
       .from('asambleas')
-      .select('id, organization_id, estado')
+      .select('id, organization_id')
       .eq('id', asamblea_id)
       .maybeSingle()
 
@@ -87,18 +86,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const estado = (asamblea as { estado?: string }).estado
-    if (estado !== 'borrador') {
-      return NextResponse.json({ ok: true, descontado: false, motivo: 'asamblea_ya_activada' })
-    }
-
     const { count: unidadesCount } = await admin
       .from('unidades')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', orgId)
 
     const unidades = Math.max(0, unidadesCount ?? 0)
-    const costo = getCostoEnTokens(unidades)
+    const costoInt = Math.max(0, Math.floor(Number(getCostoEnTokens(unidades))))
 
     const { data: perfilesGestor } = await admin
       .from('profiles')
@@ -106,8 +100,17 @@ export async function POST(request: NextRequest) {
       .eq('user_id', session.user.id)
 
     const firstProfile = Array.isArray(perfilesGestor) ? perfilesGestor[0] : perfilesGestor
-    const tokensActuales = Math.max(0, Math.floor(Number(firstProfile?.tokens_disponibles ?? 0)))
-    const costoInt = Math.max(0, Math.floor(Number(costo)))
+    let tokensActuales = Math.max(0, Math.floor(Number(firstProfile?.tokens_disponibles ?? 0)))
+    if (perfilesGestor == null || (Array.isArray(perfilesGestor) && perfilesGestor.length === 0)) {
+      const { data: byId } = await admin
+        .from('profiles')
+        .select('tokens_disponibles')
+        .eq('id', session.user.id)
+        .limit(1)
+        .maybeSingle()
+      tokensActuales = Math.max(0, Math.floor(Number((byId as { tokens_disponibles?: number } | null)?.tokens_disponibles ?? 0)))
+    }
+
     if (tokensActuales < costoInt) {
       return NextResponse.json(
         {
@@ -115,7 +118,6 @@ export async function POST(request: NextRequest) {
           code: 'SIN_TOKENS',
           costo: costoInt,
           saldo: tokensActuales,
-          unidades,
         },
         { status: 402 }
       )
@@ -139,25 +141,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
-    await admin.from('billing_logs').insert({
-      user_id: session.user.id,
-      tipo_operacion: 'Votación',
-      asamblea_id,
-      organization_id: orgId,
-      tokens_usados: costoInt,
-      saldo_restante: nuevoSaldo,
-      metadata: { unidades },
-    }).then(() => {}).catch((e) => console.error('billing_logs insert:', e))
+    await admin
+      .from('billing_logs')
+      .insert({
+        user_id: session.user.id,
+        tipo_operacion: 'Acta',
+        asamblea_id,
+        organization_id: orgId,
+        tokens_usados: costoInt,
+        saldo_restante: nuevoSaldo,
+        metadata: { unidades },
+      })
+      .then(() => {})
+      .catch((e) => console.error('billing_logs insert:', e))
 
     return NextResponse.json({
       ok: true,
-      descontado: true,
       tokens_restantes: nuevoSaldo,
       costo: costoInt,
-      unidades,
     })
   } catch (e) {
-    console.error('descontar-token-asamblea-pro:', e)
+    console.error('descontar-token-acta:', e)
     return NextResponse.json({ error: 'Error al descontar tokens' }, { status: 500 })
   }
 }
