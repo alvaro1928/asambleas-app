@@ -52,11 +52,12 @@ export async function POST(request: NextRequest) {
 
     let historialDeleted = 0
     if (votoIds.length > 0) {
-      const { count } = await admin.from('historial_votos').delete().in('voto_id', votoIds).select('*', { count: 'exact', head: true })
-      historialDeleted = count ?? 0
+      const { data: histData } = await admin.from('historial_votos').delete().in('voto_id', votoIds).select('*')
+      historialDeleted = Array.isArray(histData) ? histData.length : 0
     }
 
-    const { count: votosDeleted } = await admin.from('votos').delete().in('pregunta_id', preguntaIds).select('*', { count: 'exact', head: true })
+    const { data: votosData } = await admin.from('votos').delete().in('pregunta_id', preguntaIds).select('*')
+    const votosDeleted = Array.isArray(votosData) ? votosData.length : 0
 
     return NextResponse.json({
       success: true,

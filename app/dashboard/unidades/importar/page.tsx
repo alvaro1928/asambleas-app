@@ -97,6 +97,7 @@ export default function ImportarUnidadesPage() {
     const onStorage = () => { checkExistingUnits() }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run on mount and storage only; checkExistingUnits uses getOrganizationIdForImport
   }, [])
 
   const checkExistingUnits = async () => {
