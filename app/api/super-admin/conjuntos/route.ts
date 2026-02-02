@@ -51,12 +51,34 @@ export async function GET() {
       { auth: { persistSession: false } }
     )
 
-    const { data: orgs, error: orgsError } = await admin
+    // Soporta esquema con o sin plan_type (migración billetera por gestor quita plan_* de organizations)
+    let orgs: Array<Record<string, unknown>> | null = null
+    let orgsError: Error | null = null
+    const fullSelect = await admin
       .from('organizations')
       .select('id, name, slug, nit, plan_type, plan_active_until, plan_status, is_pilot, tokens_disponibles, created_at')
       .order('created_at', { ascending: false })
+    orgs = fullSelect.data as Array<Record<string, unknown>> | null
+    orgsError = fullSelect.error
 
-    if (orgsError) {
+    if (orgsError && orgsError.message?.includes('plan_type')) {
+      const minimal = await admin
+        .from('organizations')
+        .select('id, name, slug, nit, created_at')
+        .order('created_at', { ascending: false })
+      if (minimal.error) {
+        console.error('super-admin conjuntos:', minimal.error)
+        return NextResponse.json({ error: minimal.error.message }, { status: 500 })
+      }
+      orgs = (minimal.data || []).map((o) => ({
+        ...o,
+        plan_type: 'free',
+        plan_status: null,
+        plan_active_until: null,
+        is_pilot: null,
+        tokens_disponibles: 0,
+      })) as Array<Record<string, unknown>>
+    } else if (orgsError) {
       console.error('super-admin conjuntos:', orgsError)
       return NextResponse.json({ error: orgsError.message }, { status: 500 })
     }
