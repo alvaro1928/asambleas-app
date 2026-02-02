@@ -123,12 +123,15 @@ export async function GET() {
       }
     }
 
-    const conjuntos = (orgs || []).map((o) => ({
-      ...o,
-      unidades_count: countByOrg[o.id] ?? 0,
-      admin_email: adminEmailByOrg[o.id] ?? null,
-      plan_status: (o as { plan_status?: string }).plan_status ?? null,
-    }))
+    const conjuntos = (orgs || []).map((o) => {
+      const id = o.id as string
+      return {
+        ...o,
+        unidades_count: countByOrg[id] ?? 0,
+        admin_email: adminEmailByOrg[id] ?? null,
+        plan_status: (o as { plan_status?: string }).plan_status ?? null,
+      }
+    })
 
     return NextResponse.json({
       conjuntos,
