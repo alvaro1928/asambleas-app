@@ -480,22 +480,22 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Métricas Detalladas — grid uniforme: misma altura y alineación */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+          {/* Métricas Detalladas — grid con columnas iguales y sin overflow */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 min-w-0">
             {/* Total Unidades */}
-            <div className="h-full min-h-[220px]">
+            <div className="min-w-0 flex">
               <UiTooltip content="Ver listado de unidades, editar y gestionar coeficientes">
-                <Link href="/dashboard/unidades" className="block h-full">
-                  <div className="h-full flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-700 transition-all cursor-pointer">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                <Link href="/dashboard/unidades" className="block w-full min-w-0">
+                  <div className="h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-700 transition-all cursor-pointer min-w-0">
+                    <div className="flex items-center justify-between mb-2 shrink-0">
+                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center shrink-0">
                         <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                         </svg>
                       </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{metrics.total}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mt-auto">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">{metrics.total}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mt-auto min-w-0 truncate" title="Total Unidades • Clic para gestionar">
                       Total Unidades • Clic para gestionar
                     </p>
                   </div>
@@ -504,10 +504,10 @@ export default function DashboardPage() {
             </div>
 
             {/* Suma Coeficientes */}
-            <div className="h-full min-h-[220px]">
-              <div className="h-full flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700" title="La Ley 675 exige que la suma de coeficientes sea 100%. Verde = correcto.">
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+            <div className="min-w-0 flex">
+              <div className="w-full h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 min-w-0" title="La Ley 675 exige que la suma de coeficientes sea 100%. Verde = correcto.">
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
                     Math.abs(metrics.sumaCoeficientes - 100) < 0.000001 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-100 dark:bg-yellow-900/30'
                   }`}>
                     <svg className={`w-6 h-6 ${Math.abs(metrics.sumaCoeficientes - 100) < 0.000001 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -515,30 +515,30 @@ export default function DashboardPage() {
                     </svg>
                   </div>
                   {Math.abs(metrics.sumaCoeficientes - 100) < 0.000001 ? (
-                    <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                    <svg className="w-5 h-5 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                   ) : (
-                    <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                    <svg className="w-5 h-5 text-yellow-500 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                   )}
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">{metrics.sumaCoeficientes.toFixed(2)}%</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mt-auto">Suma Coeficientes (Ley 675)</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">{metrics.sumaCoeficientes.toFixed(2)}%</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mt-auto min-w-0 truncate" title="Suma Coeficientes (Ley 675)">Suma Coeficientes (Ley 675)</p>
               </div>
             </div>
 
             {/* Censo de Datos */}
-            <div className="h-full min-h-[220px]">
-              <div className="h-full flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700" title="Porcentaje de unidades con email y teléfono completos para contacto.">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+            <div className="min-w-0 flex">
+              <div className="w-full h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 min-w-0" title="Porcentaje de unidades con email y teléfono completos para contacto.">
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center shrink-0">
                     <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white">{metrics.censoDatos.toFixed(0)}%</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Datos de Contacto Completos</p>
-                <div className="mt-auto pt-3">
-                  <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <p className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">{metrics.censoDatos.toFixed(0)}%</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 min-w-0 truncate" title="Datos de Contacto Completos">Datos de Contacto Completos</p>
+                <div className="mt-auto pt-3 shrink-0">
+                  <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-2 min-w-0">
                     <div className="bg-blue-600 h-2 rounded-full transition-all duration-500" style={{ width: `${metrics.censoDatos}%` }} />
                   </div>
                 </div>
@@ -546,19 +546,19 @@ export default function DashboardPage() {
             </div>
 
             {/* Conjuntos Registrados */}
-            <div className="h-full min-h-[220px]">
+            <div className="min-w-0 flex">
               <UiTooltip content="Ver y editar los conjuntos residenciales que gestionas">
-                <Link href="/dashboard/conjuntos" className="block h-full">
-                  <div className="h-full flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                <Link href="/dashboard/conjuntos" className="block w-full min-w-0">
+                  <div className="h-full min-h-[180px] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer min-w-0">
+                    <div className="flex items-center justify-between mb-2 shrink-0">
+                      <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center shrink-0">
                         <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
                       </div>
                     </div>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">{conjuntosCount}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mt-auto">Conjuntos Registrados</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white shrink-0">{conjuntosCount}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mt-auto min-w-0 truncate" title="Conjuntos Registrados">Conjuntos Registrados</p>
                   </div>
                 </Link>
               </UiTooltip>

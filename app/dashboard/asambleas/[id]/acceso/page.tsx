@@ -17,10 +17,13 @@ import {
   Search,
   UserCheck,
   UserX,
-  Radio
+  Radio,
+  Maximize2,
+  X
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { QRCodeSVG } from 'qrcode.react'
 import {
   BarChart,
@@ -111,6 +114,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [searchYaVotaron, setSearchYaVotaron] = useState('')
   const [searchFaltantes, setSearchFaltantes] = useState('')
   const [copiado, setCopiado] = useState(false)
+  const [graficaMaximizada, setGraficaMaximizada] = useState(false)
 
   useEffect(() => {
     loadAsamblea()
@@ -465,14 +469,27 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             {/* Gráfica de barras horizontal con umbral y APROBADO */}
             {preguntasConResultados.length > 0 && (
               <Card className="border-emerald-200 dark:border-emerald-900">
-                <CardHeader>
-                  <CardTitle className="text-md flex items-center">
-                    <Vote className="w-4 h-4 mr-2 text-emerald-600" />
-                    Avance de votaciones
-                  </CardTitle>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Se actualiza cada 10 s. Ideal para proyectar en pantalla.
-                  </p>
+                <CardHeader className="flex flex-row items-start justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-md flex items-center">
+                      <Vote className="w-4 h-4 mr-2 text-emerald-600" />
+                      Avance de votaciones
+                    </CardTitle>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Se actualiza cada 10 s. Ideal para proyectar en pantalla.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setGraficaMaximizada(true)}
+                    className="shrink-0 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                    title="Ver gráfica en grande (pop-up)"
+                  >
+                    <Maximize2 className="w-4 h-4 mr-1" />
+                    Ver grande
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {quorum && (
@@ -693,6 +710,103 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           </div>
         </div>
       </main>
+
+      {/* Modal: gráfica de avance en grande (pop-up) */}
+      <Dialog open={graficaMaximizada} onOpenChange={setGraficaMaximizada}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="flex flex-row items-center justify-between gap-4 pr-8">
+            <DialogTitle className="flex items-center gap-2">
+              <Vote className="w-5 h-5 text-emerald-600" />
+              Avance de votaciones (vista grande)
+            </DialogTitle>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setGraficaMaximizada(false)}
+              className="absolute right-4 top-4"
+              aria-label="Cerrar"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </DialogHeader>
+          <div className="space-y-8 pt-4">
+            {quorum && (
+              <div className="flex justify-between text-base">
+                <span className="text-gray-600 dark:text-gray-400">Unidades que ya votaron</span>
+                <span className="font-bold text-lg">
+                  {quorum.unidades_votantes} / {quorum.total_unidades}
+                </span>
+              </div>
+            )}
+            {preguntasConResultados.map((preg) => {
+              const data = preg.resultados.map((r) => ({
+                name: r.opcion_texto.length > 24 ? r.opcion_texto.slice(0, 22) + '…' : r.opcion_texto,
+                fullName: r.opcion_texto,
+                porcentaje: Math.round(r.porcentaje_coeficiente_total * 100) / 100,
+                color: r.color,
+                aprueba: preg.umbral_aprobacion != null && r.porcentaje_coeficiente_total >= preg.umbral_aprobacion
+              }))
+              const umbral = preg.umbral_aprobacion ?? 50
+              return (
+                <div key={preg.id} className="space-y-3">
+                  <p className="text-base font-medium text-gray-700 dark:text-gray-300">
+                    {preg.texto_pregunta}
+                  </p>
+                  <div className="h-[320px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        layout="vertical"
+                        data={data}
+                        margin={{ top: 12, right: 40, left: 120, bottom: 12 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                        <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 14 }} />
+                        <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 14 }} />
+                        <Tooltip
+                          formatter={(value: number | undefined) => [`${value ?? 0}%`, 'Coeficiente']}
+                          labelFormatter={(_: ReactNode, payload: readonly { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName ?? ''}
+                        />
+                        <ReferenceLine
+                          x={umbral}
+                          stroke={data.some((d) => d.aprueba) ? '#10b981' : '#ef4444'}
+                          strokeWidth={2}
+                          strokeDasharray="4 2"
+                          label={{ value: `Umbral ${umbral}%`, position: 'insideTopRight', fill: '#9ca3af', fontSize: 12 }}
+                        />
+                        <Bar
+                          dataKey="porcentaje"
+                          radius={[0, 6, 6, 0]}
+                          maxBarSize={40}
+                          label={{
+                            position: 'right',
+                            formatter: (label: unknown, ...args: unknown[]) => {
+                              const v = Number(label ?? 0)
+                              const payload = (args[0] as { payload?: { aprueba?: boolean } })?.payload
+                              return payload?.aprueba ? `${v}% APROBADO` : `${v}%`
+                            },
+                            fontSize: 14,
+                            fill: '#374151'
+                          }}
+                        >
+                          {data.map((entry, index) => (
+                            <Cell
+                              key={entry.name + index}
+                              fill={entry.aprueba ? '#10b981' : entry.color}
+                              stroke={entry.aprueba ? '#059669' : undefined}
+                              strokeWidth={entry.aprueba ? 2 : 0}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
