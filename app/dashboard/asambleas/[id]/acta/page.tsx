@@ -330,13 +330,23 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     }
   }
 
-  const [printing, setPrinting] = useState(false)
   const [printError, setPrintError] = useState<string | null>(null)
+  /** True cuando el usuario ya confirmó y se descontaron tokens por generar el acta (misma sesión no vuelve a cobrar) */
+  const [actaGenerada, setActaGenerada] = useState(false)
+  const [generando, setGenerando] = useState(false)
+  const [generarError, setGenerarError] = useState<string | null>(null)
 
-  const handlePrint = async () => {
+  useEffect(() => {
+    if (params.id && typeof window !== 'undefined') {
+      setActaGenerada(sessionStorage.getItem('acta_generada_' + params.id) === '1')
+    }
+  }, [params.id])
+
+  /** Descontar tokens y marcar acta como generada; luego se puede imprimir sin volver a cobrar (Ctrl+P o botón). */
+  const handleGenerarActa = async () => {
     if (!asamblea?.id) return
-    setPrintError(null)
-    setPrinting(true)
+    setGenerarError(null)
+    setGenerando(true)
     try {
       const res = await fetch('/api/dashboard/descontar-token-acta', {
         method: 'POST',
@@ -346,22 +356,27 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       })
       const data = await res.json().catch(() => ({}))
       if (res.status === 402) {
-        setPrintError(data.error ?? `Saldo insuficiente: Necesitas ${costoOperacion} tokens y tienes ${tokensDisponibles}.`)
-        setPrinting(false)
+        setGenerarError(data.error ?? `Saldo insuficiente: Necesitas ${costoOperacion} tokens y tienes ${tokensDisponibles}.`)
+        setGenerando(false)
         return
       }
       if (!res.ok) {
-        setPrintError(data.error ?? 'Error al descontar tokens')
-        setPrinting(false)
+        setGenerarError(data.error ?? 'Error al descontar tokens')
+        setGenerando(false)
         return
       }
       if (data.tokens_restantes != null) setTokensDisponibles(Math.max(0, Number(data.tokens_restantes)))
-      window.print()
+      sessionStorage.setItem('acta_generada_' + params.id, '1')
+      setActaGenerada(true)
     } catch (e) {
-      setPrintError('Error al procesar. Intenta de nuevo.')
+      setGenerarError('Error al procesar. Intenta de nuevo.')
     } finally {
-      setPrinting(false)
+      setGenerando(false)
     }
+  }
+
+  const handlePrint = () => {
+    window.print()
   }
 
   const formatFecha = (fecha: string) => {
@@ -409,6 +424,42 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     )
   }
 
+  // Puerta: generar acta consume tokens; confirmar antes de mostrar el acta (luego pueden imprimir con Ctrl+P sin volver a cobrar)
+  if (!actaGenerada) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-6 print:hidden">
+        <div className="max-w-lg w-full bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-8 border border-gray-200 dark:border-gray-700 text-center">
+          <FileText className="w-16 h-16 text-indigo-500 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+            Generar acta
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            Generar el acta con auditoría consumirá <strong>{costoOperacion} tokens</strong> de tu billetera (1 token = 1 unidad del conjunto). Una vez generada, podrás imprimirla o guardarla como PDF cuantas veces quieras (Ctrl+P o el botón) sin consumir más tokens.
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            Tu saldo: <strong>{tokensDisponibles} tokens</strong>
+          </p>
+          {generarError && (
+            <p className="text-sm text-amber-600 dark:text-amber-400 mb-4">{generarError}</p>
+          )}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link href={`/dashboard/asambleas/${params.id}`}>
+              <Button variant="outline">Cancelar</Button>
+            </Link>
+            <Button
+              onClick={handleGenerarActa}
+              disabled={generando || tokensDisponibles < costoOperacion}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              {generando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Sí, generar acta ({costoOperacion} tokens)
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
       {/* Barra de acciones: oculta al imprimir */}
@@ -423,22 +474,17 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           <div className="flex items-center gap-2 rounded-3xl bg-slate-100 px-3 py-2 border border-slate-200">
             <span className="text-xs font-medium text-slate-600">Billetera:</span>
             <span className="text-sm font-bold text-indigo-600">{tokensDisponibles} tokens</span>
-            {costoOperacion > 0 && (
-              <span className="text-xs text-slate-500">(costo/op: {costoOperacion})</span>
-            )}
           </div>
-          {costoOperacion > 0 && (
-            <p className="text-xs text-slate-500">
-              Esta operación consumirá {costoOperacion} tokens. Saldo actual: {tokensDisponibles}.
-            </p>
-          )}
+          <p className="text-xs text-slate-500">
+            Acta generada. Imprimir (Ctrl+P o botón) no consume más tokens.
+          </p>
         </div>
         <div className="flex flex-col items-end gap-2">
           {printError && (
             <p className="text-sm text-amber-600 dark:text-amber-400">{printError}</p>
           )}
-          <Button onClick={handlePrint} disabled={printing} className="bg-indigo-600 hover:bg-indigo-700">
-            {printing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
+          <Button onClick={handlePrint} className="bg-indigo-600 hover:bg-indigo-700">
+            <Printer className="w-4 h-4 mr-2" />
             Imprimir / Guardar como PDF
           </Button>
         </div>
