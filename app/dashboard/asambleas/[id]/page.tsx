@@ -32,7 +32,6 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
 import { getEffectivePlanLimits } from '@/lib/plan-limits'
 import { useToast } from '@/components/providers/ToastProvider'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
@@ -139,7 +138,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [costoOperacion, setCostoOperacion] = useState(0)
   const [planLimits, setPlanLimits] = useState({ max_preguntas_por_asamblea: 2, incluye_acta_detallada: false })
   const [precioProCop, setPrecioProCop] = useState<number | null>(null)
+  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null)
   const [sinTokensModalOpen, setSinTokensModalOpen] = useState(false)
+  const [checkoutLoadingSinTokens, setCheckoutLoadingSinTokens] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
 
   // Registrar voto a nombre de un residente (admin)
@@ -225,6 +226,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       const configRes = await fetch('/api/configuracion-global')
       const configData = configRes.ok ? await configRes.json() : null
       if (configData?.precio_por_token_cop != null) setPrecioProCop(Number(configData.precio_por_token_cop))
+      if (configData?.whatsapp_number != null && typeof configData.whatsapp_number === 'string') setWhatsappNumber(configData.whatsapp_number)
 
       // Cargar preguntas
       const { data: preguntasData, error: preguntasError } = await supabase
@@ -2185,26 +2187,68 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Sin tokens al activar / generar acta (cobro único por asamblea) */}
+      {/* Modal: Sin tokens al activar / generar acta — CTA usa checkout API (monto recalculado en backend) */}
       <Dialog open={sinTokensModalOpen} onOpenChange={setSinTokensModalOpen}>
         <DialogContent className="max-w-lg rounded-3xl">
-          {costoOperacion > 0 && (
-            <Alert className="mb-4 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
-              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <AlertTitle className="text-amber-800 dark:text-amber-200">Saldo insuficiente</AlertTitle>
-              <AlertDescription>
-                Esta asamblea requiere <strong>{costoOperacion} tokens</strong>. Tu saldo actual es <strong>{tokensDisponibles}</strong>. Por favor recarga para continuar.
-              </AlertDescription>
-            </Alert>
-          )}
-          <ComprarTokensCTA
-            conjuntoId={asamblea?.organization_id ?? null}
-            userId={userId}
-            precioCop={precioProCop}
-            planType={null}
-            variant="modal"
-            onClose={() => setSinTokensModalOpen(false)}
-          />
+          <DialogHeader>
+            <DialogTitle className="text-amber-800 dark:text-amber-200">¡Ups! Te faltan tokens para iniciar esta asamblea</DialogTitle>
+            <DialogDescription>
+              Esta asamblea requiere <strong>{costoOperacion} tokens</strong>. Tu saldo actual es <strong>{tokensDisponibles}</strong>. Compra los tokens necesarios para activar la votación o generar el acta.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex flex-col gap-4">
+            {process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL && userId ? (
+              <button
+                type="button"
+                disabled={checkoutLoadingSinTokens}
+                onClick={async () => {
+                  setCheckoutLoadingSinTokens(true)
+                  try {
+                    const res = await fetch('/api/pagos/checkout-url', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        user_id: userId,
+                        conjunto_id: asamblea?.organization_id ?? undefined,
+                        cantidad_tokens: Math.max(1, costoOperacion),
+                      }),
+                    })
+                    const data = await res.json().catch(() => ({}))
+                    if (res.ok && data?.url) {
+                      window.open(data.url, '_blank', 'noopener,noreferrer')
+                      setSinTokensModalOpen(false)
+                    } else {
+                      toast.error(data?.error ?? 'Error al generar enlace de pago')
+                    }
+                  } catch {
+                    toast.error('Error al generar enlace de pago')
+                  } finally {
+                    setCheckoutLoadingSinTokens(false)
+                  }
+                }}
+                className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-3xl text-white text-base font-semibold hover:opacity-90 transition-opacity disabled:opacity-70 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+              >
+                {checkoutLoadingSinTokens ? 'Generando enlace...' : `Comprar ${costoOperacion} tokens ahora`}
+              </button>
+            ) : whatsappNumber ? (
+              <a
+                href={`https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, quiero recargar ${Math.max(1, costoOperacion)} tokens para mi asamblea.`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setSinTokensModalOpen(false)}
+                className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-3xl text-white text-base font-semibold hover:opacity-90 transition-opacity bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+              >
+                Comprar {costoOperacion} tokens ahora
+              </a>
+            ) : (
+              <span className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-3xl bg-slate-200 dark:bg-slate-700 text-slate-500 text-base font-semibold cursor-not-allowed">
+                Configura la pasarela o WhatsApp en Ajustes para comprar
+              </span>
+            )}
+            <Button type="button" variant="outline" onClick={() => setSinTokensModalOpen(false)} className="w-full">
+              Cerrar
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

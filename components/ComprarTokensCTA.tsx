@@ -13,7 +13,9 @@ type ComprarTokensCTAProps = {
   userId?: string | null
   /** Precio en COP por token para mostrar */
   precioCop?: number | null
-  /** Obsoleto: modelo unificado Billetera de Gestor (solo tokens). No mostrar Plan Pro/Piloto. */
+  /** Número WhatsApp para fallback cuando no hay pasarela (ej. desde configuracion_global) */
+  whatsappNumber?: string | null
+  /** Obsoleto: planes eliminados. No ocultar este CTA por plan_type; disponible para TODOS los usuarios activos. */
   planType?: 'free' | 'pilot' | 'pro' | null
   /** blocked = sin tokens; low = pocos tokens; inline = en línea; modal = contenido para modal */
   variant?: ComprarTokensVariant
@@ -38,6 +40,7 @@ export function ComprarTokensCTA({
   conjuntoId = null,
   userId = null,
   precioCop,
+  whatsappNumber = null,
   planType = 'free',
   variant = 'blocked',
   hideComprar = false,
@@ -48,10 +51,15 @@ export function ComprarTokensCTA({
   const params = new URLSearchParams()
   if (userId) params.set('user_id', userId)
   if (conjuntoId) params.set('conjunto_id', conjuntoId)
-  const hrefComprar =
+  const hrefPasarela =
     pasarelaUrl && userId
       ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}${params.toString()}`
       : null
+  const hrefWhatsapp =
+    !hrefPasarela && whatsappNumber && userId
+      ? `https://wa.me/${String(whatsappNumber).replace(/\D/g, '')}?text=${encodeURIComponent('Hola, quiero recargar tokens para mi asamblea.')}`
+      : null
+  const hrefComprar = hrefPasarela ?? hrefWhatsapp ?? null
   const showComprar = !hideComprar && hrefComprar
 
   const isBlocked = variant === 'blocked'

@@ -28,6 +28,7 @@ export default function NuevaAsambleaPage() {
   const [statusError, setStatusError] = useState('')
   const [statusCode, setStatusCode] = useState<number | null>(null)
   const [precioProCop, setPrecioProCop] = useState<number | null>(null)
+  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
@@ -83,6 +84,7 @@ export default function NuevaAsambleaPage() {
             const pro = (planesData?.planes ?? []).find((p: { key: string }) => p.key === 'pro')
             if (pro?.precio_por_asamblea_cop != null) setPrecioProCop(Number(pro.precio_por_asamblea_cop))
           }
+          if (configData?.whatsapp_number != null && typeof configData.whatsapp_number === 'string') setWhatsappNumber(configData.whatsapp_number)
         }
       })
       .catch((err: { code?: number; message?: string } | Error) => {
@@ -291,6 +293,7 @@ export default function NuevaAsambleaPage() {
                 conjuntoId={selectedConjuntoId}
                 userId={userId}
                 precioCop={precioProCop}
+                whatsappNumber={whatsappNumber}
                 planType={null}
                 variant="blocked"
               />

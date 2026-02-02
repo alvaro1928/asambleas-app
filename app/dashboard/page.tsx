@@ -35,11 +35,13 @@ export default function DashboardPage() {
   const [costoOperacion, setCostoOperacion] = useState<number>(0)
   const [precioProCop, setPrecioProCop] = useState<number | null>(null)
   const [colorPrincipalHex, setColorPrincipalHex] = useState<string>('#4f46e5')
+  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null)
   const [selectedConjuntoId, setSelectedConjuntoId] = useState<string | null>(null)
   const [guiaModalOpen, setGuiaModalOpen] = useState(false)
   const [modalCompraOpen, setModalCompraOpen] = useState(false)
   const [compraRapida, setCompraRapida] = useState(true)
   const [cantidadManual, setCantidadManual] = useState<number>(10)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
   const router = useRouter()
 
   const formatPrecioCop = (cop: number) =>
@@ -113,9 +115,10 @@ export default function DashboardPage() {
   const loadConfig = async () => {
     try {
       const configRes = await fetch('/api/configuracion-global')
-      const configData = (await configRes.json()) as { precio_por_token_cop?: number | null; color_principal_hex?: string | null }
+      const configData = (await configRes.json()) as { precio_por_token_cop?: number | null; color_principal_hex?: string | null; whatsapp_number?: string | null }
       if (configData?.precio_por_token_cop != null) setPrecioProCop(Number(configData.precio_por_token_cop))
       if (configData?.color_principal_hex && /^#[0-9A-Fa-f]{6}$/.test(configData.color_principal_hex)) setColorPrincipalHex(configData.color_principal_hex)
+      if (configData?.whatsapp_number != null && typeof configData.whatsapp_number === 'string') setWhatsappNumber(configData.whatsapp_number)
     } catch {
       // ignorar
     }
@@ -198,12 +201,49 @@ export default function DashboardPage() {
   const cantidadCompra = compraRapida ? Math.max(1, costoOperacion) : Math.max(1, cantidadManual)
   const totalPagarCop = (precioProCop ?? 0) * cantidadCompra
   const recargarHrefBase = pasarelaUrl && user?.id
-    ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}user_id=${user.id}${selectedConjuntoId ? `&conjunto_id=${selectedConjuntoId}` : ''}`
+    ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}user_id=${encodeURIComponent(user.id)}${selectedConjuntoId ? `&conjunto_id=${encodeURIComponent(selectedConjuntoId)}` : ''}`
     : null
-  const recargarHref = recargarHrefBase && (precioProCop ?? 0) > 0
-    ? `${recargarHrefBase}&cantidad=${cantidadCompra}&monto_cop=${totalPagarCop}`
-    : recargarHrefBase
+  const recargarHref = recargarHrefBase
+    ? `${recargarHrefBase}&cantidad_tokens=${cantidadCompra}&monto_total_cop=${totalPagarCop}`
+    : null
+  const whatsappHref = !pasarelaUrl && whatsappNumber
+    ? `https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, quiero recargar ${cantidadCompra} tokens para mi asamblea.`)}`
+    : null
+  const irAPagarHref = recargarHref ?? whatsappHref ?? '#'
   const tokensInsuficientes = selectedConjuntoId && costoOperacion > 0 && tokensDisponibles < costoOperacion
+
+  const handleIrAPagar = async () => {
+    if (pasarelaUrl && user?.id) {
+      setCheckoutLoading(true)
+      try {
+        const res = await fetch('/api/pagos/checkout-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: user.id,
+            conjunto_id: selectedConjuntoId || undefined,
+            cantidad_tokens: cantidadCompra,
+          }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          toast.error(data?.error ?? 'Error al generar enlace de pago')
+          return
+        }
+        if (data?.url) {
+          window.open(data.url, '_blank', 'noopener,noreferrer')
+          setModalCompraOpen(false)
+        }
+      } catch {
+        toast.error('Error al generar enlace de pago')
+      } finally {
+        setCheckoutLoading(false)
+      }
+    } else if (whatsappHref) {
+      window.open(whatsappHref, '_blank', 'noopener,noreferrer')
+      setModalCompraOpen(false)
+    }
+  }
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#0B0E14' }}>
@@ -239,24 +279,16 @@ export default function DashboardPage() {
                     {precioProCop != null && precioProCop > 0 && (
                       <p className="text-[10px] text-slate-500">Paga solo {formatPrecioCop(precioProCop)}/unidad · Ahorra hasta 75%</p>
                     )}
-                    {recargarHref ? (
-                      <button
-                        type="button"
-                        onClick={() => setModalCompraOpen(true)}
-                        className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-3xl text-white text-xs font-semibold hover:opacity-90 transition-opacity"
-                        style={{ backgroundColor: colorPrincipalHex }}
-                      >
-                        <Plus className="w-4 h-4" />
-                        Comprar tokens
-                      </button>
-                    ) : (
-                      <UiTooltip content="El administrador debe configurar la pasarela de pagos (Ajustes) para habilitar la compra">
-                        <span className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-3xl bg-slate-500/50 text-slate-300 text-xs font-semibold cursor-not-allowed">
-                          <Plus className="w-4 h-4" />
-                          Comprar tokens
-                        </span>
-                      </UiTooltip>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setModalCompraOpen(true)}
+                      className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-3xl text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+                      style={{ backgroundColor: colorPrincipalHex }}
+                      title="Abrir modal de compra (rápida o libre)"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Recargar
+                    </button>
                   </div>
                 </div>
               )}
@@ -310,17 +342,45 @@ export default function DashboardPage() {
                         Total a pagar: {formatPrecioCop(totalPagarCop)} <span className="text-slate-400 font-normal">({cantidadCompra} × {formatPrecioCop(precioProCop)})</span>
                       </p>
                     )}
-                    <a
-                      href={recargarHref ?? '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => setModalCompraOpen(false)}
-                      className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-3xl text-white text-sm font-semibold hover:opacity-90 transition-opacity"
-                      style={{ backgroundColor: colorPrincipalHex }}
-                    >
-                      <Plus className="w-4 h-4" />
-                      Ir a pagar
-                    </a>
+                    {irAPagarHref && irAPagarHref !== '#' ? (
+                      pasarelaUrl ? (
+                        <button
+                          type="button"
+                          onClick={handleIrAPagar}
+                          disabled={checkoutLoading}
+                          className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-3xl text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-70"
+                          style={{ backgroundColor: colorPrincipalHex }}
+                        >
+                          {checkoutLoading ? (
+                            <span className="animate-pulse">Generando enlace...</span>
+                          ) : (
+                            <>
+                              <Plus className="w-4 h-4" />
+                              Ir a pagar
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <a
+                          href={whatsappHref ?? '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setModalCompraOpen(false)}
+                          className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-3xl text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                          style={{ backgroundColor: colorPrincipalHex }}
+                        >
+                          <Plus className="w-4 h-4" />
+                          Contactar por WhatsApp
+                        </a>
+                      )
+                    ) : (
+                      <UiTooltip content="Configura la pasarela de pagos o un número de WhatsApp en Ajustes para habilitar la compra">
+                        <span className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-3xl bg-slate-500/50 text-slate-300 text-sm font-semibold cursor-not-allowed">
+                          <Plus className="w-4 h-4" />
+                          Ir a pagar
+                        </span>
+                      </UiTooltip>
+                    )}
                   </div>
                 </DialogContent>
               </Dialog>
@@ -414,6 +474,7 @@ export default function DashboardPage() {
               conjuntoId={selectedConjuntoId}
               userId={user?.id ?? undefined}
               precioCop={precioProCop}
+              whatsappNumber={whatsappNumber}
               variant={tokensDisponibles === 0 ? 'blocked' : 'low'}
               planType={null}
             />
@@ -449,6 +510,22 @@ export default function DashboardPage() {
                 <p className="text-slate-400 mt-1">
                   Estás listo para gestionar tus asambleas
                 </p>
+                {selectedConjuntoId && (
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <span className="text-sm text-slate-400">
+                      Saldo: <strong className="text-slate-200">{tokensDisponibles} tokens</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setModalCompraOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl border border-white/20 text-slate-200 hover:text-white hover:bg-white/10 transition-colors text-sm font-medium"
+                      title="Abrir modal de compra de tokens"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Cargar Créditos
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

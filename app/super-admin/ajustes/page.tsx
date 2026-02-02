@@ -78,7 +78,7 @@ export default function SuperAdminAjustesPage() {
         toast.error(err.error || 'Error al guardar')
         return
       }
-      toast.success('Ajustes guardados. La landing y el color principal se actualizarán al recargar.')
+      toast.success('Ajustes guardados. La landing mostrará el nuevo precio y el color principal al recargar la página.')
     } catch (e) {
       console.error(e)
       toast.error('Error al guardar')

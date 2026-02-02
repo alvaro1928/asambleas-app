@@ -40,7 +40,7 @@ export default function Home() {
   const [bonoBienvenidaTokens, setBonoBienvenidaTokens] = useState<number | null>(null)
 
   useEffect(() => {
-    fetch('/api/configuracion-global')
+    fetch('/api/config/public', { cache: 'no-store' })
       .then((res) => res.ok ? res.json() : null)
       .then((data: {
         titulo?: string | null
@@ -90,7 +90,7 @@ export default function Home() {
               </Link>
             </div>
             <p className="mt-6 text-sm text-slate-400 max-w-xl">
-              Con Asambleas App pagas solo {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop) : '$1.500'} por unidad. Ahorra hasta un 75% frente a servicios tradicionales ($600.000+).
+              Paga solo por lo que usas: {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop) : '—'} COP por unidad. Ahorra un 75% frente a servicios tradicionales (Costo promedio $600.000 vs {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop * 100) : '—'} con nosotros para 100 unidades).
             </p>
           </div>
         </div>
@@ -150,17 +150,17 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Precios: simplificado — precio desde configuracion_global.precio_por_token_cop, bono desde bono_bienvenida_tokens */}
-      <section className="py-16 md:py-20 border-b border-slate-800" style={{ backgroundColor: '#0B0E14' }}>
+      {/* Precios: variable global desde configuracion_global vía /api/config/public */}
+      <section className="py-16 md:py-20 border-b border-slate-800 rounded-3xl mx-4 sm:mx-6 lg:mx-8" style={{ backgroundColor: '#0B0E14', borderColor: 'rgba(255,255,255,0.1)' }}>
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <p className="text-center text-xl md:text-2xl font-bold text-white mb-2">
-            Paga solo por lo que usas: 1 Token = 1 Unidad de vivienda
+            Paga solo por lo que usas: {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop) : '—'} COP por unidad
           </p>
           <p className="text-center text-slate-400 text-sm mb-8">
-            Precio por token (desde configuración)
+            1 Token = 1 Unidad de vivienda · Precio controlado desde Super Admin
           </p>
 
-          <div className="rounded-3xl border p-8 space-y-6" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.5)' }}>
+          <div className="rounded-3xl border p-8 space-y-6" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0B0E14' }}>
             <div className="text-center">
               <p className="text-3xl md:text-4xl font-bold text-white">
                 {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop) : '—'}
@@ -174,7 +174,7 @@ export default function Home() {
               </p>
             </div>
             <p className="text-center text-slate-400 text-sm">
-              Con Asambleas App pagas solo {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop) : '$1.500'} por unidad. Ahorra hasta un 75% frente a servicios tradicionales ($600.000+).
+              Ahorra un 75% frente a servicios tradicionales (Costo promedio $600.000 vs {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop * 100) : '—'} con nosotros para 100 unidades).
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
