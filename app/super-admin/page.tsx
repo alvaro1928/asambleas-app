@@ -93,6 +93,7 @@ export default function SuperAdminPage() {
   const [estadoSistema, setEstadoSistema] = useState<EstadoSistema | null>(null)
   const [gestores, setGestores] = useState<GestorRow[]>([])
   const [gestoresError, setGestoresError] = useState<string | null>(null)
+  const [gestoresHint, setGestoresHint] = useState<string | null>(null)
   const [tokensGestor, setTokensGestor] = useState<Record<string, string>>({})
   const [agregarTokensGestor, setAgregarTokensGestor] = useState<Record<string, string>>({})
   const [updatingTokensGestorId, setUpdatingTokensGestorId] = useState<string | null>(null)
@@ -210,9 +211,11 @@ export default function SuperAdminPage() {
 
       const gestoresRes = await fetch('/api/super-admin/gestores', { credentials: 'include' })
       setGestoresError(null)
+      setGestoresHint(null)
       if (gestoresRes.ok) {
         const gestoresData = await gestoresRes.json()
         setGestores(gestoresData.gestores ?? [])
+        if (gestoresData._hint) setGestoresHint(gestoresData._hint)
       } else {
         const errData = await gestoresRes.json().catch(() => ({}))
         setGestoresError(errData.error || `Error ${gestoresRes.status} al cargar gestores`)
@@ -760,7 +763,11 @@ export default function SuperAdminPage() {
                         ) : gestores.length === 0 ? (
                           <>
                             <p>No hay gestores en la lista. <strong>No hace falta registrarse aparte</strong>: si iniciaste sesión y ves tokens en el Dashboard, ya eres gestor.</p>
-                            <p className="text-sm">La lista se llena desde la base de datos (tabla <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">profiles</code>). Revisa que <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> esté en Vercel y vuelve a desplegar.</p>
+                            {gestoresHint ? (
+                              <p className="text-sm mt-2 p-2 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200">{gestoresHint}</p>
+                            ) : (
+                              <p className="text-sm">La lista se llena desde la base de datos (tabla <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">profiles</code>). Revisa que <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> esté en Vercel y vuelve a desplegar.</p>
+                            )}
                           </>
                         ) : (
                           'Ningún gestor coincide con el filtro.'

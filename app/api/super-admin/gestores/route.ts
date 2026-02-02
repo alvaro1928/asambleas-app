@@ -252,7 +252,22 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ gestores })
+    // Diagnóstico si sigue vacío: contar filas y mostrar columnas del primer registro
+    let hint: string | undefined
+    if (gestores.length === 0) {
+      try {
+        const { count } = await admin.from('profiles').select('*', { count: 'exact', head: true })
+        const { data: oneRow } = await admin.from('profiles').select('*').limit(1).maybeSingle()
+        const keys = oneRow && typeof oneRow === 'object' ? Object.keys(oneRow as object) : []
+        hint = count != null && count > 0
+          ? `Hay ${count} fila(s) en profiles. Columnas: ${keys.join(', ') || 'ninguna'}. Se esperan id o user_id para identificar al gestor.`
+          : 'No se pudo leer la tabla profiles (revisa SUPABASE_SERVICE_ROLE_KEY y que la clave sea del mismo proyecto que NEXT_PUBLIC_SUPABASE_URL).'
+      } catch {
+        hint = 'Error al diagnosticar la tabla profiles.'
+      }
+    }
+
+    return NextResponse.json(hint ? { gestores, _hint: hint } : { gestores })
   } catch (e) {
     console.error('super-admin gestores GET:', e)
     return NextResponse.json({ error: 'Error al listar gestores' }, { status: 500 })
