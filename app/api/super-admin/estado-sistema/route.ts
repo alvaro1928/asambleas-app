@@ -71,12 +71,14 @@ export async function GET() {
     let userIds = new Set<string>()
     const { data: perfilesUser } = await admin.from('profiles').select('user_id')
     if (perfilesUser && perfilesUser.length > 0) {
-      userIds = new Set((perfilesUser as { user_id?: string }[]).map((p) => p.user_id).filter(Boolean))
+      const ids = (perfilesUser as { user_id?: string }[]).map((p) => p.user_id).filter((x): x is string => Boolean(x))
+      userIds = new Set(ids)
     }
     if (userIds.size === 0) {
       const { data: perfilesId } = await admin.from('profiles').select('id')
       if (perfilesId && perfilesId.length > 0) {
-        userIds = new Set((perfilesId as { id?: string }[]).map((p) => p.id).filter(Boolean))
+        const ids = (perfilesId as { id?: string }[]).map((p) => p.id).filter((x): x is string => Boolean(x))
+        userIds = new Set(ids)
       }
     }
     const tokensRegaladosEstimado = bonoBienvenida * userIds.size
