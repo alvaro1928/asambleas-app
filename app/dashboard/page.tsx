@@ -564,6 +564,76 @@ export default function DashboardPage() {
               </UiTooltip>
             </div>
           </div>
+
+          {/* Guía: Uso de tokens y qué permite la aplicación */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 sm:p-8 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+              <svg className="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Guía: tokens y funcionalidades
+            </h3>
+
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* Uso de tokens */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 text-sm">1</span>
+                  ¿Qué son los tokens y cuándo se consumen?
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Los tokens son créditos de tu billetera. El costo de una operación equivale al número de unidades de tu conjunto (1 token = 1 unidad). Se descuentan <strong>en el momento</strong> en que realizas una de estas acciones:
+                </p>
+                <ul className="list-none space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
+                    <span><strong>Activar votación</strong> — Al abrir la votación para que los copropietarios voten en una asamblea.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
+                    <span><strong>Descargar acta con auditoría</strong> — Al generar el PDF del acta con detalle de votos y coeficientes.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
+                    <span><strong>Registro manual de voto</strong> — Cuando registras un voto en nombre de un copropietario desde el panel de control.</span>
+                  </li>
+                </ul>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Crear asambleas, preguntas o importar unidades <strong>no</strong> consume tokens. Si tu saldo es menor al costo por operación, no podrás activar votaciones ni descargar actas hasta que compres más tokens.
+                </p>
+              </div>
+
+              {/* Qué permite la aplicación */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400 text-sm">2</span>
+                  ¿Qué puedes hacer con la aplicación?
+                </h4>
+                <ul className="list-none space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5 shrink-0">✓</span>
+                    <span><strong>Conjuntos y unidades</strong> — Registrar conjuntos residenciales, cargar unidades con coeficientes (Ley 675) y datos de contacto.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5 shrink-0">✓</span>
+                    <span><strong>Asambleas</strong> — Crear asambleas, definir preguntas y opciones de votación (Sí/No u otras).</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5 shrink-0">✓</span>
+                    <span><strong>Votaciones en línea</strong> — Enviar enlace a copropietarios para que voten desde el celular o PC; ver en tiempo real quién ha votado y resultados por coeficiente.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5 shrink-0">✓</span>
+                    <span><strong>Actas</strong> — Generar actas con resultados, umbral de aprobación y auditoría (consumen tokens).</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5 shrink-0">✓</span>
+                    <span><strong>Billetera de tokens</strong> — Comprar más tokens cuando lo necesites; los nuevos gestores reciben un bono de bienvenida.</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>

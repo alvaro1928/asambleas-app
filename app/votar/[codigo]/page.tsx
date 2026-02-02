@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, BarChart3, Clock, RefreshCw, History, LogOut } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, BarChart3, Clock, RefreshCw, History, LogOut, FileDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -102,6 +102,7 @@ export default function VotacionPublicaPage() {
   const [votando, setVotando] = useState<string | null>(null)
   const [recargando, setRecargando] = useState(false)
   const [mostrarHistorial, setMostrarHistorial] = useState(false)
+  const [descargandoCertificado, setDescargandoCertificado] = useState(false)
   const [clientIp, setClientIp] = useState<string | null>(null)
 
   // Para marcar salida al cerrar/abandonar la página (solo sesiones activas en el registro)
@@ -946,6 +947,51 @@ export default function VotacionPublicaPage() {
               >
                 <History className="w-4 h-4 mr-2" />
                 {mostrarHistorial ? 'Ocultar' : 'Ver'} Historial
+              </Button>
+
+              <Button
+                onClick={async () => {
+                  setDescargandoCertificado(true)
+                  try {
+                    const res = await fetch('/api/votar/certificado-mis-votos', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ codigo, email: email.trim() }),
+                    })
+                    const text = await res.text()
+                    if (!res.ok) {
+                      let msg = 'No se pudo generar el certificado.'
+                      try {
+                        const data = JSON.parse(text)
+                        if (data?.error) msg = data.error
+                      } catch {
+                        // ignorar
+                      }
+                      if (res.status === 429) {
+                        toast.info(msg)
+                      } else {
+                        toast.error(msg)
+                      }
+                      return
+                    }
+                    const blob = new Blob([text], { type: 'text/html;charset=utf-8' })
+                    const url = URL.createObjectURL(blob)
+                    window.open(url, '_blank', 'noopener,noreferrer')
+                    setTimeout(() => URL.revokeObjectURL(url), 60000)
+                    toast.success('Certificado abierto. Puedes imprimirlo o guardar como PDF.')
+                  } catch (e) {
+                    toast.error('Error al descargar el certificado.')
+                  } finally {
+                    setDescargandoCertificado(false)
+                  }
+                }}
+                disabled={descargandoCertificado}
+                variant="outline"
+                className="border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                title="Descargar un acta con el registro de tus votos (transparencia). Máximo 3 por hora. No consume tokens."
+              >
+                <FileDown className={`w-4 h-4 mr-2 ${descargandoCertificado ? 'animate-pulse' : ''}`} />
+                {descargandoCertificado ? 'Generando...' : 'Certificado de mis votos'}
               </Button>
             </div>
           </div>
