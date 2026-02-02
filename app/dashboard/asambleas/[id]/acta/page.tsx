@@ -126,7 +126,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
       const { data: asambleaData, error: asambleaError } = await supabase
         .from('asambleas')
-        .select('id, nombre, fecha, estado, organization_id')
+        .select('*')
         .eq('id', params.id)
         .eq('organization_id', selectedConjuntoId)
         .single()
@@ -136,6 +136,11 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         return
       }
       setAsamblea(asambleaData)
+      // Cobro único por asamblea: si ya se pagó (p. ej. al activar votación), mostrar acta sin puerta de cobro
+      if (typeof window !== 'undefined' && (asambleaData as { pago_realizado?: boolean }).pago_realizado === true) {
+        sessionStorage.setItem('acta_generada_' + params.id, '1')
+        setActaGenerada(true)
+      }
 
       const { data: orgData } = await supabase
         .from('organizations')
@@ -145,11 +150,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       const org = orgData as { name?: string } | null
       setConjunto(org && typeof org.name === 'string' ? { name: org.name } : null)
 
-      // Billetera por gestor: acta con auditoría requiere tokens >= unidades del conjunto
+      // Billetera por gestor: acceso si tiene tokens o si la asamblea ya fue pagada (cobro único)
       const orgId = asambleaData.organization_id
       const statusRes = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(orgId ?? '')}`)
       const statusData = statusRes.ok ? await statusRes.json() : null
-      setIncluyeActaDetallada(!!statusData?.puede_operar)
+      const yaPagada = (asambleaData as { pago_realizado?: boolean }).pago_realizado === true
+      setIncluyeActaDetallada(!!statusData?.puede_operar || yaPagada)
       setTokensDisponibles(Math.max(0, Number(statusData?.tokens_disponibles ?? 0)))
       setCostoOperacion(Math.max(0, Number(statusData?.costo_operacion ?? 0)))
 
@@ -434,7 +440,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             Generar acta
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Generar el acta con auditoría consumirá <strong>{costoOperacion} tokens</strong> de tu billetera (1 token = 1 unidad del conjunto). Una vez generada, podrás imprimirla o guardarla como PDF cuantas veces quieras (Ctrl+P o el botón) sin consumir más tokens.
+            Cobro único por asamblea: generar el acta consumirá <strong>{costoOperacion} tokens</strong> (1 token = 1 unidad). Si ya pagaste al activar la votación, no se vuelve a cobrar. Una vez generada, podrás imprimir (Ctrl+P o botón) sin consumir más tokens.
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
             Tu saldo: <strong>{tokensDisponibles} tokens</strong>

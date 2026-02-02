@@ -47,6 +47,8 @@ interface Asamblea {
   codigo_acceso?: string
   url_publica?: string
   acceso_publico?: boolean
+  /** Cobro único por asamblea: true = ya se cobró (Activar o Acta); no se vuelve a descontar */
+  pago_realizado?: boolean
 }
 
 interface Pregunta {
@@ -848,7 +850,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!asamblea) return
 
     if (nuevoEstado === 'activa') {
-      if (!puedeOperar || (costoOperacion > 0 && tokensDisponibles < costoOperacion)) {
+      const yaPagada = asamblea.pago_realizado === true
+      if (!yaPagada && (!puedeOperar || (costoOperacion > 0 && tokensDisponibles < costoOperacion))) {
         setSinTokensModalOpen(true)
         toast.error('Saldo insuficiente para esta operación.')
         return
@@ -877,6 +880,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           return
         }
         if (data.tokens_restantes != null) setTokensDisponibles(Math.max(0, Number(data.tokens_restantes)))
+        if (data.pago_realizado === true) setAsamblea((prev) => (prev ? { ...prev, pago_realizado: true } : null))
       } catch (e) {
         console.error('Descontar token:', e)
         toast.error(
@@ -989,17 +993,23 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               <div className="flex items-center gap-2 rounded-3xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
                 <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
                 <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens</span>
-                {costoOperacion > 0 && (
-                  <span className="text-xs text-slate-500 dark:text-slate-400">(costo/op: {costoOperacion})</span>
+                {costoOperacion > 0 && !asamblea.pago_realizado && (
+                  <span className="text-xs text-slate-500 dark:text-slate-400">(costo asamblea: {costoOperacion})</span>
                 )}
               </div>
+              {asamblea.pago_realizado && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                  Asamblea Pagada / Acceso Total
+                </span>
+              )}
               {getEstadoBadge(asamblea.estado)}
               {asamblea.estado === 'borrador' && (
-                puedeOperar ? (
+                (puedeOperar || asamblea.pago_realizado) ? (
                   <div className="flex flex-col gap-1">
-                    {costoOperacion > 0 && (
+                    {!asamblea.pago_realizado && costoOperacion > 0 && (
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Esta operación consumirá {costoOperacion} tokens. Saldo actual: {tokensDisponibles}.
+                        Activar consumirá {costoOperacion} tokens (cobro único por asamblea). Saldo: {tokensDisponibles}.
                       </p>
                     )}
                     <Button
@@ -1024,11 +1034,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 )
               )}
               {(asamblea.estado === 'finalizada' || asamblea.estado === 'activa' || preguntas.some(p => p.estado === 'cerrada')) && (
-                puedeOperar ? (
+                (puedeOperar || asamblea.pago_realizado) ? (
                   <div className="flex flex-col gap-1">
-                    {costoOperacion > 0 && (
+                    {!asamblea.pago_realizado && costoOperacion > 0 && (
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Esta operación consumirá {costoOperacion} tokens. Saldo actual: {tokensDisponibles}.
+                        Generar acta consumirá {costoOperacion} tokens (cobro único). Saldo: {tokensDisponibles}.
                       </p>
                     )}
                     <Link href={`/dashboard/asambleas/${params.id}/acta`}>
@@ -2175,9 +2185,18 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Sin tokens al activar asamblea Pro (estilo apps de IA) */}
+      {/* Modal: Sin tokens al activar / generar acta (cobro único por asamblea) */}
       <Dialog open={sinTokensModalOpen} onOpenChange={setSinTokensModalOpen}>
         <DialogContent className="max-w-lg rounded-3xl">
+          {costoOperacion > 0 && (
+            <Alert className="mb-4 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertTitle className="text-amber-800 dark:text-amber-200">Saldo insuficiente</AlertTitle>
+              <AlertDescription>
+                Esta asamblea requiere <strong>{costoOperacion} tokens</strong>. Tu saldo actual es <strong>{tokensDisponibles}</strong>. Por favor recarga para continuar.
+              </AlertDescription>
+            </Alert>
+          )}
           <ComprarTokensCTA
             conjuntoId={asamblea?.organization_id ?? null}
             userId={userId}

@@ -53,19 +53,34 @@ export async function POST(request: NextRequest) {
       { auth: { persistSession: false } }
     )
 
-    const { data: asamblea, error: asambleaError } = await admin
+    const { data: asambleaRow, error: asambleaError } = await admin
       .from('asambleas')
-      .select('id, organization_id, estado')
+      .select('*')
       .eq('id', asamblea_id)
       .maybeSingle()
 
-    if (asambleaError || !asamblea) {
+    if (asambleaError || !asambleaRow) {
       return NextResponse.json({ error: 'Asamblea no encontrada' }, { status: 404 })
     }
 
-    const orgId = (asamblea as { organization_id?: string }).organization_id
+    const asamblea = asambleaRow as { organization_id?: string; estado?: string; pago_realizado?: boolean }
+    const orgId = asamblea.organization_id
     if (!orgId) {
       return NextResponse.json({ error: 'Asamblea sin conjunto' }, { status: 400 })
+    }
+
+    // Cobro único por asamblea: si ya se pagó, permitir acción sin descontar
+    if (asamblea.pago_realizado === true) {
+      const { data: prof } = await admin.from('profiles').select('tokens_disponibles').eq('user_id', session.user.id).limit(1).maybeSingle()
+      const saldo = Math.max(0, Math.floor(Number((prof as { tokens_disponibles?: number } | null)?.tokens_disponibles ?? 0)))
+      return NextResponse.json({
+        ok: true,
+        descontado: false,
+        motivo: 'asamblea_ya_pagada',
+        pago_realizado: true,
+        tokens_restantes: saldo,
+        unidades: 0,
+      })
     }
 
     const { data: profile } = await supabase
@@ -87,7 +102,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const estado = (asamblea as { estado?: string }).estado
+    const estado = asamblea.estado
     if (estado !== 'borrador') {
       return NextResponse.json({ ok: true, descontado: false, motivo: 'asamblea_ya_activada' })
     }
@@ -139,6 +154,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
+    await admin.from('asambleas').update({ pago_realizado: true }).eq('id', asamblea_id)
+
     try {
       await admin.from('billing_logs').insert({
         user_id: session.user.id,
@@ -147,7 +164,7 @@ export async function POST(request: NextRequest) {
         organization_id: orgId,
         tokens_usados: costoInt,
         saldo_restante: nuevoSaldo,
-        metadata: { unidades },
+        metadata: { unidades, costo_cobrado: costoInt },
       })
     } catch (e) {
       console.error('billing_logs insert:', e)
@@ -156,6 +173,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       descontado: true,
+      pago_realizado: true,
       tokens_restantes: nuevoSaldo,
       costo: costoInt,
       unidades,
