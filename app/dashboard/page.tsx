@@ -109,13 +109,6 @@ export default function DashboardPage() {
       const configData = (await configRes.json()) as { precio_por_token_cop?: number | null }
       if (configData?.precio_por_token_cop != null) {
         setPrecioProCop(Number(configData.precio_por_token_cop))
-        return
-      }
-      const res = await fetch('/api/planes')
-      const data = (await res.json()) as { planes?: Array<{ key: string; precio_por_asamblea_cop?: number }> }
-      const pro = data?.planes?.find(p => p.key === 'pro')
-      if (pro != null && typeof pro.precio_por_asamblea_cop === 'number') {
-        setPrecioProCop(pro.precio_por_asamblea_cop)
       }
     } catch {
       // ignorar
@@ -207,16 +200,16 @@ export default function DashboardPage() {
             <div className="flex items-center space-x-4">
               <ConjuntoSelector />
               {selectedConjuntoId && (
-                <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Billetera:
+                <div className="flex items-center gap-2 rounded-3xl px-4 py-2.5 border border-[rgba(255,255,255,0.1)] bg-indigo-500/10 dark:bg-indigo-400/10 shadow-sm">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
+                    Saldo (perfil):
                   </span>
-                  <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                  <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
                     {tokensDisponibles} tokens
                   </span>
                   {costoOperacion > 0 && (
                     <span className="text-xs text-slate-500 dark:text-slate-400">
-                      (costo por operación: {costoOperacion})
+                      costo/op: {costoOperacion}
                     </span>
                   )}
                 </div>

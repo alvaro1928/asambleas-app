@@ -847,7 +847,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const handleChangeEstadoAsamblea = async (nuevoEstado: 'borrador' | 'activa' | 'finalizada') => {
     if (!asamblea) return
 
-    if (nuevoEstado === 'activa' && preguntas.length > 2) {
+    if (nuevoEstado === 'activa') {
+      if (costoOperacion > 0 && tokensDisponibles < costoOperacion) {
+        setSinTokensModalOpen(true)
+        toast.error(`Saldo insuficiente: Necesitas ${costoOperacion} tokens (1 por unidad) para pasar a fase de votación.`)
+        return
+      }
       try {
         const res = await fetch('/api/dashboard/descontar-token-asamblea-pro', {
           method: 'POST',
@@ -872,6 +877,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           toast.error(msg)
           return
         }
+        if (data.tokens_restantes != null) setTokensDisponibles(Math.max(0, Number(data.tokens_restantes)))
       } catch (e) {
         console.error('Descontar token:', e)
         toast.error(

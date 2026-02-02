@@ -409,7 +409,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 loadAvanceVotaciones()
               }}
               disabled={recargando}
-              className="rounded-2xl border-gray-200 dark:border-[rgba(255,255,255,0.1)]"
+              className="rounded-3xl border-gray-200 dark:border-[rgba(255,255,255,0.1)]"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
               Actualizar
@@ -417,26 +417,26 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           </div>
 
           {saldoInsuficiente && (
-            <div className="mb-4 rounded-2xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 flex items-center gap-3">
+            <div className="mb-4 rounded-3xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 flex items-center gap-3">
               <span className="text-amber-400 font-semibold">Saldo insuficiente para procesar esta asamblea.</span>
               <span className="text-slate-300 text-sm">Billetera: {tokensDisponibles} tokens · Se requieren {totalUnidadesConjunto} para esta operación.</span>
             </div>
           )}
 
           {/* Link de votación: contenedor destacado parte superior central, fuente legible, Copiar Enlace con icono */}
-          <div className="w-full flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-2xl border border-[rgba(255,255,255,0.1)] px-4 py-4 mb-4" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+          <div className="w-full flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-3xl border border-[rgba(255,255,255,0.1)] px-4 py-4 mb-4" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
             <label className="sr-only">Enlace de votación</label>
             <input
               type="text"
               readOnly
               value={urlPublica}
-              className="flex-1 min-w-0 px-4 py-3 text-base sm:text-lg bg-white/5 border border-[rgba(255,255,255,0.1)] rounded-2xl text-slate-200 truncate font-sans"
+              className="flex-1 min-w-0 px-4 py-3 text-base sm:text-lg bg-white/5 border border-[rgba(255,255,255,0.1)] rounded-3xl text-slate-200 truncate font-sans"
               style={{ color: '#e2e8f0' }}
               aria-label="URL de votación"
             />
             <Button
               onClick={copiarEnlace}
-              className="shrink-0 rounded-2xl font-semibold bg-white text-slate-800 hover:bg-slate-100 border border-[rgba(255,255,255,0.1)] flex items-center justify-center gap-2 py-3 px-5"
+              className="shrink-0 rounded-3xl font-semibold bg-white text-slate-800 hover:bg-slate-100 border border-[rgba(255,255,255,0.1)] flex items-center justify-center gap-2 py-3 px-5"
               title="Copiar enlace al portapapeles"
             >
               <Copy className="w-5 h-5" />
@@ -469,7 +469,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Columna izquierda: QR + Resumen */}
           <div className="lg:col-span-1 space-y-6">
-            <Card className="rounded-2xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+            <Card className="rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
               <CardHeader className="bg-indigo-600 text-white py-4">
                 <CardTitle className="text-lg flex items-center">
                   <QrCode className="w-5 h-5 mr-2" />
@@ -491,7 +491,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl border border-[rgba(255,255,255,0.1)] bg-slate-900/50 dark:bg-slate-800/50">
+            <Card className="rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
               <CardHeader>
                 <CardTitle className="text-md flex items-center">
                   <Building2 className="w-4 h-4 mr-2 text-gray-500" />
@@ -518,7 +518,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           <div className="lg:col-span-2">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100vh-12rem)] min-h-[480px]">
               {/* Sesión Activa: unidades con ping de quórum activo */}
-              <Card className="flex flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+              <Card className="flex flex-col overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
                 <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-green-50 dark:bg-green-900/20">
                   <div className="flex items-center justify-between gap-2">
                     <CardTitle className="text-sm flex items-center gap-1.5">
@@ -567,7 +567,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </Card>
 
               {/* Ya Votaron: unidades con registro en tabla votos para la pregunta actual */}
-              <Card className="flex flex-col overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+              <Card className="flex flex-col overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
                 <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0">
                   <CardTitle className="text-sm flex items-center gap-1.5 text-slate-200">
                     <UserCheck className="w-4 h-4 text-emerald-500" />
@@ -608,7 +608,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </Card>
 
               {/* Pendientes (Faltantes): (Unidades en Quórum) − (Ya votaron) — prioridad para el Gestor */}
-              <Card className="flex flex-col overflow-hidden rounded-2xl border border-amber-500/50 border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+              <Card className="flex flex-col overflow-hidden rounded-3xl border border-amber-500/50 border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
                 <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-amber-50 dark:bg-amber-900/20">
                   <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
                     <UserX className="w-4 h-4" />
@@ -655,7 +655,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
           {/* Gráfica de votación Pro: barras horizontales Recharts, % coeficiente + número de votos, umbral, badge MAYORÍA ALCANZADA */}
           {preguntasConResultados.length > 0 && (
-            <Card className="mt-6 rounded-2xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+            <Card className="mt-6 rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
               <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-[rgba(255,255,255,0.1)] py-4 px-6">
                 <div>
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -780,7 +780,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       {/* Modal: gráfica de avance en grande (pop-up) */}
       <Dialog open={graficaMaximizada} onOpenChange={setGraficaMaximizada}>
-        <DialogContent className="max-w-6xl w-[95vw] max-h-[95vh] overflow-y-auto p-8 rounded-2xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: '#0B0E14' }}>
+        <DialogContent className="max-w-6xl w-[95vw] max-h-[95vh] overflow-y-auto p-8 rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: '#0B0E14' }}>
           <DialogHeader className="flex flex-row items-center justify-between gap-4 pr-10">
             <DialogTitle className="flex items-center gap-2 text-xl text-slate-100">
               <Vote className="w-6 h-6 text-emerald-500" />
