@@ -198,7 +198,7 @@ export async function GET() {
             }
           }
         }
-        for (const uid of ids) {
+        for (const uid of Array.from(ids)) {
           const { data: userData } = await admin.auth.admin.getUserById(uid)
           const u = userData?.user
           if (u) {
