@@ -66,30 +66,48 @@ export default function ImportarUnidadesPage() {
     setError('')
   }
 
-  // Cargar cantidad de unidades existentes al montar el componente
-  useEffect(() => {
-    checkExistingUnits()
-  }, [])
-
-  const checkExistingUnits = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
+  /** Obtiene el organization_id del conjunto donde importar: el seleccionado en el header o el primero del usuario. */
+  const getOrganizationIdForImport = async (): Promise<string | null> => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+    const selectedId = typeof window !== 'undefined' ? localStorage.getItem('selectedConjuntoId') : null
+    if (selectedId) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+        .eq('organization_id', selectedId)
         .limit(1)
         .maybeSingle()
+      if (profile?.organization_id) return profile.organization_id
+    }
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    return profile?.organization_id ?? null
+  }
 
-      if (!profile?.organization_id) return
+  // Cargar cantidad de unidades existentes del conjunto seleccionado (y al cambiar de conjunto)
+  useEffect(() => {
+    checkExistingUnits()
+    const onStorage = () => { checkExistingUnits() }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  const checkExistingUnits = async () => {
+    try {
+      const orgId = await getOrganizationIdForImport()
+      if (!orgId) return
 
       const { count } = await supabase
         .from('unidades')
         .select('*', { count: 'exact', head: true })
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', orgId)
 
       setUnidadesExistentes(count || 0)
     } catch (error) {
@@ -102,28 +120,16 @@ export default function ImportarUnidadesPage() {
     setError('')
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        throw new Error('No hay usuario autenticado')
+      const orgId = await getOrganizationIdForImport()
+      if (!orgId) {
+        throw new Error('Selecciona un conjunto en el selector del header o crea uno.')
       }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      if (!profile?.organization_id) {
-        throw new Error('No tienes un conjunto registrado')
-      }
-
-      // Eliminar todas las unidades del conjunto
+      // Eliminar todas las unidades del conjunto seleccionado
       const { error: deleteError } = await supabase
         .from('unidades')
         .delete()
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', orgId)
 
       if (deleteError) {
         throw new Error('Error al eliminar las unidades: ' + deleteError.message)
@@ -264,29 +270,16 @@ export default function ImportarUnidadesPage() {
     setError('')
 
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-      
-      if (userError || !user) {
-        throw new Error('No hay usuario autenticado')
+      const orgId = await getOrganizationIdForImport()
+      if (!orgId) {
+        throw new Error('Selecciona un conjunto en el selector del header o crea uno.')
       }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      if (!profile?.organization_id) {
-        throw new Error('No tienes un conjunto registrado. Crea uno primero.')
-      }
-
-      // Verificar duplicados en la base de datos (torre + numero)
+      // Verificar duplicados solo en ESTE conjunto (torre + numero por organization_id)
       const { data: existingUnits } = await supabase
         .from('unidades')
         .select('torre, numero')
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', orgId)
 
       const existingKeys = new Set(
         existingUnits?.map(u => `${u.torre || ''}|${u.numero}`) || []
@@ -300,13 +293,13 @@ export default function ImportarUnidadesPage() {
         const duplicadosList = duplicados.map(u => 
           u.torre ? `Torre ${u.torre} - ${u.numero}` : u.numero
         ).join(', ')
-        throw new Error(`Las siguientes unidades ya existen: ${duplicadosList}`)
+        throw new Error(`Las siguientes unidades ya existen en este conjunto: ${duplicadosList}`)
       }
 
-      // Insertar unidades
+      // Insertar unidades en el conjunto seleccionado
       const unidadesConOrg = unidades.map(u => ({
         ...u,
-        organization_id: profile.organization_id,
+        organization_id: orgId,
       }))
 
       const { error: insertError } = await supabase
