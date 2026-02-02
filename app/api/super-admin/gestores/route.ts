@@ -254,6 +254,34 @@ export async function GET() {
       }
     }
 
+    // Unificar por email: misma persona (Google + magic link) = una sola fila, un solo saldo
+    const byEmail = new Map<string, { user_id: string; email: string | null; full_name: string | null; tokens_disponibles: number; user_ids: string[] }>()
+    for (const g of gestores) {
+      const key = (g.email ?? '').trim().toLowerCase()
+      const canonicalId = key ? key : g.user_id
+      if (byEmail.has(canonicalId)) {
+        const existing = byEmail.get(canonicalId)!
+        const tokensMax = Math.max(existing.tokens_disponibles, g.tokens_disponibles)
+        const userIds = existing.user_ids.includes(g.user_id) ? existing.user_ids : [...existing.user_ids, g.user_id]
+        byEmail.set(canonicalId, {
+          user_id: existing.user_id,
+          email: existing.email ?? g.email,
+          full_name: existing.full_name ?? g.full_name,
+          tokens_disponibles: tokensMax,
+          user_ids: userIds,
+        })
+      } else {
+        byEmail.set(canonicalId, {
+          user_id: g.user_id,
+          email: g.email,
+          full_name: g.full_name,
+          tokens_disponibles: g.tokens_disponibles,
+          user_ids: [g.user_id],
+        })
+      }
+    }
+    gestores = Array.from(byEmail.values()).map(({ user_ids, ...rest }) => rest)
+
     // Diagnóstico si sigue vacío: mostrar error real de Supabase o contar filas
     let hint: string | undefined
     if (gestores.length === 0) {
@@ -339,20 +367,58 @@ export async function PATCH(request: NextRequest) {
       { auth: { persistSession: false } }
     )
 
-    // Actualizar por user_id (auth uid) y también por id (por si la lista envió el id de la fila profile)
-    const { error: errUser } = await admin
-      .from('profiles')
-      .update({ tokens_disponibles: value })
-      .eq('user_id', user_id)
+    // Obtener email de este user_id (profiles o auth) para unificar: misma persona = una sola billetera
+    let emailToMatch: string | null = null
+    const { data: profRow } = await admin.from('profiles').select('email').or(`user_id.eq.${user_id},id.eq.${user_id}`).limit(1).maybeSingle()
+    const prof = profRow as { email?: string | null } | null
+    if (prof?.email && String(prof.email).trim()) emailToMatch = String(prof.email).trim().toLowerCase()
+    if (!emailToMatch) {
+      try {
+        const { data: userData } = await admin.auth.admin.getUserById(user_id)
+        if (userData?.user?.email) emailToMatch = userData.user.email.trim().toLowerCase()
+      } catch {
+        // ignorar
+      }
+    }
 
-    const { error: errId } = await admin
-      .from('profiles')
-      .update({ tokens_disponibles: value })
-      .eq('id', user_id)
+    const userIdsToUpdate: string[] = [user_id]
+    if (emailToMatch) {
+      const { data: profilesWithEmail } = await admin.from('profiles').select('user_id, id, email')
+      const withEmail = (profilesWithEmail ?? []) as Array<{ user_id?: string | null; id?: string | null; email?: string | null }>
+      for (const r of withEmail) {
+        const e = (r.email ?? '').trim().toLowerCase()
+        if (e === emailToMatch) {
+          const uid = r.user_id ?? r.id
+          if (uid && !userIdsToUpdate.includes(uid)) userIdsToUpdate.push(uid)
+        }
+      }
+      if (userIdsToUpdate.length === 1) {
+        try {
+          const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
+          const users = usersData?.users ?? []
+          for (const u of users) {
+            if (u.email && u.email.trim().toLowerCase() === emailToMatch && !userIdsToUpdate.includes(u.id)) {
+              userIdsToUpdate.push(u.id)
+            }
+          }
+        } catch {
+          // ignorar
+        }
+      }
+    }
 
-    if (errUser && errId) {
-      console.error('super-admin gestores PATCH user_id:', errUser, 'id:', errId)
-      return NextResponse.json({ error: errUser?.message || errId?.message || 'Error al actualizar' }, { status: 500 })
+    // Actualizar todas las filas de profiles para este user_id y para cualquier otro user_id con el mismo email
+    let lastError: Error | null = null
+    for (const uid of userIdsToUpdate) {
+      const { error: errUser } = await admin.from('profiles').update({ tokens_disponibles: value }).eq('user_id', uid)
+      const { error: errId } = await admin.from('profiles').update({ tokens_disponibles: value }).eq('id', uid)
+      if (errUser) lastError = errUser
+      if (errId) lastError = errId
+    }
+
+    if (lastError) {
+      console.error('super-admin gestores PATCH:', lastError)
+      return NextResponse.json({ error: lastError.message || 'Error al actualizar' }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true })
