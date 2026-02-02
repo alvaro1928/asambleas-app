@@ -56,52 +56,105 @@ export async function GET() {
       { auth: { persistSession: false } }
     )
 
-    // Sin filtrar por rol: listar todos los perfiles para que el super admin vea todas las cuentas (incl. la suya)
-    const { data: rows, error: selectError } = await admin
-      .from('profiles')
-      .select('user_id, id, email, full_name, tokens_disponibles')
-      .order('tokens_disponibles', { ascending: false })
+    // 1) Intentar listar desde profiles (varias variantes por esquema)
+    let gestores: Array<{ user_id: string; email: string | null; full_name: string | null; tokens_disponibles: number }> = []
 
-    if (selectError) {
-      const fallback = await admin
-        .from('profiles')
-        .select('id, email, full_name, tokens_disponibles')
-        .order('tokens_disponibles', { ascending: false })
-      if (fallback.error) {
-        console.error('super-admin gestores GET:', fallback.error)
-        return NextResponse.json({ error: fallback.error.message }, { status: 500 })
-      }
+    const trySelect = async (select: string, orderBy?: string) => {
+      let q = admin.from('profiles').select(select)
+      if (orderBy) q = q.order(orderBy, { ascending: false })
+      const { data, error } = await q
+      return { data, error }
+    }
+
+    const buildFromRows = (rows: unknown[], getId: (r: unknown) => string | undefined, getEmail: (r: unknown) => string | null, getFullName: (r: unknown) => string | null, getTokens: (r: unknown) => number) => {
       const byUserId = new Map<string, { user_id: string; email: string | null; full_name: string | null; tokens_disponibles: number }>()
-      for (const row of fallback.data ?? []) {
-        const r = row as { id?: string; email?: string | null; full_name?: string | null; tokens_disponibles?: number }
-        const uid = r.id
+      for (const row of rows) {
+        const uid = getId(row)
         if (!uid) continue
         if (byUserId.has(uid)) continue
         byUserId.set(uid, {
           user_id: uid,
-          email: r.email ?? null,
-          full_name: r.full_name ?? null,
-          tokens_disponibles: Math.max(0, Number(r.tokens_disponibles ?? 0)),
+          email: getEmail(row),
+          full_name: getFullName(row),
+          tokens_disponibles: getTokens(row),
         })
       }
-      return NextResponse.json({ gestores: Array.from(byUserId.values()) })
+      return Array.from(byUserId.values())
     }
 
-    const byUserId = new Map<string, { user_id: string; email: string | null; full_name: string | null; tokens_disponibles: number }>()
-    for (const row of rows ?? []) {
-      const r = row as { user_id?: string; id?: string; email?: string | null; full_name?: string | null; tokens_disponibles?: number }
-      const uid = r.user_id ?? r.id
-      if (!uid) continue
-      if (byUserId.has(uid)) continue
-      byUserId.set(uid, {
-        user_id: uid,
-        email: r.email ?? null,
-        full_name: r.full_name ?? null,
-        tokens_disponibles: Math.max(0, Number(r.tokens_disponibles ?? 0)),
-      })
+    const { data: rows1, error: e1 } = await trySelect('user_id, id, email, full_name, tokens_disponibles', 'tokens_disponibles')
+    if (!e1 && rows1 && rows1.length > 0) {
+      gestores = buildFromRows(
+        rows1,
+        (r) => (r as { user_id?: string; id?: string }).user_id ?? (r as { id?: string }).id,
+        (r) => (r as { email?: string | null }).email ?? null,
+        (r) => (r as { full_name?: string | null }).full_name ?? null,
+        (r) => Math.max(0, Number((r as { tokens_disponibles?: number }).tokens_disponibles ?? 0))
+      )
     }
 
-    const gestores = Array.from(byUserId.values())
+    if (gestores.length === 0) {
+      const { data: rows2, error: e2 } = await trySelect('id, email, full_name, tokens_disponibles', 'tokens_disponibles')
+      if (!e2 && rows2 && rows2.length > 0) {
+        gestores = buildFromRows(
+          rows2,
+          (r) => (r as { id?: string }).id,
+          (r) => (r as { email?: string | null }).email ?? null,
+          (r) => (r as { full_name?: string | null }).full_name ?? null,
+          (r) => Math.max(0, Number((r as { tokens_disponibles?: number }).tokens_disponibles ?? 0))
+        )
+      }
+    }
+
+    if (gestores.length === 0) {
+      const { data: rows3, error: e3 } = await trySelect('id, email, full_name')
+      if (!e3 && rows3 && rows3.length > 0) {
+        gestores = buildFromRows(
+          rows3,
+          (r) => (r as { id?: string }).id,
+          (r) => (r as { email?: string | null }).email ?? null,
+          (r) => (r as { full_name?: string | null }).full_name ?? null,
+          () => 0
+        )
+      }
+    }
+
+    // 2) Si sigue vacío: listar usuarios de Auth y cruzar con profiles para tokens
+    if (gestores.length === 0) {
+      try {
+        const { data: usersData } = await admin.auth.admin.listUsers({ perPage: 1000 })
+        const users = usersData?.users ?? []
+        const tokensByUserId: Record<string, number> = {}
+        const { data: profileRows } = await admin.from('profiles').select('user_id, id, tokens_disponibles')
+        const profileList = Array.isArray(profileRows) ? profileRows : profileRows ? [profileRows] : []
+        for (const p of profileList) {
+          const row = p as { user_id?: string; id?: string; tokens_disponibles?: number }
+          const uid = row.user_id ?? row.id
+          if (uid) {
+            const tok = Math.max(0, Number(row.tokens_disponibles ?? 0))
+            if (tok > (tokensByUserId[uid] ?? 0)) tokensByUserId[uid] = tok
+          }
+        }
+        const { data: profileById } = await admin.from('profiles').select('id, tokens_disponibles')
+        const byIdList = Array.isArray(profileById) ? profileById : profileById ? [profileById] : []
+        for (const p of byIdList) {
+          const row = p as { id?: string; tokens_disponibles?: number }
+          if (row.id) {
+            const tok = Math.max(0, Number(row.tokens_disponibles ?? 0))
+            if (tok > (tokensByUserId[row.id] ?? 0)) tokensByUserId[row.id] = tok
+          }
+        }
+        gestores = users.map((u) => ({
+          user_id: u.id,
+          email: u.email ?? null,
+          full_name: (u.user_metadata?.full_name as string) ?? (u.user_metadata?.name as string) ?? null,
+          tokens_disponibles: tokensByUserId[u.id] ?? 0,
+        }))
+      } catch (authErr) {
+        console.error('super-admin gestores listUsers fallback:', authErr)
+      }
+    }
+
     return NextResponse.json({ gestores })
   } catch (e) {
     console.error('super-admin gestores GET:', e)
