@@ -165,22 +165,16 @@ export async function POST(request: NextRequest) {
       .eq('key', 'landing')
       .maybeSingle()
 
-    let precioCop = configRow?.precio_por_token_cop != null ? Number(configRow.precio_por_token_cop) : 0
-    if (precioCop <= 0) {
-      const { data: planPro } = await supabase
-        .from('planes')
-        .select('precio_por_asamblea_cop')
-        .eq('key', 'pro')
-        .maybeSingle()
-      precioCop = planPro ? Number((planPro as { precio_por_asamblea_cop?: number }).precio_por_asamblea_cop ?? 0) : 0
+    const precioCop = configRow?.precio_por_token_cop != null ? Number(configRow.precio_por_token_cop) : 0
+    const precioCentavosPorToken = Math.max(0, Math.round(precioCop * 100))
+    if (precioCentavosPorToken <= 0) {
+      await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Precio por token no configurado (configuracion_global.precio_por_token_cop)')
+      return NextResponse.json({ received: true, skipped: 'precio_no_configurado' }, { status: 200 })
     }
-    const montoCoincide =
-      precioCop > 0 &&
-      (amountInCents === Math.round(precioCop) || amountInCents === Math.round(precioCop * 100))
-
-    if (!montoCoincide) {
-      await logPaymentError(supabase, null, reference, txId, amountInCents, status, `Monto no coincide con precio por token (precio COP: ${precioCop})`)
-      return NextResponse.json({ received: true, skipped: 'monto_no_coincide' }, { status: 200 })
+    const tokensComprados = Math.floor(amountInCents / precioCentavosPorToken)
+    if (tokensComprados < 1) {
+      await logPaymentError(supabase, null, reference, txId, amountInCents, status, `Monto insuficiente para 1 token (precio ${precioCop} COP = ${precioCentavosPorToken} centavos)`)
+      return NextResponse.json({ received: true, skipped: 'monto_insuficiente' }, { status: 200 })
     }
 
     const { data: perfiles } = await supabase

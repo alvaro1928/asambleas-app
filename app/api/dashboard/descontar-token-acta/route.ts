@@ -141,19 +141,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
-    await admin
-      .from('billing_logs')
-      .insert({
-        user_id: session.user.id,
-        tipo_operacion: 'Acta',
-        asamblea_id,
-        organization_id: orgId,
-        tokens_usados: costoInt,
-        saldo_restante: nuevoSaldo,
-        metadata: { unidades },
-      })
-      .then(() => {})
-      .catch((e) => console.error('billing_logs insert:', e))
+    try {
+      await admin
+        .from('billing_logs')
+        .insert({
+          user_id: session.user.id,
+          tipo_operacion: 'Acta',
+          asamblea_id,
+          organization_id: orgId,
+          tokens_usados: costoInt,
+          saldo_restante: nuevoSaldo,
+          metadata: { unidades },
+        })
+    } catch (e) {
+      console.error('billing_logs insert:', e)
+    }
 
     return NextResponse.json({
       ok: true,

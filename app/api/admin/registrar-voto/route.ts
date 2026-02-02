@@ -200,19 +200,21 @@ export async function POST(request: NextRequest) {
       if (updateError) {
         console.error('[api/admin/registrar-voto] Error al descontar tokens:', updateError.message)
       } else {
-        await admin
-          .from('billing_logs')
-          .insert({
-            user_id: session.user.id,
-            tipo_operacion: 'Registro_manual',
-            asamblea_id,
-            organization_id: asambleaRow.organization_id,
-            tokens_usados: costoInt,
-            saldo_restante: nuevoSaldo,
-            metadata: { unidad_id: unidad_id },
-          })
-          .then(() => {})
-          .catch((e) => console.error('billing_logs insert:', e))
+        try {
+          await admin
+            .from('billing_logs')
+            .insert({
+              user_id: session.user.id,
+              tipo_operacion: 'Registro_manual',
+              asamblea_id,
+              organization_id: asambleaRow.organization_id,
+              tokens_usados: costoInt,
+              saldo_restante: nuevoSaldo,
+              metadata: { unidad_id: unidad_id },
+            })
+        } catch (e) {
+          console.error('billing_logs insert:', e)
+        }
       }
     }
 
