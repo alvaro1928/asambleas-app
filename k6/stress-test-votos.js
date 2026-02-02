@@ -1,16 +1,20 @@
 /**
  * k6 - Stress test de votación
- * Simula 500 VUs que hacen: GET /api/client-info + POST /api/votar
+ * Simula VUs que hacen: GET /api/client-info + POST /api/votar
  *
- * Requiere IDs válidos de una pregunta ABIERTA en tu BD:
- *   PREGUNTA_ID, OPCION_ID, UNIDAD_ID
+ * Variables de entorno:
+ *   BASE_URL     - URL base (default: http://localhost:3000)
+ *   PREGUNTA_ID  - UUID de pregunta ABIERTA
+ *   OPCION_ID    - UUID de opción
+ *   UNIDAD_ID    - UUID de unidad
+ *   DURATION_MS  - Ventana total en ms (default: 10000 = 10s). Usado para construir stages.
+ *   TARGET_VOTES - VUs objetivo (default: 500). Coincide con scripts/stress-test.js.
  *
- * Ejecutar contra Vercel:
+ * Ejemplo producción:
  *   k6 run k6/stress-test-votos.js \
- *     -e BASE_URL=https://asambleas-app-epbco.vercel.app \
- *     -e PREGUNTA_ID=uuid-pregunta \
- *     -e OPCION_ID=uuid-opcion \
- *     -e UNIDAD_ID=uuid-unidad
+ *     -e BASE_URL=https://asambleas-app-epbco-b92ryy32p.vercel.app \
+ *     -e PREGUNTA_ID=uuid -e OPCION_ID=uuid -e UNIDAD_ID=uuid \
+ *     -e DURATION_MS=10000 -e TARGET_VOTES=500
  *
  * La prueba FALLA si más del 2% de las peticiones fallan (threshold http_req_failed < 0.02).
  */
@@ -22,17 +26,23 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000'
 const PREGUNTA_ID = __ENV.PREGUNTA_ID
 const OPCION_ID = __ENV.OPCION_ID
 const UNIDAD_ID = __ENV.UNIDAD_ID
+const DURATION_MS = parseInt(__ENV.DURATION_MS || '10000', 10)
+const TARGET_VOTES = parseInt(__ENV.TARGET_VOTES || '500', 10)
+
+const durationSec = Math.max(1, Math.floor(DURATION_MS / 1000))
+const rampUp = Math.max(5, Math.floor(durationSec * 0.2))
+const hold = Math.max(5, Math.floor(durationSec * 0.6))
+const rampDown = Math.max(5, Math.floor(durationSec * 0.2))
 
 export const options = {
   stages: [
-    { duration: '30s', target: 100 },
-    { duration: '1m', target: 300 },
-    { duration: '1m', target: 500 },
-    { duration: '2m', target: 500 },
-    { duration: '30s', target: 0 },
+    { duration: `${rampUp}s`, target: Math.min(100, TARGET_VOTES) },
+    { duration: `${rampUp}s`, target: TARGET_VOTES },
+    { duration: `${hold}s`, target: TARGET_VOTES },
+    { duration: `${rampDown}s`, target: 0 },
   ],
   thresholds: {
-    http_req_failed: ['rate<0.02'],   // falla si más del 2% de peticiones fallan
+    http_req_failed: ['rate<0.02'],
     http_req_duration: ['p(95)<5000'],
   },
 }

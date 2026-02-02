@@ -194,12 +194,16 @@ export default function ImportarUnidadesPage() {
         return
       }
 
+      // Tipo: normalizar a minúsculas para evitar violar check en BD (Apartamento -> apartamento, Apto -> apto, etc.)
+      const tipoRaw = row.tipo ?? row.Tipo ?? row.TIPO ?? 'apartamento'
+      const tipo = String(tipoRaw).trim().toLowerCase() || 'apartamento'
+
       // Agregar unidad
       unidadesProcesadas.push({
         torre: torre || undefined,
         numero,
         coeficiente,
-        tipo: row.tipo || row.Tipo || row.TIPO || 'Apartamento',
+        tipo,
         nombre_propietario: row['Nombre Propietario'] || row.propietario || row.Propietario || row.PROPIETARIO || '',
         email: row.email || row.Email || row.EMAIL || '',
         telefono: row.telefono || row.Telefono || row['Teléfono'] || row.TELEFONO || '',
