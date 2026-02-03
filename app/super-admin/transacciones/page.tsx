@@ -37,6 +37,9 @@ export default function SuperAdminTransaccionesPage() {
   const [conjuntoId, setConjuntoId] = useState('todos')
   const [busqueda, setBusqueda] = useState('')
 
+  const [reprocesarTxId, setReprocesarTxId] = useState('')
+  const [reprocesando, setReprocesando] = useState(false)
+
   const loadData = useCallback(
     async (filtros?: { fechaDesde: string; fechaHasta: string; estado: string; conjuntoId: string; busqueda: string }) => {
       const {
@@ -137,6 +140,35 @@ export default function SuperAdminTransaccionesPage() {
     return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
   }
 
+  const handleReprocesar = async () => {
+    const id = reprocesarTxId.trim()
+    if (!id) {
+      toast.error('Ingresa el ID de la transacción Wompi (ej. 12026427-1770149683-95297)')
+      return
+    }
+    setReprocesando(true)
+    try {
+      const res = await fetch('/api/pagos/reprocesar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ wompi_transaction_id: id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data?.ok) {
+        toast.success(data?.message ?? 'Tokens acreditados correctamente.')
+        setReprocesarTxId('')
+        loadData()
+      } else {
+        toast.error(data?.error ?? 'No se pudo reprocesar el pago')
+      }
+    } catch {
+      toast.error('Error de conexión al reprocesar')
+    } finally {
+      setReprocesando(false)
+    }
+  }
+
   const exportarSeleccion = () => {
     const toExport = selectedIds.size > 0
       ? transacciones.filter((t) => selectedIds.has(t.id))
@@ -200,6 +232,42 @@ export default function SuperAdminTransaccionesPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {/* Reprocesar pago (pagos que no acreditaron por webhook) */}
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-6">
+          <h2 className="text-lg font-semibold text-amber-900 dark:text-amber-200 mb-2">
+            Reprocesar pago manualmente
+          </h2>
+          <p className="text-sm text-amber-800 dark:text-amber-300 mb-4">
+            Si un pago fue aprobado en Wompi pero no acreditó tokens (ej. el webhook no llegó), pega aquí el <strong>ID de la transacción</strong> que aparece en el comprobante de Wompi (ej. 12026427-1770149683-95297) y pulsa Reprocesar.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ID transacción Wompi</label>
+              <input
+                type="text"
+                value={reprocesarTxId}
+                onChange={(e) => setReprocesarTxId(e.target.value)}
+                placeholder="12026427-1770149683-95297"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white text-sm font-mono"
+              />
+            </div>
+            <Button
+              onClick={handleReprocesar}
+              disabled={reprocesando || !reprocesarTxId.trim()}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {reprocesando ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Reprocesando...
+                </>
+              ) : (
+                'Reprocesar y acreditar tokens'
+              )}
+            </Button>
+          </div>
+        </div>
+
         {/* Filtros */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">

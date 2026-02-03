@@ -24,7 +24,8 @@ import {
   Share2,
   QrCode,
   Link as LinkIcon,
-  UserPlus
+  UserPlus,
+  Building2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1003,6 +1004,17 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               </div>
             </div>
             <div className="flex items-center flex-wrap gap-3">
+              {/* Acceso rápido a unidades del mismo conjunto */}
+              {asamblea.organization_id && (
+                <Link
+                  href={`/dashboard/unidades?volver_asamblea=${params.id}&conjunto_id=${asamblea.organization_id}`}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
+                  title="Ir a configurar unidades (propietarios, contacto) y volver a esta asamblea"
+                >
+                  <Building2 className="w-4 h-4" />
+                  Configurar unidades
+                </Link>
+              )}
               {/* Billetera de tokens — visible en todas las páginas de administrador */}
               <div className="flex items-center gap-2 rounded-3xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
                 <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>

@@ -150,19 +150,47 @@ export async function POST(request: NextRequest) {
       console.log('[webhook pagos] user_id resuelto por referencia en pagos_checkout_ref')
     }
   }
-  // Si la referencia de Wompi no es nuestra (ej. PSE genera test_xxx): obtener sku del payment link y buscar en pagos_checkout_ref
-  if (!userId && paymentLinkId && typeof paymentLinkId === 'string') {
+
+  let linkIdToResolve = paymentLinkId && typeof paymentLinkId === 'string' ? paymentLinkId.trim() : null
+  // PSE y otros métodos a veces no envían payment_link_id en el evento: intentar GET transaction
+  if (!userId && !linkIdToResolve && txId && typeof txId === 'string') {
     const privateKey = process.env.WOMPI_PRIVATE_KEY
     if (privateKey && privateKey.startsWith('prv_')) {
       const baseUrl = privateKey.startsWith('prv_prod_')
         ? 'https://production.wompi.co/v1'
         : 'https://sandbox.wompi.co/v1'
       try {
-        const linkRes = await fetch(`${baseUrl}/payment_links/${encodeURIComponent(paymentLinkId.trim())}`, {
+        const txRes = await fetch(`${baseUrl}/transactions/${encodeURIComponent(txId)}`, {
+          headers: { Authorization: `Bearer ${privateKey}` },
+        })
+        const txJson = await txRes.json().catch(() => ({}))
+        const fromTx = txJson?.data?.payment_link_id ?? txJson?.payment_link_id ?? null
+        if (fromTx && typeof fromTx === 'string') {
+          linkIdToResolve = fromTx.trim()
+          console.log('[webhook pagos] payment_link_id obtenido por GET transaction:', linkIdToResolve)
+        } else {
+          console.log('[webhook pagos] GET transaction sin payment_link_id:', txRes.status, Object.keys(txJson?.data ?? txJson ?? {}))
+        }
+      } catch (e) {
+        console.error('[webhook pagos] Error al obtener transaction por id:', e)
+      }
+    }
+  }
+
+  // Resolver usuario por payment link: obtener sku y buscar en pagos_checkout_ref
+  if (!userId && linkIdToResolve) {
+    const privateKey = process.env.WOMPI_PRIVATE_KEY
+    if (privateKey && privateKey.startsWith('prv_')) {
+      const baseUrl = privateKey.startsWith('prv_prod_')
+        ? 'https://production.wompi.co/v1'
+        : 'https://sandbox.wompi.co/v1'
+      try {
+        const linkRes = await fetch(`${baseUrl}/payment_links/${encodeURIComponent(linkIdToResolve)}`, {
           headers: { Authorization: `Bearer ${privateKey}` },
         })
         const linkJson = await linkRes.json().catch(() => ({}))
-        const sku = linkJson?.data?.sku
+        const data = linkJson?.data ?? linkJson
+        const sku = (typeof data?.sku === 'string' ? data.sku : null) ?? (typeof data?.attributes?.sku === 'string' ? data.attributes.sku : null)
         if (sku && typeof sku === 'string') {
           const { data: refRow } = await supabase
             .from('pagos_checkout_ref')
@@ -172,17 +200,17 @@ export async function POST(request: NextRequest) {
             .maybeSingle()
           if (refRow && typeof (refRow as { user_id?: string }).user_id === 'string') {
             userId = (refRow as { user_id: string }).user_id
-            console.log('[webhook pagos] user_id resuelto por payment_link_id + sku:', sku)
+            console.log('[webhook pagos] user_id resuelto por payment_link + sku:', sku)
           } else {
             console.log('[webhook pagos] sku del link no encontrado en pagos_checkout_ref:', sku)
           }
         } else {
-          console.log('[webhook pagos] payment link sin sku o respuesta inesperada:', linkRes.status)
+          console.log('[webhook pagos] payment link sin sku. status:', linkRes.status, 'data_keys:', data ? Object.keys(data) : [])
         }
       } catch (e) {
         console.error('[webhook pagos] Error al obtener payment link:', e)
       }
-    } else {
+    } else if (!userId) {
       console.log('[webhook pagos] WOMPI_PRIVATE_KEY no configurada; no se puede resolver por payment_link_id')
     }
   }

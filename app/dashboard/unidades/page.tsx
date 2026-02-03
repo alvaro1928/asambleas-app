@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { getSelectedConjuntoId } from '@/lib/conjuntos'
@@ -46,6 +46,9 @@ interface Unidad {
 
 export default function UnidadesPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const volverAsambleaId = searchParams.get('volver_asamblea')?.trim() || null
+  const conjuntoIdFromUrl = searchParams.get('conjunto_id')?.trim() || null
   const toast = useToast()
   const [unidades, setUnidades] = useState<Unidad[]>([])
   const [filteredUnidades, setFilteredUnidades] = useState<Unidad[]>([])
@@ -71,6 +74,10 @@ export default function UnidadesPage() {
   const [conjuntoName, setConjuntoName] = useState('')
 
   useEffect(() => {
+    // Si llegamos desde la asamblea con conjunto_id, usar ese conjunto para mostrar sus unidades
+    if (typeof window !== 'undefined' && conjuntoIdFromUrl) {
+      localStorage.setItem('selectedConjuntoId', conjuntoIdFromUrl)
+    }
     loadUnidades()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, [])
@@ -244,8 +251,9 @@ export default function UnidadesPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link
-                href="/dashboard"
+                href={volverAsambleaId ? `/dashboard/asambleas/${volverAsambleaId}` : '/dashboard'}
                 className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                title={volverAsambleaId ? 'Volver a la asamblea' : 'Volver al dashboard'}
               >
                 <ArrowLeft className="w-6 h-6" />
               </Link>
@@ -258,12 +266,22 @@ export default function UnidadesPage() {
                 </p>
               </div>
             </div>
-            <Link href="/dashboard/unidades/importar">
-              <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
-                <Upload className="w-4 h-4 mr-2" />
-                Importar Unidades
-              </Button>
-            </Link>
+            <div className="flex items-center gap-3">
+              {volverAsambleaId && (
+                <Link href={`/dashboard/asambleas/${volverAsambleaId}`}>
+                  <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Volver a la asamblea
+                  </Button>
+                </Link>
+              )}
+              <Link href="/dashboard/unidades/importar">
+                <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Importar Unidades
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
