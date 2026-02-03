@@ -354,132 +354,195 @@ export default function SuperAdminPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Estado del Sistema */}
-        {estadoSistema != null && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-500/10 border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Estado del sistema (tokens)
-              </h2>
+        {/* 1. Resumen */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            Resumen
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                  <Building2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total conjuntos</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{conjuntos.length}</p>
+                </div>
+              </div>
             </div>
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-4 shadow-soft">
+            {resumen != null && (
+              <>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                      <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Conjuntos que pagaron</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{resumen.conjuntos_que_pagaron}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                      <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Dinero recaudado</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatDinero(resumen.dinero_total_centavos)}</p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+            {estadoSistema != null && (
+              <>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
                   <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium">
                     <DollarSign className="w-4 h-4" />
                     Tokens vendidos
                   </div>
                   <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{estadoSistema.tokens_vendidos}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total acreditados por pagos (APPROVED)</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Por pagos APPROVED</p>
                 </div>
-                <div className="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-4 shadow-soft">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
                   <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium">
                     <Gift className="w-4 h-4" />
                     Tokens regalados (est.)
                   </div>
                   <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{estadoSistema.tokens_regalados_estimado}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{estadoSistema.bono_bienvenida} × {estadoSistema.total_gestores} gestores</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Bono × gestores</p>
                 </div>
-                <div className="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 p-4 shadow-soft">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
                   <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium">
                     <Users className="w-4 h-4" />
                     Gestores
                   </div>
                   <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{estadoSistema.total_gestores}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Usuarios con al menos un conjunto</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Usuarios con conjuntos</p>
                 </div>
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* 2. Conjuntos */}
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg shadow-indigo-500/10 border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Conjuntos</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                Listado de organizaciones. Los tokens se gestionan por gestor en Créditos.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre..."
+                  value={searchConjunto}
+                  onChange={(e) => setSearchConjunto(e.target.value)}
+                  className="pl-8 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm w-48 sm:w-56"
+                  title="Filtrar conjuntos por nombre"
+                />
               </div>
-              {estadoSistema.ranking_gestores.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                    <Coins className="w-4 h-4" />
-                    Ranking de gestores por saldo disponible
-                  </h3>
-                  <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                    <table className="w-full text-sm text-left">
-                      <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 uppercase text-xs">
-                        <tr>
-                          <th className="px-4 py-3">#</th>
-                          <th className="px-4 py-3">Email / Nombre</th>
-                          <th className="px-4 py-3 text-right">Tokens disponibles</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                        {estadoSistema.ranking_gestores.map((g, i) => (
-                          <tr key={g.user_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                            <td className="px-4 py-3 font-medium text-slate-500 dark:text-slate-400">{i + 1}</td>
-                            <td className="px-4 py-3 text-gray-900 dark:text-white">
-                              {g.email ?? g.full_name ?? g.user_id.slice(0, 8) + '…'}
-                            </td>
-                            <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{g.tokens_disponibles}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+              <Button variant="outline" size="sm" onClick={exportarCSV} title="Descargar lista de conjuntos en CSV">
+                Exportar CSV
+              </Button>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Mostrando {conjuntosVisibles.length} de {conjuntosFiltrados.length}
+              </span>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 uppercase text-xs">
+                <tr>
+                  <th className="px-6 py-4">Nombre</th>
+                  <th className="px-6 py-4 text-right">Tipo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {conjuntosVisibles.length === 0 ? (
+                  <tr>
+                    <td colSpan={2} className="px-6 py-12 text-center text-gray-500">
+                      {conjuntos.length === 0
+                    ? 'No hay conjuntos registrados. Crea uno desde el Dashboard (Ir al Dashboard → Nuevo conjunto).'
+                    : 'Ningún conjunto coincide con el filtro.'}
+                    </td>
+                  </tr>
+                ) : (
+                  conjuntosVisibles.map((c) => (
+                    <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-gray-400 shrink-0" />
+                          <span className="font-medium text-gray-900 dark:text-white">{c.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right text-gray-500 dark:text-gray-400 text-xs">Organización</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          {hayMas && (
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-center">
+              <Button variant="outline" onClick={() => setMostrandoConjuntos((n) => n + PASOS_PAGINACION)} title="Cargar más conjuntos">
+                Cargar más ({conjuntosVisibles.length} de {conjuntosFiltrados.length})
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* 3. Créditos: ranking + gestores */}
+        {estadoSistema != null && estadoSistema.ranking_gestores.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-500/10 border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+              <Coins className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Ranking de gestores por saldo disponible
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 uppercase text-xs">
+                  <tr>
+                    <th className="px-4 py-3">#</th>
+                    <th className="px-4 py-3">Email / Nombre</th>
+                    <th className="px-4 py-3 text-right">Tokens disponibles</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                  {estadoSistema.ranking_gestores.map((g, i) => (
+                    <tr key={g.user_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                      <td className="px-4 py-3 font-medium text-slate-500 dark:text-slate-400">{i + 1}</td>
+                      <td className="px-4 py-3 text-gray-900 dark:text-white">
+                        {g.email ?? g.full_name?.trim() ?? 'Usuario (sin email)'}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{g.tokens_disponibles}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
-        {/* Personalización de Landing */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-500/10 border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
-            <Layout className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Personalización de Landing
-            </h2>
-          </div>
-          <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título (hero)</label>
-              <input
-                type="text"
-                value={landingTitulo}
-                onChange={(e) => setLandingTitulo(e.target.value)}
-                placeholder="Ej. Asambleas digitales para propiedad horizontal"
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subtítulo (hero)</label>
-              <textarea
-                value={landingSubtitulo}
-                onChange={(e) => setLandingSubtitulo(e.target.value)}
-                placeholder="Ej. Votaciones en tiempo real, actas y auditoría..."
-                rows={2}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">WhatsApp de contacto</label>
-              <input
-                type="text"
-                value={landingWhatsapp}
-                onChange={(e) => setLandingWhatsapp(e.target.value)}
-                placeholder="Ej. 573001234567 (código país + número)"
-                className="w-full max-w-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Vacío = no mostrar botón WhatsApp en la landing</p>
-            </div>
-            <Button onClick={handleSaveLanding} disabled={savingLanding} className="gap-2">
-              {savingLanding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Guardar cambios
-            </Button>
-          </div>
-        </div>
-
-        {/* Gestores (cuentas de administradores): asignar tokens a super admin */}
+        {/* 3. Créditos — Gestores (asignar tokens) */}
         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg shadow-indigo-500/10 border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Gestores (cuentas de administradores)
+                Créditos — Gestores
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                Cuentas que acceden con Google o magic link. Aquí puedes ver el saldo de tokens y asignar más.
+                Cuentas que acceden con Google o magic link. Ver saldo y asignar tokens.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -540,7 +603,7 @@ export default function SuperAdminPage() {
                         <div className="flex items-center gap-2">
                           <Users className="w-4 h-4 text-gray-400 shrink-0" />
                           <span className="font-medium text-gray-900 dark:text-white">
-                            {g.email ?? g.full_name ?? g.user_id.slice(0, 8) + '…'}
+                            {g.email ?? g.full_name?.trim() ?? 'Usuario (sin email)'}
                           </span>
                         </div>
                       </td>
@@ -598,132 +661,51 @@ export default function SuperAdminPage() {
           </div>
         </div>
 
-        {/* Resumen: total conjuntos (modelo Billetera Central por tokens) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 p-5">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-                <Building2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total conjuntos</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{conjuntos.length}</p>
-              </div>
-            </div>
+        {/* 4. Configuración — Landing */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg shadow-indigo-500/10 border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+            <Layout className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Configuración — Landing
+            </h2>
           </div>
-        </div>
-
-        {resumen != null && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 p-5">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-                  <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Conjuntos que han pagado</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {resumen.conjuntos_que_pagaron}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 p-5">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                  <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Dinero total recaudado</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {formatDinero(resumen.dinero_total_centavos)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Conjuntos (solo listado; los tokens son por gestor, no por conjunto) */}
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="p-6 space-y-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Cuentas (conjuntos)</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                Listado de organizaciones. Los tokens se gestionan por gestor arriba, no por conjunto.
-              </p>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título (hero)</label>
+              <input
+                type="text"
+                value={landingTitulo}
+                onChange={(e) => setLandingTitulo(e.target.value)}
+                placeholder="Ej. Asambleas digitales para propiedad horizontal"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+              />
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre..."
-                  value={searchConjunto}
-                  onChange={(e) => setSearchConjunto(e.target.value)}
-                  className="pl-8 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm w-48 sm:w-56"
-                  title="Filtrar conjuntos por nombre"
-                />
-              </div>
-              <Button variant="outline" size="sm" onClick={exportarCSV} title="Descargar lista de conjuntos en CSV">
-                Exportar CSV
-              </Button>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                Mostrando {conjuntosVisibles.length} de {conjuntosFiltrados.length}
-              </span>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subtítulo (hero)</label>
+              <textarea
+                value={landingSubtitulo}
+                onChange={(e) => setLandingSubtitulo(e.target.value)}
+                placeholder="Ej. Votaciones en tiempo real, actas y auditoría..."
+                rows={2}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+              />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">WhatsApp de contacto</label>
+              <input
+                type="text"
+                value={landingWhatsapp}
+                onChange={(e) => setLandingWhatsapp(e.target.value)}
+                placeholder="Ej. 573001234567 (código país + número)"
+                className="w-full max-w-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Vacío = no mostrar botón WhatsApp en la landing</p>
+            </div>
+            <Button onClick={handleSaveLanding} disabled={savingLanding} className="gap-2">
+              {savingLanding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Guardar cambios
+            </Button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 uppercase text-xs">
-                <tr>
-                  <th className="px-6 py-4">Nombre</th>
-                  <th className="px-6 py-4 text-right">Tipo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {conjuntosVisibles.length === 0 ? (
-                  <tr>
-                    <td colSpan={2} className="px-6 py-12 text-center text-gray-500">
-                      {conjuntos.length === 0
-                    ? 'No hay conjuntos registrados. Crea uno desde el Dashboard (Ir al Dashboard → Nuevo conjunto).'
-                    : 'Ningún conjunto coincide con el filtro.'}
-                    </td>
-                  </tr>
-                ) : (
-                  conjuntosVisibles.map((c) => (
-                    <tr
-                      key={c.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-gray-400 shrink-0" />
-                          <span className="font-medium text-gray-900 dark:text-white">
-                            {c.name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right text-gray-500 dark:text-gray-400 text-xs">
-                        Organización
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          {hayMas && (
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-center">
-              <Button
-                variant="outline"
-                onClick={() => setMostrandoConjuntos((n) => n + PASOS_PAGINACION)}
-                title="Cargar más conjuntos"
-              >
-                Cargar más ({conjuntosVisibles.length} de {conjuntosFiltrados.length})
-              </Button>
-            </div>
-          )}
         </div>
       </main>
     </div>

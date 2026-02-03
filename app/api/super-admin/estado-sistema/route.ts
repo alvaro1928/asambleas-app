@@ -85,44 +85,35 @@ export async function GET() {
     }
     const tokensRegaladosEstimado = bonoBienvenida * userIds.size
 
+    // Ranking: una fila por usuario (dedupe por user_id o id). Consolidar tokens = max de todas sus filas en profiles.
+    type ProfileRow = { id?: string; user_id?: string; email?: string | null; full_name?: string | null; tokens_disponibles?: number }
     let ranking: Array<{ user_id: string; email: string | null; full_name: string | null; tokens_disponibles: number }> = []
-    const { data: rankingById } = await admin
+    const { data: allRows } = await admin
       .from('profiles')
-      .select('id, email, full_name, tokens_disponibles')
-      .order('tokens_disponibles', { ascending: false })
-    if (rankingById && rankingById.length > 0) {
-      const seen = new Set<string>()
-      for (const row of rankingById) {
-        const uid = (row as { id?: string }).id
-        if (!uid || seen.has(uid)) continue
-        seen.add(uid)
-        ranking.push({
-          user_id: uid,
-          email: (row as { email?: string | null }).email ?? null,
-          full_name: (row as { full_name?: string | null }).full_name ?? null,
-          tokens_disponibles: Math.max(0, Number((row as { tokens_disponibles?: number }).tokens_disponibles ?? 0)),
-        })
-        if (ranking.length >= 20) break
+      .select('id, user_id, email, full_name, tokens_disponibles')
+    if (allRows && allRows.length > 0) {
+      const byUser = new Map<string, { email: string | null; full_name: string | null; tokens: number }>()
+      for (const row of allRows as ProfileRow[]) {
+        const uid = row.user_id ?? row.id
+        if (!uid) continue
+        const tokens = Math.max(0, Number(row.tokens_disponibles ?? 0))
+        const existing = byUser.get(uid)
+        if (!existing) {
+          byUser.set(uid, {
+            email: row.email ?? null,
+            full_name: row.full_name ?? null,
+            tokens,
+          })
+        } else {
+          existing.tokens = Math.max(existing.tokens, tokens)
+          if (!existing.email && row.email) existing.email = row.email
+          if (!existing.full_name && row.full_name) existing.full_name = row.full_name
+        }
       }
-    }
-    if (ranking.length === 0) {
-      const { data: rankingRows } = await admin
-        .from('profiles')
-        .select('user_id, email, full_name, tokens_disponibles')
-        .order('tokens_disponibles', { ascending: false })
-      const seen = new Set<string>()
-      for (const row of rankingRows ?? []) {
-        const uid = (row as { user_id?: string }).user_id
-        if (!uid || seen.has(uid)) continue
-        seen.add(uid)
-        ranking.push({
-          user_id: uid,
-          email: (row as { email?: string | null }).email ?? null,
-          full_name: (row as { full_name?: string | null }).full_name ?? null,
-          tokens_disponibles: Math.max(0, Number((row as { tokens_disponibles?: number }).tokens_disponibles ?? 0)),
-        })
-        if (ranking.length >= 20) break
-      }
+      ranking = Array.from(byUser.entries())
+        .map(([user_id, v]) => ({ user_id, email: v.email, full_name: v.full_name, tokens_disponibles: v.tokens }))
+        .sort((a, b) => b.tokens_disponibles - a.tokens_disponibles)
+        .slice(0, 20)
     }
 
     return NextResponse.json({

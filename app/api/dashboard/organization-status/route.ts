@@ -66,23 +66,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Tokens del gestor: leer de cualquier perfil del usuario (user_id o id)
-    let tokensDisponibles = Math.max(0, Number(profileAccess?.tokens_disponibles ?? 0))
-    const { data: allProfiles } = await supabase
+    // Billetera única por gestor: saldo = máximo de tokens en TODOS sus perfiles (evita desfase por conjunto)
+    let tokensDisponibles = 0
+    const { data: byUser } = await supabase
       .from('profiles')
       .select('tokens_disponibles')
       .eq('user_id', userId)
-    if (Array.isArray(allProfiles) && allProfiles[0]) {
-      tokensDisponibles = Math.max(0, Number(allProfiles[0].tokens_disponibles ?? 0))
-    } else {
-      const { data: byId } = await supabase
-        .from('profiles')
-        .select('tokens_disponibles')
-        .eq('id', userId)
-        .limit(1)
-        .maybeSingle()
-      if (byId) tokensDisponibles = Math.max(0, Number(byId.tokens_disponibles ?? 0))
-    }
+    const { data: byId } = await supabase
+      .from('profiles')
+      .select('tokens_disponibles')
+      .eq('id', userId)
+    const allTokens = [
+      ...(Array.isArray(byUser) ? byUser : byUser ? [byUser] : []),
+      ...(Array.isArray(byId) ? byId : byId ? [byId] : []),
+    ]
+      .map((p: { tokens_disponibles?: number }) => Math.max(0, Number(p?.tokens_disponibles ?? 0)))
+    tokensDisponibles = allTokens.length ? Math.max(...allTokens) : Math.max(0, Number(profileAccess?.tokens_disponibles ?? 0))
 
     // Unidades del conjunto (costo = unidades; 1 token = 1 unidad)
     const { count: unidadesCount } = await supabase

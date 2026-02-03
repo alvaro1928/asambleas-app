@@ -368,18 +368,30 @@ export async function POST(request: NextRequest) {
       orgIdForLog = (anyOrg as { organization_id?: string } | null)?.organization_id ?? null
     }
 
-    // Actualizar tokens por id (profiles.id = auth.uid en esquema clásico)
+    // Billetera única por gestor: actualizar TODAS las filas del usuario (cada conjunto puede tener una fila en profiles)
+    let updatedCount = 0
     const { data: updatedRows, error: updateError } = await supabase
       .from('profiles')
       .update({ tokens_disponibles: nuevoSaldo })
-      .eq('id', userId)
+      .or(`id.eq.${userId},user_id.eq.${userId}`)
       .select('id')
-
-    if (updateError) {
+    if (!updateError) {
+      updatedCount = Array.isArray(updatedRows) ? updatedRows.length : updatedRows ? 1 : 0
+    } else if (updateError && /user_id|column/i.test(updateError.message)) {
+      const { data: rowsById, error: errById } = await supabase
+        .from('profiles')
+        .update({ tokens_disponibles: nuevoSaldo })
+        .eq('id', userId)
+        .select('id')
+      if (errById) {
+        await logPaymentError(supabase, orgIdForLog, reference, txId, amountInCents, status, errById.message)
+        return NextResponse.json({ error: 'Error al actualizar tokens', details: errById.message }, { status: 500 })
+      }
+      updatedCount = Array.isArray(rowsById) ? rowsById.length : rowsById ? 1 : 0
+    } else {
       await logPaymentError(supabase, orgIdForLog, reference, txId, amountInCents, status, updateError.message)
       return NextResponse.json({ error: 'Error al actualizar tokens', details: updateError.message }, { status: 500 })
     }
-    const updatedCount = Array.isArray(updatedRows) ? updatedRows.length : updatedRows ? 1 : 0
     if (updatedCount === 0) {
       await logPaymentError(supabase, orgIdForLog, reference, txId, amountInCents, status, 'Update tokens: 0 filas afectadas')
       return NextResponse.json({ error: 'No se pudo actualizar el perfil del usuario' }, { status: 500 })

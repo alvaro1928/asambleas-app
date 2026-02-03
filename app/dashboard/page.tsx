@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
-import { Wallet, Plus, Lock, HelpCircle } from 'lucide-react'
+import { Wallet, Plus, Lock, HelpCircle, RefreshCw } from 'lucide-react'
 import ConjuntoSelector from '@/components/ConjuntoSelector'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
@@ -42,7 +42,19 @@ export default function DashboardPage() {
   const [compraRapida, setCompraRapida] = useState(true)
   const [cantidadManual, setCantidadManual] = useState<number>(20)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [refreshingSaldo, setRefreshingSaldo] = useState(false)
   const router = useRouter()
+
+  const handleActualizarSaldo = async () => {
+    if (!user?.id || refreshingSaldo) return
+    setRefreshingSaldo(true)
+    try {
+      await loadStats(user.id)
+      toast.success('Saldo actualizado')
+    } finally {
+      setRefreshingSaldo(false)
+    }
+  }
 
   const formatPrecioCop = (cop: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(cop)
@@ -71,18 +83,24 @@ export default function DashboardPage() {
       }
     }
 
-    let refetchTimers: ReturnType<typeof setTimeout>[] = []
+    // Refrescar saldo tras cargar: si vienes de pago (pago=ok) más veces; si no, igual 1 vez retrasada (por si acabas de pagar)
+    const refetchTimers: ReturnType<typeof setTimeout>[] = []
+    const scheduleRefetch = (delays: number[]) => {
+      delays.forEach((ms) => {
+        refetchTimers.push(
+          setTimeout(async () => {
+            const { data: { user: u } } = await supabase.auth.getUser()
+            if (u) loadStats(u.id)
+          }, ms)
+        )
+      })
+    }
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
       if (params.get('pago') === 'ok') {
-        ;[2000, 5000, 10000].forEach((ms) => {
-          refetchTimers.push(
-            setTimeout(async () => {
-              const { data: { user: u } } = await supabase.auth.getUser()
-              if (u) loadStats(u.id)
-            }, ms)
-          )
-        })
+        scheduleRefetch([2000, 5000, 10000])
+      } else {
+        scheduleRefetch([3000, 8000])
       }
     }
 
@@ -283,9 +301,20 @@ export default function DashboardPage() {
                   <div className="px-3.5 py-3 space-y-2">
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-slate-400">Saldo</p>
-                      <p className="text-lg font-bold leading-tight" style={{ color: colorPrincipalHex }}>
-                        {tokensDisponibles} <span className="text-sm font-medium text-slate-300">tokens</span>
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-lg font-bold leading-tight" style={{ color: colorPrincipalHex }}>
+                          {tokensDisponibles} <span className="text-sm font-medium text-slate-300">tokens</span>
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleActualizarSaldo}
+                          disabled={refreshingSaldo}
+                          className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+                          title="Actualizar saldo (por si acabas de recargar)"
+                        >
+                          <RefreshCw className={`w-4 h-4 ${refreshingSaldo ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
                     </div>
                     {costoOperacion > 0 && (
                       <div>
