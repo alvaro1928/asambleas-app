@@ -65,9 +65,20 @@ export default function DashboardPage() {
       }
       const pago = params.get('pago')
       if (pago === 'ok') {
-        setSuccessMessage('Pago realizado. Tus tokens se acreditarán en unos segundos.')
-        setTimeout(() => setSuccessMessage(''), 8000)
+        setSuccessMessage('Pago realizado. Tus tokens se acreditarán en unos segundos. Si no ves el saldo actualizado en 1 minuto, ve a Configuración → Mis pagos.')
+        setTimeout(() => setSuccessMessage(''), 10000)
         window.history.replaceState({}, '', '/dashboard')
+      }
+    }
+
+    let refetchAfterPagoOk: ReturnType<typeof setTimeout> | null = null
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('pago') === 'ok') {
+        refetchAfterPagoOk = setTimeout(async () => {
+          const { data: { user: u } } = await supabase.auth.getUser()
+          if (u) loadStats(u.id)
+        }, 4000)
       }
     }
 
@@ -95,6 +106,7 @@ export default function DashboardPage() {
     return () => {
       subscription.unsubscribe()
       window.removeEventListener('storage', handleStorageChange)
+      if (refetchAfterPagoOk) clearTimeout(refetchAfterPagoOk)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

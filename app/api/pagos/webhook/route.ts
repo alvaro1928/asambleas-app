@@ -219,7 +219,8 @@ export async function POST(request: NextRequest) {
     if (!userId) {
       console.error('[webhook pagos] APPROVED pero user_id no resuelto. reference:', reference, 'payment_link_id:', paymentLinkId)
       await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Referencia sin UUID válido (REF_USERID_TIMESTAMP o ref en pagos_checkout_ref)')
-      return NextResponse.json({ error: 'Referencia inválida: se espera REF_<user_id>_<timestamp> o ref de checkout' }, { status: 400 })
+      // 200 para que Wompi no reintente; el pago ya está aprobado y no podemos acreditar sin user
+      return NextResponse.json({ received: true, skipped: 'user_not_resolved', error: 'Referencia inválida' }, { status: 200 })
     }
 
     // Idempotencia: no procesar el mismo pago dos veces
@@ -298,25 +299,40 @@ export async function POST(request: NextRequest) {
     const firstProfile = perfilesGestor[0] as { tokens_disponibles?: number; organization_id?: string } | undefined
     const tokensActuales = Math.max(0, Number(firstProfile?.tokens_disponibles ?? 0))
     const nuevoSaldo = tokensActuales + tokensComprados
-    const orgIdForLog = firstProfile?.organization_id ?? null
-
-    // Actualizar tokens: por user_id o por id (compatibilidad con esquemas id = auth uid)
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ tokens_disponibles: nuevoSaldo })
-      .eq('user_id', userId)
-
-    if (updateError) {
-      const { error: byIdUpdate } = await supabase
+    // Cualquier organización del usuario para pagos_log
+    let orgIdForLog =
+      firstProfile?.organization_id ??
+      (perfilesGestor as Array<{ organization_id?: string }>).map((p) => p.organization_id).filter(Boolean)[0] ??
+      null
+    if (!orgIdForLog) {
+      const { data: anyOrg } = await supabase
         .from('profiles')
-        .update({ tokens_disponibles: nuevoSaldo })
-        .eq('id', userId)
-      if (byIdUpdate) {
-        await logPaymentError(supabase, orgIdForLog, reference, txId, amountInCents, status, updateError.message)
-        return NextResponse.json({ error: 'Error al actualizar tokens', details: updateError.message }, { status: 500 })
-      }
+        .select('organization_id')
+        .or(`user_id.eq.${userId},id.eq.${userId}`)
+        .not('organization_id', 'is', null)
+        .limit(1)
+        .maybeSingle()
+      orgIdForLog = (anyOrg as { organization_id?: string } | null)?.organization_id ?? null
     }
 
+    // Actualizar tokens: por user_id O por id (evita 0 filas cuando profile tiene id=auth_uid y user_id=null)
+    const { data: updatedRows, error: updateError } = await supabase
+      .from('profiles')
+      .update({ tokens_disponibles: nuevoSaldo })
+      .or(`user_id.eq.${userId},id.eq.${userId}`)
+      .select('id')
+
+    if (updateError) {
+      await logPaymentError(supabase, orgIdForLog, reference, txId, amountInCents, status, updateError.message)
+      return NextResponse.json({ error: 'Error al actualizar tokens', details: updateError.message }, { status: 500 })
+    }
+    const updatedCount = Array.isArray(updatedRows) ? updatedRows.length : updatedRows ? 1 : 0
+    if (updatedCount === 0) {
+      await logPaymentError(supabase, orgIdForLog, reference, txId, amountInCents, status, 'Update tokens: 0 filas afectadas')
+      return NextResponse.json({ error: 'No se pudo actualizar el perfil del usuario' }, { status: 500 })
+    }
+
+    // Siempre registrar en pagos_log si tenemos al menos una org del usuario
     if (orgIdForLog) {
       const { error: logError } = await registrarTransaccionPago(supabase, {
         organization_id: orgIdForLog,
