@@ -260,8 +260,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         }
       }
 
-      // Cargar estadísticas y quórum
-      await loadEstadisticas()
+      // Cargar estadísticas y quórum (pasamos preguntas recién cargadas: setState es async y loadEstadisticas usa preguntas)
+      await loadEstadisticas(preguntasData || [])
       await loadQuorum()
     } catch (error) {
       console.error('Error:', error)
@@ -270,13 +270,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
-  const loadEstadisticas = async () => {
-    if (preguntas.length === 0) return
+  const loadEstadisticas = async (preguntasOverride?: typeof preguntas) => {
+    const list = preguntasOverride ?? preguntas
+    if (list.length === 0) return
 
     try {
       const statsMap: { [key: string]: EstadisticaOpcion[] } = {}
 
-      for (const pregunta of preguntas) {
+      for (const pregunta of list) {
         const { data, error } = await supabase.rpc('calcular_estadisticas_pregunta', {
           p_pregunta_id: pregunta.id
         })
