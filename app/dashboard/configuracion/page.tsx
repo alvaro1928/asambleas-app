@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import Link from 'next/link'
+import { CreditCard, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 
 interface Profile {
   id: string
@@ -44,6 +45,20 @@ export default function ConfiguracionPage() {
   const [passwordSaving, setPasswordSaving] = useState(false)
   const [passwordMessage, setPasswordMessage] = useState('')
   const [passwordError, setPasswordError] = useState('')
+
+  // Pagos del usuario
+  interface PagoItem {
+    id: string
+    organization_id: string
+    organization_name: string
+    monto_centavos: number
+    wompi_transaction_id: string | null
+    estado: string
+    created_at: string
+  }
+  const [pagos, setPagos] = useState<PagoItem[]>([])
+  const [pagosLoading, setPagosLoading] = useState(false)
+  const [pagoDetalleId, setPagoDetalleId] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -103,6 +118,27 @@ export default function ConfiguracionPage() {
       setLoading(false)
     }
   }
+
+  const loadPagos = async () => {
+    setPagosLoading(true)
+    try {
+      const res = await fetch('/api/dashboard/mis-pagos', { credentials: 'include' })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && Array.isArray(data.pagos)) {
+        setPagos(data.pagos)
+      } else {
+        setPagos([])
+      }
+    } catch {
+      setPagos([])
+    } finally {
+      setPagosLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (user) loadPagos()
+  }, [user])
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -527,6 +563,131 @@ export default function ConfiguracionPage() {
                 {saving ? 'Guardando...' : organization ? 'Actualizar Datos del Conjunto' : 'Registrar Conjunto'}
               </button>
             </form>
+          </div>
+
+          {/* Mis pagos */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-3xl flex items-center justify-center">
+                  <CreditCard className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    Mis pagos
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Historial de compras de tokens asociadas a tus conjuntos
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={loadPagos}
+                disabled={pagosLoading}
+                className="p-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                title="Actualizar lista"
+              >
+                <RefreshCw className={`w-5 h-5 ${pagosLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            {pagosLoading && pagos.length === 0 ? (
+              <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+                Cargando pagos...
+              </div>
+            ) : pagos.length === 0 ? (
+              <div className="py-8 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+                No hay pagos registrados. Las compras de tokens aparecerán aquí una vez procesadas.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Fecha</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Conjunto</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Monto</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Estado</th>
+                      <th className="w-10 py-3 px-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagos.map((pago) => {
+                      const fecha = new Date(pago.created_at).toLocaleDateString('es-CO', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      })
+                      const montoCop = (pago.monto_centavos / 100).toLocaleString('es-CO', {
+                        style: 'currency',
+                        currency: 'COP',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      })
+                      const isOpen = pagoDetalleId === pago.id
+                      return (
+                        <React.Fragment key={pago.id}>
+                          <tr
+                            className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50/50 dark:hover:bg-gray-900/30"
+                          >
+                            <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{fecha}</td>
+                            <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{pago.organization_name}</td>
+                            <td className="py-3 px-4 text-right font-medium text-gray-900 dark:text-white">{montoCop}</td>
+                            <td className="py-3 px-4">
+                              <span
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  pago.estado === 'APPROVED'
+                                    ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300'
+                                    : pago.estado === 'PENDING'
+                                      ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
+                                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                                }`}
+                              >
+                                {pago.estado === 'APPROVED' ? 'Aprobado' : pago.estado === 'PENDING' ? 'Pendiente' : pago.estado}
+                              </span>
+                            </td>
+                            <td className="py-2 px-2">
+                              <button
+                                type="button"
+                                onClick={() => setPagoDetalleId(isOpen ? null : pago.id)}
+                                className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600"
+                                title={isOpen ? 'Ocultar detalle' : 'Ver detalle'}
+                              >
+                                {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </button>
+                            </td>
+                          </tr>
+                          {isOpen && (
+                            <tr key={`detalle-${pago.id}`}>
+                              <td colSpan={5} className="p-4 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                                  <div>
+                                    <span className="text-gray-500 dark:text-gray-400">ID transacción (Wompi):</span>
+                                    <p className="font-mono text-gray-900 dark:text-white break-all">{pago.wompi_transaction_id || '—'}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500 dark:text-gray-400">Monto:</span>
+                                    <p className="font-semibold text-gray-900 dark:text-white">{montoCop}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500 dark:text-gray-400">Conjunto:</span>
+                                    <p className="text-gray-900 dark:text-white">{pago.organization_name}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500 dark:text-gray-400">Estado:</span>
+                                    <p className="text-gray-900 dark:text-white">{pago.estado}</p>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Info sobre Unidades */}

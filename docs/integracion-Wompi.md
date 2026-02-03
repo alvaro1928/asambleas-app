@@ -144,7 +144,8 @@ Así puedes comprobar si Wompi está llamando al webhook y si se está resolvien
    Tras un pago de prueba, en Vercel → Logs filtra por `[webhook pagos]` o por la ruta `/api/pagos/webhook`.  
    - Si **no aparece nada**: Wompi no está llamando al webhook (revisa la URL de Eventos y el entorno Sandbox/Producción).  
    - Si aparece **"APPROVED pero user_id no resuelto"**: hace falta `WOMPI_PRIVATE_KEY` para resolver por `payment_link_id` + sku (PSE usa otra referencia).  
-   - Si aparece **"Tokens acreditados"**: el webhook funcionó; el saldo se actualiza en el dashboard. Las transacciones solo se listan en Super Admin si el perfil del pagador tiene `organization_id` (conjunto asignado).
+   - Si aparece **"Tokens acreditados"**: el webhook funcionó; el saldo se actualiza en el dashboard. Las transacciones solo se listan en Super Admin (y en Configuración → Mis pagos) si el perfil del pagador tiene `organization_id` (conjunto asignado).
+   - Si aparece **"Usuario no encontrado"**: el webhook resuelve el gestor por `user_id` o por `id` (auth user id). Asegúrate de que en `profiles` exista una fila con `id` = usuario de Auth o `user_id` = ese mismo id.
 
 4. **El 403 en "transaction-redirect.wompi.co"**  
    Ese error es de la página de Wompi al intentar su redirección; no implica que nuestro webhook no se haya ejecutado. El webhook es una llamada aparte (servidor a servidor) desde Wompi a tu URL de Eventos.
