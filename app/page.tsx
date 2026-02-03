@@ -15,6 +15,19 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
+/** Si Supabase/Google redirige a /?code=..., llevar al callback para completar login y entrar al dashboard. */
+function useRedirectOAuthCode() {
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('code')
+    if (code) {
+      const next = params.get('next') || '/dashboard'
+      const callback = `/auth/callback/oauth?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`
+      window.location.replace(callback)
+    }
+  }, [])
+}
 
 function formatPrecioCop(cop: number): string {
   return new Intl.NumberFormat('es-CO', {
@@ -31,6 +44,7 @@ function buildWhatsAppUrl(whatsappNumber: string, nombreConjunto: string) {
 }
 
 export default function Home() {
+  useRedirectOAuthCode()
   const [nombreConjunto, setNombreConjunto] = useState('')
   const [titulo, setTitulo] = useState('Asambleas digitales para propiedad horizontal')
   const [subtitulo, setSubtitulo] = useState('Votaciones en tiempo real, actas y auditoría. Pensado para administradores y consejos de administración.')

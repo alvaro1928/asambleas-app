@@ -119,7 +119,17 @@ La app admite dos formas de identificar al usuario al acreditar tokens:
 - **Opción 1 (payment links):** El backend guarda una referencia corta (ej. `ck1a2b3c4d5`) en `pagos_checkout_ref` y la envía como `sku` al crear el link. En el webhook: si la `reference` del evento es nuestra, se busca por ella; si no (p. ej. PSE envía `test_xxx`), se usa `payment_link_id` para obtener el `sku` del link en Wompi y buscar el `user_id` en `pagos_checkout_ref`. Así los tokens se acreditan aunque Wompi muestre otra referencia en el comprobante.
 - **Legacy:** Referencia `REF_<user_id>_<timestamp>`; el webhook extrae el `user_id` del string.
 
-**Redirección tras el pago:** Al crear el link se envía `redirect_url` a tu app (p. ej. `https://tu-dominio/dashboard?pago=ok`). Configura `NEXT_PUBLIC_SITE_URL` en Vercel para que la URL base sea la correcta; así el usuario vuelve al dashboard después de pagar.
+**Redirección tras el pago:** Al crear el link se envía `redirect_url` a `https://tu-dominio/pago-ok`. Esa página muestra "Pago recibido" y redirige al dashboard. En métodos como **PSE**, Wompi a veces **no redirige** y deja al usuario en la pantalla del comprobante. En ese caso el usuario puede abrir manualmente **tu-dominio/pago-ok** o **tu-dominio/dashboard**; los tokens se acreditan igual vía webhook. Configura `NEXT_PUBLIC_SITE_URL` en Vercel.
+
+### Ver qué llega al webhook (depuración)
+
+En **Vercel** → tu proyecto → **Logs** (o **Functions** → ver logs), filtra por `[webhook pagos]`. Verás:
+- **Evento recibido:** `txId`, `reference`, `payment_link_id`, `status`, `amount_in_cents`.
+- **user_id resuelto por** referencia o por **payment_link_id + sku**.
+- **Tokens acreditados** con `user_id`, `tokens_comprados`, `nuevo_saldo`.
+- Si algo falla: **APPROVED pero user_id no resuelto**, **Firma inválida**, etc.
+
+Así puedes comprobar si Wompi está llamando al webhook y si se está resolviendo el usuario y acreditando los tokens.
 
 ---
 

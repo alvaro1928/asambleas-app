@@ -63,6 +63,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/', // raíz: redirigir /?code= a callback OAuth
     '/((?!_next/static|_next/image|favicon.ico|auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

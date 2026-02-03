@@ -108,6 +108,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (body.event !== 'transaction.updated') {
+    console.log('[webhook pagos] Evento ignorado (no transaction.updated):', body.event)
     return NextResponse.json({ received: true, event: body.event }, { status: 200 })
   }
 
@@ -119,10 +120,13 @@ export async function POST(request: NextRequest) {
   const status = (transaction.status ?? '').toString().toUpperCase()
   const amountInCents = typeof transaction.amount_in_cents === 'number' ? transaction.amount_in_cents : 0
 
+  console.log('[webhook pagos] Evento recibido:', { txId, reference, payment_link_id: paymentLinkId, status, amount_in_cents: amountInCents })
+
   const signature = body.signature ?? {}
   const checksumHeader = request.headers.get('x-event-checksum')
   const checksumToVerify = signature.checksum ?? checksumHeader ?? ''
   if (!verifyWompiSignature(data, { ...signature, checksum: checksumToVerify }, secret)) {
+    console.error('[webhook pagos] Firma de integridad inválida')
     return NextResponse.json({ error: 'Firma de integridad inválida' }, { status: 401 })
   }
 
@@ -143,6 +147,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
     if (refRow && typeof (refRow as { user_id?: string }).user_id === 'string') {
       userId = (refRow as { user_id: string }).user_id
+      console.log('[webhook pagos] user_id resuelto por referencia en pagos_checkout_ref')
     }
   }
   // Si la referencia de Wompi no es nuestra (ej. PSE genera test_xxx): obtener sku del payment link y buscar en pagos_checkout_ref
@@ -167,16 +172,24 @@ export async function POST(request: NextRequest) {
             .maybeSingle()
           if (refRow && typeof (refRow as { user_id?: string }).user_id === 'string') {
             userId = (refRow as { user_id: string }).user_id
+            console.log('[webhook pagos] user_id resuelto por payment_link_id + sku:', sku)
+          } else {
+            console.log('[webhook pagos] sku del link no encontrado en pagos_checkout_ref:', sku)
           }
+        } else {
+          console.log('[webhook pagos] payment link sin sku o respuesta inesperada:', linkRes.status)
         }
       } catch (e) {
         console.error('[webhook pagos] Error al obtener payment link:', e)
       }
+    } else {
+      console.log('[webhook pagos] WOMPI_PRIVATE_KEY no configurada; no se puede resolver por payment_link_id')
     }
   }
 
   if (status === 'APPROVED') {
     if (!userId) {
+      console.error('[webhook pagos] APPROVED pero user_id no resuelto. reference:', reference, 'payment_link_id:', paymentLinkId)
       await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Referencia sin UUID válido (REF_USERID_TIMESTAMP o ref en pagos_checkout_ref)')
       return NextResponse.json({ error: 'Referencia inválida: se espera REF_<user_id>_<timestamp> o ref de checkout' }, { status: 400 })
     }
@@ -276,6 +289,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log('[webhook pagos] Tokens acreditados:', { user_id: userId, tokens_comprados: tokensComprados, nuevo_saldo: nuevoSaldo, txId })
     return NextResponse.json({
       received: true,
       user_id: userId,

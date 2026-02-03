@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         ? 'https://production.wompi.co/v1'
         : 'https://sandbox.wompi.co/v1'
       const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '') || 'https://epbco.cloud'
-      const redirectUrl = `${siteUrl}/dashboard?pago=ok`
+      const redirectUrl = `${siteUrl}/pago-ok`
       const res = await fetch(`${baseUrl}/payment_links`, {
         method: 'POST',
         headers: {

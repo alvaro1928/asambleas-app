@@ -599,32 +599,30 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Métricas Detalladas — 3 tarjetas (Total Unidades, Suma Coeficientes, Conjuntos) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 min-w-0 w-full">
+          {/* Métricas Detalladas — 3 tarjetas iguales (Total Unidades, Suma Coeficientes, Conjuntos) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-full items-stretch">
             {/* Total Unidades */}
-            <div className="min-w-0 flex overflow-hidden w-full">
+            <div className="min-w-0 w-full flex flex-col">
               <UiTooltip content="Ver listado de unidades, editar y gestionar coeficientes">
-                <Link href="/dashboard/unidades" className="block w-full min-w-0 flex-1 overflow-hidden">
-                  <div className="h-full min-h-[180px] flex flex-col rounded-3xl shadow-lg p-5 border hover:shadow-xl hover:border-green-400/50 transition-all cursor-pointer min-w-0 overflow-hidden w-full" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
-                    <div className="flex items-center justify-between mb-2 shrink-0">
-                      <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0">
-                        <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                        </svg>
-                      </div>
+                <Link href="/dashboard/unidades" className="flex flex-col flex-1 min-h-[180px] min-w-0 rounded-3xl shadow-lg p-5 border hover:shadow-xl hover:border-green-400/50 transition-all cursor-pointer overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                  <div className="flex items-center justify-between mb-2 shrink-0">
+                    <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0">
+                      <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
                     </div>
-                    <p className="text-2xl font-bold text-white shrink-0">{metrics.total}</p>
-                    <p className="text-sm text-slate-400 mt-1 mt-auto min-w-0 truncate" title="Total Unidades • Clic para gestionar">
-                      Total Unidades • Clic para gestionar
-                    </p>
                   </div>
+                  <p className="text-2xl font-bold text-white shrink-0">{metrics.total}</p>
+                  <p className="text-sm text-slate-400 mt-1 mt-auto min-w-0 truncate" title="Total Unidades • Clic para gestionar">
+                    Total Unidades • Clic para gestionar
+                  </p>
                 </Link>
               </UiTooltip>
             </div>
 
             {/* Suma Coeficientes */}
-            <div className="min-w-0 flex overflow-hidden w-full">
-              <div className="w-full h-full min-h-[180px] flex flex-col rounded-3xl shadow-lg p-5 border min-w-0 overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }} title="La Ley 675 exige que la suma de coeficientes sea 100%. Verde = correcto.">
+            <div className="min-w-0 w-full flex flex-col">
+              <div className="flex flex-col flex-1 min-h-[180px] min-w-0 rounded-3xl shadow-lg p-5 border overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }} title="La Ley 675 exige que la suma de coeficientes sea 100%. Verde = correcto.">
                 <div className="flex items-center justify-between mb-2 shrink-0">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${Math.abs(metrics.sumaCoeficientes - 100) < 0.000001 ? 'bg-green-500/20' : 'bg-yellow-500/20'}`}>
                     <svg className={`w-6 h-6 ${Math.abs(metrics.sumaCoeficientes - 100) < 0.000001 ? 'text-green-400' : 'text-yellow-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -643,20 +641,18 @@ export default function DashboardPage() {
             </div>
 
             {/* Conjuntos Registrados */}
-            <div className="min-w-0 flex overflow-hidden w-full">
+            <div className="min-w-0 w-full flex flex-col">
               <UiTooltip content="Ver y editar los conjuntos residenciales que gestionas">
-                <Link href="/dashboard/conjuntos" className="block w-full min-w-0 flex-1 overflow-hidden">
-                  <div className="h-full min-h-[180px] flex flex-col rounded-3xl shadow-lg p-5 border hover:shadow-xl hover:border-purple-400/50 transition-all cursor-pointer min-w-0 overflow-hidden w-full" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
-                    <div className="flex items-center justify-between mb-2 shrink-0">
-                      <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center shrink-0">
-                        <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                      </div>
+                <Link href="/dashboard/conjuntos" className="flex flex-col flex-1 min-h-[180px] min-w-0 rounded-3xl shadow-lg p-5 border hover:shadow-xl hover:border-purple-400/50 transition-all cursor-pointer overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                  <div className="flex items-center justify-between mb-2 shrink-0">
+                    <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center shrink-0">
+                      <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
                     </div>
-                    <p className="text-2xl font-bold text-white shrink-0">{conjuntosCount}</p>
-                    <p className="text-sm text-slate-400 mt-1 mt-auto min-w-0 truncate" title="Conjuntos Registrados">Conjuntos Registrados</p>
                   </div>
+                  <p className="text-2xl font-bold text-white shrink-0">{conjuntosCount}</p>
+                  <p className="text-sm text-slate-400 mt-1 mt-auto min-w-0 truncate" title="Conjuntos Registrados">Conjuntos Registrados</p>
                 </Link>
               </UiTooltip>
             </div>
