@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Building2, ArrowLeft, MapPin, FileText, Home, Edit, Trash2 } from 'lucide-react'
+import { Building2, ArrowLeft, MapPin, FileText, Home, Edit, Trash2, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/providers/ToastProvider'
 
 interface Conjunto {
   id: string
