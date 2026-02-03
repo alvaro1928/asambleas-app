@@ -142,9 +142,9 @@ export async function POST(request: NextRequest) {
 
   const data = body.data ?? {}
   const transaction = data.transaction ?? {}
-  const txId = transaction.id ?? null
-  const reference = transaction.reference ?? null
-  const paymentLinkId = transaction.payment_link_id ?? null
+  const txId = typeof transaction.id === 'string' ? transaction.id : null
+  const reference = typeof transaction.reference === 'string' ? transaction.reference : null
+  const paymentLinkId = transaction.payment_link_id != null && typeof transaction.payment_link_id === 'string' ? transaction.payment_link_id : null
   const status = (transaction.status ?? '').toString().toUpperCase()
   const amountInCents = typeof transaction.amount_in_cents === 'number' ? transaction.amount_in_cents : 0
 
