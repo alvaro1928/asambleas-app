@@ -304,16 +304,49 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar perfil por id (profiles.id = auth.uid en esquema clásico; sin columna user_id)
-    const { data: byId } = await supabase
+    let { data: byId } = await supabase
       .from('profiles')
       .select('id, tokens_disponibles, organization_id')
       .eq('id', userId)
       .limit(1)
 
-    const perfilesGestor: Array<{ tokens_disponibles?: number; organization_id?: string }> = Array.isArray(byId) ? byId : byId ? [byId] : []
+    let perfilesGestor: Array<{ tokens_disponibles?: number; organization_id?: string }> = Array.isArray(byId) ? byId : byId ? [byId] : []
+
+    // Si no hay perfil, crear uno mínimo (id = auth.uid; FK a auth.users). Evita depender de auth.admin en serverless.
     if (perfilesGestor.length === 0) {
-      await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Usuario/gestor no encontrado en profiles')
-      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
+      const { error: insertError } = await supabase.from('profiles').insert({
+        id: userId,
+        email: null,
+        full_name: null,
+        organization_id: null,
+        role: 'member',
+        tokens_disponibles: 0,
+      })
+      if (insertError) {
+        const msg = insertError.message ?? ''
+        const isFk = /foreign key|violates foreign key|auth\.users/i.test(msg)
+        const isDuplicate = /duplicate key|unique constraint|already exists/i.test(msg)
+        if (isFk) {
+          console.error('[webhook pagos] Usuario no existe en Auth (FK). user_id:', userId, 'txId:', txId)
+          await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Usuario no existe en Auth (FK profiles.id -> auth.users)')
+          return NextResponse.json({ received: true, skipped: 'user_not_in_auth', error: 'Usuario no encontrado' }, { status: 200 })
+        }
+        if (isDuplicate) {
+          const { data: retry } = await supabase.from('profiles').select('id, tokens_disponibles, organization_id').eq('id', userId).limit(1).maybeSingle()
+          if (retry) {
+            perfilesGestor = [retry as { tokens_disponibles?: number; organization_id?: string }]
+          } else {
+            await logPaymentError(supabase, null, reference, txId, amountInCents, status, insertError.message)
+            return NextResponse.json({ error: 'Error al crear perfil', details: insertError.message }, { status: 500 })
+          }
+        } else {
+          await logPaymentError(supabase, null, reference, txId, amountInCents, status, insertError.message)
+          return NextResponse.json({ error: 'Error al crear perfil', details: insertError.message }, { status: 500 })
+        }
+      } else {
+        console.log('[webhook pagos] Perfil creado para user_id (sin fila previa):', userId)
+        perfilesGestor = [{ tokens_disponibles: 0, organization_id: undefined }]
+      }
     }
     const firstProfile = perfilesGestor[0] as { tokens_disponibles?: number; organization_id?: string } | undefined
     const tokensActuales = Math.max(0, Number(firstProfile?.tokens_disponibles ?? 0))

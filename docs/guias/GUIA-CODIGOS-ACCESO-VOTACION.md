@@ -228,9 +228,12 @@ Ya explicado en `GUIA-SISTEMA-VOTACION-PUBLICA.md`
    - Retorna info de la asamblea
 
 5. **`validar_votante_asamblea(codigo, email)`**
-   - Busca unidades del votante
-   - Busca poderes activos
-   - Retorna lista completa de unidades que puede representar
+   - Parámetro: **email o teléfono** (identificador del votante).
+   - Busca unidades por email o por teléfono (columnas `email`/`email_propietario` y `telefono`/`telefono_propietario`).
+   - Busca poderes activos (por email del receptor).
+   - Retorna lista completa de unidades que puede representar.
+
+**Si la votación con teléfono/celular no funciona:** en Supabase SQL Editor ejecuta el script `supabase/VALIDAR-VOTANTE-EMAIL-O-TELEFONO-UNIFICADO.sql`. Así la función validará por email o teléfono usando todas las columnas posibles en `unidades`.
 
 ---
 
