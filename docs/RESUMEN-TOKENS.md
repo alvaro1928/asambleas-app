@@ -32,19 +32,20 @@
 
 1. **Bono de bienvenida:** al crear perfil (p. ej. al crear un conjunto), el trigger en DB puede asignar 50 tokens (según migración).
 2. **Super Administración:** un admin asigna o suma tokens desde Super Admin → Gestores (PATCH actualiza `profiles.tokens_disponibles` por `user_id` e `id`).
-3. **Compra (pasarela):** si está configurada `NEXT_PUBLIC_PASARELA_PAGOS_URL`, el botón "Comprar tokens" lleva a esa URL con `user_id` (y opcionalmente `conjunto_id`). Tras el pago, el webhook acredita tokens en `profiles` del gestor.
+3. **Compra (pasarela):** el botón "Comprar tokens" llama a `/api/pagos/checkout-url`. Si está configurada `WOMPI_PRIVATE_KEY`, el backend crea un payment link en Wompi y devuelve la URL de checkout de Wompi; el usuario paga en la pasarela y el webhook acredita tokens en `profiles` del gestor. No hace falta `NEXT_PUBLIC_PASARELA_PAGOS_URL` (ver [integracion-Wompi.md](integracion-Wompi.md)).
 
 ## 6. Flujo de compra (pasarela)
 
-- La app envía al usuario a la URL de la pasarela con `user_id` (y a veces `conjunto_id`).
-- La pasarela procesa el pago y notifica al backend (webhook).
-- El webhook (`/api/pagos/webhook` o similar) actualiza **`profiles.tokens_disponibles`** del `user_id` correspondiente.
+- El usuario pulsa "Comprar tokens" → la app llama a `POST /api/pagos/checkout-url` con `user_id` (y opcionalmente `conjunto_id`, `cantidad_tokens`).
+- El backend crea el link de pago en Wompi (referencia corta en `pagos_checkout_ref`) y devuelve la URL de Wompi (`https://checkout.wompi.co/l/...`).
+- El usuario paga en la pasarela (Wompi); Wompi envía el evento al webhook `/api/pagos/webhook`.
+- El webhook actualiza **`profiles.tokens_disponibles`** del gestor según la referencia y registra en `pagos_log`.
 
 ## 7. Validación rápida
 
 - [ ] Los tokens están en **`profiles.tokens_disponibles`**, no en `organizations`.
 - [ ] El costo por operación = **unidades del conjunto** (1 token = 1 unidad).
 - [ ] Super Admin puede **asignar/sumar tokens** a gestores (PATCH por `user_id` e `id`).
-- [ ] El botón **"Comprar tokens"** debe estar visible para el usuario (Dashboard y donde se muestre la billetera); si hay pasarela configurada, el botón lleva allí; si no, se puede mostrar igual con mensaje de contacto/admin.
+- [ ] El botón **"Comprar tokens"** está visible para el usuario logueado (Dashboard y donde se muestre la billetera). Al pulsar, se llama al API; si la pasarela está configurada (`WOMPI_PRIVATE_KEY`), se abre el checkout de Wompi; si no, se muestra mensaje de contacto/admin.
 
 Si algo no coincide con tu producto (por ejemplo, bono distinto de 50 o otra regla de costo), se ajusta la migración o la config y este doc se actualiza.

@@ -1,15 +1,16 @@
 'use client'
 
-import Link from 'next/link'
+import { useState } from 'react'
 import { Zap, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/providers/ToastProvider'
 
 export type ComprarTokensVariant = 'blocked' | 'low' | 'inline' | 'modal'
 
 type ComprarTokensCTAProps = {
   /** ID del conjunto (contexto; opcional para reportes) */
   conjuntoId?: string | null
-  /** user_id del gestor: la pasarela debe usar REF_<user_id>_<timestamp> para acreditar tokens en su billetera */
+  /** user_id del gestor: el backend asocia la compra a este usuario; la pasarela (Wompi) acredita los tokens vía webhook */
   userId?: string | null
   /** Precio en COP por token para mostrar */
   precioCop?: number | null
@@ -47,16 +48,35 @@ export function ComprarTokensCTA({
   className = '',
   onClose,
 }: ComprarTokensCTAProps) {
-  const pasarelaUrl = process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
-  const params = new URLSearchParams()
-  if (userId) params.set('user_id', userId)
-  if (conjuntoId) params.set('conjunto_id', conjuntoId)
-  const hrefPasarela =
-    pasarelaUrl && userId
-      ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}${params.toString()}`
-      : null
-  const hrefComprar = hrefPasarela
-  const showComprar = !hideComprar && !!hrefComprar
+  const toast = useToast()
+  const [loading, setLoading] = useState(false)
+  const showComprar = !hideComprar && !!userId
+
+  const handleComprar = async () => {
+    if (!userId) return
+    setLoading(true)
+    try {
+      const res = await fetch('/api/pagos/checkout-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          conjunto_id: conjuntoId ?? undefined,
+          cantidad_tokens: 20,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data?.url) {
+        window.open(data.url, '_blank', 'noopener,noreferrer')
+      } else {
+        toast.error(data?.error ?? 'Error al generar enlace de pago')
+      }
+    } catch {
+      toast.error('Error al generar enlace de pago')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const isBlocked = variant === 'blocked'
   const isLow = variant === 'low'
@@ -123,20 +143,20 @@ export function ComprarTokensCTA({
 
       <div className="mt-4 flex flex-wrap gap-3">
         {showComprar && (
-          <a
-            href={hrefComprar ?? '#'}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Button
+            type="button"
+            onClick={handleComprar}
+            disabled={loading}
             className="inline-flex items-center justify-center px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-3xl shadow-md hover:shadow-lg transition-all text-sm"
           >
             <ShoppingCart className="w-4 h-4 mr-2" />
-            Comprar más tokens
-            {typeof precioCop === 'number' && precioCop > 0 && (
+            {loading ? 'Generando enlace...' : 'Comprar más tokens'}
+            {typeof precioCop === 'number' && precioCop > 0 && !loading && (
               <span className="ml-1 opacity-90">
                 ({formatPrecio(precioCop)} / token)
               </span>
             )}
-          </a>
+          </Button>
         )}
         {isModal && onClose && (
           <Button type="button" variant="outline" onClick={onClose}>

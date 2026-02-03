@@ -33,34 +33,24 @@ Lista de **todas** las variables de entorno que debe tener el proyecto en Vercel
 
 ## 4. Wompi (pagos – Billetera de Tokens por Gestor)
 
-Modelo **Billetera de Tokens por Gestor**: los tokens pertenecen al usuario (gestor), no al conjunto. Al aprobar un pago, el webhook suma tokens al **perfil del gestor** (`profiles.tokens_disponibles`). La referencia de la transacción Wompi debe ser **`REF_<user_id>_<timestamp>`** (donde `user_id` es el UUID del gestor en Auth), para que el webhook acredite los tokens al usuario correcto. La pasarela o checkout debe construir la referencia con el `user_id` del gestor logueado.
+Modelo **Billetera de Tokens por Gestor**: los tokens pertenecen al usuario (gestor). Al pulsar "Comprar tokens", el backend crea un *payment link* en Wompi y devuelve la URL de checkout de Wompi; el usuario paga en la pasarela y el webhook acredita los tokens en `profiles.tokens_disponibles` del gestor.
 
-| Variable | Obligatoria | Dónde sacarla | Uso |
-|----------|-------------|---------------|-----|
-| **`NEXT_PUBLIC_WOMPI_LLAVE_PUBLICA`** | Sí (si usas pagos) | Wompi → Llave pública | Frontend: Widget / checkout. |
-| **`WEBHOOK_PAGOS_SECRET`** o **`WOMPI_INTEGRIDAD`** | Sí (si usas webhook) | Wompi → Secretos → Integridad | Backend: verificación SHA256 del webhook `transaction.updated` en `/api/pagos/webhook`. |
-| **`NEXT_PUBLIC_PASARELA_PAGOS_URL`** | Opcional | URL de checkout | Redirige con `?conjunto_id=<uuid>` (display). **La referencia enviada a Wompi debe ser REF_<user_id>_<timestamp>.** |
-| **`WOMPI_LLAVE_PRIVADA`** | Opcional | Wompi → Llave privada | Solo si el backend llama a la API de Wompi. |
-| **`WOMPI_EVENTOS`** | Opcional | Wompi → Secretos → Eventos | No usada en el webhook actual. |
+**Documentación detallada:** [integracion-Wompi.md](../integracion-Wompi.md) (URL de Eventos, variables, flujo Opción 1).
 
-### Llaves Wompi (prueba) – copiar y pegar en Vercel
+| Variable | Obligatoria (si usas pagos) | Dónde sacarla | Uso |
+|----------|-----------------------------|---------------|-----|
+| **`WOMPI_EVENTS_SECRET`** (o `WEBHOOK_PAGOS_SECRET`) | Sí | Wompi → Secretos → **Eventos** | Backend: verificación de firma del webhook `/api/pagos/webhook`. |
+| **`WOMPI_PRIVATE_KEY`** | Sí | Wompi → **Llave privada** | Backend: `/api/pagos/checkout-url` crea el payment link y devuelve la URL de Wompi; la pasarela se encarga del checkout. |
+| **`NEXT_PUBLIC_PASARELA_PAGOS_URL`** | No (Opción 1) | URL de tu página de checkout | Solo si no usas Opción 1: URL propia que recibe query y redirige a Wompi (Opción B). |
+| **`WOMPI_PUBLIC_KEY`** | No | Wompi → Llave pública | Opcional; uso futuro en frontend. |
 
-Bloque listo para **Vercel → Settings → Environment Variables**. Son llaves de **prueba (Sandbox)**; cuando Wompi te active producción, sustituye por las de producción.
-
-```
-NEXT_PUBLIC_WOMPI_LLAVE_PUBLICA=pub_test_aGHqimadrTMPu1CCE1OISDbUSk9NURwb
-WOMPI_INTEGRIDAD=test_integrity_55x6A2jue80RD0plphURdgLtJLRybQE8
-WOMPI_EVENTOS=test_events_oR6WKYwkq4ulMrVW5EUsrvsf5h88KDJB
-```
-(WOMPI_LLAVE_PRIVADA solo si el backend llama a la API de Wompi.)
-
-**En el panel de Wompi** (Configuraciones avanzadas → Seguimiento de transacciones), pon en **URL de Eventos** esta URL (no `/dashboard`):
+**En el panel de Wompi** (Seguimiento de transacciones → URL de Eventos), configura:
 
 ```
-https://asambleas-app-epbco.vercel.app/api/pagos/webhook
+https://TU_DOMINIO/api/pagos/webhook
 ```
 
-Luego pulsa **Guardar** para que Wompi envíe los eventos de pago a tu app.
+Ejemplo: `https://epbco.cloud/api/pagos/webhook`. Luego **Guardar**. Con `WOMPI_EVENTS_SECRET` y `WOMPI_PRIVATE_KEY` en Vercel no hace falta `NEXT_PUBLIC_PASARELA_PAGOS_URL`.
 
 ---
 
@@ -87,12 +77,10 @@ NEXT_PUBLIC_SITE_URL=https://tu-app.vercel.app
 NEXT_PUBLIC_ADMIN_EMAIL=tu_correo@ejemplo.com
 SUPER_ADMIN_EMAIL=tu_correo@ejemplo.com
 
-# ========== Wompi (pagos) ==========
-NEXT_PUBLIC_WOMPI_LLAVE_PUBLICA=pub_test_xxxxxxxxxxxx
-WOMPI_INTEGRIDAD=test_integrity_xxxxxxxxxxxx
-# NEXT_PUBLIC_PASARELA_PAGOS_URL=https://checkout.wompi.co/...
-# WOMPI_LLAVE_PRIVADA=...   # solo si el backend llama a la API de Wompi
-# WOMPI_EVENTOS=...         # opcional, no usada en el webhook actual
+# ========== Wompi (pagos – Opción 1: pasarela se encarga) ==========
+WOMPI_EVENTS_SECRET=prod_events_xxxxxxxxxxxx
+WOMPI_PRIVATE_KEY=prv_prod_xxxxxxxxxxxx
+# NEXT_PUBLIC_PASARELA_PAGOS_URL=...  # solo si usas Opción B (página propia de checkout)
 ```
 
 ---
@@ -100,5 +88,5 @@ WOMPI_INTEGRIDAD=test_integrity_xxxxxxxxxxxx
 ## Notas
 
 - Las que empiezan por **`NEXT_PUBLIC_`** se exponen al navegador; no pongas secretos ahí.
-- **`SUPABASE_SERVICE_ROLE_KEY`** y **`WOMPI_INTEGRIDAD`** son secretas; no las expongas en el cliente.
-- Para más detalle: **Wompi** → [CONFIGURAR-WOMPI.md](CONFIGURAR-WOMPI.md); **Super Admin** → [../referencia/SUPER-ADMIN.md](../referencia/SUPER-ADMIN.md).
+- **`SUPABASE_SERVICE_ROLE_KEY`** y **`WOMPI_EVENTS_SECRET`** son secretas; no las expongas en el cliente.
+- Para más detalle: **Wompi** → [integracion-Wompi.md](../integracion-Wompi.md); **Super Admin** → [../referencia/SUPER-ADMIN.md](../referencia/SUPER-ADMIN.md).

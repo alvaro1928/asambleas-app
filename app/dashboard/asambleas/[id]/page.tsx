@@ -2209,7 +2209,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex flex-col gap-4">
-            {process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL && userId ? (
+            {userId ? (
               <button
                 type="button"
                 disabled={checkoutLoadingSinTokens}
@@ -2241,11 +2241,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 }}
                 className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-3xl text-white text-base font-semibold hover:opacity-90 transition-opacity disabled:opacity-70 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
               >
-                {checkoutLoadingSinTokens ? 'Generando enlace...' : `Comprar ${Math.max(20, costoOperacion)} tokens ahora (pasarela)`}
+                {checkoutLoadingSinTokens ? 'Generando enlace...' : `Comprar ${Math.max(20, costoOperacion)} tokens ahora`}
               </button>
             ) : (
               <span className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-3xl bg-slate-200 dark:bg-slate-700 text-slate-500 text-base font-semibold cursor-not-allowed">
-                Configura la pasarela de pagos (NEXT_PUBLIC_PASARELA_PAGOS_URL) para comprar tokens
+                Inicia sesión para comprar tokens.
               </span>
             )}
             <Button type="button" variant="outline" onClick={() => setSinTokensModalOpen(false)} className="w-full">

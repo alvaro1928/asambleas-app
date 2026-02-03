@@ -191,18 +191,14 @@ export default function DashboardPage() {
     )
   }
 
-  const pasarelaUrl = process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
   const MIN_TOKENS_COMPRA = 20
   const cantidadCompra = compraRapida ? Math.max(MIN_TOKENS_COMPRA, costoOperacion) : Math.max(MIN_TOKENS_COMPRA, cantidadManual)
   const totalPagarCop = (precioProCop ?? 0) * cantidadCompra
-  const recargarHref = pasarelaUrl && user?.id
-    ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}user_id=${encodeURIComponent(user.id)}${selectedConjuntoId ? `&conjunto_id=${encodeURIComponent(selectedConjuntoId)}` : ''}&cantidad_tokens=${cantidadCompra}&monto_total_cop=${totalPagarCop}`
-    : null
-  const puedePagar = !!pasarelaUrl && !!user?.id
+  const puedePagar = !!user?.id
   const tokensInsuficientes = selectedConjuntoId && costoOperacion > 0 && tokensDisponibles < costoOperacion
 
   const handleIrAPagar = async () => {
-    if (!pasarelaUrl || !user?.id) return
+    if (!user?.id) return
     setCheckoutLoading(true)
     try {
       const res = await fetch('/api/pagos/checkout-url', {
@@ -340,12 +336,12 @@ export default function DashboardPage() {
                         ) : (
                           <>
                             <Plus className="w-4 h-4" />
-                            Ir a pagar (pasarela)
+                            Ir a pagar
                           </>
                         )}
                       </button>
                     ) : (
-                      <UiTooltip content="Configura la pasarela de pagos (NEXT_PUBLIC_PASARELA_PAGOS_URL) en el entorno para habilitar la compra de tokens">
+                      <UiTooltip content="La pasarela de pagos no está configurada. Contacta al administrador para habilitar la compra de tokens.">
                         <span className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-3xl bg-slate-500/50 text-slate-300 text-sm font-semibold cursor-not-allowed">
                           <Plus className="w-4 h-4" />
                           Ir a pagar
@@ -597,8 +593,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Métricas Detalladas — grid con columnas iguales y sin overflow */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 min-w-0 w-full">
+          {/* Métricas Detalladas — 3 tarjetas (Total Unidades, Suma Coeficientes, Conjuntos) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 min-w-0 w-full">
             {/* Total Unidades */}
             <div className="min-w-0 flex overflow-hidden w-full">
               <UiTooltip content="Ver listado de unidades, editar y gestionar coeficientes">

@@ -2,25 +2,28 @@
 
 Configuración necesaria para que la compra de tokens funcione con Wompi. Dominio: **https://epbco.cloud**
 
+**Comportamiento actual (Opción 1 – la pasarela se encarga):**  
+Al pulsar "Comprar tokens", la app llama a su API; el backend crea un *payment link* en Wompi y devuelve la URL de checkout de Wompi (`https://checkout.wompi.co/l/...`). El usuario paga en la pasarela (Wompi); no hace falta ninguna página `/checkout` ni `/pagar` en tu dominio ni configurar `NEXT_PUBLIC_PASARELA_PAGOS_URL`.
+
 ---
 
 ## Mapeo: Wompi ↔ Vercel (la llave es esta, la URL es esta)
 
 | En Wompi (panel) | En Vercel (variable de entorno) | Valor / URL |
 |------------------|----------------------------------|-------------|
-| **URL de Eventos** | *(no es variable; se configura solo en el panel de Wompi)* | `https://epbco.cloud/api/pagos/webhook` |
-| **Eventos** (Secretos) | `WOMPI_EVENTS_SECRET` | El valor que muestra Wompi en "Eventos" (ej. `prod_events_wiWGS0M01Z81ogK0VvPOTrJhNpwpPqNa`) |
-| **Llave pública** | `WOMPI_PUBLIC_KEY` *(opcional)* | El valor de "Llave pública" (ej. `pub_prod_W78D7S6YJsZP2rkC1CTQvUzmH0TSb6Qx`) |
-| **Llave privada** | `WOMPI_PRIVATE_KEY` *(opcional)* | El valor de "Llave privada" (ej. `prv_prod_...`) |
-| **Integridad** (Secretos) | *(no se usa en esta app)* | — |
-| *(Checkout: a dónde envías al usuario a pagar)* | `NEXT_PUBLIC_PASARELA_PAGOS_URL` | URL completa de tu página de checkout |
+| **URL de Eventos** | *(solo en panel Wompi)* | `https://epbco.cloud/api/pagos/webhook` |
+| **Eventos** (Secretos) | `WOMPI_EVENTS_SECRET` | Valor de "Eventos" en Wompi (ej. `prod_events_...`) |
+| **Llave privada** | `WOMPI_PRIVATE_KEY` | **Requerida** para que la app cree el link y redirija a Wompi (ej. `prv_prod_...`) |
+| **Llave pública** | `WOMPI_PUBLIC_KEY` *(opcional)* | Para uso futuro en front. |
+| **Integridad** (Secretos) | *(no se usa)* | — |
+| *(Solo si no usas Opción 1)* | `NEXT_PUBLIC_PASARELA_PAGOS_URL` | URL de tu propia página de checkout (Opción B). |
 
-**Resumen directo:**
+**Resumen directo (Opción 1):**
 
-- **La URL de Eventos** es: `https://epbco.cloud/api/pagos/webhook` → pégala en Wompi en "URL de Eventos" y Guardar.
-- **La llave Eventos** es el secreto que ves en Wompi en "Eventos" → en Vercel crea la variable `WOMPI_EVENTS_SECRET` y pega ese valor.
+- **URL de Eventos en Wompi:** `https://epbco.cloud/api/pagos/webhook` → Guardar.
+- **En Vercel:** `WOMPI_EVENTS_SECRET` = valor de **Eventos** de Wompi; `WOMPI_PRIVATE_KEY` = **Llave privada** de Wompi. Con eso la pasarela se encarga del checkout; no hace falta `NEXT_PUBLIC_PASARELA_PAGOS_URL`.
 
-También puedes usar el nombre antiguo `WEBHOOK_PAGOS_SECRET` en lugar de `WOMPI_EVENTS_SECRET`; la app acepta los dos.
+Puedes usar `WEBHOOK_PAGOS_SECRET` en lugar de `WOMPI_EVENTS_SECRET`; la app acepta ambos.
 
 ---
 
@@ -34,23 +37,43 @@ https://epbco.cloud/api/pagos/webhook
 
 Pégala en **Seguimiento de transacciones → URL de Eventos** y pulsa **Guardar**. Configúrala en Sandbox y en Producción si Wompi lo pide por ambiente.
 
-### En Vercel (variables de entorno)
+### En Vercel (variables de entorno) – Opción 1 (recomendada)
 
-En **Settings → Environment Variables** del proyecto:
-
-| Nombre en Vercel | Valor (copiar de Wompi) |
-|------------------|-------------------------|
-| `WOMPI_EVENTS_SECRET` | Lo que muestra Wompi en **Secretos → Eventos** (ej. `prod_events_wiWGS0M01Z81ogK0VvPOTrJhNpwpPqNa`) |
-| `NEXT_PUBLIC_PASARELA_PAGOS_URL` | URL de tu página de checkout (donde el usuario paga) |
-
-Opcionales (si más adelante creas transacciones por API):
+En **Settings → Environment Variables** del proyecto, para que la pasarela se encargue del checkout:
 
 | Nombre en Vercel | Valor (copiar de Wompi) |
 |------------------|-------------------------|
-| `WOMPI_PUBLIC_KEY` | **Llave pública** |
-| `WOMPI_PRIVATE_KEY` | **Llave privada** |
+| `WOMPI_EVENTS_SECRET` | **Secretos → Eventos** (ej. `prod_events_wiWGS0M01Z81ogK0VvPOTrJhNpwpPqNa`) |
+| `WOMPI_PRIVATE_KEY` | **Llave privada** (ej. `prv_prod_...`) |
 
-Después de cambiar variables, haz **redeploy** en Vercel.
+Con estas dos variables la app crea el link de pago en Wompi y redirige al usuario a `https://checkout.wompi.co/l/...`. **No** hace falta `NEXT_PUBLIC_PASARELA_PAGOS_URL`.
+
+Opcional: `WOMPI_PUBLIC_KEY` (Llave pública) para uso futuro. Después de cambiar variables, haz **redeploy** en Vercel.
+
+---
+
+## ¿Las páginas /checkout o /pagar las da Wompi o hay que crearlas?
+
+**Wompi no te da una página** que reciba `user_id`, `conjunto_id`, etc. Wompi te da:
+- Un **API** para crear “links de pago” (con monto, descripción, etc.).
+- Una **URL de checkout** por cada link que crees (tipo `https://checkout.wompi.co/l/XXX`), a la que tú envías al usuario.
+
+Por tanto, **o bien creas algo en tu lado, o bien la app lo hace por ti**:
+
+1. **Opción A – La pasarela se encarga (implementada, recomendada)**  
+   Al pulsar "Comprar tokens", el backend llama al API de Wompi, crea el link de pago (monto, referencia corta asociada al usuario) y devuelve la URL de Wompi. El usuario paga en la pasarela; **no necesitas** página `/checkout` ni `NEXT_PUBLIC_PASARELA_PAGOS_URL`. En Vercel solo hace falta `WOMPI_PRIVATE_KEY` y `WOMPI_EVENTS_SECRET`.
+
+2. **Opción B – Tú creas una página en tu app**  
+   Creas una ruta en tu sitio (ej. `https://epbco.cloud/checkout` o `/pagar`) que:
+   - Reciba por query: `user_id`, `conjunto_id`, `cantidad_tokens`, `monto_total_cop`.
+   - Con tu **llave privada**, llame al API de Wompi para crear el link de pago (monto, referencia, etc.).
+   - Redirija al usuario a la URL que te devuelve Wompi (`https://checkout.wompi.co/l/...`).  
+   En ese caso en `NEXT_PUBLIC_PASARELA_PAGOS_URL` pondrías la URL de esa página, por ejemplo:
+   ```
+   https://epbco.cloud/checkout
+   ```
+
+**Resumen:** Las páginas no las da Wompi; o las creas tú (opción B) o se hace todo desde la API del backend (opción A) y entonces no necesitas `NEXT_PUBLIC_PASARELA_PAGOS_URL`.
 
 ---
 
@@ -78,37 +101,29 @@ https://epbco.cloud/api/pagos/webhook
 
 ---
 
-## 2. Variables de entorno en Vercel
+## 2. Variables de entorno en Vercel (Opción 1)
 
-| Variable | Valor | Dónde se usa |
-|----------|--------|----------------|
-| `WOMPI_EVENTS_SECRET` | Valor de **Eventos** de Wompi (`prod_events_...` en producción). | Webhook `/api/pagos/webhook` para validar que el evento viene de Wompi. |
-| `NEXT_PUBLIC_PASARELA_PAGOS_URL` | URL del checkout (página de pago). Debe aceptar por query: `user_id`, `conjunto_id`, `cantidad_tokens`, `monto_total_cop`. | Frontend y `/api/pagos/checkout-url`. |
+| Variable | Valor | Uso |
+|----------|--------|-----|
+| `WOMPI_EVENTS_SECRET` | Valor de **Eventos** de Wompi (`prod_events_...`). | Webhook `/api/pagos/webhook` para validar la firma del evento. |
+| `WOMPI_PRIVATE_KEY` | **Llave privada** de Wompi (`prv_prod_...`). | `/api/pagos/checkout-url` crea el payment link y devuelve la URL de Wompi; la pasarela se encarga del checkout. |
 
-Alternativa: puedes seguir usando `WEBHOOK_PAGOS_SECRET` con el valor de **Eventos**; la app lo acepta igual que `WOMPI_EVENTS_SECRET`.
+Con Opción 1 no se usa `NEXT_PUBLIC_PASARELA_PAGOS_URL`. Alternativa: `WEBHOOK_PAGOS_SECRET` en lugar de `WOMPI_EVENTS_SECRET`.
 
 ---
 
 ## 3. Referencia de la transacción
 
-Para acreditar los tokens al gestor correcto, la transacción en Wompi debe llevar la **referencia** en este formato:
+La app admite dos formas de identificar al usuario al acreditar tokens:
 
-```
-REF_<user_id>_<timestamp>
-```
-
-- `user_id`: UUID del gestor en Supabase Auth.
-- `timestamp`: número (ej. `Date.now()`).
-
-Quien cree la transacción (tu checkout o tu backend) debe enviar esa referencia a Wompi al crear el pago.
+- **Opción 1 (actual):** El backend guarda una referencia corta (ej. `ck1a2b3c4d5`) en la tabla `pagos_checkout_ref` junto al `user_id`. Al crear el payment link en Wompi se envía esa referencia como `sku`; cuando Wompi notifica el pago, el webhook busca el `user_id` por esa referencia.
+- **Alternativa (legacy):** Referencia en formato `REF_<user_id>_<timestamp>`; el webhook extrae el `user_id` del string.
 
 ---
 
-## 4. Resumen rápido
+## 4. Resumen rápido (Opción 1 – pasarela se encarga)
 
 1. **Wompi – URL de Eventos:** `https://epbco.cloud/api/pagos/webhook` → Guardar.
-2. **Vercel –** `WOMPI_EVENTS_SECRET` = valor de **Eventos** de Wompi; `NEXT_PUBLIC_PASARELA_PAGOS_URL` = URL de checkout.
-3. **Redeploy** en Vercel después de cambiar variables.
-4. **Checkout:** referencia `REF_<user_id>_<timestamp>` al crear la transacción en Wompi.
-
-Cuando un pago se apruebe, Wompi enviará el evento a `https://epbco.cloud/api/pagos/webhook`, la app verificará la firma con `WOMPI_EVENTS_SECRET` y acreditará los tokens al gestor según la referencia.
+2. **Vercel:** `WOMPI_EVENTS_SECRET` = valor de **Eventos**; `WOMPI_PRIVATE_KEY` = **Llave privada**. No hace falta `NEXT_PUBLIC_PASARELA_PAGOS_URL`.
+3. **Redeploy** en Vercel.
+4. El usuario pulsa "Comprar tokens" → la app crea el link en Wompi y abre `checkout.wompi.co` → paga en la pasarela → Wompi envía el evento al webhook → la app acredita los tokens al gestor según la referencia.

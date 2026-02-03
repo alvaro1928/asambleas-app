@@ -131,12 +131,23 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
-  const userId = extractUserIdFromReference(reference)
+  let userId = extractUserIdFromReference(reference)
+  if (!userId && reference && typeof reference === 'string') {
+    const { data: refRow } = await supabase
+      .from('pagos_checkout_ref')
+      .select('user_id')
+      .eq('ref', reference.trim())
+      .limit(1)
+      .maybeSingle()
+    if (refRow && typeof (refRow as { user_id?: string }).user_id === 'string') {
+      userId = (refRow as { user_id: string }).user_id
+    }
+  }
 
   if (status === 'APPROVED') {
     if (!userId) {
-      await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Referencia sin UUID válido (REF_USERID_TIMESTAMP)')
-      return NextResponse.json({ error: 'Referencia inválida: se espera REF_<user_id>_<timestamp>' }, { status: 400 })
+      await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Referencia sin UUID válido (REF_USERID_TIMESTAMP o ref en pagos_checkout_ref)')
+      return NextResponse.json({ error: 'Referencia inválida: se espera REF_<user_id>_<timestamp> o ref de checkout' }, { status: 400 })
     }
 
     // Idempotencia: no procesar el mismo pago dos veces

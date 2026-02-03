@@ -1,10 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
+
+const MIN_TOKENS = 20
+
+/** Genera una referencia corta para el sku del link de pago (máx 36 chars en Wompi). */
+function generateShortRef(): string {
+  return 'ck' + randomBytes(5).toString('hex')
+}
 
 /**
  * POST /api/pagos/checkout-url
- * Genera la URL de la pasarela de pagos con el monto recalculado en el backend
- * usando el precio oficial de configuracion_global (evita manipulación en frontend).
+ * Opción A: Si WOMPI_PRIVATE_KEY está definida, crea un payment link en Wompi y devuelve la URL.
+ * Opción B: Si no, devuelve URL con NEXT_PUBLIC_PASARELA_PAGOS_URL + query params.
  * Body: { user_id: string, conjunto_id?: string, cantidad_tokens: number }
  * Respuesta: { url: string, monto_total_cop: number } o { error }
  */
@@ -17,7 +25,6 @@ export async function POST(request: NextRequest) {
       cantidad_tokens?: number
     }
 
-    const MIN_TOKENS = 20
     const userId = typeof user_id === 'string' ? user_id.trim() : null
     const conjId = typeof conjunto_id === 'string' ? conjunto_id.trim() || undefined : undefined
     const raw = typeof cantidad_tokens === 'number'
@@ -29,11 +36,6 @@ export async function POST(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json({ error: 'user_id es requerido' }, { status: 400 })
-    }
-
-    const pasarelaBaseUrl = process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
-    if (!pasarelaBaseUrl || !pasarelaBaseUrl.startsWith('http')) {
-      return NextResponse.json({ error: 'Pasarela de pagos no configurada' }, { status: 503 })
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -59,6 +61,61 @@ export async function POST(request: NextRequest) {
       ? Number(configRow.precio_por_token_cop)
       : 1500
     const montoTotalCop = Math.max(0, cantidad * precioCop)
+    const amountInCents = Math.round(montoTotalCop * 100)
+
+    const privateKey = process.env.WOMPI_PRIVATE_KEY
+    if (privateKey && privateKey.startsWith('prv_')) {
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (!serviceRoleKey) {
+        return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada' }, { status: 500 })
+      }
+      const shortRef = generateShortRef()
+      const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
+      const { error: refError } = await admin.from('pagos_checkout_ref').insert({
+        ref: shortRef,
+        user_id: userId,
+        amount_cents: amountInCents,
+      })
+      if (refError) {
+        console.error('POST /api/pagos/checkout-url ref insert:', refError)
+        return NextResponse.json({ error: 'Error al registrar referencia de pago' }, { status: 500 })
+      }
+
+      const baseUrl = privateKey.startsWith('prv_prod_')
+        ? 'https://production.wompi.co/v1'
+        : 'https://sandbox.wompi.co/v1'
+      const res = await fetch(`${baseUrl}/payment_links`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${privateKey}`,
+        },
+        body: JSON.stringify({
+          name: 'Tokens - Asambleas App',
+          description: `${cantidad} tokens para tu billetera`,
+          single_use: true,
+          collect_shipping: false,
+          currency: 'COP',
+          amount_in_cents: amountInCents,
+          sku: shortRef,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      const linkId = json?.data?.id
+      if (!res.ok || !linkId) {
+        console.error('Wompi payment_links:', res.status, json)
+        return NextResponse.json({
+          error: json?.error?.message || 'Error al crear el link de pago en Wompi',
+        }, { status: 502 })
+      }
+      const checkoutUrl = `https://checkout.wompi.co/l/${linkId}`
+      return NextResponse.json({ url: checkoutUrl, monto_total_cop: montoTotalCop })
+    }
+
+    const pasarelaBaseUrl = process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
+    if (!pasarelaBaseUrl || !pasarelaBaseUrl.startsWith('http')) {
+      return NextResponse.json({ error: 'Pasarela de pagos no configurada. Configura WOMPI_PRIVATE_KEY o NEXT_PUBLIC_PASARELA_PAGOS_URL.' }, { status: 503 })
+    }
 
     const separator = pasarelaBaseUrl.includes('?') ? '&' : '?'
     const params = new URLSearchParams()
@@ -66,9 +123,7 @@ export async function POST(request: NextRequest) {
     if (conjId) params.set('conjunto_id', conjId)
     params.set('cantidad_tokens', String(cantidad))
     params.set('monto_total_cop', String(montoTotalCop))
-
     const url = `${pasarelaBaseUrl}${separator}${params.toString()}`
-
     return NextResponse.json({ url, monto_total_cop: montoTotalCop })
   } catch (e) {
     console.error('POST /api/pagos/checkout-url:', e)

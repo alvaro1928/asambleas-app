@@ -33,7 +33,8 @@
 | Documento | Descripción |
 |-----------|-------------|
 | **[configuracion/VARIABLES-ENTORNO-VERCEL.md](configuracion/VARIABLES-ENTORNO-VERCEL.md)** | **Lista oficial** de variables de entorno para Vercel y desarrollo: Supabase, Auth, Super Admin, Wompi. Landing, precio y WhatsApp se configuran en Super Admin → Ajustes. |
-| [configuracion/CONFIGURAR-WOMPI.md](configuracion/CONFIGURAR-WOMPI.md) | Pasarela de pagos Wompi: webhook, referencia, tokens de la cuenta. |
+| **[integracion-Wompi.md](integracion-Wompi.md)** | **Wompi (pasarela de pagos):** Opción 1 (la pasarela se encarga), URL de Eventos, variables `WOMPI_EVENTS_SECRET` y `WOMPI_PRIVATE_KEY`, referencia y flujo. |
+| [configuracion/CONFIGURAR-WOMPI.md](configuracion/CONFIGURAR-WOMPI.md) | Redirección a la guía principal de Wompi (integracion-Wompi.md). |
 
 ---
 
