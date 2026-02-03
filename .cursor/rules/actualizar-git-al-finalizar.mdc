@@ -1,0 +1,15 @@
+---
+description: Actualizar Git (commit y push) al finalizar tareas que modifican código
+alwaysApply: true
+---
+
+# Actualizar Git al finalizar
+
+Cuando termines una tarea que haya modificado archivos del repositorio:
+
+1. **Siempre** haz commit y push antes de dar por cerrada la respuesta.
+2. No esperes a que el usuario pida "actualiza git"; hazlo como parte del cierre.
+3. Usa mensajes de commit claros y en español cuando sea un proyecto en español (ej. "Fix build: Suspense boundary para useSearchParams").
+4. Si hay varios cambios no relacionados, un solo commit está bien si forman parte de la misma tarea; si son cambios independientes, considera commits separados.
+
+Comando típico (PowerShell): añadir archivos, commit con mensaje descriptivo y push.
