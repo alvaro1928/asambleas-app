@@ -63,6 +63,12 @@ export default function DashboardPage() {
         setTimeout(() => setSuccessMessage(''), 5000)
         window.history.replaceState({}, '', '/dashboard')
       }
+      const pago = params.get('pago')
+      if (pago === 'ok') {
+        setSuccessMessage('Pago realizado. Tus tokens se acreditarán en unos segundos.')
+        setTimeout(() => setSuccessMessage(''), 8000)
+        window.history.replaceState({}, '', '/dashboard')
+      }
     }
 
     // Escuchar cambios en la autenticación

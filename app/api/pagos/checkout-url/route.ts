@@ -84,6 +84,8 @@ export async function POST(request: NextRequest) {
       const baseUrl = privateKey.startsWith('prv_prod_')
         ? 'https://production.wompi.co/v1'
         : 'https://sandbox.wompi.co/v1'
+      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '') || 'https://epbco.cloud'
+      const redirectUrl = `${siteUrl}/dashboard?pago=ok`
       const res = await fetch(`${baseUrl}/payment_links`, {
         method: 'POST',
         headers: {
@@ -98,6 +100,7 @@ export async function POST(request: NextRequest) {
           currency: 'COP',
           amount_in_cents: amountInCents,
           sku: shortRef,
+          redirect_url: redirectUrl,
         }),
       })
       const json = await res.json().catch(() => ({}))

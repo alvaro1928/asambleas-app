@@ -116,14 +116,16 @@ Con Opción 1 no se usa `NEXT_PUBLIC_PASARELA_PAGOS_URL`. Alternativa: `WEBHOOK_
 
 La app admite dos formas de identificar al usuario al acreditar tokens:
 
-- **Opción 1 (actual):** El backend guarda una referencia corta (ej. `ck1a2b3c4d5`) en la tabla `pagos_checkout_ref` junto al `user_id`. Al crear el payment link en Wompi se envía esa referencia como `sku`; cuando Wompi notifica el pago, el webhook busca el `user_id` por esa referencia.
-- **Alternativa (legacy):** Referencia en formato `REF_<user_id>_<timestamp>`; el webhook extrae el `user_id` del string.
+- **Opción 1 (payment links):** El backend guarda una referencia corta (ej. `ck1a2b3c4d5`) en `pagos_checkout_ref` y la envía como `sku` al crear el link. En el webhook: si la `reference` del evento es nuestra, se busca por ella; si no (p. ej. PSE envía `test_xxx`), se usa `payment_link_id` para obtener el `sku` del link en Wompi y buscar el `user_id` en `pagos_checkout_ref`. Así los tokens se acreditan aunque Wompi muestre otra referencia en el comprobante.
+- **Legacy:** Referencia `REF_<user_id>_<timestamp>`; el webhook extrae el `user_id` del string.
+
+**Redirección tras el pago:** Al crear el link se envía `redirect_url` a tu app (p. ej. `https://tu-dominio/dashboard?pago=ok`). Configura `NEXT_PUBLIC_SITE_URL` en Vercel para que la URL base sea la correcta; así el usuario vuelve al dashboard después de pagar.
 
 ---
 
 ## 4. Resumen rápido (Opción 1 – pasarela se encarga)
 
 1. **Wompi – URL de Eventos:** `https://epbco.cloud/api/pagos/webhook` → Guardar.
-2. **Vercel:** `WOMPI_EVENTS_SECRET` = valor de **Eventos**; `WOMPI_PRIVATE_KEY` = **Llave privada**. No hace falta `NEXT_PUBLIC_PASARELA_PAGOS_URL`.
+2. **Vercel:** `WOMPI_EVENTS_SECRET` = valor de **Eventos**; `WOMPI_PRIVATE_KEY` = **Llave privada**. Opcional: `NEXT_PUBLIC_SITE_URL` para que la redirección tras el pago apunte a tu dominio (ej. `https://epbco.cloud`).
 3. **Redeploy** en Vercel.
-4. El usuario pulsa "Comprar tokens" → la app crea el link en Wompi y abre `checkout.wompi.co` → paga en la pasarela → Wompi envía el evento al webhook → la app acredita los tokens al gestor según la referencia.
+4. El usuario pulsa "Comprar tokens" → la app crea el link en Wompi (con `redirect_url`) y abre `checkout.wompi.co` → paga → Wompi redirige al dashboard y envía el evento al webhook → la app acredita los tokens (por referencia o por `payment_link_id` + sku).

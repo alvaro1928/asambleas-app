@@ -64,6 +64,7 @@ interface WompiEventPayload {
       status?: string
       amount_in_cents?: number
       currency?: string
+      payment_link_id?: string | null
     }
   }
   signature?: {
@@ -114,6 +115,7 @@ export async function POST(request: NextRequest) {
   const transaction = data.transaction ?? {}
   const txId = transaction.id ?? null
   const reference = transaction.reference ?? null
+  const paymentLinkId = transaction.payment_link_id ?? null
   const status = (transaction.status ?? '').toString().toUpperCase()
   const amountInCents = typeof transaction.amount_in_cents === 'number' ? transaction.amount_in_cents : 0
 
@@ -141,6 +143,35 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
     if (refRow && typeof (refRow as { user_id?: string }).user_id === 'string') {
       userId = (refRow as { user_id: string }).user_id
+    }
+  }
+  // Si la referencia de Wompi no es nuestra (ej. PSE genera test_xxx): obtener sku del payment link y buscar en pagos_checkout_ref
+  if (!userId && paymentLinkId && typeof paymentLinkId === 'string') {
+    const privateKey = process.env.WOMPI_PRIVATE_KEY
+    if (privateKey && privateKey.startsWith('prv_')) {
+      const baseUrl = privateKey.startsWith('prv_prod_')
+        ? 'https://production.wompi.co/v1'
+        : 'https://sandbox.wompi.co/v1'
+      try {
+        const linkRes = await fetch(`${baseUrl}/payment_links/${encodeURIComponent(paymentLinkId.trim())}`, {
+          headers: { Authorization: `Bearer ${privateKey}` },
+        })
+        const linkJson = await linkRes.json().catch(() => ({}))
+        const sku = linkJson?.data?.sku
+        if (sku && typeof sku === 'string') {
+          const { data: refRow } = await supabase
+            .from('pagos_checkout_ref')
+            .select('user_id')
+            .eq('ref', sku.trim())
+            .limit(1)
+            .maybeSingle()
+          if (refRow && typeof (refRow as { user_id?: string }).user_id === 'string') {
+            userId = (refRow as { user_id: string }).user_id
+          }
+        }
+      } catch (e) {
+        console.error('[webhook pagos] Error al obtener payment link:', e)
+      }
     }
   }
 
