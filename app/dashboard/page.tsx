@@ -71,14 +71,18 @@ export default function DashboardPage() {
       }
     }
 
-    let refetchAfterPagoOk: ReturnType<typeof setTimeout> | null = null
+    let refetchTimers: ReturnType<typeof setTimeout>[] = []
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
       if (params.get('pago') === 'ok') {
-        refetchAfterPagoOk = setTimeout(async () => {
-          const { data: { user: u } } = await supabase.auth.getUser()
-          if (u) loadStats(u.id)
-        }, 4000)
+        ;[2000, 5000, 10000].forEach((ms) => {
+          refetchTimers.push(
+            setTimeout(async () => {
+              const { data: { user: u } } = await supabase.auth.getUser()
+              if (u) loadStats(u.id)
+            }, ms)
+          )
+        })
       }
     }
 
@@ -103,10 +107,18 @@ export default function DashboardPage() {
 
     window.addEventListener('storage', handleStorageChange)
 
+    const handleVisibility = async () => {
+      if (document.visibilityState !== 'visible') return
+      const { data: { user: u } } = await supabase.auth.getUser()
+      if (u?.id) loadStats(u.id)
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
     return () => {
       subscription.unsubscribe()
       window.removeEventListener('storage', handleStorageChange)
-      if (refetchAfterPagoOk) clearTimeout(refetchAfterPagoOk)
+      document.removeEventListener('visibilitychange', handleVisibility)
+      refetchTimers.forEach((t) => clearTimeout(t))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -145,13 +157,15 @@ export default function DashboardPage() {
   const loadStats = async (userId: string) => {
     try {
       loadConfig()
-      // Contar conjuntos del usuario
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId)
-
-      const uniqueOrgs = new Set(profiles?.map(p => p.organization_id).filter(Boolean))
+      // Contar conjuntos del usuario (por user_id o por id, según esquema)
+      let profilesList: Array<{ organization_id?: string | null }> = []
+      const { data: byUser } = await supabase.from('profiles').select('organization_id').eq('user_id', userId)
+      profilesList = Array.isArray(byUser) ? byUser : byUser ? [byUser] : []
+      if (profilesList.length === 0) {
+        const { data: byId } = await supabase.from('profiles').select('organization_id').eq('id', userId)
+        profilesList = Array.isArray(byId) ? byId : byId ? [byId] : []
+      }
+      const uniqueOrgs = new Set(profilesList.map(p => p.organization_id).filter(Boolean))
       setConjuntosCount(uniqueOrgs.size)
 
       // Conjunto activo: tokens del gestor (billetera) y costo para este conjunto (1 token = 1 unidad)
@@ -160,7 +174,11 @@ export default function DashboardPage() {
       if (!conjId) setTokensDisponibles(0)
 
       if (conjId) {
-        const statusRes = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(conjId)}`, { credentials: 'include' })
+        const statusRes = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(conjId)}`, {
+          credentials: 'include',
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
+        })
         const statusData = statusRes.ok ? await statusRes.json().catch(() => ({})) : null
         setTokensDisponibles(Math.max(0, Number(statusData?.tokens_disponibles ?? 0)))
         const unidades = Math.max(0, Number(statusData?.unidades_conjunto ?? 0))

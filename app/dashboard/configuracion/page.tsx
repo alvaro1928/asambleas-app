@@ -614,7 +614,7 @@ export default function ConfiguracionPage() {
                   </thead>
                   <tbody>
                     {pagos.map((pago) => {
-                      const fecha = new Date(pago.created_at).toLocaleDateString('es-CO', {
+                      const fecha = new Date(pago.created_at).toLocaleString('es-CO', {
                         dateStyle: 'short',
                         timeStyle: 'short',
                       })
