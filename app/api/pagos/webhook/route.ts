@@ -316,6 +316,7 @@ export async function POST(request: NextRequest) {
     if (perfilesGestor.length === 0) {
       const { error: insertError } = await supabase.from('profiles').insert({
         id: userId,
+        user_id: userId,
         email: null,
         full_name: null,
         organization_id: null,
