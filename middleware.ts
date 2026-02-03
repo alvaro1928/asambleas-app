@@ -2,6 +2,16 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  // Si Google/Supabase redirige a la raíz con ?code= (en vez de /auth/callback/oauth), enviar al callback para intercambiar el code y llevar al dashboard
+  const pathname = request.nextUrl.pathname
+  const code = request.nextUrl.searchParams.get('code')
+  if (pathname === '/' && code) {
+    const callbackUrl = new URL('/auth/callback/oauth', request.url)
+    callbackUrl.searchParams.set('code', code)
+    callbackUrl.searchParams.set('next', '/dashboard')
+    return NextResponse.redirect(callbackUrl)
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
