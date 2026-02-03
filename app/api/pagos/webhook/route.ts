@@ -30,48 +30,76 @@ function getNestedValue(obj: unknown, path: string): string | number | null {
 /** Verificar firma de integridad Wompi (SHA256 de properties + timestamp + secret). */
 function verifyWompiSignature(
   data: Record<string, unknown>,
+  fullBody: { sent_at?: string; timestamp?: number },
   signature: { properties?: string[]; timestamp?: number; checksum?: string },
   secret: string
 ): boolean {
-  const props = signature?.properties
-  const timestamp = signature?.timestamp
+  let props = signature?.properties
+  let timestamp = signature?.timestamp ?? fullBody?.timestamp
   const expectedChecksum = signature?.checksum
-  if (!Array.isArray(props) || props.length === 0 || timestamp == null || !expectedChecksum) return false
+  if (!expectedChecksum) return false
+
+  // Fallback: si Wompi solo envía checksum (ej. en header) sin properties/timestamp en body,
+  // usar estructura conocida de transaction.updated (doc Wompi)
+  if ((!Array.isArray(props) || props.length === 0 || timestamp == null) && data?.transaction) {
+    const tx = data.transaction as Record<string, unknown>
+    props = ['transaction.id', 'transaction.status', 'transaction.amount_in_cents']
+    if (timestamp == null) {
+      const sentAt = fullBody?.sent_at ? Date.parse(fullBody.sent_at) : NaN
+      const finalized = tx.finalized_at != null
+        ? (typeof tx.finalized_at === 'string' ? Date.parse(tx.finalized_at) : Number(tx.finalized_at))
+        : NaN
+      const created = tx.created_at != null
+        ? (typeof tx.created_at === 'string' ? Date.parse(tx.created_at) : Number(tx.created_at))
+        : NaN
+      timestamp = Number.isFinite(sentAt) ? sentAt : (Number.isFinite(finalized) ? finalized : (Number.isFinite(created) ? created : undefined))
+    }
+  }
+
+  if (!Array.isArray(props) || props.length === 0 || timestamp == null) return false
+
   const parts: (string | number)[] = []
   for (const path of props) {
     const v = getNestedValue(data, path)
     if (v === null) return false
     parts.push(v)
   }
-  parts.push(timestamp)
-  const concatenated = parts.join('') + secret
-  const hash = createHash('sha256').update(concatenated, 'utf8').digest('hex')
-  if (hash.length !== expectedChecksum.length) return false
-  try {
-    return timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(expectedChecksum.toLowerCase(), 'hex'))
-  } catch {
-    return false
+
+  const receivedHex = expectedChecksum.toLowerCase().replace(/\s/g, '')
+
+  // Doc Wompi: timestamp puede ser UNIX en segundos o milisegundos; probar ambos
+  const timestampsToTry: number[] = [
+    timestamp > 1e12 ? Math.floor(timestamp / 1000) : timestamp,
+    timestamp,
+  ]
+  const uniqueTimestamps = [...new Set(timestampsToTry)]
+
+  for (const ts of uniqueTimestamps) {
+    const concatenated = parts.join('') + ts + secret
+    const hash = createHash('sha256').update(concatenated, 'utf8').digest('hex')
+    if (hash.length !== receivedHex.length) continue
+    try {
+      if (timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(receivedHex, 'hex'))) return true
+    } catch {
+      // continue
+    }
   }
+  return false
 }
 
 /** Payload Wompi evento transaction.updated */
 interface WompiEventPayload {
   event?: string
   data?: {
-    transaction?: {
-      id?: string
-      reference?: string
-      status?: string
-      amount_in_cents?: number
-      currency?: string
-      payment_link_id?: string | null
-    }
+    transaction?: Record<string, unknown>
   }
   signature?: {
     properties?: string[]
     timestamp?: number
     checksum?: string
   }
+  /** Timestamp UNIX del evento (algunos entornos lo envían en la raíz) */
+  timestamp?: number
   sent_at?: string
 }
 
@@ -125,8 +153,16 @@ export async function POST(request: NextRequest) {
   const signature = body.signature ?? {}
   const checksumHeader = request.headers.get('x-event-checksum')
   const checksumToVerify = signature.checksum ?? checksumHeader ?? ''
-  if (!verifyWompiSignature(data, { ...signature, checksum: checksumToVerify }, secret)) {
-    console.error('[webhook pagos] Firma de integridad inválida')
+  const timestamp = signature.timestamp ?? body.timestamp
+  const isValid = verifyWompiSignature(data, body, { ...signature, timestamp, checksum: checksumToVerify }, secret)
+  if (!isValid) {
+    console.error('[webhook pagos] Firma de integridad inválida', {
+      hasSignature: !!body.signature,
+      hasProperties: Array.isArray(signature.properties) && signature.properties.length > 0,
+      hasTimestamp: timestamp != null,
+      hasChecksum: !!checksumToVerify,
+      timestampFrom: body.timestamp != null ? 'root' : (signature.timestamp != null ? 'signature' : 'none'),
+    })
     return NextResponse.json({ error: 'Firma de integridad inválida' }, { status: 401 })
   }
 
