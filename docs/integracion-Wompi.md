@@ -131,6 +131,24 @@ En **Vercel** → tu proyecto → **Logs** (o **Functions** → ver logs), filtr
 
 Así puedes comprobar si Wompi está llamando al webhook y si se está resolviendo el usuario y acreditando los tokens.
 
+### No veo pagos ni tokens después de un pago aprobado
+
+1. **Comprobar variables en Vercel**  
+   Abre en el navegador: `https://tu-dominio/api/pagos/webhook-status`  
+   Debe devolver `events_secret_set: true`, `private_key_set: true`, `supabase_service_role_set: true`. Si algo es `false`, añade esa variable en Vercel y haz redeploy.
+
+2. **URL de Eventos en Wompi**  
+   En el panel de Wompi (Seguimiento de transacciones) la **URL de Eventos** debe ser exactamente `https://epbco.cloud/api/pagos/webhook` (o tu dominio). En **Sandbox** y en **Producción** puede haber que configurarla por separado.
+
+3. **Logs en Vercel**  
+   Tras un pago de prueba, en Vercel → Logs filtra por `[webhook pagos]` o por la ruta `/api/pagos/webhook`.  
+   - Si **no aparece nada**: Wompi no está llamando al webhook (revisa la URL de Eventos y el entorno Sandbox/Producción).  
+   - Si aparece **"APPROVED pero user_id no resuelto"**: hace falta `WOMPI_PRIVATE_KEY` para resolver por `payment_link_id` + sku (PSE usa otra referencia).  
+   - Si aparece **"Tokens acreditados"**: el webhook funcionó; el saldo se actualiza en el dashboard. Las transacciones solo se listan en Super Admin si el perfil del pagador tiene `organization_id` (conjunto asignado).
+
+4. **El 403 en "transaction-redirect.wompi.co"**  
+   Ese error es de la página de Wompi al intentar su redirección; no implica que nuestro webhook no se haya ejecutado. El webhook es una llamada aparte (servidor a servidor) desde Wompi a tu URL de Eventos.
+
 ---
 
 ## 4. Resumen rápido (Opción 1 – pasarela se encarga)
