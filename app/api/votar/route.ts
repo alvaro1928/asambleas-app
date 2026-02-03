@@ -97,18 +97,15 @@ export async function POST(request: NextRequest) {
       // Test de estrés: INSERT directo en votos, sin RPC ni historial. Máxima velocidad.
       const { error } = await supabase
         .from('votos')
-        .insert(
-          {
-            pregunta_id,
-            unidad_id,
-            opcion_id,
-            votante_email: emailNorm,
-            votante_nombre: nombreVotante,
-            es_poder: !!es_poder,
-            poder_id: poder_id || null,
-          },
-          { count: null, returning: 'minimal' }
-        )
+        .insert({
+          pregunta_id,
+          unidad_id,
+          opcion_id,
+          votante_email: emailNorm,
+          votante_nombre: nombreVotante,
+          es_poder: !!es_poder,
+          poder_id: poder_id || null,
+        })
 
       if (error) {
         const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startMs)
