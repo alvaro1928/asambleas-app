@@ -72,7 +72,7 @@ function verifyWompiSignature(
     timestamp > 1e12 ? Math.floor(timestamp / 1000) : timestamp,
     timestamp,
   ]
-  const uniqueTimestamps = [...new Set(timestampsToTry)]
+  const uniqueTimestamps = Array.from(new Set(timestampsToTry))
 
   for (const ts of uniqueTimestamps) {
     const concatenated = parts.join('') + ts + secret
