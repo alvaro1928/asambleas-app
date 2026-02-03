@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -44,7 +44,7 @@ interface Unidad {
   telefono?: string
 }
 
-export default function UnidadesPage() {
+function UnidadesPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const volverAsambleaId = searchParams.get('volver_asamblea')?.trim() || null
@@ -560,5 +560,20 @@ export default function UnidadesPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function UnidadesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Cargando...</p>
+        </div>
+      </div>
+    }>
+      <UnidadesPageContent />
+    </Suspense>
   )
 }
