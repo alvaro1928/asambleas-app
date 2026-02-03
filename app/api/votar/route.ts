@@ -5,13 +5,14 @@ import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * POST /api/votar
- * Registra un voto con trazabilidad (para stress test k6 y uso desde cliente si se desea).
- * Body: { pregunta_id, opcion_id, unidad_id, votante_email, votante_nombre?, es_poder?, poder_id? }
- * Objetivo latencia: < 200ms por voto (landing).
+ * Registra un voto con trazabilidad. Objetivo latencia < 200ms.
  *
- * Bypass de estrés: si el header x-stress-test-secret coincide con STRESS_TEST_SECRET,
- * se procesa el voto sin validar sesión de Supabase/NextAuth (cliente service_role).
- * Útil para medir latencia real de BD en stress tests (local o producción).
+ * - Bypass de estrés (seguro): header x-stress-test-secret === STRESS_TEST_SECRET
+ *   → salta validación de sesión (cliente service_role), un solo roundtrip a BD.
+ * - Votos reales: obligatoria sesión Supabase/NextAuth; validación de quórum en BD vía RPC.
+ *
+ * Operación atómica: un único RPC (registrar_voto_con_trazabilidad) valida pregunta
+ * y registra/actualiza voto en un solo viaje; sin SELECT previo en el route.
  */
 export async function POST(request: NextRequest) {
   const startMs = typeof performance !== 'undefined' ? performance.now() : Date.now()
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
       null
     const userAgent = request.headers.get('user-agent') || null
 
+    // Bypass de estrés: solo si el secreto coincide (evita consultas de sesión y ahorra latencia)
     const stressSecret = request.headers.get('x-stress-test-secret')
     const envSecret = process.env.STRESS_TEST_SECRET
     const useStressBypass =
@@ -77,8 +79,20 @@ export async function POST(request: NextRequest) {
           },
         }
       )
+      // Seguridad: votos reales exigen sesión válida (quórum/sesión estricta)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startMs)
+        const res = NextResponse.json(
+          { error: 'Se requiere sesión válida para registrar el voto' },
+          { status: 401 }
+        )
+        res.headers.set('X-Response-Time-Ms', String(elapsed))
+        return res
+      }
     }
 
+    // Un solo roundtrip: la BD valida pregunta abierta y hace INSERT/UPDATE en registrar_voto_con_trazabilidad
     const { data, error } = await supabase.rpc('registrar_voto_con_trazabilidad', {
       p_pregunta_id: pregunta_id,
       p_unidad_id: unidad_id,
