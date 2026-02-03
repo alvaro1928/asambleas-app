@@ -4,6 +4,8 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCostoEnTokens } from '@/lib/costo-tokens'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/dashboard/organization-status?organization_id=xxx
  * Modelo Billetera de Tokens por Gestor.

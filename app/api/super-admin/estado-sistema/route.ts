@@ -4,6 +4,8 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { isSuperAdmin, isAdminEmail } from '@/lib/super-admin'
 
+export const dynamic = 'force-dynamic'
+
 function canAccess(email: string | undefined): boolean {
   return isSuperAdmin(email) || isAdminEmail(email)
 }
