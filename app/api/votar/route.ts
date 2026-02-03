@@ -8,11 +8,9 @@ import { NextRequest, NextResponse } from 'next/server'
  * Registra un voto con trazabilidad. Objetivo latencia < 200ms.
  *
  * - Bypass de estrés (seguro): header x-stress-test-secret === STRESS_TEST_SECRET
- *   → salta validación de sesión (cliente service_role), un solo roundtrip a BD.
- * - Votos reales: obligatoria sesión Supabase/NextAuth; validación de quórum en BD vía RPC.
- *
- * Operación atómica: un único RPC (registrar_voto_con_trazabilidad) valida pregunta
- * y registra/actualiza voto en un solo viaje; sin SELECT previo en el route.
+ *   → cliente service_role + INSERT directo en votos con returning: 'minimal'
+ *   (salta RPC y validaciones SQL para que 500 unidades registren voto al instante).
+ * - Votos reales: obligatoria sesión; un único RPC (registrar_voto_con_trazabilidad).
  */
 export async function POST(request: NextRequest) {
   const startMs = typeof performance !== 'undefined' ? performance.now() : Date.now()
@@ -92,13 +90,50 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Un solo roundtrip: la BD valida pregunta abierta y hace INSERT/UPDATE en registrar_voto_con_trazabilidad
+    const emailNorm = String(votante_email).toLowerCase().trim()
+    const nombreVotante = votante_nombre || 'Votante'
+
+    if (useStressBypass) {
+      // Test de estrés: INSERT directo en votos, sin RPC ni historial. Máxima velocidad.
+      const { error } = await supabase
+        .from('votos')
+        .insert(
+          {
+            pregunta_id,
+            unidad_id,
+            opcion_id,
+            votante_email: emailNorm,
+            votante_nombre: nombreVotante,
+            es_poder: !!es_poder,
+            poder_id: poder_id || null,
+          },
+          { count: null, returning: 'minimal' }
+        )
+
+      if (error) {
+        const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startMs)
+        if (process.env.NODE_ENV !== 'production') console.log(`[api/votar] stress ${elapsed}ms error:`, error.message)
+        const resErr = NextResponse.json({ error: error.message }, { status: 400 })
+        resErr.headers.set('X-Response-Time-Ms', String(elapsed))
+        return resErr
+      }
+
+      const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startMs)
+      if (process.env.NODE_ENV !== 'production' || elapsed > 200) {
+        console.log(`[api/votar] stress latency_ms=${elapsed} pregunta_id=${pregunta_id} unidad_id=${unidad_id}`)
+      }
+      const res = NextResponse.json({ success: true })
+      res.headers.set('X-Response-Time-Ms', String(elapsed))
+      return res
+    }
+
+    // Votos reales: un solo roundtrip RPC (valida pregunta abierta, INSERT/UPDATE + historial)
     const { data, error } = await supabase.rpc('registrar_voto_con_trazabilidad', {
       p_pregunta_id: pregunta_id,
       p_unidad_id: unidad_id,
       p_opcion_id: opcion_id,
-      p_votante_email: String(votante_email).toLowerCase().trim(),
-      p_votante_nombre: votante_nombre || 'Votante',
+      p_votante_email: emailNorm,
+      p_votante_nombre: nombreVotante,
       p_es_poder: !!es_poder,
       p_poder_id: poder_id || null,
       p_ip_address: ip,

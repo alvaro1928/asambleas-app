@@ -13,12 +13,16 @@ import {
   CheckCircle2,
   Clock,
   Edit,
-  Search
+  Search,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { useToast } from '@/components/providers/ToastProvider'
 
 interface Asamblea {
   id: string
@@ -45,6 +49,12 @@ export default function AsambleasPage() {
   const [filterEstado, setFilterEstado] = useState<string>('all')
   const [tokensDisponibles, setTokensDisponibles] = useState(0)
   const [costoOperacion, setCostoOperacion] = useState(0)
+
+  // Eliminar asamblea (solo no activas) con doble validación
+  const [asambleaToDelete, setAsambleaToDelete] = useState<Asamblea | null>(null)
+  const [confirmStep, setConfirmStep] = useState<1 | 2>(1)
+  const [confirmInput, setConfirmInput] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     loadAsambleas()
@@ -140,6 +150,52 @@ export default function AsambleasPage() {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  const puedeEliminarAsamblea = (a: Asamblea) => a.estado === 'borrador' || a.estado === 'finalizada'
+
+  const openDeleteModal = (e: React.MouseEvent, a: Asamblea) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!puedeEliminarAsamblea(a)) return
+    setAsambleaToDelete(a)
+    setConfirmStep(1)
+    setConfirmInput('')
+  }
+
+  const closeDeleteModal = () => {
+    if (!deleting) {
+      setAsambleaToDelete(null)
+      setConfirmStep(1)
+      setConfirmInput('')
+    }
+  }
+
+  const handleConfirmDeleteAsamblea = async () => {
+    if (!asambleaToDelete) return
+    if (confirmStep === 1) {
+      setConfirmStep(2)
+      return
+    }
+    if (confirmInput.trim() !== asambleaToDelete.nombre.trim()) return
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/dashboard/eliminar-asamblea', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: asambleaToDelete.id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data?.error || 'Error al eliminar la asamblea')
+        return
+      }
+      setAsambleas((prev) => prev.filter((a) => a.id !== asambleaToDelete.id))
+      closeDeleteModal()
+      toast.success('Asamblea eliminada correctamente')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   if (loading) {
@@ -258,13 +314,25 @@ export default function AsambleasPage() {
               >
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-2xl hover:border-indigo-300 dark:hover:border-indigo-700 transition-all cursor-pointer">
                   {/* Header con estado */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
+                  <div className="flex items-start justify-between mb-4 gap-2">
+                    <div className="flex-1 min-w-0">
                       <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                         {asamblea.nombre}
                       </h3>
                     </div>
-                    {getEstadoBadge(asamblea.estado)}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {puedeEliminarAsamblea(asamblea) && (
+                        <button
+                          type="button"
+                          onClick={(e) => openDeleteModal(e, asamblea)}
+                          className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                          title="Eliminar asamblea"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      {getEstadoBadge(asamblea.estado)}
+                    </div>
                   </div>
 
                   {/* Descripción */}
@@ -309,6 +377,80 @@ export default function AsambleasPage() {
           </div>
         )}
       </main>
+
+      {/* Modal doble validación: eliminar asamblea (solo no activas) */}
+      <Dialog open={asambleaToDelete !== null} onOpenChange={(open) => !open && closeDeleteModal()}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {confirmStep === 1 ? '¿Eliminar esta asamblea?' : 'Confirmar eliminación'}
+            </DialogTitle>
+            <DialogDescription>
+              {asambleaToDelete && confirmStep === 1 && (
+                <span>
+                  La asamblea <strong>«{asambleaToDelete.nombre}»</strong> se eliminará de forma permanente junto con todas sus preguntas y votos. Esta acción no se puede deshacer.
+                </span>
+              )}
+              {asambleaToDelete && confirmStep === 2 && (
+                <span>
+                  Escribe el nombre de la asamblea exactamente como aparece para confirmar:
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {confirmStep === 2 && asambleaToDelete && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Nombre a escribir: <strong className="text-gray-900 dark:text-white">«{asambleaToDelete.nombre}»</strong>
+              </p>
+              <Input
+                type="text"
+                value={confirmInput}
+                onChange={(e) => setConfirmInput(e.target.value)}
+                placeholder="Escribe el nombre aquí"
+                className="rounded-xl"
+                autoFocus
+              />
+            </div>
+          )}
+          {confirmStep === 1 && (
+            <Alert variant="warning" className="my-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Advertencia</AlertTitle>
+              <AlertDescription>
+                Esta acción no se puede deshacer. Se eliminarán todas las preguntas, votos y datos asociados.
+              </AlertDescription>
+            </Alert>
+          )}
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={closeDeleteModal}
+              disabled={deleting}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDeleteAsamblea}
+              disabled={deleting || (confirmStep === 2 && confirmInput.trim() !== asambleaToDelete?.nombre.trim())}
+              className="flex-1"
+            >
+              {deleting ? (
+                <>
+                  <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent inline-block mr-2" />
+                  Eliminando...
+                </>
+              ) : confirmStep === 1 ? (
+                'Continuar'
+              ) : (
+                'Confirmar eliminación'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
