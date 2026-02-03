@@ -2216,13 +2216,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 onClick={async () => {
                   setCheckoutLoadingSinTokens(true)
                   try {
+                    const cantidad = Math.max(20, costoOperacion)
                     const res = await fetch('/api/pagos/checkout-url', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
                         user_id: userId,
                         conjunto_id: asamblea?.organization_id ?? undefined,
-                        cantidad_tokens: Math.max(1, costoOperacion),
+                        cantidad_tokens: cantidad,
                       }),
                     })
                     const data = await res.json().catch(() => ({}))
@@ -2240,21 +2241,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 }}
                 className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-3xl text-white text-base font-semibold hover:opacity-90 transition-opacity disabled:opacity-70 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
               >
-                {checkoutLoadingSinTokens ? 'Generando enlace...' : `Comprar ${costoOperacion} tokens ahora`}
+                {checkoutLoadingSinTokens ? 'Generando enlace...' : `Comprar ${Math.max(20, costoOperacion)} tokens ahora (pasarela)`}
               </button>
-            ) : whatsappNumber ? (
-              <a
-                href={`https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, quiero recargar ${Math.max(1, costoOperacion)} tokens para mi asamblea.`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setSinTokensModalOpen(false)}
-                className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-3xl text-white text-base font-semibold hover:opacity-90 transition-opacity bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-              >
-                Comprar {costoOperacion} tokens ahora
-              </a>
             ) : (
               <span className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-3xl bg-slate-200 dark:bg-slate-700 text-slate-500 text-base font-semibold cursor-not-allowed">
-                Configura la pasarela o WhatsApp en Ajustes para comprar
+                Configura la pasarela de pagos (NEXT_PUBLIC_PASARELA_PAGOS_URL) para comprar tokens
               </span>
             )}
             <Button type="button" variant="outline" onClick={() => setSinTokensModalOpen(false)} className="w-full">

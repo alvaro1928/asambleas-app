@@ -55,12 +55,8 @@ export function ComprarTokensCTA({
     pasarelaUrl && userId
       ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}${params.toString()}`
       : null
-  const hrefWhatsapp =
-    !hrefPasarela && whatsappNumber && userId
-      ? `https://wa.me/${String(whatsappNumber).replace(/\D/g, '')}?text=${encodeURIComponent('Hola, quiero recargar tokens para mi asamblea.')}`
-      : null
-  const hrefComprar = hrefPasarela ?? hrefWhatsapp ?? null
-  const showComprar = !hideComprar && hrefComprar
+  const hrefComprar = hrefPasarela
+  const showComprar = !hideComprar && !!hrefComprar
 
   const isBlocked = variant === 'blocked'
   const isLow = variant === 'low'

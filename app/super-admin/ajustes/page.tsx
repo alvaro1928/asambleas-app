@@ -50,6 +50,7 @@ export default function SuperAdminAjustesPage() {
       setTituloLanding(data.titulo ?? '')
       setSubtituloLanding(data.subtitulo ?? '')
       setColorPrincipalHex(data.color_principal_hex && /^#[0-9A-Fa-f]{6}$/.test(data.color_principal_hex) ? data.color_principal_hex : '#4f46e5')
+      setWhatsappNumber(data.whatsapp_number ?? '')
       if (data.precio_por_token_cop != null) setPrecioPorTokenCop(data.precio_por_token_cop)
       if (data.bono_bienvenida_tokens != null) setBonoBienvenidaTokens(data.bono_bienvenida_tokens)
       setLoading(false)

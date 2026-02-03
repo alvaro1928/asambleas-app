@@ -40,7 +40,7 @@ export default function DashboardPage() {
   const [guiaModalOpen, setGuiaModalOpen] = useState(false)
   const [modalCompraOpen, setModalCompraOpen] = useState(false)
   const [compraRapida, setCompraRapida] = useState(true)
-  const [cantidadManual, setCantidadManual] = useState<number>(10)
+  const [cantidadManual, setCantidadManual] = useState<number>(20)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const router = useRouter()
 
@@ -161,16 +161,10 @@ export default function DashboardPage() {
           // Calcular suma de coeficientes
           const sumaCoeficientes = unidadesData.reduce((sum, u) => sum + u.coeficiente, 0)
 
-          // Calcular censo de datos (unidades con email Y teléfono)
-          const unidadesCompletas = unidadesData.filter(
-            u => u.email_propietario && u.telefono_propietario
-          ).length
-          const censoDatos = total > 0 ? (unidadesCompletas / total) * 100 : 0
-
           setMetrics({
             total,
             sumaCoeficientes,
-            censoDatos
+            censoDatos: 0
           })
         }
       }
@@ -198,50 +192,41 @@ export default function DashboardPage() {
   }
 
   const pasarelaUrl = process.env.NEXT_PUBLIC_PASARELA_PAGOS_URL
-  const cantidadCompra = compraRapida ? Math.max(1, costoOperacion) : Math.max(1, cantidadManual)
+  const MIN_TOKENS_COMPRA = 20
+  const cantidadCompra = compraRapida ? Math.max(MIN_TOKENS_COMPRA, costoOperacion) : Math.max(MIN_TOKENS_COMPRA, cantidadManual)
   const totalPagarCop = (precioProCop ?? 0) * cantidadCompra
-  const recargarHrefBase = pasarelaUrl && user?.id
-    ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}user_id=${encodeURIComponent(user.id)}${selectedConjuntoId ? `&conjunto_id=${encodeURIComponent(selectedConjuntoId)}` : ''}`
+  const recargarHref = pasarelaUrl && user?.id
+    ? `${pasarelaUrl}${pasarelaUrl.includes('?') ? '&' : '?'}user_id=${encodeURIComponent(user.id)}${selectedConjuntoId ? `&conjunto_id=${encodeURIComponent(selectedConjuntoId)}` : ''}&cantidad_tokens=${cantidadCompra}&monto_total_cop=${totalPagarCop}`
     : null
-  const recargarHref = recargarHrefBase
-    ? `${recargarHrefBase}&cantidad_tokens=${cantidadCompra}&monto_total_cop=${totalPagarCop}`
-    : null
-  const whatsappHref = !pasarelaUrl && whatsappNumber
-    ? `https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, quiero recargar ${cantidadCompra} tokens para mi asamblea.`)}`
-    : null
-  const irAPagarHref = recargarHref ?? whatsappHref ?? '#'
+  const puedePagar = !!pasarelaUrl && !!user?.id
   const tokensInsuficientes = selectedConjuntoId && costoOperacion > 0 && tokensDisponibles < costoOperacion
 
   const handleIrAPagar = async () => {
-    if (pasarelaUrl && user?.id) {
-      setCheckoutLoading(true)
-      try {
-        const res = await fetch('/api/pagos/checkout-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user_id: user.id,
-            conjunto_id: selectedConjuntoId || undefined,
-            cantidad_tokens: cantidadCompra,
-          }),
-        })
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok) {
-          toast.error(data?.error ?? 'Error al generar enlace de pago')
-          return
-        }
-        if (data?.url) {
-          window.open(data.url, '_blank', 'noopener,noreferrer')
-          setModalCompraOpen(false)
-        }
-      } catch {
-        toast.error('Error al generar enlace de pago')
-      } finally {
-        setCheckoutLoading(false)
+    if (!pasarelaUrl || !user?.id) return
+    setCheckoutLoading(true)
+    try {
+      const res = await fetch('/api/pagos/checkout-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.id,
+          conjunto_id: selectedConjuntoId || undefined,
+          cantidad_tokens: cantidadCompra,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data?.error ?? 'Error al generar enlace de pago')
+        return
       }
-    } else if (whatsappHref) {
-      window.open(whatsappHref, '_blank', 'noopener,noreferrer')
-      setModalCompraOpen(false)
+      if (data?.url) {
+        window.open(data.url, '_blank', 'noopener,noreferrer')
+        setModalCompraOpen(false)
+      }
+    } catch {
+      toast.error('Error al generar enlace de pago')
+    } finally {
+      setCheckoutLoading(false)
     }
   }
 
@@ -323,16 +308,16 @@ export default function DashboardPage() {
                     </div>
                     {compraRapida ? (
                       <p className="text-sm text-slate-400">
-                        Cantidad: <strong className="text-slate-200">{Math.max(1, costoOperacion)}</strong> tokens (unidades de tu conjunto)
+                        Cantidad: <strong className="text-slate-200">{Math.max(MIN_TOKENS_COMPRA, costoOperacion)}</strong> tokens (mín. {MIN_TOKENS_COMPRA}, según unidades de tu conjunto)
                       </p>
                     ) : (
                       <div>
-                        <label className="block text-sm text-slate-400 mb-1">Cantidad de tokens</label>
+                        <label className="block text-sm text-slate-400 mb-1">Cantidad de tokens (mín. {MIN_TOKENS_COMPRA})</label>
                         <input
                           type="number"
-                          min={1}
+                          min={MIN_TOKENS_COMPRA}
                           value={cantidadManual}
-                          onChange={(e) => setCantidadManual(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                          onChange={(e) => setCantidadManual(Math.max(MIN_TOKENS_COMPRA, parseInt(e.target.value, 10) || MIN_TOKENS_COMPRA))}
                           className="w-full rounded-2xl border border-slate-600 bg-slate-800 px-3 py-2 text-white"
                         />
                       </div>
@@ -342,39 +327,25 @@ export default function DashboardPage() {
                         Total a pagar: {formatPrecioCop(totalPagarCop)} <span className="text-slate-400 font-normal">({cantidadCompra} × {formatPrecioCop(precioProCop)})</span>
                       </p>
                     )}
-                    {irAPagarHref && irAPagarHref !== '#' ? (
-                      pasarelaUrl ? (
-                        <button
-                          type="button"
-                          onClick={handleIrAPagar}
-                          disabled={checkoutLoading}
-                          className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-3xl text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-70"
-                          style={{ backgroundColor: colorPrincipalHex }}
-                        >
-                          {checkoutLoading ? (
-                            <span className="animate-pulse">Generando enlace...</span>
-                          ) : (
-                            <>
-                              <Plus className="w-4 h-4" />
-                              Ir a pagar
-                            </>
-                          )}
-                        </button>
-                      ) : (
-                        <a
-                          href={whatsappHref ?? '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => setModalCompraOpen(false)}
-                          className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-3xl text-white text-sm font-semibold hover:opacity-90 transition-opacity"
-                          style={{ backgroundColor: colorPrincipalHex }}
-                        >
-                          <Plus className="w-4 h-4" />
-                          Contactar por WhatsApp
-                        </a>
-                      )
+                    {puedePagar ? (
+                      <button
+                        type="button"
+                        onClick={handleIrAPagar}
+                        disabled={checkoutLoading}
+                        className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-3xl text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-70"
+                        style={{ backgroundColor: colorPrincipalHex }}
+                      >
+                        {checkoutLoading ? (
+                          <span className="animate-pulse">Generando enlace...</span>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4" />
+                            Ir a pagar (pasarela)
+                          </>
+                        )}
+                      </button>
                     ) : (
-                      <UiTooltip content="Configura la pasarela de pagos o un número de WhatsApp en Ajustes para habilitar la compra">
+                      <UiTooltip content="Configura la pasarela de pagos (NEXT_PUBLIC_PASARELA_PAGOS_URL) en el entorno para habilitar la compra de tokens">
                         <span className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-3xl bg-slate-500/50 text-slate-300 text-sm font-semibold cursor-not-allowed">
                           <Plus className="w-4 h-4" />
                           Ir a pagar
@@ -669,26 +640,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Censo de Datos */}
-            <div className="min-w-0 flex overflow-hidden w-full">
-              <div className="w-full h-full min-h-[180px] flex flex-col rounded-3xl shadow-lg p-5 border min-w-0 overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }} title="Porcentaje de unidades con email y teléfono completos para contacto.">
-                <div className="flex items-center justify-between mb-2 shrink-0">
-                  <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center shrink-0">
-                    <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                </div>
-                <p className="text-2xl font-bold text-white shrink-0">{metrics.censoDatos.toFixed(0)}%</p>
-                <p className="text-sm text-slate-400 mt-1 min-w-0 truncate" title="Datos de Contacto Completos">Datos de Contacto Completos</p>
-                <div className="mt-auto pt-3 shrink-0">
-                  <div className="bg-slate-700 rounded-full h-2 min-w-0">
-                    <div className="bg-blue-600 h-2 rounded-full transition-all duration-500" style={{ width: `${metrics.censoDatos}%` }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Conjuntos Registrados */}
             <div className="min-w-0 flex overflow-hidden w-full">
               <UiTooltip content="Ver y editar los conjuntos residenciales que gestionas">
@@ -756,7 +707,7 @@ export default function DashboardPage() {
                 </li>
               </ul>
               <p className="text-xs text-slate-500">
-                Crear asambleas, preguntas o importar unidades <strong>no</strong> consume tokens. Si tu saldo es menor al costo por operación, no podrás activar votaciones ni descargar actas hasta que compres más tokens.
+                Crear asambleas, preguntas o importar unidades <strong>no</strong> consume tokens. Si tu saldo es menor al costo por operación, no podrás activar votaciones ni descargar actas hasta que compres más tokens. La compra de tokens es desde 20 unidades en adelante y se realiza únicamente por la pasarela de pagos (no por WhatsApp).
               </p>
             </div>
             <div className="space-y-4">
@@ -783,7 +734,7 @@ export default function DashboardPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>
-                  <span><strong className="text-slate-300">Billetera de tokens</strong> — Comprar más tokens cuando lo necesites; los nuevos gestores reciben un bono de bienvenida.</span>
+                  <span><strong className="text-slate-300">Billetera de tokens</strong> — Comprar tokens desde 20 en adelante por pasarela de pagos; los nuevos gestores reciben un bono de bienvenida.</span>
                 </li>
               </ul>
             </div>

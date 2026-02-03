@@ -84,13 +84,19 @@ export async function GET() {
  * Modelo Billetera de Tokens por Gestor (sin suscripciones ni planes anuales).
  *
  * Seguridad: validación SHA256 con WEBHOOK_PAGOS_SECRET.
- * Idempotencia: si la transacción ya está registrada en pagos_log como APPROVED, no se vuelve a acreditar.
- * Referencia: REF_<user_id>_<timestamp>. APPROVED: suma tokens comprados a profiles.tokens_disponibles del gestor.
+ * WEBHOOK_PAGOS_SECRET debe ser el secreto "Eventos" del panel de Wompi
+ * (Configuraciones avanzadas → Secretos para integración técnica → Eventos).
+ *
+ * En Wompi, la URL de Eventos debe ser: https://tu-dominio/api/pagos/webhook
+ * (no /dashboard).
+ *
+ * Idempotencia: si la transacción ya está en pagos_log como APPROVED, no se vuelve a acreditar.
+ * Referencia: REF_<user_id>_<timestamp>. APPROVED: suma tokens a profiles.tokens_disponibles del gestor.
  */
 export async function POST(request: NextRequest) {
-  const secret = process.env.WEBHOOK_PAGOS_SECRET
+  const secret = process.env.WOMPI_EVENTS_SECRET || process.env.WEBHOOK_PAGOS_SECRET
   if (!secret) {
-    return NextResponse.json({ error: 'WEBHOOK_PAGOS_SECRET no configurado' }, { status: 500 })
+    return NextResponse.json({ error: 'WOMPI_EVENTS_SECRET o WEBHOOK_PAGOS_SECRET no configurado (usa el secreto Eventos de Wompi)' }, { status: 500 })
   }
 
   let body: WompiEventPayload

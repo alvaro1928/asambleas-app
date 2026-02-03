@@ -17,13 +17,15 @@ export async function POST(request: NextRequest) {
       cantidad_tokens?: number
     }
 
+    const MIN_TOKENS = 20
     const userId = typeof user_id === 'string' ? user_id.trim() : null
     const conjId = typeof conjunto_id === 'string' ? conjunto_id.trim() || undefined : undefined
-    const cantidad = typeof cantidad_tokens === 'number' && cantidad_tokens >= 1
+    const raw = typeof cantidad_tokens === 'number'
       ? Math.floor(cantidad_tokens)
       : typeof cantidad_tokens === 'string'
-        ? Math.max(1, parseInt(cantidad_tokens, 10) || 1)
-        : 1
+        ? parseInt(cantidad_tokens, 10) || 0
+        : 0
+    const cantidad = Math.max(MIN_TOKENS, raw)
 
     if (!userId) {
       return NextResponse.json({ error: 'user_id es requerido' }, { status: 400 })
