@@ -367,7 +367,7 @@ export default function VotacionPublicaPage() {
         .select('id, texto_pregunta, descripcion, tipo_votacion, estado')
         .eq('asamblea_id', asamblea.asamblea_id)
         .eq('estado', 'cerrada')
-        .order('created_at', { ascending: false }) // Más recientes primero
+        .order('created_at', { ascending: true }) // Orden de la asamblea: Pregunta 1, 2, 3...
 
       if (preguntasError) throw preguntasError
 
@@ -1033,6 +1033,66 @@ export default function VotacionPublicaPage() {
               })
             )}
           </div>
+
+          {/* Avance de la votación general (después de los votos, antes de la bienvenida) */}
+          {preguntas.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                <BarChart3 className="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" />
+                Avance de la votación
+              </h3>
+              <div className="space-y-4">
+                {(() => {
+                  const participaciones = preguntas
+                    .map((p, i) => ({ pregunta: p, stats: estadisticas[p.id], index: i + 1 }))
+                    .filter(({ stats }) => stats != null)
+                  const promedio = participaciones.length > 0
+                    ? participaciones.reduce(
+                        (sum, { stats }) => sum + (stats.porcentaje_participacion ?? stats.total_coeficiente ?? 0),
+                        0
+                      ) / participaciones.length
+                    : 0
+                  return (
+                    <>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-600 dark:text-gray-400">Participación general (promedio)</span>
+                          <span className="font-semibold text-gray-900 dark:text-white">{promedio.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                          <div
+                            className="bg-gradient-to-r from-indigo-500 to-purple-500 h-3 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(promedio, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                      {participaciones.map(({ pregunta, stats, index }) => {
+                        const pct = stats.porcentaje_participacion ?? stats.total_coeficiente ?? 0
+                        return (
+                          <div key={pregunta.id}>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-gray-600 dark:text-gray-400 truncate max-w-[70%]">
+                                Pregunta {index}
+                              </span>
+                              <span className="font-medium text-gray-800 dark:text-gray-200 shrink-0 ml-2">
+                                {pct.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                              <div
+                                className="bg-indigo-400 dark:bg-indigo-500 h-2 rounded-full transition-all duration-500"
+                                style={{ width: `${Math.min(pct, 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </>
+                  )
+                })()}
+              </div>
+            </div>
+          )}
 
           {/* Bienvenida y unidades (abajo para que el voto se vea primero en cel y web) */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mb-6 border border-gray-200 dark:border-gray-700">
