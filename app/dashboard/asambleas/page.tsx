@@ -15,7 +15,8 @@ import {
   Edit,
   Search,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Copy
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -344,9 +345,24 @@ export default function AsambleasPage() {
                   )}
 
                   {/* Fecha */}
-                  <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-2">
                     <Calendar className="w-4 h-4 mr-2" />
                     {formatFecha(asamblea.fecha)}
+                  </div>
+
+                  {/* ID (copiar) */}
+                  <div
+                    className="flex items-center gap-1.5 text-xs font-mono text-gray-400 dark:text-gray-500 mb-4 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      navigator.clipboard.writeText(asamblea.id)
+                      toast.success('ID copiado')
+                    }}
+                    title={`ID: ${asamblea.id} (clic para copiar)`}
+                  >
+                    <Copy className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{asamblea.id}</span>
                   </div>
 
                   {/* Progreso preguntas */}

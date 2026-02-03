@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { ChevronDown, Building2 } from 'lucide-react'
+import { ChevronDown, Building2, Copy } from 'lucide-react'
+import { useToast } from '@/components/providers/ToastProvider'
 
 interface Conjunto {
   id: string
@@ -16,6 +17,7 @@ interface ConjuntoSelectorProps {
 }
 
 export default function ConjuntoSelector({ onConjuntoChange }: ConjuntoSelectorProps) {
+  const toast = useToast()
   const [conjuntos, setConjuntos] = useState<Conjunto[]>([])
   const [selectedConjunto, setSelectedConjunto] = useState<Conjunto | null>(null)
   const [loading, setLoading] = useState(true)
@@ -174,7 +176,7 @@ export default function ConjuntoSelector({ onConjuntoChange }: ConjuntoSelectorP
                       <p className="font-semibold text-gray-900 dark:text-white truncate">
                         {conjunto.name}
                       </p>
-                      <div className="flex items-center space-x-2 mt-1">
+                      <div className="flex items-center space-x-2 mt-1 flex-wrap gap-x-2">
                         {conjunto.nit && (
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             NIT: {conjunto.nit}
@@ -186,6 +188,18 @@ export default function ConjuntoSelector({ onConjuntoChange }: ConjuntoSelectorP
                           </span>
                         )}
                       </div>
+                      <p
+                        className="text-xs font-mono text-gray-400 dark:text-gray-500 truncate mt-1 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigator.clipboard.writeText(conjunto.id)
+                          toast.success('ID copiado')
+                        }}
+                        title={`ID: ${conjunto.id} (clic para copiar)`}
+                      >
+                        <Copy className="w-3 h-3 inline mr-0.5 align-middle" />
+                        {conjunto.id}
+                      </p>
                     </div>
                     {selectedConjunto.id === conjunto.id && (
                       <div className="flex-shrink-0">

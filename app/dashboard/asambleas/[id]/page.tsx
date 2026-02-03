@@ -989,6 +989,17 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {preguntas.length} pregunta{preguntas.length !== 1 ? 's' : ''}
                 </p>
+                <p
+                  className="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1 flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors w-fit"
+                  onClick={() => {
+                    navigator.clipboard.writeText(asamblea.id)
+                    toast.success('ID de asamblea copiado')
+                  }}
+                  title="Clic para copiar ID"
+                >
+                  <Copy className="w-3 h-3 shrink-0" />
+                  <span className="truncate max-w-[240px] sm:max-w-none">{asamblea.id}</span>
+                </p>
               </div>
             </div>
             <div className="flex items-center flex-wrap gap-3">

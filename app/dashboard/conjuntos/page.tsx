@@ -19,6 +19,7 @@ interface Conjunto {
 }
 
 export default function ConjuntosPage() {
+  const toast = useToast()
   const [conjuntos, setConjuntos] = useState<Conjunto[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
@@ -212,6 +213,20 @@ export default function ConjuntosPage() {
                           {conjunto.unidades_count} registradas
                         </p>
                       </div>
+                    </div>
+
+                    {/* ID conjunto (copiar) */}
+                    <div
+                      className="flex items-center gap-1.5 text-xs font-mono text-gray-400 dark:text-gray-500 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors pt-1"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigator.clipboard.writeText(conjunto.id)
+                        toast.success('ID del conjunto copiado')
+                      }}
+                      title={`ID: ${conjunto.id} (clic para copiar)`}
+                    >
+                      <Copy className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{conjunto.id}</span>
                     </div>
                   </div>
 
