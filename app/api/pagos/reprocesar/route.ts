@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
         },
       }
     )
-    const { data: { session } } = await supabaseAuth.getSession()
+    const { data: { session } } = await supabaseAuth.auth.getSession()
     if (!session?.user?.email || !isSuperAdmin(session.user.email)) {
       return NextResponse.json({ error: 'Solo super administrador' }, { status: 403 })
     }
