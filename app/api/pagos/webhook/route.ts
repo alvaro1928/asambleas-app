@@ -269,22 +269,13 @@ export async function POST(request: NextRequest) {
         .limit(1)
         .maybeSingle()
       if (existingLog) {
-        const { data: profByUser } = await supabase
+        const { data: profById } = await supabase
           .from('profiles')
           .select('tokens_disponibles')
-          .eq('user_id', userId)
+          .eq('id', userId)
           .limit(1)
           .maybeSingle()
-        let currentTokens = Math.max(0, Number((profByUser as { tokens_disponibles?: number } | null)?.tokens_disponibles ?? 0))
-        if (profByUser == null) {
-          const { data: profById } = await supabase
-            .from('profiles')
-            .select('tokens_disponibles')
-            .eq('id', userId)
-            .limit(1)
-            .maybeSingle()
-          currentTokens = Math.max(0, Number((profById as { tokens_disponibles?: number } | null)?.tokens_disponibles ?? 0))
-        }
+        const currentTokens = Math.max(0, Number((profById as { tokens_disponibles?: number } | null)?.tokens_disponibles ?? 0))
         return NextResponse.json({
           received: true,
           skipped: 'already_processed',
@@ -312,22 +303,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true, skipped: 'monto_insuficiente' }, { status: 200 })
     }
 
-    // Buscar perfil por user_id o por id (auth user id = profiles.id en esquema clásico)
-    const { data: byUserId } = await supabase
+    // Buscar perfil por id (profiles.id = auth.uid en esquema clásico; sin columna user_id)
+    const { data: byId } = await supabase
       .from('profiles')
-      .select('id, user_id, tokens_disponibles, organization_id')
-      .eq('user_id', userId)
+      .select('id, tokens_disponibles, organization_id')
+      .eq('id', userId)
       .limit(1)
 
-    let perfilesGestor: Array<{ tokens_disponibles?: number; organization_id?: string }> = Array.isArray(byUserId) ? byUserId : byUserId ? [byUserId] : []
-    if (perfilesGestor.length === 0) {
-      const { data: byId } = await supabase
-        .from('profiles')
-        .select('id, user_id, tokens_disponibles, organization_id')
-        .eq('id', userId)
-        .limit(1)
-      perfilesGestor = Array.isArray(byId) ? byId : byId ? [byId] : []
-    }
+    const perfilesGestor: Array<{ tokens_disponibles?: number; organization_id?: string }> = Array.isArray(byId) ? byId : byId ? [byId] : []
     if (perfilesGestor.length === 0) {
       await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Usuario/gestor no encontrado en profiles')
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
@@ -344,18 +327,18 @@ export async function POST(request: NextRequest) {
       const { data: anyOrg } = await supabase
         .from('profiles')
         .select('organization_id')
-        .or(`user_id.eq.${userId},id.eq.${userId}`)
+        .eq('id', userId)
         .not('organization_id', 'is', null)
         .limit(1)
         .maybeSingle()
       orgIdForLog = (anyOrg as { organization_id?: string } | null)?.organization_id ?? null
     }
 
-    // Actualizar tokens: por user_id O por id (evita 0 filas cuando profile tiene id=auth_uid y user_id=null)
+    // Actualizar tokens por id (profiles.id = auth.uid en esquema clásico)
     const { data: updatedRows, error: updateError } = await supabase
       .from('profiles')
       .update({ tokens_disponibles: nuevoSaldo })
-      .or(`user_id.eq.${userId},id.eq.${userId}`)
+      .eq('id', userId)
       .select('id')
 
     if (updateError) {
@@ -395,7 +378,7 @@ export async function POST(request: NextRequest) {
     const { data: perfiles } = await supabase
       .from('profiles')
       .select('organization_id')
-      .eq('user_id', userId)
+      .eq('id', userId)
       .limit(1)
     const first = Array.isArray(perfiles) ? perfiles[0] : perfiles
     const orgId = (first as { organization_id?: string } | undefined)?.organization_id
