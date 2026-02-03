@@ -41,6 +41,7 @@ interface PreguntasCount {
 
 export default function AsambleasPage() {
   const router = useRouter()
+  const toast = useToast()
   const [asambleas, setAsambleas] = useState<Asamblea[]>([])
   const [preguntasPorAsamblea, setPreguntasPorAsamblea] = useState<Record<string, PreguntasCount>>({})
   const [loading, setLoading] = useState(true)
