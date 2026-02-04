@@ -447,7 +447,10 @@ export async function POST(request: NextRequest) {
       user_id: userId,
     })
     if (logError) {
-      console.error('[webhook pagos] Error al registrar transacción:', logError.message)
+      console.error('[webhook pagos] No se pudo insertar en pagos_log:', logError.message)
+      if (!orgIdForLog && /null value|not-null|organization_id/i.test(logError.message)) {
+        console.error('[webhook pagos] Causa: organization_id era null y pagos_log lo exige NOT NULL. Ejecuta en Supabase el script supabase/ADD-USER-ID-PAGOS-LOG.sql para permitir NULL y añadir user_id.')
+      }
     }
 
     console.log('[webhook pagos] Tokens acreditados:', { user_id: userId, tokens_comprados: tokensComprados, nuevo_saldo: nuevoSaldo, txId })
