@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -42,7 +42,7 @@ interface PreguntasCount {
   cerrada: number
 }
 
-export default function AsambleasPage() {
+function AsambleasPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const toast = useToast()
@@ -553,5 +553,20 @@ export default function AsambleasPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function AsambleasPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando asambleas...</p>
+        </div>
+      </div>
+    }>
+      <AsambleasPageContent />
+    </Suspense>
   )
 }
