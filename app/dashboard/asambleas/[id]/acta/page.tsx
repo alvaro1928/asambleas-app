@@ -137,9 +137,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         return
       }
       setAsamblea(asambleaData)
-      // Cobro único por asamblea: si ya se pagó (p. ej. al activar votación) o es demo, mostrar acta sin puerta de cobro
+      // Acceso gratuito al acta: si ya se pagó al activar, es demo, o la asamblea está activa/finalizada
       const esDemo = (asambleaData as { is_demo?: boolean }).is_demo === true
-      if (typeof window !== 'undefined' && ((asambleaData as { pago_realizado?: boolean }).pago_realizado === true || esDemo)) {
+      const yaPagada = (asambleaData as { pago_realizado?: boolean }).pago_realizado === true
+      const estado = (asambleaData as { estado?: string }).estado
+      const actaGratis = yaPagada || esDemo || estado === 'activa' || estado === 'finalizada'
+      if (typeof window !== 'undefined' && actaGratis) {
         sessionStorage.setItem('acta_generada_' + params.id, '1')
         setActaGenerada(true)
       }
@@ -152,12 +155,13 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       const org = orgData as { name?: string } | null
       setConjunto(org && typeof org.name === 'string' ? { name: org.name } : null)
 
-      // Billetera por gestor: acceso si tiene tokens o si la asamblea ya fue pagada (cobro único)
+      // Billetera por gestor: acceso si tiene tokens, asamblea ya pagada, o asamblea activa/finalizada (acta gratuita)
       const orgId = asambleaData.organization_id
       const statusRes = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(orgId ?? '')}`)
       const statusData = statusRes.ok ? await statusRes.json() : null
       const yaPagada = (asambleaData as { pago_realizado?: boolean }).pago_realizado === true
-      setIncluyeActaDetallada(!!statusData?.puede_operar || yaPagada)
+      const estadoAsamblea = (asambleaData as { estado?: string }).estado
+      setIncluyeActaDetallada(!!statusData?.puede_operar || yaPagada || estadoAsamblea === 'activa' || estadoAsamblea === 'finalizada')
       setTokensDisponibles(Math.max(0, Number(statusData?.tokens_disponibles ?? 0)))
       setCostoOperacion(Math.max(0, Number(statusData?.costo_operacion ?? 0)))
 

@@ -65,3 +65,4 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 - **15–16:** Configuración global (landing, color). Necesarios para Super Admin → Ajustes.
 - **17:** Asamblea de pruebas (sandbox): necesario si se usa el botón "Probar en sandbox" y la API `crear-asamblea-demo`.
 - **18:** Archivado: necesario para pestañas Activas/Archivadas en asambleas y para archivar preguntas (no incluidas en el acta).
+- **TRIGGER-PROFILE-ON-SIGNUP.sql** (opcional pero recomendado): crea perfil en `profiles` al registrarse un nuevo usuario (email/password, Magic Link u OAuth) para que la billetera y la demo funcionen desde el primer acceso.

@@ -56,8 +56,10 @@ interface Asamblea {
   acceso_publico?: boolean
   /** Cobro único por asamblea: true = ya se cobró (Activar o Acta); no se vuelve a descontar */
   pago_realizado?: boolean
-  /** Asamblea de simulación: no consume créditos; no se puede editar configuración */
+  /** Asamblea de simulación: no consume créditos; reversible y reiniciable */
   is_demo?: boolean
+  /** Timestamp de activación; ventana de gracia 3 días para ajustes */
+  activated_at?: string | null
 }
 
 interface Pregunta {
@@ -158,6 +160,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   // Preguntas archivadas: sección colapsable
   const [showPreguntasArchivadas, setShowPreguntasArchivadas] = useState(false)
   const [archivingPreguntaId, setArchivingPreguntaId] = useState<string | null>(null)
+  // Modales ciclo de vida
+  const [showModalAsambleaActivada, setShowModalAsambleaActivada] = useState(false)
+  const [showModalConfirmarFinalizar, setShowModalConfirmarFinalizar] = useState(false)
+  const [showModalConfirmarReiniciarDemo, setShowModalConfirmarReiniciarDemo] = useState(false)
+  const [finalizando, setFinalizando] = useState(false)
+  const [reiniciandoDemo, setReiniciandoDemo] = useState(false)
 
   // Registrar voto a nombre de un residente (admin)
   const [showRegistroVotoAdmin, setShowRegistroVotoAdmin] = useState(false)
@@ -935,20 +943,73 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       }
     }
 
-    try {
+    const payload: { estado: string; activated_at?: string } = { estado: nuevoEstado }
+      if (nuevoEstado === 'activa') {
+        payload.activated_at = new Date().toISOString()
+      }
       const { error } = await supabase
         .from('asambleas')
-        .update({ estado: nuevoEstado })
+        .update(payload)
         .eq('id', asamblea.id)
 
       if (error) throw error
 
-      setAsamblea({ ...asamblea, estado: nuevoEstado })
+      const updated = { ...asamblea, estado: nuevoEstado, activated_at: payload.activated_at ?? asamblea.activated_at }
+      setAsamblea(updated)
       setSuccessMessage(`Asamblea ${nuevoEstado === 'activa' ? 'activada' : 'actualizada'}`)
       setTimeout(() => setSuccessMessage(''), 3000)
+      if (nuevoEstado === 'activa') setShowModalAsambleaActivada(true)
     } catch (error: any) {
       console.error('Error updating estado:', error)
       toast.error('Error al cambiar estado: ' + error.message)
+    }
+  }
+
+  const GRACE_MS = 3 * 24 * 60 * 60 * 1000 // 72 horas
+  const withinGracePeriod = asamblea?.estado === 'activa' && asamblea.activated_at
+    ? (Date.now() - new Date(asamblea.activated_at).getTime() < GRACE_MS)
+    : false
+  const isReadOnlyStructure = asamblea
+    ? (asamblea.estado === 'finalizada' || (asamblea.estado === 'activa' && !withinGracePeriod && !asamblea.is_demo))
+    : false
+  const actaDisponible = asamblea && (asamblea.estado === 'activa' || asamblea.estado === 'finalizada') && (asamblea.pago_realizado === true || asamblea.is_demo === true)
+
+  const handleFinalizarAsamblea = async () => {
+    if (!asamblea || asamblea.is_demo) return
+    setFinalizando(true)
+    try {
+      const { error } = await supabase.from('asambleas').update({ estado: 'finalizada' }).eq('id', asamblea.id)
+      if (error) throw error
+      setAsamblea({ ...asamblea, estado: 'finalizada' })
+      setShowModalConfirmarFinalizar(false)
+      setSuccessMessage('Asamblea finalizada. La estructura es ahora de solo lectura.')
+      setTimeout(() => setSuccessMessage(''), 5000)
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al finalizar')
+    } finally {
+      setFinalizando(false)
+    }
+  }
+
+  const handleReiniciarSimulacion = async () => {
+    if (!asamblea?.is_demo) return
+    setReiniciandoDemo(true)
+    try {
+      const preguntaIds = preguntas.map((p) => p.id)
+      if (preguntaIds.length > 0) {
+        const { error: votosError } = await supabase.from('votos').delete().in('pregunta_id', preguntaIds)
+        if (votosError) throw votosError
+      }
+      const { error: quorumError } = await supabase.from('quorum_asamblea').delete().eq('asamblea_id', asamblea.id)
+      if (quorumError) console.warn('quorum_asamblea delete:', quorumError)
+      setShowModalConfirmarReiniciarDemo(false)
+      toast.success('Simulación reiniciada. Los votos se han borrado; puedes votar de nuevo.')
+      await loadQuorum()
+      await loadEstadisticas()
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al reiniciar simulación')
+    } finally {
+      setReiniciandoDemo(false)
     }
   }
 
@@ -1051,9 +1112,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               {/* Acceso rápido a unidades del mismo conjunto */}
               {asamblea.organization_id && (
                 <Link
-                  href={`/dashboard/unidades?volver_asamblea=${params.id}&conjunto_id=${asamblea.organization_id}`}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
-                  title="Ir a configurar unidades (propietarios, contacto) y volver a esta asamblea"
+                  href={isReadOnlyStructure ? '#' : `/dashboard/unidades?volver_asamblea=${params.id}&conjunto_id=${asamblea.organization_id}`}
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-medium transition-colors ${isReadOnlyStructure ? 'pointer-events-none opacity-60 text-gray-500 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                  title={isReadOnlyStructure ? 'Estructura congelada (solo lectura)' : 'Ir a configurar unidades (propietarios, contacto) y volver a esta asamblea'}
                 >
                   <Building2 className="w-4 h-4" />
                   Configurar unidades
@@ -1113,13 +1174,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 )
               )}
               {(asamblea.estado === 'finalizada' || asamblea.estado === 'activa' || preguntas.some(p => p.estado === 'cerrada')) && (
-                (puedeOperar || asamblea.pago_realizado) ? (
+                actaDisponible ? (
                   <div className="flex flex-col gap-1">
-                    {!asamblea.pago_realizado && costoOperacion > 0 && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Para generar el acta primero activa la asamblea (se cobran {costoOperacion} tokens una sola vez al activar). Saldo: {tokensDisponibles}.
-                      </p>
-                    )}
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                      <FileText className="w-3.5 h-3.5" />
+                      Acta Lista para Descarga
+                    </span>
                     <Link href={`/dashboard/asambleas/${params.id}/acta`}>
                       <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400">
                         <FileText className="w-4 h-4 mr-2" />
@@ -1127,17 +1187,37 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                       </Button>
                     </Link>
                   </div>
+                ) : asamblea.estado === 'borrador' ? (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Activa la asamblea para habilitar la generación del acta (cobro único de {costoOperacion} tokens).
+                  </p>
                 ) : (
-                  <Button
-                    variant="outline"
-                    disabled
-                    className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 cursor-not-allowed"
-                    title="Saldo insuficiente para esta operación"
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Acta (saldo insuficiente)
-                  </Button>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Para generar el acta primero activa la asamblea (se cobran {costoOperacion} tokens una sola vez). Saldo: {tokensDisponibles}.
+                  </p>
                 )
+              )}
+              {asamblea.estado === 'activa' && !isDemo && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowModalConfirmarFinalizar(true)}
+                  className="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                  title="Cerrar la asamblea de forma permanente (solo lectura)"
+                >
+                  <Clock className="w-4 h-4 mr-2" />
+                  Finalizar Asamblea
+                </Button>
+              )}
+              {(asamblea.estado === 'activa' || asamblea.estado === 'finalizada') && isDemo && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowModalConfirmarReiniciarDemo(true)}
+                  className="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                  title="Borrar votos y repetir la simulación"
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  Reiniciar Simulación
+                </Button>
               )}
             </div>
           </div>
@@ -1456,7 +1536,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                   Preguntas de Votación
                 </h2>
-                {preguntas.length < planLimits.max_preguntas_por_asamblea && !isDemo && (
+                {preguntas.length < planLimits.max_preguntas_por_asamblea && !isDemo && !isReadOnlyStructure && (
                 <Button
                   onClick={() => setShowNewPregunta(true)}
                   className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
@@ -1500,7 +1580,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
                     No hay preguntas creadas
                   </p>
-                  {preguntas.length < planLimits.max_preguntas_por_asamblea && !isDemo && (
+                  {preguntas.length < planLimits.max_preguntas_por_asamblea && !isDemo && !isReadOnlyStructure && (
                     <Button
                       onClick={() => setShowNewPregunta(true)}
                       variant="outline"
@@ -1537,8 +1617,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleDesarchivarPregunta(pregunta.id)}
-                                disabled={archivingPreguntaId === pregunta.id}
-                                title="Devolver al orden del día"
+                                disabled={archivingPreguntaId === pregunta.id || isReadOnlyStructure}
+                                title={isReadOnlyStructure ? 'Estructura congelada' : 'Devolver al orden del día'}
                               >
                                 {archivingPreguntaId === pregunta.id ? (
                                   <span className="inline-block w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -1608,10 +1688,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => !isDemo && handleEditClick(pregunta)}
-                            disabled={isDemo}
+                            onClick={() => !isDemo && !isReadOnlyStructure && handleEditClick(pregunta)}
+                            disabled={isDemo || isReadOnlyStructure}
                             className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-1"
-                            title={isDemo ? 'Modo demostración: no se puede editar' : (pregunta.estado === 'pendiente' ? 'Editar pregunta completa' : 'Editar texto (se actualiza en acceso)')}
+                            title={isDemo ? 'Modo demostración: no se puede editar' : isReadOnlyStructure ? 'Estructura congelada (solo lectura)' : (pregunta.estado === 'pendiente' ? 'Editar pregunta completa' : 'Editar texto (se actualiza en acceso)')}
                           >
                             <Edit className="w-4 h-4" />
                             <span className="hidden sm:inline text-xs">
@@ -1622,9 +1702,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                             variant="outline"
                             size="sm"
                             onClick={() => handleArchivarPregunta(pregunta.id)}
-                            disabled={archivingPreguntaId === pregunta.id}
+                            disabled={archivingPreguntaId === pregunta.id || isReadOnlyStructure}
                             className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-1"
-                            title="Las preguntas archivadas no aparecerán en el acta final"
+                            title={isReadOnlyStructure ? 'Estructura congelada' : 'Las preguntas archivadas no aparecerán en el acta final'}
                           >
                             {archivingPreguntaId === pregunta.id ? (
                               <span className="inline-block w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
@@ -1636,8 +1716,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => !isDemo && setDeletingPregunta(pregunta)}
-                            disabled={pregunta.estado === 'abierta' || isDemo}
+                            onClick={() => !isDemo && !isReadOnlyStructure && setDeletingPregunta(pregunta)}
+                            disabled={pregunta.estado === 'abierta' || isDemo || isReadOnlyStructure}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                             title={isDemo ? 'Modo demostración: no se puede eliminar' : (pregunta.estado === 'abierta' ? 'No puedes eliminar una pregunta abierta' : 'Eliminar pregunta')}
                           >
@@ -1822,8 +1902,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleDesarchivarPregunta(pregunta.id)}
-                                disabled={archivingPreguntaId === pregunta.id}
-                                title="Devolver al orden del día"
+                                disabled={archivingPreguntaId === pregunta.id || isReadOnlyStructure}
+                                title={isReadOnlyStructure ? 'Estructura congelada' : 'Devolver al orden del día'}
                               >
                                 {archivingPreguntaId === pregunta.id ? (
                                   <span className="inline-block w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -2337,6 +2417,80 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 )}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Asamblea activada — ventana de gracia 3 días */}
+      <Dialog open={showModalAsambleaActivada} onOpenChange={setShowModalAsambleaActivada}>
+        <DialogContent className="max-w-lg rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-800 dark:text-green-200">
+              <CheckCircle2 className="w-5 h-5" />
+              ¡Asamblea Activada!
+            </DialogTitle>
+            <DialogDescription>
+              Tienes <strong>3 días (72 horas)</strong> para realizar ajustes finales antes de que la estructura se congele. Puedes agregar, editar o archivar preguntas y unidades durante este periodo. Después, o al pulsar &quot;Finalizar Asamblea&quot;, la asamblea quedará en solo lectura y podrás generar el acta cuando quieras.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <Button onClick={() => setShowModalAsambleaActivada(false)} className="w-full">
+              Entendido
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Confirmar finalizar asamblea */}
+      <Dialog open={showModalConfirmarFinalizar} onOpenChange={setShowModalConfirmarFinalizar}>
+        <DialogContent className="max-w-lg rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+              <AlertTriangle className="w-5 h-5" />
+              ¿Finalizar asamblea?
+            </DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de finalizar? Esto archivará los resultados permanentemente y generará el acta definitiva. La estructura (preguntas y unidades) quedará en <strong>solo lectura</strong> y no podrás editarla de nuevo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex gap-3">
+            <Button variant="outline" onClick={() => setShowModalConfirmarFinalizar(false)} className="flex-1">
+              Cancelar
+            </Button>
+            <Button
+              className="flex-1 border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+              disabled={finalizando}
+              onClick={handleFinalizarAsamblea}
+            >
+              {finalizando ? 'Finalizando…' : 'Sí, finalizar asamblea'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Confirmar reiniciar simulación (demo) */}
+      <Dialog open={showModalConfirmarReiniciarDemo} onOpenChange={setShowModalConfirmarReiniciarDemo}>
+        <DialogContent className="max-w-lg rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+              <Play className="w-5 h-5" />
+              ¿Reiniciar simulación?
+            </DialogTitle>
+            <DialogDescription>
+              Se borrarán todos los votos de esta asamblea de simulación. Las preguntas y unidades se mantendrán. Podrás repetir la experiencia de votación desde cero.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex gap-3">
+            <Button variant="outline" onClick={() => setShowModalConfirmarReiniciarDemo(false)} className="flex-1">
+              Cancelar
+            </Button>
+            <Button
+              className="flex-1 border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+              disabled={reiniciandoDemo}
+              onClick={handleReiniciarSimulacion}
+            >
+              {reiniciandoDemo ? 'Reiniciando…' : 'Sí, reiniciar simulación'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Asamblea no encontrada' }, { status: 404 })
     }
 
-    const asamblea = asambleaRow as { organization_id?: string; pago_realizado?: boolean; is_demo?: boolean }
+    const asamblea = asambleaRow as { organization_id?: string; pago_realizado?: boolean; is_demo?: boolean; estado?: string }
     const orgId = asamblea.organization_id
     if (!orgId) {
       return NextResponse.json({ error: 'Asamblea sin conjunto' }, { status: 400 })
@@ -73,6 +73,24 @@ export async function POST(request: NextRequest) {
         ya_pagada: true,
         pago_realizado: true,
         tokens_restantes: 0,
+        costo: 0,
+      })
+    }
+
+    // Acceso gratuito al acta si la asamblea está activa o finalizada (cobro único fue al activar)
+    if (asamblea.estado === 'activa' || asamblea.estado === 'finalizada') {
+      const { data: byUser } = await admin.from('profiles').select('tokens_disponibles').eq('user_id', session.user.id)
+      const { data: byId } = await admin.from('profiles').select('tokens_disponibles').eq('id', session.user.id)
+      const allTokens = [
+        ...(Array.isArray(byUser) ? byUser : byUser ? [byUser] : []),
+        ...(Array.isArray(byId) ? byId : byId ? [byId] : []),
+      ].map((p: { tokens_disponibles?: number }) => Math.max(0, Number(p?.tokens_disponibles ?? 0)))
+      const saldo = allTokens.length ? Math.max(...allTokens) : 0
+      return NextResponse.json({
+        ok: true,
+        ya_pagada: true,
+        pago_realizado: true,
+        tokens_restantes: saldo,
         costo: 0,
       })
     }
