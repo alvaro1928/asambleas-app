@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import Link from 'next/link'
-import { CreditCard, ChevronDown, ChevronUp, RefreshCw, User, Lock, Building2, Receipt, Info } from 'lucide-react'
+import { CreditCard, ChevronDown, ChevronUp, RefreshCw, User as UserIcon, Lock, Building2, Receipt, Info } from 'lucide-react'
 
 interface Profile {
   id: string
@@ -61,7 +61,7 @@ export default function ConfiguracionPage() {
   const [pagoDetalleId, setPagoDetalleId] = useState<string | null>(null)
 
   const secciones = [
-    { id: 'perfil', label: 'Mi perfil', icon: User },
+    { id: 'perfil', label: 'Mi perfil', icon: UserIcon },
     { id: 'contraseña', label: 'Contraseña', icon: Lock },
     { id: 'conjunto', label: 'Datos del conjunto', icon: Building2 },
     { id: 'pagos', label: 'Mis pagos', icon: Receipt },
