@@ -83,11 +83,12 @@ export async function GET(request: NextRequest) {
       .map((p: { tokens_disponibles?: number }) => Math.max(0, Number(p?.tokens_disponibles ?? 0)))
     tokensDisponibles = allTokens.length ? Math.max(...allTokens) : Math.max(0, Number(profileAccess?.tokens_disponibles ?? 0))
 
-    // Unidades del conjunto (costo = unidades; 1 token = 1 unidad)
+    // Unidades del conjunto (costo = unidades; 1 token = 1 unidad). Excluir unidades demo (sandbox).
     const { count: unidadesCount } = await supabase
       .from('unidades')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', organizationId)
+      .eq('is_demo', false)
 
     const unidades = Math.max(0, unidadesCount ?? 0)
     const costo = getCostoEnTokens(unidades)

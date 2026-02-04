@@ -123,10 +123,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, descontado: false, motivo: 'asamblea_ya_activada' })
     }
 
+    // Excluir unidades demo (sandbox) del costo; solo cuentan unidades reales
     const { count: unidadesCount } = await admin
       .from('unidades')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', orgId)
+      .eq('is_demo', false)
 
     const unidades = Math.max(0, unidadesCount ?? 0)
     const costo = getCostoEnTokens(unidades)

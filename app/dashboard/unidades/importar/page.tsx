@@ -106,10 +106,12 @@ export default function ImportarUnidadesPage() {
       const orgId = await getOrganizationIdForImport()
       if (!orgId) return
 
+      // Solo contar unidades reales (excluir demo/sandbox)
       const { count } = await supabase
         .from('unidades')
         .select('*', { count: 'exact', head: true })
         .eq('organization_id', orgId)
+        .eq('is_demo', false)
 
       setUnidadesExistentes(count || 0)
     } catch (error) {
@@ -127,11 +129,12 @@ export default function ImportarUnidadesPage() {
         throw new Error('Selecciona un conjunto en el selector del header o crea uno.')
       }
 
-      // Eliminar todas las unidades del conjunto seleccionado
+      // Eliminar solo unidades reales; no tocar unidades demo (sandbox)
       const { error: deleteError } = await supabase
         .from('unidades')
         .delete()
         .eq('organization_id', orgId)
+        .eq('is_demo', false)
 
       if (deleteError) {
         throw new Error('Error al eliminar las unidades: ' + deleteError.message)

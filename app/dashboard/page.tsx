@@ -205,10 +205,12 @@ export default function DashboardPage() {
         setUnidadesCount(unidades)
         setCostoOperacion(Math.max(0, Number(statusData?.costo_operacion ?? unidades)))
 
+        // Solo unidades reales (excluir demo/sandbox) para métricas y conteo
         const { data: unidadesData, error } = await supabase
           .from('unidades')
           .select('*')
           .eq('organization_id', conjId)
+          .eq('is_demo', false)
 
         if (!error && unidadesData) {
           const total = unidadesData.length

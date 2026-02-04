@@ -118,11 +118,12 @@ function UnidadesPageContent() {
         setConjuntoName(org.name)
       }
 
-      // Obtener unidades del conjunto activo
+      // Solo unidades reales: excluir unidades demo (sandbox), que son lógica interna de demostración
       const { data: unidadesData, error } = await supabase
         .from('unidades')
         .select('*')
         .eq('organization_id', selectedConjuntoId)
+        .eq('is_demo', false)
         .order('torre', { ascending: true, nullsFirst: false })
         .order('numero', { ascending: true })
 
