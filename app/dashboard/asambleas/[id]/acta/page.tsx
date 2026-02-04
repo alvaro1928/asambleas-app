@@ -13,6 +13,7 @@ interface Asamblea {
   fecha: string
   estado: string
   organization_id: string
+  is_demo?: boolean
 }
 
 interface Conjunto {
@@ -136,8 +137,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         return
       }
       setAsamblea(asambleaData)
-      // Cobro único por asamblea: si ya se pagó (p. ej. al activar votación), mostrar acta sin puerta de cobro
-      if (typeof window !== 'undefined' && (asambleaData as { pago_realizado?: boolean }).pago_realizado === true) {
+      // Cobro único por asamblea: si ya se pagó (p. ej. al activar votación) o es demo, mostrar acta sin puerta de cobro
+      const esDemo = (asambleaData as { is_demo?: boolean }).is_demo === true
+      if (typeof window !== 'undefined' && ((asambleaData as { pago_realizado?: boolean }).pago_realizado === true || esDemo)) {
         sessionStorage.setItem('acta_generada_' + params.id, '1')
         setActaGenerada(true)
       }
@@ -466,8 +468,28 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     )
   }
 
+  const isDemo = asamblea?.is_demo === true
+
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-white text-gray-900 relative">
+      {/* Watermark para asamblea de demostración (visible en pantalla y al imprimir/PDF) */}
+      {isDemo && (
+        <div
+          className="pointer-events-none fixed inset-0 z-[5] flex items-center justify-center print:flex"
+          aria-hidden
+        >
+          <div
+            className="text-[clamp(1.5rem,4vw,3rem)] font-bold text-red-400/40 dark:text-red-500/40 select-none whitespace-nowrap"
+            style={{
+              transform: 'rotate(-35deg)',
+              transformOrigin: 'center',
+              letterSpacing: '0.05em',
+            }}
+          >
+            BORRADOR DE PRUEBA — SIN VALIDEZ LEGAL
+          </div>
+        </div>
+      )}
       {/* Barra de acciones: oculta al imprimir */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 p-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="flex items-center gap-3">

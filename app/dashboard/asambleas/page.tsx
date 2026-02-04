@@ -32,6 +32,7 @@ interface Asamblea {
   fecha: string
   estado: 'borrador' | 'activa' | 'finalizada'
   created_at: string
+  is_demo?: boolean
 }
 
 interface PreguntasCount {
@@ -57,6 +58,8 @@ export default function AsambleasPage() {
   const [confirmStep, setConfirmStep] = useState<1 | 2>(1)
   const [confirmInput, setConfirmInput] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [showWelcomeDemoModal, setShowWelcomeDemoModal] = useState(false)
+  const [creatingDemo, setCreatingDemo] = useState(false)
 
   useEffect(() => {
     loadAsambleas()
@@ -107,10 +110,36 @@ export default function AsambleasPage() {
       }
 
       setAsambleas(asambleasData || [])
+      if (!asambleasData?.length) setShowWelcomeDemoModal(true)
     } catch (error) {
       console.error('Error:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleProbarDemo = async () => {
+    setCreatingDemo(true)
+    try {
+      const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
+      const res = await fetch('/api/dashboard/crear-asamblea-demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ organization_id: selectedConjuntoId || undefined }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data?.error || 'Error al crear la asamblea de demostración')
+        return
+      }
+      const id = data?.asamblea?.id
+      if (id) {
+        setShowWelcomeDemoModal(false)
+        router.push(`/dashboard/asambleas/${id}`)
+      }
+    } finally {
+      setCreatingDemo(false)
     }
   }
 
@@ -463,6 +492,41 @@ export default function AsambleasPage() {
                 'Continuar'
               ) : (
                 'Confirmar eliminación'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal bienvenida: asamblea de demostración cuando no hay asambleas */}
+      <Dialog open={showWelcomeDemoModal} onOpenChange={setShowWelcomeDemoModal}>
+        <DialogContent id="welcome-demo-modal" className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Prueba la plataforma sin compromiso</DialogTitle>
+            <DialogDescription>
+              Crea una asamblea de demostración con datos de ejemplo. No se consumen créditos y podrás explorar el Centro de Control, el enlace de votación y el acta.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowWelcomeDemoModal(false)}
+              className="flex-1"
+            >
+              Crear asamblea real
+            </Button>
+            <Button
+              onClick={handleProbarDemo}
+              disabled={creatingDemo}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+            >
+              {creatingDemo ? (
+                <>
+                  <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent inline-block mr-2" />
+                  Creando...
+                </>
+              ) : (
+                'Probar ahora'
               )}
             </Button>
           </div>

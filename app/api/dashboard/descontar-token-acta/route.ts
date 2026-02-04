@@ -61,10 +61,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Asamblea no encontrada' }, { status: 404 })
     }
 
-    const asamblea = asambleaRow as { organization_id?: string; pago_realizado?: boolean }
+    const asamblea = asambleaRow as { organization_id?: string; pago_realizado?: boolean; is_demo?: boolean }
     const orgId = asamblea.organization_id
     if (!orgId) {
       return NextResponse.json({ error: 'Asamblea sin conjunto' }, { status: 400 })
+    }
+
+    if (asamblea.is_demo === true) {
+      return NextResponse.json({
+        ok: true,
+        ya_pagada: true,
+        pago_realizado: true,
+        tokens_restantes: 0,
+        costo: 0,
+      })
     }
 
     // El cobro es solo al activar la asamblea; activar habilita generar el acta sin nuevo cobro

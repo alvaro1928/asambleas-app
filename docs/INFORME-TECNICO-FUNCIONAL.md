@@ -28,6 +28,13 @@ El rol de Administrador gestiona la configuración de la copropiedad y el ciclo 
 - **Importación masiva:** `/dashboard/unidades/importar` (Excel/CSV), con validación de coeficientes (suma en rango 99,9%–100,1%, tolerancia por redondeo Ley 675) y unicidad (torre/número).
 - **Métricas:** El dashboard principal muestra total de unidades, suma de coeficientes, datos del censo.
 
+**Asamblea de Simulación (Demo):**
+- Si el usuario no tiene asambleas, se muestra el modal **welcome-demo-modal** con botón "Probar ahora".
+- "Probar ahora" llama a `POST /api/dashboard/crear-asamblea-demo`, que crea una asamblea con `is_demo: true`, inserta 10 unidades (Apto 101–110, coeficiente 10% c/u) y 2 preguntas abiertas con opciones por defecto, activa la votación sin descontar tokens y redirige al Centro de Control.
+- En vistas de asamblea con `is_demo === true`: se muestra `<StickyBanner />` ("Estás viendo una asamblea de demostración..."); no se pueden añadir/editar/eliminar preguntas ni cambiar su estado; las unidades demo no se pueden editar ni eliminar en `/dashboard/unidades`.
+- El acta de una asamblea demo lleva watermark diagonal: "BORRADOR DE PRUEBA — SIN VALIDEZ LEGAL".
+- Las asambleas `is_demo` no consumen créditos (bypass en `descontar-token-asamblea-pro` y `descontar-token-acta`). En reportes/estadísticas globales (ej. total de votos procesados) deben excluirse las asambleas con `is_demo = true`.
+
 **Gestión de Asambleas:**
 - **Listado:** `/dashboard/asambleas`.
 - **Creación:** `/dashboard/asambleas/nueva` (nombre, descripción, fecha).

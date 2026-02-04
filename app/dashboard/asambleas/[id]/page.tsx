@@ -37,6 +37,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { getEffectivePlanLimits } from '@/lib/plan-limits'
 import { useToast } from '@/components/providers/ToastProvider'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { StickyBanner } from '@/components/StickyBanner'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
 
 interface Asamblea {
@@ -51,6 +52,8 @@ interface Asamblea {
   acceso_publico?: boolean
   /** Cobro único por asamblea: true = ya se cobró (Activar o Acta); no se vuelve a descontar */
   pago_realizado?: boolean
+  /** Asamblea de simulación: no consume créditos; no se puede editar configuración */
+  is_demo?: boolean
 }
 
 interface Pregunta {
@@ -959,8 +962,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   if (!asamblea) return null
 
+  const isDemo = asamblea.is_demo === true
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      {isDemo && <StickyBanner />}
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -1409,7 +1415,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                   Preguntas de Votación
                 </h2>
-                {preguntas.length < planLimits.max_preguntas_por_asamblea && (
+                {preguntas.length < planLimits.max_preguntas_por_asamblea && !isDemo && (
                 <Button
                   onClick={() => setShowNewPregunta(true)}
                   className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
@@ -1449,7 +1455,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
                     No hay preguntas creadas
                   </p>
-                  {preguntas.length < planLimits.max_preguntas_por_asamblea && (
+                  {preguntas.length < planLimits.max_preguntas_por_asamblea && !isDemo && (
                     <Button
                       onClick={() => setShowNewPregunta(true)}
                       variant="outline"
@@ -1506,9 +1512,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleEditClick(pregunta)}
+                            onClick={() => !isDemo && handleEditClick(pregunta)}
+                            disabled={isDemo}
                             className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-1"
-                            title={pregunta.estado === 'pendiente' ? 'Editar pregunta completa' : 'Editar texto (se actualiza en acceso)'}
+                            title={isDemo ? 'Modo demostración: no se puede editar' : (pregunta.estado === 'pendiente' ? 'Editar pregunta completa' : 'Editar texto (se actualiza en acceso)')}
                           >
                             <Edit className="w-4 h-4" />
                             <span className="hidden sm:inline text-xs">
@@ -1518,10 +1525,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setDeletingPregunta(pregunta)}
+                            onClick={() => !isDemo && setDeletingPregunta(pregunta)}
+                            disabled={pregunta.estado === 'abierta' || isDemo}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            disabled={pregunta.estado === 'abierta'}
-                            title={pregunta.estado === 'abierta' ? 'No puedes eliminar una pregunta abierta' : 'Eliminar pregunta'}
+                            title={isDemo ? 'Modo demostración: no se puede eliminar' : (pregunta.estado === 'abierta' ? 'No puedes eliminar una pregunta abierta' : 'Eliminar pregunta')}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -1642,8 +1649,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         {pregunta.estado === 'pendiente' && (
                           <Button
                             size="sm"
-                            onClick={() => handleChangeEstadoPregunta(pregunta.id, 'abierta')}
+                            disabled={isDemo}
+                            onClick={() => !isDemo && handleChangeEstadoPregunta(pregunta.id, 'abierta')}
                             className="bg-green-600 hover:bg-green-700"
+                            title={isDemo ? 'Modo demostración' : undefined}
                           >
                             <Play className="w-3 h-3 mr-1" />
                             Abrir Votación
@@ -1652,8 +1661,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         {pregunta.estado === 'abierta' && (
                           <Button
                             size="sm"
-                            onClick={() => handleChangeEstadoPregunta(pregunta.id, 'cerrada')}
+                            disabled={isDemo}
+                            onClick={() => !isDemo && handleChangeEstadoPregunta(pregunta.id, 'cerrada')}
                             className="bg-blue-600 hover:bg-blue-700"
+                            title={isDemo ? 'Modo demostración' : undefined}
                           >
                             <X className="w-3 h-3 mr-1" />
                             Cerrar Votación
@@ -1664,7 +1675,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleChangeEstadoPregunta(pregunta.id, 'abierta')}
+                              disabled={isDemo}
+                              onClick={() => !isDemo && handleChangeEstadoPregunta(pregunta.id, 'abierta')}
+                              title={isDemo ? 'Modo demostración' : undefined}
                             >
                               <Play className="w-3 h-3 mr-1" />
                               Reabrir

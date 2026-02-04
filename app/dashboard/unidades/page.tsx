@@ -44,6 +44,8 @@ interface Unidad {
   nombre_propietario?: string
   email?: string
   telefono?: string
+  /** Unidad de demostración: no se puede editar ni eliminar */
+  is_demo?: boolean
 }
 
 function UnidadesPageContent() {
@@ -167,6 +169,10 @@ function UnidadesPageContent() {
   }
 
   const handleEditClick = (unidad: Unidad) => {
+    if (unidad.is_demo) {
+      toast.error('No se pueden editar las unidades de la asamblea de demostración.')
+      return
+    }
     setEditingUnidad(unidad)
     setEditForm({
       nombre_propietario: unidad.nombre_propietario || '',
@@ -177,6 +183,10 @@ function UnidadesPageContent() {
 
   const handleSaveEdit = async () => {
     if (!editingUnidad) return
+    if (editingUnidad.is_demo) {
+      toast.error('No se pueden editar las unidades de la asamblea de demostración.')
+      return
+    }
 
     setSaving(true)
     try {
@@ -209,11 +219,20 @@ function UnidadesPageContent() {
   }
 
   const handleDeleteClick = (unidad: Unidad) => {
+    if (unidad.is_demo) {
+      toast.error('No se pueden eliminar las unidades de la asamblea de demostración.')
+      return
+    }
     setDeletingUnidad(unidad)
   }
 
   const handleConfirmDelete = async () => {
     if (!deletingUnidad) return
+    if (deletingUnidad.is_demo) {
+      toast.error('No se pueden eliminar las unidades de demostración.')
+      setDeletingUnidad(null)
+      return
+    }
 
     setDeleting(true)
     try {
@@ -407,6 +426,8 @@ function UnidadesPageContent() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleEditClick(unidad)}
+                              disabled={unidad.is_demo}
+                              title={unidad.is_demo ? 'Unidad de demostración: no editable' : 'Editar unidad'}
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -414,7 +435,9 @@ function UnidadesPageContent() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleDeleteClick(unidad)}
+                              disabled={unidad.is_demo}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              title={unidad.is_demo ? 'Unidad de demostración: no eliminable' : 'Eliminar unidad'}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
