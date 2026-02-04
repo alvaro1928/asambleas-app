@@ -435,9 +435,8 @@ export async function POST(request: NextRequest) {
       estado: 'APPROVED',
       user_id: userId,
     })
-      if (logError) {
-        console.error('[webhook pagos] Error al registrar transacción:', logError.message)
-      }
+    if (logError) {
+      console.error('[webhook pagos] Error al registrar transacción:', logError.message)
     }
 
     console.log('[webhook pagos] Tokens acreditados:', { user_id: userId, tokens_comprados: tokensComprados, nuevo_saldo: nuevoSaldo, txId })

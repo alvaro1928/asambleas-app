@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     // Solo permitir comprar tokens para la cuenta de la sesión actual
     const cookieStore = await cookies()
     const supabaseSession = createServerClient(supabaseUrl, anonKey, {
-      cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} },
+      cookies: { get: (n: string) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} },
     })
     const { data: { session } } = await supabaseSession.auth.getSession()
     if (!session?.user?.id) {
