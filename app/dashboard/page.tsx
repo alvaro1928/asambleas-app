@@ -376,11 +376,22 @@ export default function DashboardPage() {
                         <label className="block text-sm text-slate-400 mb-1">Cantidad de tokens (mín. {MIN_TOKENS_COMPRA})</label>
                         <input
                           type="number"
-                          min={MIN_TOKENS_COMPRA}
-                          value={cantidadManual}
-                          onChange={(e) => setCantidadManual(Math.max(MIN_TOKENS_COMPRA, parseInt(e.target.value, 10) || MIN_TOKENS_COMPRA))}
+                          min={1}
+                          placeholder={`Mín. ${MIN_TOKENS_COMPRA}`}
+                          value={cantidadManual === 0 ? '' : cantidadManual}
+                          onChange={(e) => {
+                            if (e.target.value === '') {
+                              setCantidadManual(0)
+                              return
+                            }
+                            const v = parseInt(e.target.value, 10)
+                            setCantidadManual(Number.isNaN(v) ? 0 : Math.max(0, v))
+                          }}
                           className="w-full rounded-2xl border border-slate-600 bg-slate-800 px-3 py-2 text-white"
                         />
+                        {cantidadManual > 0 && cantidadManual < MIN_TOKENS_COMPRA && (
+                          <p className="text-xs text-amber-400 mt-1">Mínimo {MIN_TOKENS_COMPRA} tokens para comprar</p>
+                        )}
                       </div>
                     )}
                     {precioProCop != null && precioProCop > 0 && (
@@ -392,7 +403,7 @@ export default function DashboardPage() {
                       <button
                         type="button"
                         onClick={handleIrAPagar}
-                        disabled={checkoutLoading}
+                        disabled={checkoutLoading || (!compraRapida && cantidadManual < MIN_TOKENS_COMPRA)}
                         className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-3xl text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-70"
                         style={{ backgroundColor: colorPrincipalHex }}
                       >
