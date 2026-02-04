@@ -1039,7 +1039,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const isReadOnlyStructure = asamblea
     ? (asamblea.estado === 'finalizada' || (asamblea.is_demo && asamblea.estado === 'activa' && !withinGracePeriod))
     : false
-  const actaDisponible = asamblea && (asamblea.estado === 'activa' || asamblea.estado === 'finalizada') && (asamblea.pago_realizado === true || asamblea.is_demo === true)
+  // Acta disponible: si está activa (y se pagó o es demo) o si está finalizada (siempre se puede descargar el acta final)
+  const actaDisponible = asamblea && (
+    asamblea.estado === 'finalizada' ||
+    (asamblea.estado === 'activa' && (asamblea.pago_realizado === true || asamblea.is_demo === true))
+  )
 
   const handleFinalizarAsamblea = async () => {
     if (!asamblea || asamblea.is_demo) return
@@ -1236,12 +1240,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   <Button
                     onClick={() => setSinTokensModalOpen(true)}
                     variant="outline"
-                    disabled
-                    className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 cursor-not-allowed"
-                    title="Saldo insuficiente para activar"
+                    className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                    title="Saldo insuficiente. Clic para comprar tokens"
                   >
                     <Lock className="w-4 h-4 mr-2" />
-                    Activar (saldo insuficiente)
+                    Activar (saldo insuficiente — comprar tokens)
                   </Button>
                 )
               )}
