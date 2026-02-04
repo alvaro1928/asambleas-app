@@ -1549,7 +1549,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 )}
               </div>
 
-              {preguntas.length >= planLimits.max_preguntas_por_asamblea && (
+              {preguntas.length >= planLimits.max_preguntas_por_asamblea && !isDemo && (
                 <Alert className="mb-6 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
                   <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   <AlertTitle className="text-amber-900 dark:text-amber-100">
