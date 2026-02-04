@@ -39,7 +39,7 @@ function formatPrecioCop(cop: number): string {
 }
 
 function buildWhatsAppUrl(whatsappNumber: string, nombreConjunto: string) {
-  const text = `Quiero comprar créditos (tokens) para mi conjunto: ${nombreConjunto.trim() || '[Nombre]'}`
+  const text = nombreConjunto.trim() ? `Hola, contacto desde la web (${nombreConjunto}).` : 'Hola, tengo una consulta.'
   return `https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`
 }
 
@@ -52,6 +52,9 @@ export default function Home() {
   const [colorPrincipalHex, setColorPrincipalHex] = useState<string>('#4f46e5')
   const [precioPorTokenCop, setPrecioPorTokenCop] = useState<number | null>(null)
   const [bonoBienvenidaTokens, setBonoBienvenidaTokens] = useState<number | null>(null)
+  const [textoHeroPrecio, setTextoHeroPrecio] = useState<string | null>(null)
+  const [textoAhorro, setTextoAhorro] = useState<string | null>(null)
+  const [ctaWhatsappText, setCtaWhatsappText] = useState<string>('Contactanos')
 
   useEffect(() => {
     fetch('/api/config/public', { cache: 'no-store' })
@@ -63,6 +66,9 @@ export default function Home() {
         color_principal_hex?: string | null
         precio_por_token_cop?: number | null
         bono_bienvenida_tokens?: number | null
+        texto_hero_precio?: string | null
+        texto_ahorro?: string | null
+        cta_whatsapp_text?: string | null
       } | null) => {
         if (data?.titulo) setTitulo(data.titulo)
         if (data?.subtitulo) setSubtitulo(data.subtitulo)
@@ -70,6 +76,9 @@ export default function Home() {
         if (data?.color_principal_hex && /^#[0-9A-Fa-f]{6}$/.test(data.color_principal_hex)) setColorPrincipalHex(data.color_principal_hex)
         if (data?.precio_por_token_cop != null) setPrecioPorTokenCop(Number(data.precio_por_token_cop))
         if (data?.bono_bienvenida_tokens != null) setBonoBienvenidaTokens(Number(data.bono_bienvenida_tokens))
+        if (data?.texto_hero_precio != null) setTextoHeroPrecio(data.texto_hero_precio)
+        if (data?.texto_ahorro != null) setTextoAhorro(data.texto_ahorro)
+        if (data?.cta_whatsapp_text) setCtaWhatsappText(data.cta_whatsapp_text)
       })
       .catch(() => {})
   }, [])
@@ -104,7 +113,9 @@ export default function Home() {
               </Link>
             </div>
             <p className="mt-6 text-sm text-slate-400 max-w-xl">
-              Paga solo por lo que usas: {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop) : '—'} COP por unidad. Ahorra un 75% frente a servicios tradicionales (Costo promedio $600.000 vs {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop * 100) : '—'} con nosotros para 100 unidades).
+              {textoHeroPrecio != null && textoHeroPrecio.trim() !== ''
+                ? textoHeroPrecio
+                : `Paga solo por lo que usas: ${precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop) : '—'} COP por unidad. Ahorra un 75% frente a servicios tradicionales (Costo promedio $600.000 vs ${precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop * 100) : '—'} con nosotros para 100 unidades).`}
             </p>
           </div>
         </div>
@@ -188,7 +199,9 @@ export default function Home() {
               </p>
             </div>
             <p className="text-center text-slate-400 text-sm">
-              Ahorra un 75% frente a servicios tradicionales (Costo promedio $600.000 vs {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop * 100) : '—'} con nosotros para 100 unidades).
+              {textoAhorro != null && textoAhorro.trim() !== ''
+                ? textoAhorro
+                : `Ahorra un 75% frente a servicios tradicionales (Costo promedio $600.000 vs ${precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop * 100) : '—'} con nosotros para 100 unidades).`}
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
@@ -206,7 +219,7 @@ export default function Home() {
                 >
                   <Button variant="outline" size="lg" className="rounded-3xl border-white/20 text-slate-200 hover:bg-white/10 gap-2 w-full sm:w-auto">
                     <MessageCircle className="w-5 h-5" />
-                    Comprar créditos por WhatsApp
+                    {ctaWhatsappText}
                   </Button>
                 </a>
               )}

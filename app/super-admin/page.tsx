@@ -51,10 +51,6 @@ export default function SuperAdminPage() {
   const [searchConjunto, setSearchConjunto] = useState('')
   const [mostrandoConjuntos, setMostrandoConjuntos] = useState(50)
   const PASOS_PAGINACION = 50
-  const [landingTitulo, setLandingTitulo] = useState('')
-  const [landingSubtitulo, setLandingSubtitulo] = useState('')
-  const [landingWhatsapp, setLandingWhatsapp] = useState('')
-  const [savingLanding, setSavingLanding] = useState(false)
   const [estadoSistema, setEstadoSistema] = useState<EstadoSistema | null>(null)
   const [gestores, setGestores] = useState<GestorRow[]>([])
   const [gestoresError, setGestoresError] = useState<string | null>(null)
@@ -94,14 +90,6 @@ export default function SuperAdminPage() {
       if (!isAllowed(session.user.email)) {
         router.replace('/login?redirect=/super-admin')
         return
-      }
-
-      const configRes = await fetch('/api/super-admin/configuracion-landing', { credentials: 'include' })
-      if (configRes.ok) {
-        const configData = await configRes.json()
-        setLandingTitulo(configData.titulo ?? '')
-        setLandingSubtitulo(configData.subtitulo ?? '')
-        setLandingWhatsapp(configData.whatsapp_number ?? '')
       }
 
       const res = await fetch('/api/super-admin/conjuntos', {
@@ -224,33 +212,6 @@ export default function SuperAdminPage() {
       toast.error('Error al agregar tokens')
     } finally {
       setUpdatingTokensGestorId(null)
-    }
-  }
-
-  const handleSaveLanding = async () => {
-    setSavingLanding(true)
-    try {
-      const res = await fetch('/api/super-admin/configuracion-landing', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          titulo: landingTitulo.trim(),
-          subtitulo: landingSubtitulo.trim(),
-          whatsapp_number: landingWhatsapp.trim() || null,
-        }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        toast.error(err.error || 'Error al guardar')
-        return
-      }
-      toast.success('Landing actualizada')
-    } catch (e) {
-      console.error('Guardar landing:', e)
-      toast.error('Error al guardar')
-    } finally {
-      setSavingLanding(false)
     }
   }
 
@@ -666,45 +627,18 @@ export default function SuperAdminPage() {
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
             <Layout className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Configuración — Landing
+              Landing y textos publicitarios
             </h2>
           </div>
-          <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título (hero)</label>
-              <input
-                type="text"
-                value={landingTitulo}
-                onChange={(e) => setLandingTitulo(e.target.value)}
-                placeholder="Ej. Asambleas digitales para propiedad horizontal"
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subtítulo (hero)</label>
-              <textarea
-                value={landingSubtitulo}
-                onChange={(e) => setLandingSubtitulo(e.target.value)}
-                placeholder="Ej. Votaciones en tiempo real, actas y auditoría..."
-                rows={2}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">WhatsApp de contacto</label>
-              <input
-                type="text"
-                value={landingWhatsapp}
-                onChange={(e) => setLandingWhatsapp(e.target.value)}
-                placeholder="Ej. 573001234567 (código país + número)"
-                className="w-full max-w-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Vacío = no mostrar botón WhatsApp en la landing</p>
-            </div>
-            <Button onClick={handleSaveLanding} disabled={savingLanding} className="gap-2">
-              {savingLanding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Guardar cambios
-            </Button>
+          <div className="p-6">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              La configuración completa de la landing (título, subtítulo, textos publicitarios, botón Contactanos, precio, color y WhatsApp) se edita en un solo lugar.
+            </p>
+            <Link href="/super-admin/ajustes">
+              <Button variant="outline" className="gap-2">
+                Ir a Ajustes — configurar landing
+              </Button>
+            </Link>
           </div>
         </div>
       </main>

@@ -30,7 +30,9 @@ import {
   Archive,
   ArchiveRestore,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  MessageCircle,
+  Mail
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -175,6 +177,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [votanteNombreRegistro, setVotanteNombreRegistro] = useState('')
   const [votosRegistroPorPregunta, setVotosRegistroPorPregunta] = useState<Record<string, string>>({})
   const [savingRegistroVoto, setSavingRegistroVoto] = useState(false)
+
+  // Enviar enlace a cada unidad (WhatsApp o correo por separado)
+  const [showModalEnviarEnlace, setShowModalEnviarEnlace] = useState(false)
+  const [unidadesParaEnvio, setUnidadesParaEnvio] = useState<Array<{ id: string; torre: string; numero: string; email_propietario?: string | null; telefono_propietario?: string | null }>>([])
+  const [loadingUnidadesEnvio, setLoadingUnidadesEnvio] = useState(false)
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -556,17 +563,52 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const handleCompartirWhatsApp = () => {
     if (!asamblea || !asamblea.url_publica) return
-    
-    const mensaje = encodeURIComponent(
-      `🗳️ VOTACIÓN VIRTUAL ACTIVA\n\n` +
-      `📋 ${asamblea.nombre}\n` +
-      `📅 ${formatFecha(asamblea.fecha)}\n\n` +
-      `👉 Vota aquí:\n${asamblea.url_publica}\n\n` +
-      `⚠️ Necesitas tu email registrado en el conjunto\n\n` +
-      `¡Tu participación es importante! 🏠`
-    )
-    
-    window.open(`https://wa.me/?text=${mensaje}`, '_blank')
+    const msg = getMensajeVotacion()
+    if (!msg) return
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank')
+  }
+
+  const normalizarTelefonoWhatsApp = (tel: string): string => {
+    const digits = tel.replace(/\D/g, '')
+    if (digits.length === 10 && digits.startsWith('3')) return '57' + digits
+    if (digits.length === 12 && digits.startsWith('57')) return digits
+    return digits || ''
+  }
+
+  const openModalEnviarEnlace = async () => {
+    if (!asamblea?.organization_id || !asamblea?.url_publica) return
+    setShowModalEnviarEnlace(true)
+    setLoadingUnidadesEnvio(true)
+    try {
+      const { data } = await supabase
+        .from('unidades')
+        .select('id, torre, numero, email_propietario, telefono_propietario')
+        .eq('organization_id', asamblea.organization_id)
+        .order('torre')
+        .order('numero')
+      setUnidadesParaEnvio(data ?? [])
+    } catch (e) {
+      console.error('Error cargando unidades para envío:', e)
+      setUnidadesParaEnvio([])
+    } finally {
+      setLoadingUnidadesEnvio(false)
+    }
+  }
+
+  const abrirWhatsAppUnidad = (telefono: string) => {
+    const num = normalizarTelefonoWhatsApp(telefono)
+    if (!num) return
+    const msg = getMensajeVotacion()
+    if (!msg) return
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank')
+  }
+
+  const abrirCorreoUnidad = (email: string) => {
+    if (!email?.trim()) return
+    const msg = getMensajeVotacion()
+    const subject = encodeURIComponent(`Votación: ${asamblea?.nombre ?? 'Asamblea'}`)
+    const body = encodeURIComponent((msg || '') + '\n\nEnlace: ' + (asamblea?.url_publica ?? ''))
+    window.open(`mailto:${email.trim()}?subject=${subject}&body=${body}`, '_blank')
   }
 
   const handleCreatePregunta = async () => {
@@ -1022,6 +1064,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  const getMensajeVotacion = (): string => {
+    if (!asamblea?.url_publica) return ''
+    return `🗳️ VOTACIÓN VIRTUAL ACTIVA\n\n📋 ${asamblea.nombre}\n📅 ${formatFecha(asamblea.fecha)}\n\n👉 Vota aquí:\n${asamblea.url_publica}\n\n⚠️ Necesitas tu email registrado en el conjunto\n\n¡Tu participación es importante! 🏠`
   }
 
   const getEstadoBadge = (estado: string) => {
@@ -1498,7 +1545,17 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         <Share2 className="w-4 h-4 mr-1" />
                         WhatsApp
                       </Button>
-                      <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="w-full" title="Ver código QR para que los residentes escaneen y voten">
+                      <Button
+                        onClick={openModalEnviarEnlace}
+                        variant="outline"
+                        size="sm"
+                        className="border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
+                        title="Enviar el enlace por WhatsApp o correo a cada unidad por separado (no se ven entre sí)"
+                      >
+                        <MessageCircle className="w-4 h-4 mr-1" />
+                        Enviar a cada uno
+                      </Button>
+                      <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="col-span-2 w-full" title="Ver código QR para que los residentes escaneen y voten">
                         <Button
                           variant="outline"
                           size="sm"
@@ -2437,6 +2494,92 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           <div className="mt-4">
             <Button onClick={() => setShowModalAsambleaActivada(false)} className="w-full">
               Entendido
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Enviar enlace por WhatsApp o correo a cada unidad (cada envío por separado) */}
+      <Dialog open={showModalEnviarEnlace} onOpenChange={setShowModalEnviarEnlace}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+              <LinkIcon className="w-5 h-5" />
+              Enviar enlace de votación a cada contacto
+            </DialogTitle>
+            <DialogDescription>
+              Cada envío se abre por separado (WhatsApp o correo) para que nadie vea el teléfono o email de otros. Usa los teléfonos y correos registrados en las unidades del conjunto.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-6 py-2">
+            {loadingUnidadesEnvio ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">Cargando unidades...</p>
+            ) : (
+              <>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+                    <MessageCircle className="w-4 h-4 text-green-600" />
+                    Por WhatsApp (teléfono de la unidad)
+                  </h3>
+                  <ul className="space-y-1.5 max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 p-2">
+                    {unidadesParaEnvio
+                      .filter((u) => u.telefono_propietario?.trim())
+                      .map((u) => (
+                        <li key={u.id} className="flex items-center justify-between gap-2 text-sm">
+                          <span className="truncate text-gray-700 dark:text-gray-300">
+                            {u.torre ? `${u.torre} - ` : ''}{u.numero}
+                            {u.telefono_propietario ? ` · ${u.telefono_propietario}` : ''}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400"
+                            onClick={() => abrirWhatsAppUnidad(u.telefono_propietario!)}
+                          >
+                            WhatsApp
+                          </Button>
+                        </li>
+                      ))}
+                    {unidadesParaEnvio.filter((u) => u.telefono_propietario?.trim()).length === 0 && (
+                      <li className="text-gray-500 dark:text-gray-400 text-sm py-2">No hay unidades con teléfono registrado.</li>
+                    )}
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+                    <Mail className="w-4 h-4 text-indigo-600" />
+                    Por correo (email de la unidad)
+                  </h3>
+                  <ul className="space-y-1.5 max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 p-2">
+                    {unidadesParaEnvio
+                      .filter((u) => u.email_propietario?.trim())
+                      .map((u) => (
+                        <li key={u.id} className="flex items-center justify-between gap-2 text-sm">
+                          <span className="truncate text-gray-700 dark:text-gray-300">
+                            {u.torre ? `${u.torre} - ` : ''}{u.numero}
+                            {u.email_propietario ? ` · ${u.email_propietario}` : ''}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400"
+                            onClick={() => abrirCorreoUnidad(u.email_propietario!)}
+                          >
+                            Correo
+                          </Button>
+                        </li>
+                      ))}
+                    {unidadesParaEnvio.filter((u) => u.email_propietario?.trim()).length === 0 && (
+                      <li className="text-gray-500 dark:text-gray-400 text-sm py-2">No hay unidades con correo registrado.</li>
+                    )}
+                  </ul>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+            <Button variant="outline" onClick={() => setShowModalEnviarEnlace(false)} className="w-full">
+              Cerrar
             </Button>
           </div>
         </DialogContent>

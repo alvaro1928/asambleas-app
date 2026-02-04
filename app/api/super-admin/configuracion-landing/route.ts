@@ -50,7 +50,7 @@ export async function GET() {
 
     const { data, error } = await admin
       .from('configuracion_global')
-      .select('id, key, titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens')
+      .select('id, key, titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens, texto_hero_precio, texto_ahorro, cta_whatsapp_text')
       .eq('key', 'landing')
       .maybeSingle()
 
@@ -68,6 +68,9 @@ export async function GET() {
       color_principal_hex?: string | null
       precio_por_token_cop?: number | null
       bono_bienvenida_tokens?: number | null
+      texto_hero_precio?: string | null
+      texto_ahorro?: string | null
+      cta_whatsapp_text?: string | null
     } | null
 
     return NextResponse.json({
@@ -79,6 +82,9 @@ export async function GET() {
       color_principal_hex: row?.color_principal_hex ?? '',
       precio_por_token_cop: row?.precio_por_token_cop != null ? Number(row.precio_por_token_cop) : null,
       bono_bienvenida_tokens: row?.bono_bienvenida_tokens != null ? Number(row.bono_bienvenida_tokens) : null,
+      texto_hero_precio: row?.texto_hero_precio ?? '',
+      texto_ahorro: row?.texto_ahorro ?? '',
+      cta_whatsapp_text: row?.cta_whatsapp_text?.trim() || 'Contactanos',
     })
   } catch (e) {
     console.error('super-admin configuracion-landing GET:', e)
@@ -121,13 +127,16 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens } = body as {
+    const { titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens, texto_hero_precio, texto_ahorro, cta_whatsapp_text } = body as {
       titulo?: string
       subtitulo?: string
       whatsapp_number?: string
       color_principal_hex?: string
       precio_por_token_cop?: number
       bono_bienvenida_tokens?: number
+      texto_hero_precio?: string
+      texto_ahorro?: string
+      cta_whatsapp_text?: string
     }
 
     const admin = createClient(
@@ -143,9 +152,12 @@ export async function PATCH(request: NextRequest) {
     if (color_principal_hex !== undefined) updates.color_principal_hex = typeof color_principal_hex === 'string' && /^#[0-9A-Fa-f]{6}$/.test(color_principal_hex) ? color_principal_hex : null
     if (precio_por_token_cop !== undefined) updates.precio_por_token_cop = typeof precio_por_token_cop === 'number' && precio_por_token_cop >= 0 ? precio_por_token_cop : null
     if (bono_bienvenida_tokens !== undefined) updates.bono_bienvenida_tokens = typeof bono_bienvenida_tokens === 'number' && bono_bienvenida_tokens >= 0 ? bono_bienvenida_tokens : null
+    if (texto_hero_precio !== undefined) updates.texto_hero_precio = typeof texto_hero_precio === 'string' ? texto_hero_precio : null
+    if (texto_ahorro !== undefined) updates.texto_ahorro = typeof texto_ahorro === 'string' ? texto_ahorro : null
+    if (cta_whatsapp_text !== undefined) updates.cta_whatsapp_text = typeof cta_whatsapp_text === 'string' ? (cta_whatsapp_text.trim() || 'Contactanos') : null
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'Falta al menos un campo: titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop o bono_bienvenida_tokens' }, { status: 400 })
+      return NextResponse.json({ error: 'Falta al menos un campo para actualizar' }, { status: 400 })
     }
 
     updates.updated_at = new Date().toISOString()
@@ -167,6 +179,9 @@ export async function PATCH(request: NextRequest) {
           color_principal_hex: updates.color_principal_hex ?? null,
           precio_por_token_cop: updates.precio_por_token_cop ?? null,
           bono_bienvenida_tokens: updates.bono_bienvenida_tokens ?? null,
+          texto_hero_precio: updates.texto_hero_precio ?? null,
+          texto_ahorro: updates.texto_ahorro ?? null,
+          cta_whatsapp_text: updates.cta_whatsapp_text ?? 'Contactanos',
         })
         .select()
         .single()

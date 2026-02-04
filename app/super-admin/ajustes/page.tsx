@@ -19,6 +19,9 @@ export default function SuperAdminAjustesPage() {
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [precioPorTokenCop, setPrecioPorTokenCop] = useState<number | ''>(10000)
   const [bonoBienvenidaTokens, setBonoBienvenidaTokens] = useState<number | ''>(50)
+  const [textoHeroPrecio, setTextoHeroPrecio] = useState('')
+  const [textoAhorro, setTextoAhorro] = useState('')
+  const [ctaWhatsappText, setCtaWhatsappText] = useState('Contactanos')
 
   const isAllowed = (email: string | undefined) => {
     if (!email) return false
@@ -53,6 +56,9 @@ export default function SuperAdminAjustesPage() {
       setWhatsappNumber(data.whatsapp_number ?? '')
       if (data.precio_por_token_cop != null) setPrecioPorTokenCop(data.precio_por_token_cop)
       if (data.bono_bienvenida_tokens != null) setBonoBienvenidaTokens(data.bono_bienvenida_tokens)
+      setTextoHeroPrecio(data.texto_hero_precio ?? '')
+      setTextoAhorro(data.texto_ahorro ?? '')
+      setCtaWhatsappText(data.cta_whatsapp_text?.trim() || 'Contactanos')
       setLoading(false)
     }
     load()
@@ -72,6 +78,9 @@ export default function SuperAdminAjustesPage() {
           whatsapp_number: whatsappNumber.trim() || null,
           precio_por_token_cop: typeof precioPorTokenCop === 'number' ? precioPorTokenCop : (typeof precioPorTokenCop === 'string' && precioPorTokenCop !== '' ? parseInt(precioPorTokenCop, 10) : null),
           bono_bienvenida_tokens: typeof bonoBienvenidaTokens === 'number' ? bonoBienvenidaTokens : (typeof bonoBienvenidaTokens === 'string' && bonoBienvenidaTokens !== '' ? parseInt(bonoBienvenidaTokens, 10) : null),
+          texto_hero_precio: textoHeroPrecio.trim() || null,
+          texto_ahorro: textoAhorro.trim() || null,
+          cta_whatsapp_text: ctaWhatsappText.trim() || 'Contactanos',
         }),
       })
       if (!res.ok) {
@@ -170,6 +179,40 @@ export default function SuperAdminAjustesPage() {
                 placeholder="Ej. 573001234567"
                 className="w-full max-w-xs rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
               />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Los créditos se venden en la app; este botón es para contacto general.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Texto del botón WhatsApp/Contacto</label>
+              <input
+                type="text"
+                value={ctaWhatsappText}
+                onChange={(e) => setCtaWhatsappText(e.target.value)}
+                placeholder="Contactanos"
+                className="w-full max-w-xs rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Ej. Contactanos. Vacío = &quot;Contactanos&quot;</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Frase hero precio (opcional)</label>
+              <textarea
+                value={textoHeroPrecio}
+                onChange={(e) => setTextoHeroPrecio(e.target.value)}
+                placeholder="Paga solo por lo que usas: X COP por unidad..."
+                rows={2}
+                className="w-full rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Texto bajo el hero. Vacío = se usa el texto por defecto con el precio configurado.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Frase ahorro / comparativa (opcional)</label>
+              <textarea
+                value={textoAhorro}
+                onChange={(e) => setTextoAhorro(e.target.value)}
+                placeholder="Ahorra un 75% frente a servicios tradicionales..."
+                rows={2}
+                className="w-full rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Texto en la sección de precios. Vacío = texto por defecto.</p>
             </div>
             <hr className="border-gray-200 dark:border-gray-700" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Configuración de Negocio</h2>
