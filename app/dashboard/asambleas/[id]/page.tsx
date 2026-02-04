@@ -943,7 +943,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       }
     }
 
-    const payload: { estado: string; activated_at?: string } = { estado: nuevoEstado }
+    try {
+      const payload: { estado: string; activated_at?: string } = { estado: nuevoEstado }
       if (nuevoEstado === 'activa') {
         payload.activated_at = new Date().toISOString()
       }

@@ -159,9 +159,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       const orgId = asambleaData.organization_id
       const statusRes = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(orgId ?? '')}`)
       const statusData = statusRes.ok ? await statusRes.json() : null
-      const yaPagada = (asambleaData as { pago_realizado?: boolean }).pago_realizado === true
-      const estadoAsamblea = (asambleaData as { estado?: string }).estado
-      setIncluyeActaDetallada(!!statusData?.puede_operar || yaPagada || estadoAsamblea === 'activa' || estadoAsamblea === 'finalizada')
+      setIncluyeActaDetallada(!!statusData?.puede_operar || yaPagada || estado === 'activa' || estado === 'finalizada')
       setTokensDisponibles(Math.max(0, Number(statusData?.tokens_disponibles ?? 0)))
       setCostoOperacion(Math.max(0, Number(statusData?.costo_operacion ?? 0)))
 
