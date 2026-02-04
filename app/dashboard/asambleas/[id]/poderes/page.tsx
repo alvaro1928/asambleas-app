@@ -15,7 +15,8 @@ import {
   CheckCircle2,
   XCircle,
   Upload,
-  Home
+  Home,
+  HelpCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +24,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useToast } from '@/components/providers/ToastProvider'
+import { GuiaTokensModal } from '@/components/GuiaTokensModal'
 
 interface Asamblea {
   id: string
@@ -99,6 +101,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [revocandoPoderId, setRevocandoPoderId] = useState<string | null>(null)
   const [revocando, setRevocando] = useState(false)
+  const [guiaModalOpen, setGuiaModalOpen] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -403,6 +406,15 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setGuiaModalOpen(true)}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
+                title="Guía: tokens y funcionalidades"
+              >
+                <HelpCircle className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                Guía
+              </button>
               <Link href="/dashboard/unidades">
                 <Button
                   variant="outline"
@@ -913,6 +925,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
           </div>
         </DialogContent>
       </Dialog>
+      <GuiaTokensModal open={guiaModalOpen} onOpenChange={setGuiaModalOpen} />
     </div>
   )
 }

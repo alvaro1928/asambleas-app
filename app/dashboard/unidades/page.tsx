@@ -15,7 +15,8 @@ import {
   Upload,
   X,
   Save,
-  AlertTriangle
+  AlertTriangle,
+  HelpCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -72,6 +73,7 @@ function UnidadesPageContent() {
 
   // Estados para conjunto
   const [conjuntoName, setConjuntoName] = useState('')
+  const [guiaModalOpen, setGuiaModalOpen] = useState(false)
 
   useEffect(() => {
     // Si llegamos desde la asamblea con conjunto_id, usar ese conjunto para mostrar sus unidades
@@ -559,6 +561,7 @@ function UnidadesPageContent() {
           </div>
         </DialogContent>
       </Dialog>
+      <GuiaTokensModal open={guiaModalOpen} onOpenChange={setGuiaModalOpen} />
     </div>
   )
 }

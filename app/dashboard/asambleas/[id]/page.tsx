@@ -25,7 +25,8 @@ import {
   QrCode,
   Link as LinkIcon,
   UserPlus,
-  Building2
+  Building2,
+  HelpCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,6 +37,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { getEffectivePlanLimits } from '@/lib/plan-limits'
 import { useToast } from '@/components/providers/ToastProvider'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { GuiaTokensModal } from '@/components/GuiaTokensModal'
 
 interface Asamblea {
   id: string
@@ -141,6 +143,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [precioProCop, setPrecioProCop] = useState<number | null>(null)
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null)
   const [sinTokensModalOpen, setSinTokensModalOpen] = useState(false)
+  const [guiaModalOpen, setGuiaModalOpen] = useState(false)
   const [checkoutLoadingSinTokens, setCheckoutLoadingSinTokens] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
 
@@ -1023,6 +1026,15 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   Asamblea Pagada / Acceso Total
                 </span>
               )}
+              <button
+                type="button"
+                onClick={() => setGuiaModalOpen(true)}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
+                title="Guía: tokens y funcionalidades"
+              >
+                <HelpCircle className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                Guía
+              </button>
               {getEstadoBadge(asamblea.estado)}
               {asamblea.estado === 'borrador' && (
                 (puedeOperar || asamblea.pago_realizado) ? (
@@ -2222,6 +2234,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           </div>
         </DialogContent>
       </Dialog>
+      <GuiaTokensModal open={guiaModalOpen} onOpenChange={setGuiaModalOpen} />
     </div>
   )
 }

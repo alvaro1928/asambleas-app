@@ -89,10 +89,10 @@ export function ComprarTokensCTA({
       : 'Más potencia para tus asambleas'
 
   const subtitulo = isBlocked
-    ? 'Los tokens son de tu billetera (gestor). Cada operación (Activar votación, Acta con auditoría, Registro manual) consume tantos tokens como unidades tiene el conjunto (1 token = 1 unidad). Compra más para seguir operando.'
+    ? 'Los tokens se consumen solo una vez: al activar la asamblea (1 token = 1 unidad). Después puedes configurar preguntas, compartir el enlace y generar el acta sin nuevo cobro. Compra más para poder activar tu próxima asamblea.'
     : isLow
-      ? 'Compra más tokens ahora y no te quedes sin poder activar votaciones, descargar actas o registrar votos manuales.'
-      : 'Compra tokens para tu billetera; cada operación consume 1 token por unidad del conjunto.'
+      ? 'Tu saldo es menor al costo de activar una asamblea (1 token por unidad). Puedes configurar asambleas y preguntas sin problema; solo necesitas recargar cuando vayas a activar la votación.'
+      : 'Compra tokens para tu billetera; el cobro es una sola vez al activar cada asamblea (1 token por unidad).'
 
   return (
     <div
@@ -167,7 +167,7 @@ export function ComprarTokensCTA({
 
       {showComprar && typeof precioCop === 'number' && precioCop > 0 && (isBlocked || isLow) && (
         <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-          Los tokens se acreditan en tu billetera (gestor). 1 token = 1 unidad por operación. Recarga el dashboard para ver tu saldo.
+          Los tokens se acreditan en tu billetera (gestor). 1 token = 1 unidad al activar la asamblea. Recarga el dashboard para ver tu saldo.
         </p>
       )}
     </div>
