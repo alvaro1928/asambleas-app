@@ -858,7 +858,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     // Cobro único: solo al activar la asamblea; eso habilita generar el acta cuantas veces quiera
     if (nuevoEstado === 'activa') {
       const yaPagada = asamblea.pago_realizado === true
-      if (!yaPagada && (!puedeOperar || (costoOperacion > 0 && tokensDisponibles < costoOperacion))) {
+      if (!yaPagada && costoOperacion > 0 && tokensDisponibles < costoOperacion) {
         setSinTokensModalOpen(true)
         toast.error('Saldo insuficiente para activar la asamblea.')
         return

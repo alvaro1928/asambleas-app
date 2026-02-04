@@ -269,7 +269,7 @@ export default function AsambleasPage() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
                 <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
                 <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens</span>
@@ -277,6 +277,15 @@ export default function AsambleasPage() {
                   <span className="text-xs text-slate-500 dark:text-slate-400">(costo/op: {costoOperacion})</span>
                 )}
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                onClick={() => setShowWelcomeDemoModal(true)}
+                title="Crear asamblea de demostración (sandbox) sin consumir tokens"
+              >
+                Probar en sandbox
+              </Button>
               <Link href="/dashboard/asambleas/nueva" title="Crear una nueva asamblea para este conjunto">
               <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" title="Crear una nueva asamblea para este conjunto">
                 <Plus className="w-4 h-4 mr-2" />

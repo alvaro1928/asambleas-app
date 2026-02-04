@@ -27,6 +27,27 @@ function getNestedValue(obj: unknown, path: string): string | number | null {
   return String(current)
 }
 
+/** Obtener valor probando varios paths (p. ej. snake_case y camelCase). Wompi puede enviar uno u otro según método/API. */
+function getNestedValueFirst(obj: unknown, paths: string[]): string | number | null {
+  for (const path of paths) {
+    const v = getNestedValue(obj, path)
+    if (v !== null && v !== undefined) return v
+  }
+  return null
+}
+
+/** Estados que Wompi puede enviar según documentación y métodos (PSE, tarjetas, Nequi, QR, etc.). Solo APPROVED acredita tokens. */
+const STATUS_APPROVED = 'APPROVED'
+function normalizeTransactionStatus(raw: string): string {
+  const u = (raw ?? '').toString().trim().toUpperCase()
+  if (u === STATUS_APPROVED) return STATUS_APPROVED
+  if (u === 'FAILED' || u === 'ERROR') return 'ERROR'
+  if (u === 'REJECTED' || u === 'DECLINED') return 'DECLINED'
+  if (u === 'VOIDED') return 'VOIDED'
+  if (u === 'PENDING' || u === 'PROCESSING') return 'PENDING'
+  return u || 'UNKNOWN'
+}
+
 /** Verificar firma de integridad Wompi (SHA256 de properties + timestamp + secret). */
 function verifyWompiSignature(
   data: Record<string, unknown>,
@@ -40,20 +61,39 @@ function verifyWompiSignature(
   if (!expectedChecksum) return false
 
   // Fallback: si Wompi solo envía checksum (ej. en header) sin properties/timestamp en body,
-  // usar estructura conocida de transaction.updated (doc Wompi)
+  // usar estructura conocida de transaction.updated. Algunos métodos/envíos usan camelCase (amountInCents).
   if ((!Array.isArray(props) || props.length === 0 || timestamp == null) && data?.transaction) {
     const tx = data.transaction as Record<string, unknown>
-    props = ['transaction.id', 'transaction.status', 'transaction.amount_in_cents']
-    if (timestamp == null) {
-      const sentAt = fullBody?.sent_at ? Date.parse(fullBody.sent_at) : NaN
-      const finalized = tx.finalized_at != null
-        ? (typeof tx.finalized_at === 'string' ? Date.parse(tx.finalized_at) : Number(tx.finalized_at))
-        : NaN
-      const created = tx.created_at != null
-        ? (typeof tx.created_at === 'string' ? Date.parse(tx.created_at) : Number(tx.created_at))
-        : NaN
-      timestamp = Number.isFinite(sentAt) ? sentAt : (Number.isFinite(finalized) ? finalized : (Number.isFinite(created) ? created : undefined))
+    const idVal = getNestedValueFirst(data, ['transaction.id'])
+    const statusVal = getNestedValueFirst(data, ['transaction.status'])
+    const amountVal = getNestedValueFirst(data, ['transaction.amount_in_cents', 'transaction.amountInCents'])
+    if (idVal != null && statusVal != null && amountVal != null) {
+      let ts = timestamp
+      if (ts == null) {
+        const sentAt = fullBody?.sent_at ? Date.parse(fullBody.sent_at) : NaN
+        const finalized = tx.finalized_at != null
+          ? (typeof tx.finalized_at === 'string' ? Date.parse(tx.finalized_at) : Number(tx.finalized_at))
+          : NaN
+        const created = tx.created_at != null
+          ? (typeof tx.created_at === 'string' ? Date.parse(tx.created_at) : Number(tx.created_at))
+          : NaN
+        const createdCamel = tx.createdAt != null
+          ? (typeof tx.createdAt === 'string' ? Date.parse(tx.createdAt as string) : Number(tx.createdAt))
+          : NaN
+        ts = Number.isFinite(sentAt) ? sentAt : (Number.isFinite(finalized) ? finalized : (Number.isFinite(created) ? created : (Number.isFinite(createdCamel) ? createdCamel : undefined)))
+      }
+      if (ts != null) {
+        const concat = String(idVal) + String(statusVal) + String(amountVal) + ts + secret
+        const hash = createHash('sha256').update(concat, 'utf8').digest('hex')
+        const receivedHexNorm = expectedChecksum.toLowerCase().replace(/\s/g, '')
+        if (hash.length === receivedHexNorm.length) {
+          try {
+            if (timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(receivedHexNorm, 'hex'))) return true
+          } catch { /* continue */ }
+        }
+      }
     }
+    return false
   }
 
   if (!Array.isArray(props) || props.length === 0 || timestamp == null) return false
@@ -112,6 +152,12 @@ export async function GET() {
  * Webhook Wompi: evento transaction.updated.
  * Modelo Billetera de Tokens por Gestor (sin suscripciones ni planes anuales).
  *
+ * Compatible con todos los métodos de pago del checkout Wompi: PSE, tarjetas, Nequi,
+ * Bancolombia, QR interoperable, Daviplata, corresponsal, Compra y Paga Después, SU+ Pay, etc.
+ * - Solo se acreditan tokens cuando status normalizado es APPROVED.
+ * - Estados FAILED/ERROR → ERROR; REJECTED/DECLINED → DECLINED; VOIDED, PENDING, PROCESSING se registran sin acreditar.
+ * - Payload: se acepta snake_case (amount_in_cents, payment_link_id) y camelCase (amountInCents, paymentLinkId).
+ *
  * Seguridad: validación SHA256 con WEBHOOK_PAGOS_SECRET.
  * WEBHOOK_PAGOS_SECRET debe ser el secreto "Eventos" del panel de Wompi
  * (Configuraciones avanzadas → Secretos para integración técnica → Eventos).
@@ -120,11 +166,11 @@ export async function GET() {
  * (no /dashboard).
  *
  * Idempotencia: si la transacción ya está en pagos_log como APPROVED, no se vuelve a acreditar.
- * Referencia: REF_<user_id>_<timestamp>. APPROVED: suma tokens a profiles.tokens_disponibles del gestor.
+ * Referencia: REF_<user_id>_<timestamp> o resolución por payment_link_id + sku (pagos_checkout_ref).
  *
  * Respuestas (siempre 200 para que Wompi no reintente):
  * - APPROVED: { received: true, user_id, tokens_disponibles, tokens_comprados }
- * - DECLINED/ERROR/otros: { received: true, status }. Se registra en pagos_log con ese estado (sin acreditar tokens).
+ * - DECLINED/ERROR/PENDING/VOIDED/otros: { received: true, status }. Se registra en pagos_log (sin acreditar tokens).
  */
 export async function POST(request: NextRequest) {
   const secret = process.env.WOMPI_EVENTS_SECRET || process.env.WEBHOOK_PAGOS_SECRET
@@ -145,12 +191,17 @@ export async function POST(request: NextRequest) {
   }
 
   const data = body.data ?? {}
-  const transaction = data.transaction ?? {}
-  const txId = typeof transaction.id === 'string' ? transaction.id : null
-  const reference = typeof transaction.reference === 'string' ? transaction.reference : null
-  const paymentLinkId = transaction.payment_link_id != null && typeof transaction.payment_link_id === 'string' ? transaction.payment_link_id : null
-  const status = (transaction.status ?? '').toString().toUpperCase()
-  const amountInCents = typeof transaction.amount_in_cents === 'number' ? transaction.amount_in_cents : 0
+  const transaction = (data.transaction ?? {}) as Record<string, unknown>
+  const txIdRaw = getNestedValueFirst(data, ['transaction.id'])
+  const txId = txIdRaw != null ? String(txIdRaw) : null
+  const referenceRaw = getNestedValueFirst(data, ['transaction.reference'])
+  const reference = referenceRaw != null ? String(referenceRaw) : null
+  const paymentLinkIdRaw = getNestedValueFirst(data, ['transaction.payment_link_id', 'transaction.paymentLinkId'])
+  const paymentLinkId = paymentLinkIdRaw != null ? String(paymentLinkIdRaw) : null
+  const statusRaw = getNestedValueFirst(data, ['transaction.status'])
+  const status = normalizeTransactionStatus(statusRaw != null ? String(statusRaw) : '')
+  const amountRaw = getNestedValueFirst(data, ['transaction.amount_in_cents', 'transaction.amountInCents'])
+  const amountInCents = typeof amountRaw === 'number' ? amountRaw : (typeof amountRaw === 'string' ? parseInt(amountRaw, 10) || 0 : 0)
 
   console.log('[webhook pagos] Evento recibido:', { txId, reference, payment_link_id: paymentLinkId, status, amount_in_cents: amountInCents })
 
@@ -204,8 +255,9 @@ export async function POST(request: NextRequest) {
           headers: { Authorization: `Bearer ${privateKey}` },
         })
         const txJson = await txRes.json().catch(() => ({}))
-        const fromTx = txJson?.data?.payment_link_id ?? txJson?.payment_link_id ?? null
-        if (fromTx && typeof fromTx === 'string') {
+        const dataTx = txJson?.data ?? txJson
+        const fromTx = dataTx?.payment_link_id ?? dataTx?.paymentLinkId ?? null
+        if (fromTx != null && typeof fromTx === 'string') {
           linkIdToResolve = fromTx.trim()
           console.log('[webhook pagos] payment_link_id obtenido por GET transaction:', linkIdToResolve)
         } else {
@@ -255,7 +307,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  if (status === 'APPROVED') {
+  if (status === STATUS_APPROVED) {
     if (!userId) {
       console.error('[webhook pagos] APPROVED pero user_id no resuelto. reference:', reference, 'payment_link_id:', paymentLinkId)
       await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Referencia sin UUID válido (REF_USERID_TIMESTAMP o ref en pagos_checkout_ref)')
