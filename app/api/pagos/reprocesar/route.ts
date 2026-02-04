@@ -160,35 +160,55 @@ export async function POST(request: NextRequest) {
     }
     const firstProfile = perfiles[0] as { tokens_disponibles?: number; organization_id?: string }
     const tokensActuales = Math.max(0, Number(firstProfile?.tokens_disponibles ?? 0))
-    const nuevoSaldo = tokensActuales + tokensComprados
-    const orgIdForLog = firstProfile?.organization_id ?? null
+    let orgIdForLog = firstProfile?.organization_id ?? null
+    if (!orgIdForLog) {
+      const { data: profOrg } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .or(`id.eq.${userId},user_id.eq.${userId}`)
+        .not('organization_id', 'is', null)
+        .limit(1)
+        .maybeSingle()
+      orgIdForLog = (profOrg as { organization_id?: string } | null)?.organization_id ?? null
+    }
+    if (!orgIdForLog) {
+      const { data: orgOwner } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('owner_id', userId)
+        .limit(1)
+        .maybeSingle()
+      orgIdForLog = (orgOwner as { id?: string } | null)?.id ?? null
+    }
 
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ tokens_disponibles: nuevoSaldo })
-      .eq('user_id', userId)
-    if (updateError) {
-      const { error: byIdUpdate } = await supabase
+    // Si el saldo actual ya sugiere que el webhook acreditó (pero no dejó registro), solo insertar en pagos_log
+    const soloRegistrarLog = tokensActuales >= tokensComprados
+    let nuevoSaldo = tokensActuales
+
+    if (!soloRegistrarLog) {
+      nuevoSaldo = tokensActuales + tokensComprados
+      const { error: updateError } = await supabase
         .from('profiles')
         .update({ tokens_disponibles: nuevoSaldo })
-        .eq('id', userId)
-      if (byIdUpdate) {
+        .or(`user_id.eq.${userId},id.eq.${userId}`)
+      if (updateError) {
         return NextResponse.json({ error: 'Error al actualizar tokens', details: updateError.message }, { status: 500 })
       }
     }
 
-    if (orgIdForLog) {
-      await registrarTransaccionPago(supabase, {
-        organization_id: orgIdForLog,
-        monto: amountInCents,
-        wompi_transaction_id: txId,
-        estado: 'APPROVED',
-      })
-    }
+    await registrarTransaccionPago(supabase, {
+      organization_id: orgIdForLog,
+      monto: amountInCents,
+      wompi_transaction_id: txId,
+      estado: 'APPROVED',
+      user_id: userId,
+    })
 
     return NextResponse.json({
       ok: true,
-      message: 'Pago reprocesado; tokens acreditados.',
+      message: soloRegistrarLog
+        ? 'Pago ya estaba acreditado; se registró en el historial.'
+        : 'Pago reprocesado; tokens acreditados.',
       user_id: userId,
       tokens_comprados: tokensComprados,
       tokens_disponibles: nuevoSaldo,

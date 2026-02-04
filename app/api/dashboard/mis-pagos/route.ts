@@ -7,8 +7,8 @@ export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/dashboard/mis-pagos
- * Lista las transacciones de pago (pagos_log) de los conjuntos del usuario actual.
- * El usuario solo ve pagos de organizaciones donde tiene perfil (id o user_id).
+ * Lista las transacciones de pago (pagos_log) del usuario actual:
+ * - Por organización (conjuntos donde tiene perfil) y/o por user_id (pagos acreditados sin conjunto).
  */
 export async function GET() {
   try {
@@ -57,13 +57,6 @@ export async function GET() {
       .filter(Boolean)
     const allOrgIds = Array.from(new Set([...idsByUser, ...idsById]))
 
-    if (allOrgIds.length === 0) {
-      return NextResponse.json({
-        pagos: [],
-        organizaciones: [],
-      })
-    }
-
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!serviceRoleKey) {
       return NextResponse.json(
@@ -78,27 +71,52 @@ export async function GET() {
       { auth: { persistSession: false } }
     )
 
-    const { data: logs, error } = await admin
-      .from('pagos_log')
-      .select('id, organization_id, monto, wompi_transaction_id, estado, created_at')
-      .in('organization_id', allOrgIds)
-      .order('created_at', { ascending: false })
-      .limit(500)
+    type LogRow = { id: string; organization_id: string | null; monto: number; wompi_transaction_id: string | null; estado: string; created_at: string }
+    const seenIds = new Set<string>()
+    const allLogs: LogRow[] = []
 
-    if (error) {
-      console.error('GET /api/dashboard/mis-pagos:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    // 1) Pagos por conjuntos del usuario
+    if (allOrgIds.length > 0) {
+      const { data: logsByOrg, error: errOrg } = await admin
+        .from('pagos_log')
+        .select('id, organization_id, monto, wompi_transaction_id, estado, created_at')
+        .in('organization_id', allOrgIds)
+        .order('created_at', { ascending: false })
+        .limit(500)
+      if (!errOrg && logsByOrg?.length) {
+        for (const r of logsByOrg as LogRow[]) {
+          if (!seenIds.has(r.id)) {
+            seenIds.add(r.id)
+            allLogs.push(r)
+          }
+        }
+      }
     }
 
-    const orgIdsInLogs = Array.from(
-      new Set(
-        (logs || []).map((r: { organization_id: string }) => r.organization_id)
-      )
-    )
-    const { data: orgs } = await admin
-      .from('organizations')
-      .select('id, name')
-      .in('id', orgIdsInLogs)
+    // 2) Pagos registrados con user_id (incl. sin organización) para este usuario
+    const { data: logsByUser, error: errUser } = await admin
+      .from('pagos_log')
+      .select('id, organization_id, monto, wompi_transaction_id, estado, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(500)
+    if (!errUser && logsByUser?.length) {
+      for (const r of logsByUser as LogRow[]) {
+        if (!seenIds.has(r.id)) {
+          seenIds.add(r.id)
+          allLogs.push(r)
+        }
+      }
+    }
+
+    const sorted = allLogs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 500)
+
+    const orgIdsInLogs = Array.from(new Set(sorted.map((r) => r.organization_id).filter(Boolean))) as string[]
+    let orgs: { id: string; name: string }[] | null = null
+    if (orgIdsInLogs.length > 0) {
+      const res = await admin.from('organizations').select('id, name').in('id', orgIdsInLogs)
+      orgs = res.data
+    }
 
     const orgNames: Record<string, string> = {}
     for (const o of orgs || []) {
@@ -106,18 +124,11 @@ export async function GET() {
       orgNames[row.id] = row.name ?? '—'
     }
 
-    const pagos = (logs || []).map(
-      (r: {
-        id: string
-        organization_id: string
-        monto: number
-        wompi_transaction_id: string | null
-        estado: string
-        created_at: string
-      }) => ({
+    const pagos = sorted.map(
+      (r: LogRow) => ({
         id: r.id,
         organization_id: r.organization_id,
-        organization_name: orgNames[r.organization_id] ?? '—',
+        organization_name: r.organization_id ? (orgNames[r.organization_id] ?? '—') : '—',
         monto_centavos: Number(r.monto ?? 0),
         wompi_transaction_id: r.wompi_transaction_id ?? null,
         estado: r.estado ?? 'pending',

@@ -388,14 +388,25 @@ export async function POST(request: NextRequest) {
       (perfilesGestor as Array<{ organization_id?: string }>).map((p) => p.organization_id).filter(Boolean)[0] ??
       null
     if (!orgIdForLog) {
-      const { data: anyOrg } = await supabase
+      // Buscar en cualquier perfil del usuario (id o user_id) con organización
+      const { data: profByOrg } = await supabase
         .from('profiles')
         .select('organization_id')
-        .eq('id', userId)
+        .or(`id.eq.${userId},user_id.eq.${userId}`)
         .not('organization_id', 'is', null)
         .limit(1)
         .maybeSingle()
-      orgIdForLog = (anyOrg as { organization_id?: string } | null)?.organization_id ?? null
+      orgIdForLog = (profByOrg as { organization_id?: string } | null)?.organization_id ?? null
+    }
+    if (!orgIdForLog) {
+      // Último fallback: conjuntos cuyo owner es el usuario
+      const { data: orgOwner } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('owner_id', userId)
+        .limit(1)
+        .maybeSingle()
+      orgIdForLog = (orgOwner as { id?: string } | null)?.id ?? null
     }
 
     // Billetera única por gestor: actualizar TODAS las filas del usuario (cada conjunto puede tener una fila en profiles)
