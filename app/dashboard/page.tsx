@@ -12,6 +12,7 @@ import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
 import { Tooltip as UiTooltip } from '@/components/ui/tooltip'
 import { isAdminEmail } from '@/lib/super-admin'
+import { sumaCoeficientesValida } from '@/lib/coeficientes'
 import { useToast } from '@/components/providers/ToastProvider'
 
 interface UnidadMetrics {
@@ -684,14 +685,14 @@ export default function DashboardPage() {
 
             {/* Suma Coeficientes */}
             <div className="min-w-0 w-full flex flex-col">
-              <div className="flex flex-col flex-1 min-h-[180px] min-w-0 rounded-3xl shadow-lg p-5 border overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }} title="La Ley 675 exige que la suma de coeficientes sea 100%. Verde = correcto.">
+              <div className="flex flex-col flex-1 min-h-[180px] min-w-0 rounded-3xl shadow-lg p-5 border overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }} title="Ley 675: la suma debe ser 100% (se acepta un pequeño margen por redondeo). Verde = dentro del rango.">
                 <div className="flex items-center justify-between mb-2 shrink-0">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${Math.abs(metrics.sumaCoeficientes - 100) < 0.000001 ? 'bg-green-500/20' : 'bg-yellow-500/20'}`}>
-                    <svg className={`w-6 h-6 ${Math.abs(metrics.sumaCoeficientes - 100) < 0.000001 ? 'text-green-400' : 'text-yellow-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${sumaCoeficientesValida(metrics.sumaCoeficientes) ? 'bg-green-500/20' : 'bg-yellow-500/20'}`}>
+                    <svg className={`w-6 h-6 ${sumaCoeficientesValida(metrics.sumaCoeficientes) ? 'text-green-400' : 'text-yellow-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  {Math.abs(metrics.sumaCoeficientes - 100) < 0.000001 ? (
+                  {sumaCoeficientesValida(metrics.sumaCoeficientes) ? (
                     <svg className="w-5 h-5 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
                   ) : (
                     <svg className="w-5 h-5 text-yellow-500 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>

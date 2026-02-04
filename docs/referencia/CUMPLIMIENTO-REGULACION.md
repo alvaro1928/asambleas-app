@@ -8,7 +8,7 @@ Este documento relaciona las **funcionalidades de la aplicación** con los **req
 
 | Área | Cumplimiento | Observaciones |
 |------|--------------|---------------|
-| Coeficientes y censo | ✅ | Validación suma 100%, importación con Ley 675 |
+| Coeficientes y censo | ✅ | Validación suma 100% (tolerancia 0,1% por redondeo), importación con Ley 675 |
 | Quórum (50% coeficiente) | ✅ | Cálculo automático, indicador alcanzado/no |
 | Votación por coeficiente | ✅ | Ponderación por unidad, porcentajes sobre total conjunto |
 | Trazabilidad de votos | ✅ | Historial, IP, user_agent, quien/cuando/unidad |
@@ -30,7 +30,7 @@ Este documento relaciona las **funcionalidades de la aplicación** con los **req
 | Requisito | Implementación | Estado |
 |-----------|----------------|--------|
 | Coeficientes por unidad que reflejen participación en bienes comunes | Tabla `unidades` con `coeficiente` por organización | ✅ |
-| Suma de coeficientes = 100% del conjunto | Validación en importación (Excel/CSV) y en UI; rechazo si ≠ 100% | ✅ |
+| Suma de coeficientes = 100% del conjunto | Validación en importación (Excel/CSV) y en UI; se acepta rango 99,9%–100,1% por redondeo (sin contravenir la Ley 675) | ✅ |
 | Censo actualizado (propietarios, contacto) | Unidades con email/teléfono, búsqueda y filtros | ✅ |
 
 **Archivos / flujos:** `app/dashboard/unidades/importar`, validación “Ley 675” en importación; `supabase` scripts que definen `unidades.coeficiente`.

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { sumaCoeficientesValida, rangoCoeficientesAceptado } from '@/lib/coeficientes'
 import ConjuntoSelector from '@/components/ConjuntoSelector'
 import * as XLSX from 'xlsx'
 import Papa from 'papaparse'
@@ -53,9 +54,9 @@ export default function ImportarUnidadesPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
   
-  // Estadísticas
+  // Estadísticas (Ley 675: suma 100% con tolerancia por redondeo)
   const totalCoeficientes = unidades.reduce((sum, u) => sum + u.coeficiente, 0)
-  const coeficientesCorrecto = Math.abs(totalCoeficientes - 100) < 0.000001
+  const coeficientesCorrecto = sumaCoeficientesValida(totalCoeficientes)
   const diferencia = totalCoeficientes - 100
 
   const handleCancelPreview = () => {
@@ -661,7 +662,7 @@ export default function ImportarUnidadesPage() {
                   <AlertTitle>Validación de Coeficientes (Ley 675 de 2001)</AlertTitle>
                   <AlertDescription>
                     <div className="mt-2 space-y-1">
-                      <p>La suma total de coeficientes debe ser exactamente <strong>100.000000%</strong></p>
+                      <p>La suma total de coeficientes debe estar <strong>{rangoCoeficientesAceptado()}</strong> (Ley 675; se acepta un pequeño margen por redondeo).</p>
                       <p>Suma actual: <strong>{totalCoeficientes.toFixed(6)}%</strong></p>
                       <p className="text-lg font-semibold">
                         Diferencia: <span className={diferencia > 0 ? 'text-red-600' : 'text-blue-600'}>

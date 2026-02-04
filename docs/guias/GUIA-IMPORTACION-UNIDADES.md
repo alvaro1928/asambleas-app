@@ -49,10 +49,10 @@ El sistema valida automáticamente:
 - Soporta comas y puntos decimales (0,5234 o 0.5234)
 
 #### ✅ Ley 675 de 2001
-- **CRÍTICO**: La suma de todos los coeficientes debe ser **exactamente 100.000000%**
+- **CRÍTICO**: La suma de todos los coeficientes debe estar **entre 99,9% y 100,1%** (se acepta un pequeño margen por redondeo en Excel/decimales, sin contravenir la regulación).
 - El sistema calcula la suma y muestra:
-  - ✓ Verde si es correcta
-  - ⚠️ Amarillo/Rojo si hay diferencia
+  - ✓ Verde si está en el rango aceptado
+  - ⚠️ Amarillo/Rojo si queda fuera del rango
   - Diferencia exacta para que puedas ajustar
 
 ---
@@ -74,8 +74,8 @@ El sistema valida automáticamente:
      - Tabla con las primeras 10 unidades
 
 4. **Confirma e Importa**
-   - Si la suma es 100%, haz clic en "Confirmar e Importar"
-   - Si no es 100%, ajusta tu archivo y vuelve a cargar
+   - Si la suma está en el rango aceptado (99,9%–100,1%), haz clic en "Confirmar e Importar"
+   - Si queda fuera del rango, ajusta tu archivo y vuelve a cargar
 
 ---
 
@@ -91,11 +91,11 @@ El sistema valida automáticamente:
 
 ### Feedback Visual
 
-#### Suma Correcta (100%)
+#### Suma correcta (dentro del rango 99,9%–100,1%)
 ```
 ┌─────────────────────────┐
 │ ✓ Suma Coeficientes     │
-│   100.000000%           │
+│   99.99% – 100.01% ✓    │
 │ ✓ Aprobado (Ley 675)    │
 └─────────────────────────┘
 ```
@@ -142,14 +142,14 @@ Haz clic en **"Descargar Plantilla"** en la página de importación para obtener
 
 ## ⚠️ Errores Comunes
 
-### Error: "Suma de coeficientes no es 100%"
+### Error: "Suma de coeficientes fuera del rango"
 
-**Causa**: Los coeficientes no suman exactamente 100.000000%
+**Causa**: La suma no está entre 99,9% y 100,1% (rango aceptado por Ley 675 con tolerancia por redondeo).
 
 **Solución**:
 1. Revisa la diferencia mostrada
 2. Ajusta los coeficientes en tu archivo
-3. Asegúrate de usar 6 decimales
+3. Asegúrate de usar 6 decimales o redondea de forma que la suma quede en el rango
 4. Vuelve a importar
 
 ### Error: "Número de unidad duplicado"
@@ -242,7 +242,7 @@ Haz clic en **"Descargar Plantilla"** en la página de importación para obtener
 │ 📊 Resumen de Importación           │
 ├─────────────────────────────────────┤
 │ Total: 245 unidades                 │
-│ Suma: 100.000000% ✓                │
+│ Suma: en rango Ley 675 ✓           │
 │ Estado: Aprobado (Ley 675)         │
 ├─────────────────────────────────────┤
 │ Torre | Número | Coeficiente | ...  │
