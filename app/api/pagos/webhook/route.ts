@@ -121,6 +121,10 @@ export async function GET() {
  *
  * Idempotencia: si la transacción ya está en pagos_log como APPROVED, no se vuelve a acreditar.
  * Referencia: REF_<user_id>_<timestamp>. APPROVED: suma tokens a profiles.tokens_disponibles del gestor.
+ *
+ * Respuestas (siempre 200 para que Wompi no reintente):
+ * - APPROVED: { received: true, user_id, tokens_disponibles, tokens_comprados }
+ * - DECLINED/ERROR/otros: { received: true, status }. Se registra en pagos_log con ese estado (sin acreditar tokens).
  */
 export async function POST(request: NextRequest) {
   const secret = process.env.WOMPI_EVENTS_SECRET || process.env.WEBHOOK_PAGOS_SECRET
@@ -462,22 +466,38 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // Pago no aprobado: registrar para revisión si tenemos user_id y un org para el log
+  // Pago no aprobado (DECLINED, ERROR, PENDING, etc.): registrar en pagos_log para que aparezca en Super Admin
+  let orgIdForDeclined: string | null = null
   if (userId) {
-    const { data: perfiles } = await supabase
+    const { data: profByOrg } = await supabase
       .from('profiles')
       .select('organization_id')
-      .eq('id', userId)
+      .or(`id.eq.${userId},user_id.eq.${userId}`)
+      .not('organization_id', 'is', null)
       .limit(1)
-    const first = Array.isArray(perfiles) ? perfiles[0] : perfiles
-    const orgId = (first as { organization_id?: string } | undefined)?.organization_id
-    if (orgId) {
-      await registrarTransaccionPago(supabase, {
-        organization_id: orgId,
-        monto: amountInCents,
-        wompi_transaction_id: txId,
-        estado: status || 'UNKNOWN',
-      })
+      .maybeSingle()
+    orgIdForDeclined = (profByOrg as { organization_id?: string } | null)?.organization_id ?? null
+    if (!orgIdForDeclined) {
+      const { data: orgOwner } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('owner_id', userId)
+        .limit(1)
+        .maybeSingle()
+      orgIdForDeclined = (orgOwner as { id?: string } | null)?.id ?? null
+    }
+    const { error: logErr } = await registrarTransaccionPago(supabase, {
+      organization_id: orgIdForDeclined,
+      monto: amountInCents,
+      wompi_transaction_id: txId,
+      estado: status || 'UNKNOWN',
+      user_id: userId,
+    })
+    if (logErr) {
+      console.error('[webhook pagos] No se pudo registrar en pagos_log (estado no aprobado):', status, logErr.message)
+      if (!orgIdForDeclined && /null value|not-null|organization_id/i.test(logErr.message)) {
+        console.error('[webhook pagos] Ejecuta ADD-USER-ID-PAGOS-LOG.sql para permitir organization_id NULL.')
+      }
     }
   } else {
     await logPaymentError(supabase, null, reference, txId, amountInCents, status, 'Referencia sin UUID (pago no aprobado)')
