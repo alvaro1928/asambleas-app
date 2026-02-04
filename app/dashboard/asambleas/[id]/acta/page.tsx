@@ -163,14 +163,15 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
       const { data: preguntasData } = await supabase
         .from('preguntas')
-        .select('id, texto_pregunta, descripcion, tipo_votacion, estado, orden, umbral_aprobacion')
+        .select('id, texto_pregunta, descripcion, tipo_votacion, estado, orden, umbral_aprobacion, is_archived')
         .eq('asamblea_id', params.id)
         .order('orden', { ascending: true })
 
+      const preguntasParaActa = (preguntasData || []).filter((p: { is_archived?: boolean }) => !p.is_archived)
       const preguntasConOpciones: (Pregunta & { opciones: Opcion[] })[] = []
       const statsMap: Record<string, StatsPregunta> = {}
 
-      for (const p of preguntasData || []) {
+      for (const p of preguntasParaActa) {
         const { data: opcionesData } = await supabase
           .from('opciones_pregunta')
           .select('id, texto_opcion, color, orden')
@@ -486,7 +487,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               letterSpacing: '0.05em',
             }}
           >
-            BORRADOR DE PRUEBA — SIN VALIDEZ LEGAL
+            DEMO - SIN VALIDEZ LEGAL
           </div>
         </div>
       )}

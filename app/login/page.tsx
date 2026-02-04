@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/providers/ToastProvider'
@@ -174,7 +175,13 @@ export default function LoginPage() {
         className="bg-gray-800 p-8 rounded-xl shadow-2xl w-96 space-y-4"
       >
         <h1 className="text-2xl font-bold text-center">Entrar a Asambleas</h1>
-        
+        <p className="text-sm text-gray-400 text-center">
+          ¿No tienes cuenta?{' '}
+          <Link href="/auth/register" className="text-indigo-400 hover:text-indigo-300 font-medium">
+            Regístrate
+          </Link>
+        </p>
+
         {/* Selector de método */}
         <div className="flex gap-2 bg-gray-700 p-1 rounded-lg">
           <button
@@ -265,6 +272,12 @@ export default function LoginPage() {
           </svg>
           Entrar con Google
         </button>
+
+        <p className="text-center text-sm text-gray-500">
+          <Link href="/auth/register" className="text-indigo-400 hover:text-indigo-300">
+            Crear cuenta con email y contraseña
+          </Link>
+        </p>
 
         {useMagicLink && (
           <p className="text-xs text-gray-400 text-center">

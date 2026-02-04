@@ -24,7 +24,8 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 | 14 | **AGREGAR-VIGENCIA-PLANES.sql** | En **planes**: `vigencia_meses` (Gratis: null, Piloto: 3, Pro: 12). Duración al asignar el plan a una cuenta. |
 | 15 | **CONFIGURACION-GLOBAL-LANDING.sql** | Tabla o filas de configuración global para landing (color, WhatsApp, etc.). |
 | 16 | **AGREGAR-COLOR-PRINCIPAL-CONFIG.sql** | Columna o clave `color_principal_hex` para la landing. Se edita en Super Admin → Ajustes. |
-| 17 | **ADD-IS-DEMO-ASAMBLEAS-UNIDADES.sql** | Columna `is_demo` en `asambleas` y `unidades` para la asamblea de pruebas (sandbox). No consumen tokens; restricciones de edición en la UI; acta con marca "BORRADOR DE PRUEBA". |
+| 17 | **ADD-IS-DEMO-ASAMBLEAS-UNIDADES.sql** | Columna `is_demo` en `asambleas` y `unidades` para la asamblea de pruebas (sandbox). No consumen tokens; restricciones de edición en la UI; acta con marca "DEMO - SIN VALIDEZ LEGAL". |
+| 18 | **ADD-IS-ARCHIVED-ASAMBLEAS-PREGUNTAS.sql** | Columnas `is_archived` en `asambleas` y `preguntas`. Asambleas archivadas se muestran en pestaña "Archivadas"; preguntas archivadas no se incluyen en el acta ni en reportes. |
 
 ---
 
@@ -48,6 +49,7 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 15. CONFIGURACION-GLOBAL-LANDING.sql
 16. AGREGAR-COLOR-PRINCIPAL-CONFIG.sql
 17. ADD-IS-DEMO-ASAMBLEAS-UNIDADES.sql
+18. ADD-IS-ARCHIVED-ASAMBLEAS-PREGUNTAS.sql
 ```
 
 ---
@@ -62,3 +64,4 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 - **11–14:** Modelo de negocio: tokens por cuenta, precio por asamblea, tokens iniciales y vigencia por plan. Imprescindibles para Super Admin (planes y conjuntos).
 - **15–16:** Configuración global (landing, color). Necesarios para Super Admin → Ajustes.
 - **17:** Asamblea de pruebas (sandbox): necesario si se usa el botón "Probar en sandbox" y la API `crear-asamblea-demo`.
+- **18:** Archivado: necesario para pestañas Activas/Archivadas en asambleas y para archivar preguntas (no incluidas en el acta).

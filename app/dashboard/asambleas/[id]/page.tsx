@@ -26,7 +26,11 @@ import {
   Link as LinkIcon,
   UserPlus,
   Building2,
-  HelpCircle
+  HelpCircle,
+  Archive,
+  ArchiveRestore,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -64,6 +68,7 @@ interface Pregunta {
   tipo_votacion: 'coeficiente' | 'nominal'
   estado: 'pendiente' | 'abierta' | 'cerrada'
   umbral_aprobacion?: number | null
+  is_archived?: boolean
 }
 
 interface OpcionPregunta {
@@ -149,6 +154,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [guiaModalOpen, setGuiaModalOpen] = useState(false)
   const [checkoutLoadingSinTokens, setCheckoutLoadingSinTokens] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+
+  // Preguntas archivadas: sección colapsable
+  const [showPreguntasArchivadas, setShowPreguntasArchivadas] = useState(false)
+  const [archivingPreguntaId, setArchivingPreguntaId] = useState<string | null>(null)
 
   // Registrar voto a nombre de un residente (admin)
   const [showRegistroVotoAdmin, setShowRegistroVotoAdmin] = useState(false)
@@ -684,6 +693,38 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     } catch (error: any) {
       console.error('Error updating estado:', error)
       toast.error('Error al cambiar estado: ' + error.message)
+    }
+  }
+
+  const handleArchivarPregunta = async (preguntaId: string) => {
+    setArchivingPreguntaId(preguntaId)
+    try {
+      const { error } = await supabase.from('preguntas').update({ is_archived: true }).eq('id', preguntaId)
+      if (error) throw error
+      setPreguntas((prev) => prev.map((p) => (p.id === preguntaId ? { ...p, is_archived: true } : p)))
+      toast.success('Pregunta archivada. No aparecerá en el acta final.')
+      await loadEstadisticas()
+      await loadQuorum()
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al archivar')
+    } finally {
+      setArchivingPreguntaId(null)
+    }
+  }
+
+  const handleDesarchivarPregunta = async (preguntaId: string) => {
+    setArchivingPreguntaId(preguntaId)
+    try {
+      const { error } = await supabase.from('preguntas').update({ is_archived: false }).eq('id', preguntaId)
+      if (error) throw error
+      setPreguntas((prev) => prev.map((p) => (p.id === preguntaId ? { ...p, is_archived: false } : p)))
+      toast.success('Pregunta restaurada al orden del día.')
+      await loadEstadisticas()
+      await loadQuorum()
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al desarchivar')
+    } finally {
+      setArchivingPreguntaId(null)
     }
   }
 
@@ -1449,7 +1490,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 </Alert>
               )}
 
-              {preguntas.length === 0 ? (
+              {(() => {
+                const preguntasActivas = preguntas.filter((p) => !p.is_archived)
+                const preguntasArchivadas = preguntas.filter((p) => p.is_archived)
+                const noHayNinguna = preguntas.length === 0
+                return noHayNinguna ? (
                 <div className="text-center py-12">
                   <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -1465,8 +1510,59 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     </Button>
                   )}
                 </div>
+              ) : preguntasActivas.length === 0 ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    No hay preguntas en el orden del día. Las que archives aparecerán en la sección inferior.
+                  </p>
+                  {preguntasArchivadas.length > 0 && (
+                    <div className="border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setShowPreguntasArchivadas((v) => !v)}
+                        className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800/50 text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        <span>Preguntas archivadas ({preguntasArchivadas.length})</span>
+                        {showPreguntasArchivadas ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+                      {showPreguntasArchivadas && (
+                        <div className="p-4 space-y-3 border-t border-slate-200 dark:border-slate-700">
+                          {preguntasArchivadas.map((pregunta) => (
+                            <div
+                              key={pregunta.id}
+                              className="flex items-center justify-between gap-3 py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800/50"
+                            >
+                              <span className="text-sm text-slate-700 dark:text-slate-300 truncate flex-1">{pregunta.texto_pregunta}</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDesarchivarPregunta(pregunta.id)}
+                                disabled={archivingPreguntaId === pregunta.id}
+                                title="Devolver al orden del día"
+                              >
+                                {archivingPreguntaId === pregunta.id ? (
+                                  <span className="inline-block w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <ArchiveRestore className="w-4 h-4 mr-1" />
+                                )}
+                                Desarchivar
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-4">
+                  {/* Mensaje informativo: preguntas archivadas no van al acta */}
+                  {preguntasArchivadas.length > 0 && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1" title="Las preguntas archivadas no aparecerán en el acta final">
+                      <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+                      Las preguntas archivadas no aparecen en el acta final.
+                    </p>
+                  )}
                   {/* Mensaje informativo sobre edición */}
                   <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
                     <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -1482,7 +1578,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     </AlertDescription>
                   </Alert>
 
-                  {preguntas.map((pregunta, index) => (
+                  {preguntasActivas.map((pregunta, index) => (
                     <div
                       key={pregunta.id}
                       className="border border-gray-200 dark:border-gray-700 rounded-3xl p-4 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
@@ -1521,6 +1617,21 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                             <span className="hidden sm:inline text-xs">
                               {pregunta.estado === 'pendiente' ? 'Editar' : 'Editar texto'}
                             </span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleArchivarPregunta(pregunta.id)}
+                            disabled={archivingPreguntaId === pregunta.id}
+                            className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-1"
+                            title="Las preguntas archivadas no aparecerán en el acta final"
+                          >
+                            {archivingPreguntaId === pregunta.id ? (
+                              <span className="inline-block w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Archive className="w-4 h-4" />
+                            )}
+                            <span className="hidden sm:inline text-xs">Archivar</span>
                           </Button>
                           <Button
                             variant="outline"
@@ -1644,15 +1755,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         </div>
                       )}
 
-                      {/* Controles de estado */}
+                      {/* Controles de estado: en sandbox se permite abrir/cerrar/reabrir; no editar ni eliminar */}
                       <div className="flex items-center space-x-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                         {pregunta.estado === 'pendiente' && (
                           <Button
                             size="sm"
-                            disabled={isDemo}
-                            onClick={() => !isDemo && handleChangeEstadoPregunta(pregunta.id, 'abierta')}
+                            onClick={() => handleChangeEstadoPregunta(pregunta.id, 'abierta')}
                             className="bg-green-600 hover:bg-green-700"
-                            title={isDemo ? 'Modo demostración' : undefined}
+                            title="Abrir votación para esta pregunta"
                           >
                             <Play className="w-3 h-3 mr-1" />
                             Abrir Votación
@@ -1661,10 +1771,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         {pregunta.estado === 'abierta' && (
                           <Button
                             size="sm"
-                            disabled={isDemo}
-                            onClick={() => !isDemo && handleChangeEstadoPregunta(pregunta.id, 'cerrada')}
+                            onClick={() => handleChangeEstadoPregunta(pregunta.id, 'cerrada')}
                             className="bg-blue-600 hover:bg-blue-700"
-                            title={isDemo ? 'Modo demostración' : undefined}
+                            title="Cerrar votación"
                           >
                             <X className="w-3 h-3 mr-1" />
                             Cerrar Votación
@@ -1675,9 +1784,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                             <Button
                               size="sm"
                               variant="outline"
-                              disabled={isDemo}
-                              onClick={() => !isDemo && handleChangeEstadoPregunta(pregunta.id, 'abierta')}
-                              title={isDemo ? 'Modo demostración' : undefined}
+                              onClick={() => handleChangeEstadoPregunta(pregunta.id, 'abierta')}
+                              title="Reabrir votación"
                             >
                               <Play className="w-3 h-3 mr-1" />
                               Reabrir
@@ -1690,8 +1798,49 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                       </div>
                     </div>
                   ))}
+
+                  {/* Preguntas archivadas (colapsable) */}
+                  {preguntasArchivadas.length > 0 && (
+                    <div className="border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setShowPreguntasArchivadas((v) => !v)}
+                        className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800/50 text-left text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        <span>Preguntas archivadas ({preguntasArchivadas.length})</span>
+                        {showPreguntasArchivadas ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+                      {showPreguntasArchivadas && (
+                        <div className="p-4 space-y-3 border-t border-slate-200 dark:border-slate-700">
+                          {preguntasArchivadas.map((pregunta) => (
+                            <div
+                              key={pregunta.id}
+                              className="flex items-center justify-between gap-3 py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800/50"
+                            >
+                              <span className="text-sm text-slate-700 dark:text-slate-300 truncate flex-1">{pregunta.texto_pregunta}</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDesarchivarPregunta(pregunta.id)}
+                                disabled={archivingPreguntaId === pregunta.id}
+                                title="Devolver al orden del día"
+                              >
+                                {archivingPreguntaId === pregunta.id ? (
+                                  <span className="inline-block w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <ArchiveRestore className="w-4 h-4 mr-1" />
+                                )}
+                                Desarchivar
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
+              );
+              })()}
             </div>
           </div>
         </div>

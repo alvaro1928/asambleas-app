@@ -227,6 +227,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         .select('id, texto_pregunta, umbral_aprobacion')
         .eq('asamblea_id', params.id)
         .eq('estado', 'abierta')
+        .eq('is_archived', false)
         .order('created_at', { ascending: true })
 
       const avances: PreguntaAvance[] = []

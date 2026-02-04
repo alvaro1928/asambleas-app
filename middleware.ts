@@ -53,8 +53,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // ✅ Si está en /login y ya tiene sesión, redirigir al dashboard
-  if (request.nextUrl.pathname === '/login' && session) {
+  // ✅ Si está en /login o /auth/register y ya tiene sesión, redirigir al dashboard
+  if ((request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/auth/register') && session) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 

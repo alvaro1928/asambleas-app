@@ -302,6 +302,7 @@ export default function VotacionPublicaPage() {
         .select('id, texto_pregunta, descripcion, tipo_votacion, estado')
         .eq('asamblea_id', asamblea.asamblea_id)
         .eq('estado', 'abierta')
+        .eq('is_archived', false)
         .order('created_at', { ascending: true })
 
       if (preguntasError) throw preguntasError
@@ -367,6 +368,7 @@ export default function VotacionPublicaPage() {
         .select('id, texto_pregunta, descripcion, tipo_votacion, estado')
         .eq('asamblea_id', asamblea.asamblea_id)
         .eq('estado', 'cerrada')
+        .eq('is_archived', false)
         .order('created_at', { ascending: true }) // Orden de la asamblea: Pregunta 1, 2, 3...
 
       if (preguntasError) throw preguntasError

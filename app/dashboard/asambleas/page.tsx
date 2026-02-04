@@ -17,7 +17,9 @@ import {
   Trash2,
   AlertTriangle,
   Copy,
-  FlaskConical
+  FlaskConical,
+  Archive,
+  ArchiveRestore
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,6 +36,7 @@ interface Asamblea {
   estado: 'borrador' | 'activa' | 'finalizada'
   created_at: string
   is_demo?: boolean
+  is_archived?: boolean
 }
 
 interface PreguntasCount {
@@ -62,6 +65,9 @@ function AsambleasPageContent() {
   const [deleting, setDeleting] = useState(false)
   const [showWelcomeDemoModal, setShowWelcomeDemoModal] = useState(false)
   const [creatingDemo, setCreatingDemo] = useState(false)
+  /** Tab: 'activas' | 'archivadas' */
+  const [tabArchivo, setTabArchivo] = useState<'activas' | 'archivadas'>('activas')
+  const [archivingId, setArchivingId] = useState<string | null>(null)
 
   // Si la URL tiene ?demo=1, abrir el modal de sandbox (desde dashboard o enlace directo)
   useEffect(() => {
@@ -239,6 +245,40 @@ function AsambleasPageContent() {
     }
   }
 
+  const handleArchivarAsamblea = async (e: React.MouseEvent, a: Asamblea) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setArchivingId(a.id)
+    try {
+      const { error } = await supabase.from('asambleas').update({ is_archived: true }).eq('id', a.id)
+      if (error) throw error
+      setAsambleas((prev) => prev.map((x) => (x.id === a.id ? { ...x, is_archived: true } : x)))
+      toast.success('La asamblea se movió al historial. Podrás recuperarla cuando quieras.')
+    } catch (err) {
+      console.error(err)
+      toast.error('Error al archivar la asamblea')
+    } finally {
+      setArchivingId(null)
+    }
+  }
+
+  const handleDesarchivarAsamblea = async (e: React.MouseEvent, a: Asamblea) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setArchivingId(a.id)
+    try {
+      const { error } = await supabase.from('asambleas').update({ is_archived: false }).eq('id', a.id)
+      if (error) throw error
+      setAsambleas((prev) => prev.map((x) => (x.id === a.id ? { ...x, is_archived: false } : x)))
+      toast.success('Asamblea restaurada a la lista principal.')
+    } catch (err) {
+      console.error(err)
+      toast.error('Error al desarchivar la asamblea')
+    } finally {
+      setArchivingId(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -250,11 +290,14 @@ function AsambleasPageContent() {
     )
   }
 
-  const asambleasFiltradas = asambleas.filter((a) => {
+  const asambleasPorTab = asambleas.filter((a) => {
     const matchNombre = !searchNombre.trim() || a.nombre.toLowerCase().includes(searchNombre.trim().toLowerCase())
     const matchEstado = filterEstado === 'all' || a.estado === filterEstado
-    return matchNombre && matchEstado
+    const archived = a.is_archived === true
+    const matchTab = tabArchivo === 'archivadas' ? archived : !archived
+    return matchNombre && matchEstado && matchTab
   })
+  const asambleasFiltradas = asambleasPorTab
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -275,7 +318,7 @@ function AsambleasPageContent() {
                   Asambleas
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {conjuntoName} • {asambleasFiltradas.length} asamblea{asambleasFiltradas.length !== 1 ? 's' : ''}
+                  {conjuntoName} • {tabArchivo === 'activas' ? 'Activas' : 'Archivadas'}: {asambleasFiltradas.length} asamblea{asambleasFiltradas.length !== 1 ? 's' : ''}
                 </p>
               </div>
             </div>
@@ -311,28 +354,46 @@ function AsambleasPageContent() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {asambleas.length > 0 && (
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                type="search"
-                placeholder="Buscar por nombre..."
-                value={searchNombre}
-                onChange={(e) => setSearchNombre(e.target.value)}
-                className="pl-9"
-              />
+          <>
+            <div className="flex flex-col sm:flex-row gap-4 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  type="search"
+                  placeholder="Buscar por nombre..."
+                  value={searchNombre}
+                  onChange={(e) => setSearchNombre(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <select
+                value={filterEstado}
+                onChange={(e) => setFilterEstado(e.target.value)}
+                className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-2 text-sm min-w-[160px]"
+              >
+                <option value="all">Todos los estados</option>
+                <option value="borrador">Borrador</option>
+                <option value="activa">Activa</option>
+                <option value="finalizada">Finalizada</option>
+              </select>
             </div>
-            <select
-              value={filterEstado}
-              onChange={(e) => setFilterEstado(e.target.value)}
-              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-2 text-sm min-w-[160px]"
-            >
-              <option value="all">Todos los estados</option>
-              <option value="borrador">Borrador</option>
-              <option value="activa">Activa</option>
-              <option value="finalizada">Finalizada</option>
-            </select>
-          </div>
+            <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => setTabArchivo('activas')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${tabArchivo === 'activas' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-b-2 border-indigo-600' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                Activas
+              </button>
+              <button
+                type="button"
+                onClick={() => setTabArchivo('archivadas')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${tabArchivo === 'archivadas' ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b-2 border-slate-600' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                Archivadas
+              </button>
+            </div>
+          </>
         )}
         {asambleas.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-12 text-center border border-gray-200 dark:border-gray-700">
@@ -349,6 +410,21 @@ function AsambleasPageContent() {
                 Nueva Asamblea
               </Button>
             </Link>
+          </div>
+        ) : asambleasFiltradas.length === 0 ? (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center border border-gray-200 dark:border-gray-700">
+            <Archive className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              {tabArchivo === 'archivadas' ? 'No hay asambleas archivadas' : 'No hay asambleas en esta vista'}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              {tabArchivo === 'archivadas' ? 'Las asambleas que archives aparecerán aquí. Puedes desarchivarlas cuando quieras.' : 'Usa el filtro o cambia a la pestaña Archivadas.'}
+            </p>
+            {tabArchivo === 'archivadas' && (
+              <Button variant="outline" onClick={() => setTabArchivo('activas')}>
+                Ver activas
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -372,6 +448,36 @@ function AsambleasPageContent() {
                       </h3>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {tabArchivo === 'activas' && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleArchivarAsamblea(e, asamblea)}
+                          disabled={archivingId === asamblea.id}
+                          className="p-2 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                          title="La asamblea se moverá al historial. Podrás recuperarla cuando quieras."
+                        >
+                          {archivingId === asamblea.id ? (
+                            <span className="inline-block w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Archive className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
+                      {tabArchivo === 'archivadas' && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDesarchivarAsamblea(e, asamblea)}
+                          disabled={archivingId === asamblea.id}
+                          className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                          title="Devolver a la lista principal"
+                        >
+                          {archivingId === asamblea.id ? (
+                            <span className="inline-block w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <ArchiveRestore className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
                       {puedeEliminarAsamblea(asamblea) && (
                         <button
                           type="button"
@@ -522,9 +628,9 @@ function AsambleasPageContent() {
       <Dialog open={showWelcomeDemoModal} onOpenChange={setShowWelcomeDemoModal}>
         <DialogContent id="welcome-demo-modal" className="max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Prueba la plataforma sin compromiso</DialogTitle>
+            <DialogTitle>Bienvenido a Votaciones de Asambleas Online</DialogTitle>
             <DialogDescription>
-              Crea una asamblea de demostración con datos de ejemplo. No se consumen créditos y podrás explorar el Centro de Control, el enlace de votación y el acta.
+              ¿Deseas explorar con una simulación? Crearemos una asamblea de demostración con datos de ejemplo. No se consumen créditos y podrás practicar el Centro de Control, el enlace de votación y el acta.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
