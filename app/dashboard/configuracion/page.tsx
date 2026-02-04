@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import Link from 'next/link'
-import { CreditCard, ChevronDown, ChevronUp, RefreshCw, User as UserIcon, Lock, Building2, Receipt, Info } from 'lucide-react'
+import { CreditCard, ChevronDown, ChevronUp, RefreshCw, User as UserIcon, Lock, Building2, Receipt } from 'lucide-react'
 
 interface Profile {
   id: string
@@ -65,7 +65,6 @@ export default function ConfiguracionPage() {
     { id: 'contraseña', label: 'Contraseña', icon: Lock },
     { id: 'conjunto', label: 'Datos del conjunto', icon: Building2 },
     { id: 'pagos', label: 'Mis pagos', icon: Receipt },
-    { id: 'info-unidades', label: 'Info unidades', icon: Info },
   ]
 
   useEffect(() => {
@@ -738,42 +737,6 @@ export default function ConfiguracionPage() {
                 </table>
               </div>
             )}
-          </div>
-
-          {/* Info sobre Unidades */}
-          <div id="info-unidades" className="scroll-mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
-            <div className="flex items-start space-x-3">
-              <svg
-                className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <div>
-                <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
-                  Tabla de Unidades Creada
-                </h3>
-                <p className="text-sm text-blue-800 dark:text-blue-400 mb-3">
-                  La tabla <code className="bg-blue-100 dark:bg-blue-900/50 px-2 py-1 rounded">unidades</code> está lista en tu base de datos para almacenar:
-                </p>
-                <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1 ml-4 list-disc">
-                  <li>Número de unidad (apartamento, casa, local, etc.)</li>
-                  <li>Coeficiente de copropiedad</li>
-                  <li>Tipo de unidad</li>
-                  <li>Datos del propietario (nombre, email, teléfono)</li>
-                </ul>
-                <p className="text-sm text-blue-800 dark:text-blue-400 mt-3">
-                  Ejecuta el script SQL actualizado en Supabase para crear esta tabla y estar listo para cargar los coeficientes.
-                </p>
-              </div>
-            </div>
           </div>
 
           </div>
