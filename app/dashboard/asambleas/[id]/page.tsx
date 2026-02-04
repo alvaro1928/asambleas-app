@@ -239,7 +239,30 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         return
       }
 
-      setAsamblea(asambleaData)
+      // Si está activa y pasaron 72 h desde activated_at, pasar automáticamente a finalizada (solo no-demo)
+      const GRACE_MS_LOAD = 3 * 24 * 60 * 60 * 1000
+      const activadaEn = (asambleaData as { activated_at?: string | null }).activated_at
+      const esDemo = (asambleaData as { is_demo?: boolean }).is_demo === true
+      if (
+        (asambleaData as { estado?: string }).estado === 'activa' &&
+        activadaEn &&
+        !esDemo &&
+        (Date.now() - new Date(activadaEn).getTime() >= GRACE_MS_LOAD)
+      ) {
+        const { error: updateErr } = await supabase
+          .from('asambleas')
+          .update({ estado: 'finalizada' })
+          .eq('id', params.id)
+        if (!updateErr) {
+          setAsamblea({ ...asambleaData, estado: 'finalizada' } as typeof asambleaData)
+          setSuccessMessage('La asamblea pasó automáticamente a finalizada (ventana de gracia de 72 h).')
+          setTimeout(() => setSuccessMessage(''), 5000)
+        } else {
+          setAsamblea(asambleaData)
+        }
+      } else {
+        setAsamblea(asambleaData)
+      }
 
       // Billetera por gestor: organization-status devuelve tokens, unidades y puede_operar
       const orgId = asambleaData.organization_id
@@ -1012,8 +1035,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const withinGracePeriod = asamblea?.estado === 'activa' && asamblea.activated_at
     ? (Date.now() - new Date(asamblea.activated_at).getTime() < GRACE_MS)
     : false
+  // Solo lectura cuando está finalizada (o en demo según reglas). Mientras esté activa se puede editar; al pasar 72 h se cierra automáticamente.
   const isReadOnlyStructure = asamblea
-    ? (asamblea.estado === 'finalizada' || (asamblea.estado === 'activa' && !withinGracePeriod && !asamblea.is_demo))
+    ? (asamblea.estado === 'finalizada' || (asamblea.is_demo && asamblea.estado === 'activa' && !withinGracePeriod))
     : false
   const actaDisponible = asamblea && (asamblea.estado === 'activa' || asamblea.estado === 'finalizada') && (asamblea.pago_realizado === true || asamblea.is_demo === true)
 
@@ -1646,6 +1670,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                       <Plus className="w-4 h-4 mr-2" />
                       Crear Primera Pregunta
                     </Button>
+                  )}
+                  {!isDemo && isReadOnlyStructure && (
+                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-3 max-w-md mx-auto">
+                      La estructura está cerrada: pasaron más de 72 h desde la activación o la asamblea está finalizada. No se pueden agregar ni editar preguntas (solo consultar y generar acta).
+                    </p>
                   )}
                 </div>
               ) : preguntasActivas.length === 0 ? (
