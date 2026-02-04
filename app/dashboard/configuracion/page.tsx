@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import Link from 'next/link'
-import { CreditCard, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
+import { CreditCard, ChevronDown, ChevronUp, RefreshCw, User, Lock, Building2, Receipt, Info } from 'lucide-react'
 
 interface Profile {
   id: string
@@ -59,6 +59,14 @@ export default function ConfiguracionPage() {
   const [pagos, setPagos] = useState<PagoItem[]>([])
   const [pagosLoading, setPagosLoading] = useState(false)
   const [pagoDetalleId, setPagoDetalleId] = useState<string | null>(null)
+
+  const secciones = [
+    { id: 'perfil', label: 'Mi perfil', icon: User },
+    { id: 'contraseña', label: 'Contraseña', icon: Lock },
+    { id: 'conjunto', label: 'Datos del conjunto', icon: Building2 },
+    { id: 'pagos', label: 'Mis pagos', icon: Receipt },
+    { id: 'info-unidades', label: 'Info unidades', icon: Info },
+  ]
 
   useEffect(() => {
     loadData()
@@ -301,9 +309,51 @@ export default function ConfiguracionPage() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-8">
+      {/* Main Content: menú + contenido */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+          {/* Menú de secciones */}
+          <nav className="lg:w-56 shrink-0">
+            <div className="lg:sticky lg:top-6 space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 px-3 mb-3 hidden lg:block">
+                Secciones
+              </p>
+              {/* Desktop: lista vertical */}
+              <div className="hidden lg:flex flex-col gap-0.5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-1">
+                {secciones.map((s) => {
+                  const Icon = s.icon
+                  return (
+                    <a
+                      key={s.id}
+                      href={`#${s.id}`}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors text-sm font-medium"
+                    >
+                      <Icon className="w-4 h-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
+                      {s.label}
+                    </a>
+                  )
+                })}
+              </div>
+              {/* Móvil: scroll horizontal */}
+              <div className="flex lg:hidden gap-2 overflow-x-auto pb-2 -mx-1 scrollbar-thin">
+                {secciones.map((s) => {
+                  const Icon = s.icon
+                  return (
+                    <a
+                      key={s.id}
+                      href={`#${s.id}`}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium whitespace-nowrap shrink-0 hover:bg-gray-50 dark:hover:bg-gray-700/80"
+                    >
+                      <Icon className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                      {s.label}
+                    </a>
+                  )
+                })}
+              </div>
+            </div>
+          </nav>
+
+          <div className="flex-1 min-w-0 space-y-8">
           {/* Messages */}
           {message && (
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-3xl p-4">
@@ -344,7 +394,7 @@ export default function ConfiguracionPage() {
           )}
 
           {/* Perfil de Usuario */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
+          <div id="perfil" className="scroll-mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3 mb-6">
               <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-3xl flex items-center justify-center">
                 <svg
@@ -411,7 +461,7 @@ export default function ConfiguracionPage() {
           </div>
 
           {/* Cambiar contraseña */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
+          <div id="contraseña" className="scroll-mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3 mb-6">
               <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-3xl flex items-center justify-center">
                 <svg
@@ -487,7 +537,7 @@ export default function ConfiguracionPage() {
           </div>
 
           {/* Datos del Conjunto */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
+          <div id="conjunto" className="scroll-mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3 mb-6">
               <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-3xl flex items-center justify-center">
                 <svg
@@ -566,7 +616,7 @@ export default function ConfiguracionPage() {
           </div>
 
           {/* Mis pagos */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
+          <div id="pagos" className="scroll-mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-3xl flex items-center justify-center">
@@ -691,7 +741,7 @@ export default function ConfiguracionPage() {
           </div>
 
           {/* Info sobre Unidades */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
+          <div id="info-unidades" className="scroll-mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
             <div className="flex items-start space-x-3">
               <svg
                 className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5"
@@ -724,6 +774,8 @@ export default function ConfiguracionPage() {
                 </p>
               </div>
             </div>
+          </div>
+
           </div>
         </div>
       </main>
