@@ -270,8 +270,9 @@ export default function DashboardPage() {
         return
       }
       if (data?.url) {
-        window.open(data.url, '_blank', 'noopener,noreferrer')
         setModalCompraOpen(false)
+        // En móvil window.open suele bloquearse; usar misma pestaña para que la pasarela abra seguro
+        window.location.href = data.url
       }
     } catch {
       toast.error('Error al generar enlace de pago')
@@ -747,24 +748,19 @@ export default function DashboardPage() {
                 ¿Qué son los tokens y cuándo se consumen?
               </h4>
               <p className="text-sm text-slate-400">
-                Los tokens son créditos de tu billetera. El costo de una operación equivale al número de unidades de tu conjunto (1 token = 1 unidad). Se descuentan <strong className="text-slate-300">en el momento</strong> en que realizas una de estas acciones:
+                Los tokens son créditos de tu billetera. El costo equivale al número de unidades de tu conjunto (1 token = 1 unidad). <strong className="text-slate-300">Solo se cobran una vez</strong> al realizar esta acción:
               </p>
               <ul className="list-none space-y-2 text-sm text-slate-400">
                 <li className="flex items-start gap-2">
                   <span className="mt-0.5 shrink-0" style={{ color: colorPrincipalHex }}>•</span>
-                  <span><strong className="text-slate-300">Activar votación</strong> — Al abrir la votación para que los copropietarios voten en una asamblea.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 shrink-0" style={{ color: colorPrincipalHex }}>•</span>
-                  <span><strong className="text-slate-300">Descargar acta con auditoría</strong> — Al generar el PDF del acta con detalle de votos y coeficientes.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 shrink-0" style={{ color: colorPrincipalHex }}>•</span>
-                  <span><strong className="text-slate-300">Registro manual de voto</strong> — Cuando registras un voto en nombre de un copropietario desde el panel de control.</span>
+                  <span><strong className="text-slate-300">Activar la asamblea</strong> — Al pasar la asamblea de borrador a activa. Ese pago habilita compartir el enlace de votación y generar el acta <strong className="text-slate-300">cuantas veces quieras</strong> sin nuevo cobro.</span>
                 </li>
               </ul>
+              <p className="text-sm text-slate-400">
+                <strong className="text-slate-300">No consumen tokens:</strong> entrar a la asamblea, crear preguntas, importar unidades, registrar votos a nombre de un residente ni generar/descargar el acta (una vez activada).
+              </p>
               <p className="text-xs text-slate-500">
-                Crear asambleas, preguntas o importar unidades <strong>no</strong> consume tokens. Si tu saldo es menor al costo por operación, no podrás activar votaciones ni descargar actas hasta que compres más tokens. La compra de tokens es desde 20 unidades en adelante y se realiza únicamente por la pasarela de pagos (no por WhatsApp).
+                Si tu saldo es menor al costo, no podrás activar la asamblea hasta que compres más tokens. La compra es desde 20 tokens en adelante por la pasarela de pagos.
               </p>
             </div>
             <div className="space-y-4">
@@ -787,7 +783,7 @@ export default function DashboardPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>
-                  <span><strong className="text-slate-300">Actas</strong> — Generar actas con resultados, umbral de aprobación y auditoría (consumen tokens).</span>
+                  <span><strong className="text-slate-300">Actas</strong> — Generar actas con resultados, umbral de aprobación y auditoría. Una vez activada la asamblea, puedes generar e imprimir el acta sin nuevo cobro.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>

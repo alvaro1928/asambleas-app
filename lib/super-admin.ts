@@ -29,25 +29,28 @@ export function isAdminEmail(email: string | undefined): boolean {
 }
 
 export interface TransaccionPagoPayload {
-  organization_id: string
+  organization_id: string | null
   monto: number
   wompi_transaction_id: string | null
   estado: string
+  user_id?: string | null
 }
 
 /**
- * Registra una transacción de pago en pagos_log (para Dinero total recaudado en Super Admin).
- * Usado por el webhook de Wompi.
+ * Registra una transacción de pago en pagos_log (para Dinero total recaudado en Super Admin y Mis pagos).
+ * Usado por el webhook de Wompi. Si se pasa user_id, "Mis pagos" mostrará esta transacción al usuario.
  */
 export async function registrarTransaccionPago(
   supabase: SupabaseClient,
   payload: TransaccionPagoPayload
 ): Promise<{ error: Error | null }> {
-  const { error } = await supabase.from('pagos_log').insert({
-    organization_id: payload.organization_id,
+  const row: Record<string, unknown> = {
+    organization_id: payload.organization_id ?? null,
     monto: payload.monto,
     wompi_transaction_id: payload.wompi_transaction_id,
     estado: payload.estado,
-  })
+  }
+  if (payload.user_id) row.user_id = payload.user_id
+  const { error } = await supabase.from('pagos_log').insert(row)
   return { error: error ? new Error(error.message) : null }
 }

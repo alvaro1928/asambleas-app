@@ -614,11 +614,11 @@ export default function SuperAdminPage() {
                             <input
                               type="number"
                               min={0}
-                              placeholder="Nuevo total"
+                              placeholder="Ej: 80 (quitar o poner)"
                               value={tokensGestor[g.user_id] ?? ''}
                               onChange={(e) => setTokensGestor((prev) => ({ ...prev, [g.user_id]: e.target.value }))}
-                              className="w-20 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white"
-                              title="Establecer nuevo saldo total"
+                              className="w-36 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white"
+                              title="Escribe el saldo exacto que quieres (puedes bajar o subir)"
                             />
                             <Button
                               variant="outline"
@@ -626,14 +626,14 @@ export default function SuperAdminPage() {
                               disabled={updatingTokensGestorId === g.user_id}
                               onClick={() => handleAplicarTokensGestor(g.user_id)}
                             >
-                              {updatingTokensGestorId === g.user_id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Aplicar'}
+                              {updatingTokensGestorId === g.user_id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Establecer'}
                             </Button>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <input
                               type="number"
                               min={0}
-                              placeholder="+ Agregar"
+                              placeholder="+ Sumar"
                               value={agregarTokensGestor[g.user_id] ?? ''}
                               onChange={(e) => setAgregarTokensGestor((prev) => ({ ...prev, [g.user_id]: e.target.value }))}
                               className="w-20 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white"

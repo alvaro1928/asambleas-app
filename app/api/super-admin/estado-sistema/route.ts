@@ -114,6 +114,21 @@ export async function GET() {
         .map(([user_id, v]) => ({ user_id, email: v.email, full_name: v.full_name, tokens_disponibles: v.tokens }))
         .sort((a, b) => b.tokens_disponibles - a.tokens_disponibles)
         .slice(0, 20)
+
+      // Si en el ranking falta email/nombre, completar desde Auth (evita mostrar UUID)
+      for (const r of ranking) {
+        if ((!r.email || !r.full_name) && r.user_id) {
+          try {
+            const { data: authUser } = await admin.auth.admin.getUserById(r.user_id)
+            const authEmail = authUser?.user?.email ?? null
+            const authName = authUser?.user?.user_metadata?.full_name ?? authUser?.user?.user_metadata?.name ?? null
+            if (authEmail) r.email = authEmail
+            if (authName) r.full_name = authName
+          } catch {
+            // ignorar; mantener email/full_name actual
+          }
+        }
+      }
     }
 
     return NextResponse.json({

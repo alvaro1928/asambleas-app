@@ -440,7 +440,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             Generar acta
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Cobro único por asamblea: generar el acta consumirá <strong>{costoOperacion} tokens</strong> (1 token = 1 unidad). Si ya pagaste al activar la votación, no se vuelve a cobrar. Una vez generada, podrás imprimir (Ctrl+P o botón) sin consumir más tokens.
+            El cobro es <strong>solo al activar la asamblea</strong> (una vez). Si ya activaste, puedes generar el acta sin nuevo cobro. Una vez generada, podrás imprimir (Ctrl+P o botón) cuantas veces quieras.
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
             Tu saldo: <strong>{tokensDisponibles} tokens</strong>
@@ -454,11 +454,11 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             </Link>
             <Button
               onClick={handleGenerarActa}
-              disabled={generando || tokensDisponibles < costoOperacion}
+              disabled={generando}
               className="bg-indigo-600 hover:bg-indigo-700"
             >
               {generando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Sí, generar acta ({costoOperacion} tokens)
+              Sí, generar acta
             </Button>
           </div>
         </div>

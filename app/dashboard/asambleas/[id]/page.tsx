@@ -446,10 +446,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const handleAbrirRegistroVotoAdmin = async () => {
     if (!asamblea?.organization_id) return
-    if (!puedeOperar) {
-      setSinTokensModalOpen(true)
-      return
-    }
+    // No se exigen tokens para entrar ni para registrar votos; solo al activar o generar acta
     setShowRegistroVotoAdmin(true)
     setUnidadRegistroVoto('')
     setVotanteEmailRegistro('')
@@ -542,7 +539,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       `📋 ${asamblea.nombre}\n` +
       `📅 ${formatFecha(asamblea.fecha)}\n\n` +
       `👉 Vota aquí:\n${asamblea.url_publica}\n\n` +
-      `Código: ${asamblea.codigo_acceso}\n\n` +
       `⚠️ Necesitas tu email registrado en el conjunto\n\n` +
       `¡Tu participación es importante! 🏠`
     )
@@ -853,44 +849,42 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const handleChangeEstadoAsamblea = async (nuevoEstado: 'borrador' | 'activa' | 'finalizada') => {
     if (!asamblea) return
 
+    // Cobro único: solo al activar la asamblea; eso habilita generar el acta cuantas veces quiera
     if (nuevoEstado === 'activa') {
       const yaPagada = asamblea.pago_realizado === true
       if (!yaPagada && (!puedeOperar || (costoOperacion > 0 && tokensDisponibles < costoOperacion))) {
         setSinTokensModalOpen(true)
-        toast.error('Saldo insuficiente para esta operación.')
+        toast.error('Saldo insuficiente para activar la asamblea.')
         return
       }
-      try {
-        const res = await fetch('/api/dashboard/descontar-token-asamblea-pro', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ asamblea_id: asamblea.id }),
-        })
-        const data = await res.json().catch(() => ({}))
-        if (res.status === 402) {
-          setSinTokensModalOpen(true)
+      if (!yaPagada) {
+        try {
+          const res = await fetch('/api/dashboard/descontar-token-asamblea-pro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ asamblea_id: asamblea.id }),
+          })
+          const data = await res.json().catch(() => ({}))
+          if (res.status === 402) {
+            setSinTokensModalOpen(true)
+            return
+          }
+          if (res.status === 403) {
+            toast.error('No tienes permiso para este conjunto.')
+            return
+          }
+          if (!res.ok) {
+            toast.error(data.error ?? 'Error al activar asamblea')
+            return
+          }
+          if (data.tokens_restantes != null) setTokensDisponibles(Math.max(0, Number(data.tokens_restantes)))
+          if (data.pago_realizado === true) setAsamblea((prev) => (prev ? { ...prev, pago_realizado: true } : null))
+        } catch (e) {
+          console.error('Descontar token:', e)
+          toast.error('Error al descontar tokens. Necesitas ' + costoOperacion + ' tokens para activar.')
           return
         }
-        if (res.status === 403) {
-          toast.error('No tienes permiso para este conjunto. No es un tema de tokens.')
-          return
-        }
-        if (!res.ok) {
-          const msg = res.status === 402
-            ? (data.error ?? `Saldo insuficiente: Necesitas ${costoOperacion} tokens y tienes ${tokensDisponibles}.`)
-            : (data.error || 'Error al activar asamblea')
-          toast.error(msg)
-          return
-        }
-        if (data.tokens_restantes != null) setTokensDisponibles(Math.max(0, Number(data.tokens_restantes)))
-        if (data.pago_realizado === true) setAsamblea((prev) => (prev ? { ...prev, pago_realizado: true } : null))
-      } catch (e) {
-        console.error('Descontar token:', e)
-        toast.error(
-          `Saldo insuficiente: Necesitas ${costoOperacion} tokens para procesar ${costoOperacion} unidades.`
-        )
-        return
       }
     }
 
@@ -1035,7 +1029,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   <div className="flex flex-col gap-1">
                     {!asamblea.pago_realizado && costoOperacion > 0 && (
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Activar consumirá {costoOperacion} tokens (cobro único por asamblea). Saldo: {tokensDisponibles}.
+                        Al activar se cobran {costoOperacion} tokens (una sola vez); después podrás generar el acta cuantas veces quieras. Saldo: {tokensDisponibles}.
                       </p>
                     )}
                     <Button
@@ -1043,7 +1037,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                       className="bg-green-600 hover:bg-green-700"
                     >
                       <Play className="w-4 h-4 mr-2" />
-                      Activar
+                      Activar asamblea
                     </Button>
                   </div>
                 ) : (
@@ -1052,7 +1046,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     variant="outline"
                     disabled
                     className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 cursor-not-allowed"
-                    title="Saldo insuficiente para esta operación"
+                    title="Saldo insuficiente para activar"
                   >
                     <Lock className="w-4 h-4 mr-2" />
                     Activar (saldo insuficiente)
@@ -1190,43 +1184,29 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           )}
         </div>
 
-        {/* Registrar voto a nombre de un residente (p. ej. personas mayores) — requiere tokens */}
+        {/* Registrar voto a nombre de un residente — no consume tokens */}
         {preguntasAbiertas.length > 0 && (
           <div className="mb-6 flex justify-end">
-            {puedeOperar ? (
-              <div className="flex flex-col gap-1 items-end">
-                {costoOperacion > 0 && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Esta operación consumirá {costoOperacion} tokens. Saldo actual: {tokensDisponibles}.
-                  </p>
-                )}
-                <Button
-                  variant="outline"
-                  onClick={handleAbrirRegistroVotoAdmin}
-                  className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                  title="Registrar el voto de un residente que no puede votar en línea (p. ej. persona mayor)"
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Registrar voto a nombre de un residente
-                </Button>
-              </div>
-            ) : (
+            <div className="flex flex-col gap-1 items-end">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Registrar votos por unidad no consume tokens. Los tokens solo se usan al activar la votación o generar el acta.
+              </p>
               <Button
                 variant="outline"
-                disabled
-                className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 cursor-not-allowed"
-                title="Saldo insuficiente para esta operación"
+                onClick={handleAbrirRegistroVotoAdmin}
+                className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                title="Registrar el voto de un residente que no puede votar en línea (p. ej. persona mayor)"
               >
-                <Lock className="w-4 h-4 mr-2" />
-                Registrar voto (saldo insuficiente)
+                <UserPlus className="w-4 h-4 mr-2" />
+                Registrar voto a nombre de un residente
               </Button>
-            )}
+            </div>
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Columna izquierda: Billetera + Información + Acceso */}
-          <div className="lg:col-span-1 space-y-6">
+          {/* Columna izquierda en desktop; en móvil se muestra después de Preguntas (votos arriba) */}
+          <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
             {/* Billetera de tokens — siempre visible en detalle de asamblea */}
             <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -1244,7 +1224,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 </div>
                 {costoOperacion > 0 && (
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Costo por operación (activar, acta, registro manual): <strong>{costoOperacion} tokens</strong>
+                    Costo al activar la asamblea (una vez): <strong>{costoOperacion} tokens</strong>. Luego puedes generar el acta sin nuevo cobro.
                   </p>
                 )}
                 <Button
@@ -1256,6 +1236,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 >
                   Comprar tokens
                 </Button>
+                <p className="text-xs text-gray-500 dark:text-gray-400 pt-1 border-t border-gray-100 dark:border-gray-700 mt-3">
+                  <strong>Guía:</strong> Los tokens se cobran <strong>una sola vez al activar la asamblea</strong>; eso habilita generar el acta cuantas veces quieras. Crear preguntas, importar unidades y registrar votos no gasta tokens.
+                </p>
               </div>
             </div>
 
@@ -1339,34 +1322,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Código de Acceso */}
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-3xl p-4 border border-green-200 dark:border-green-800">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-semibold text-green-800 dark:text-green-200">
-                          Código de Acceso
-                        </p>
-                        <span className="px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">
-                          ✓ Activo
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={asamblea.codigo_acceso || ''}
-                          readOnly
-                          className="flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 font-mono text-lg font-bold text-center text-gray-900 dark:text-white"
-                        />
-                        <Button
-                          onClick={() => handleCopiarTexto(asamblea.codigo_acceso || '', 'Código')}
-                          variant="outline"
-                          size="sm"
-                          className="border-green-300 dark:border-green-700"
-                          title="Copiar el código de acceso al portapapeles"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
+                    <span className="inline-block px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">✓ Votación activa</span>
 
                     {/* URL para Compartir */}
                     <div>
@@ -1426,7 +1382,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     </Button>
 
                     <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                      Comparte este código con los residentes para que puedan votar
+                      Comparte el enlace o el QR con los residentes para que puedan votar
                     </p>
                   </div>
                 )}
@@ -1434,8 +1390,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             </div>
           </div>
 
-          {/* Preguntas */}
-          <div className="lg:col-span-2">
+          {/* Preguntas / votos: en móvil arriba */}
+          <div className="lg:col-span-2 order-1 lg:order-2">
             <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -2240,8 +2196,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     })
                     const data = await res.json().catch(() => ({}))
                     if (res.ok && data?.url) {
-                      window.open(data.url, '_blank', 'noopener,noreferrer')
                       setSinTokensModalOpen(false)
+                      window.location.href = data.url
                     } else {
                       toast.error(data?.error ?? 'Error al generar enlace de pago')
                     }

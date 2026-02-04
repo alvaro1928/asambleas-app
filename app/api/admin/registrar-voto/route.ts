@@ -2,8 +2,6 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { getCostoEnTokens } from '@/lib/costo-tokens'
-
 /**
  * POST /api/admin/registrar-voto
  * Modelo Billetera de Tokens por Gestor.
@@ -89,33 +87,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No tienes acceso a esta asamblea' }, { status: 403 })
     }
 
-    // Billetera: verificar tokens del gestor >= costo (unidades del conjunto)
-    const { count: unidadesCount } = await admin
-      .from('unidades')
-      .select('*', { count: 'exact', head: true })
-      .eq('organization_id', asambleaRow.organization_id)
-    const unidades = Math.max(0, unidadesCount ?? 0)
-    const costo = getCostoEnTokens(unidades)
-
-    const { data: perfilesGestor } = await admin
-      .from('profiles')
-      .select('tokens_disponibles')
-      .eq('user_id', session.user.id)
-    const firstProfile = Array.isArray(perfilesGestor) ? perfilesGestor[0] : perfilesGestor
-    const tokensGestor = Math.max(0, Math.floor(Number(firstProfile?.tokens_disponibles ?? 0)))
-    const costoInt = Math.max(0, Math.floor(Number(costo)))
-    if (tokensGestor < costoInt) {
-      return NextResponse.json(
-        {
-          error: `Saldo insuficiente: Necesitas ${costoInt} tokens y tienes ${tokensGestor}.`,
-          code: 'SIN_TOKENS',
-          costo: costoInt,
-          saldo: tokensGestor,
-          unidades,
-        },
-        { status: 402 }
-      )
-    }
+    // No se exigen tokens para registrar votos (solo para activar asamblea y generar acta).
 
     // Verificar que la unidad pertenece al mismo conjunto
     const { data: unidadRow } = await supabase
@@ -182,41 +154,8 @@ export async function POST(request: NextRequest) {
 
     const allOk = results.every((r) => r.success)
 
-    // Billetera: tras registrar votos con éxito, descontar costo del gestor y registrar en billing_logs
-    if (allOk && costoInt > 0) {
-      const nuevoSaldo = Math.max(0, tokensGestor - costoInt)
-      const { error: updateByUser } = await admin
-        .from('profiles')
-        .update({ tokens_disponibles: nuevoSaldo })
-        .eq('user_id', session.user.id)
-      let updateError = updateByUser
-      if (updateError) {
-        const { error: updateById } = await admin
-          .from('profiles')
-          .update({ tokens_disponibles: nuevoSaldo })
-          .eq('id', session.user.id)
-        updateError = updateById
-      }
-      if (updateError) {
-        console.error('[api/admin/registrar-voto] Error al descontar tokens:', updateError.message)
-      } else {
-        try {
-          await admin
-            .from('billing_logs')
-            .insert({
-              user_id: session.user.id,
-              tipo_operacion: 'Registro_manual',
-              asamblea_id,
-              organization_id: asambleaRow.organization_id,
-              tokens_usados: costoInt,
-              saldo_restante: nuevoSaldo,
-              metadata: { unidad_id: unidad_id },
-            })
-        } catch (e) {
-          console.error('billing_logs insert:', e)
-        }
-      }
-    }
+    // No se restan tokens al administrador cuando registra votos por una unidad.
+    // Los tokens solo se descuentan al activar la votación y al generar el acta.
 
     return NextResponse.json({
       success: allOk,
@@ -224,7 +163,6 @@ export async function POST(request: NextRequest) {
       message: allOk
         ? 'Votos registrados correctamente'
         : 'Algunos votos no se pudieron registrar',
-      ...(allOk && costoInt > 0 ? { tokens_descontados: costoInt } : {}),
     }, { status: allOk ? 200 : 207 })
   } catch (e) {
     console.error('[api/admin/registrar-voto]', e)

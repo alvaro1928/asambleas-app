@@ -99,7 +99,7 @@ export default function Home() {
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
               <Link href="/login">
                 <Button size="lg" className="rounded-3xl shadow-lg" style={{ backgroundColor: colorPrincipalHex }}>
-                  Empezar ahora ({bonoBienvenidaTokens ?? 50} tokens gratis)
+                  Empezar ahora{bonoBienvenidaTokens != null ? ` (${bonoBienvenidaTokens} tokens gratis)` : ' (tokens de bienvenida)'}
                 </Button>
               </Link>
             </div>
@@ -184,7 +184,7 @@ export default function Home() {
 
             <div className="rounded-2xl p-4 text-center" style={{ backgroundColor: `${colorPrincipalHex}20`, border: '1px solid rgba(255,255,255,0.08)' }}>
               <p className="text-slate-200 font-semibold">
-                Regístrate hoy y recibe {bonoBienvenidaTokens ?? 50} tokens gratis para tu primera asamblea
+                Regístrate hoy y recibe {bonoBienvenidaTokens != null ? `${bonoBienvenidaTokens} tokens` : 'tokens'} gratis para tu primera asamblea
               </p>
             </div>
             <p className="text-center text-slate-400 text-sm">
@@ -194,7 +194,7 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
               <Link href="/login" className="inline-flex justify-center">
                 <Button size="lg" className="rounded-3xl shadow-lg w-full sm:w-auto" style={{ backgroundColor: colorPrincipalHex }}>
-                  Empezar ahora ({bonoBienvenidaTokens ?? 50} tokens gratis)
+                  Empezar ahora{bonoBienvenidaTokens != null ? ` (${bonoBienvenidaTokens} tokens gratis)` : ' (tokens de bienvenida)'}
                 </Button>
               </Link>
               {whatsappNumber && (

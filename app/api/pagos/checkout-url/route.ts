@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 
@@ -42,6 +44,19 @@ export async function POST(request: NextRequest) {
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     if (!supabaseUrl || !anonKey) {
       return NextResponse.json({ error: 'Supabase no configurado' }, { status: 500 })
+    }
+
+    // Solo permitir comprar tokens para la cuenta de la sesión actual
+    const cookieStore = await cookies()
+    const supabaseSession = createServerClient(supabaseUrl, anonKey, {
+      cookies: { get: (n) => cookieStore.get(n)?.value, set: () => {}, remove: () => {} },
+    })
+    const { data: { session } } = await supabaseSession.auth.getSession()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Debes iniciar sesión para recargar' }, { status: 401 })
+    }
+    if (session.user.id !== userId) {
+      return NextResponse.json({ error: 'El user_id no coincide con tu sesión' }, { status: 403 })
     }
 
     const supabase = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } })

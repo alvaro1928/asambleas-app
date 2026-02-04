@@ -16,17 +16,14 @@
 
 - **Regla:** 1 token = 1 unidad de vivienda.
 - **Costo de una operación** en un conjunto = número de **unidades** de ese conjunto (ej. 50 unidades → 50 tokens por operación).
-- **Operaciones que consumen tokens** (en el momento de hacerlas):
-  - Activar votación en una asamblea.
-  - Descargar acta con auditoría.
-  - Registrar voto manual (a nombre de un residente).
-- **No consumen tokens:** crear asambleas, crear preguntas, importar unidades.
+- **Operación que consume tokens:** solo **activar la asamblea** (cobro único; al activar se descuentan los tokens y se marca `pago_realizado`; eso habilita generar el acta cuantas veces quieras sin nuevo cobro).
+- **No consumen tokens:** crear asambleas, crear preguntas, importar unidades, **generar el acta** (ya habilitada tras activar), **registrar votos manuales**.
 
 ## 4. Quién puede operar
 
-- El gestor puede hacer la operación si:  
-  **`profiles.tokens_disponibles` (de ese usuario) ≥ costo (unidades del conjunto)**.
-- El saldo se lee desde **`/api/dashboard/organization-status`** (por conjunto activo): ahí se obtiene `tokens_disponibles` del perfil del usuario para ese conjunto.
+- Para **entrar** a una asamblea y configurarla (crear preguntas, unidades) **no se exigen tokens**.
+- Para **activar la asamblea** sí se exige: **`profiles.tokens_disponibles` ≥ costo (unidades del conjunto)**. Si no tiene saldo, puede comprar tokens desde el modal. Tras activar, puede **generar el acta** cuantas veces quiera sin nuevo cobro.
+- El saldo se lee desde **`/api/dashboard/organization-status`** (por conjunto activo): se usa el **máximo** de `tokens_disponibles` de todas las filas del usuario (id o user_id).
 
 ## 5. Cómo se obtienen tokens
 

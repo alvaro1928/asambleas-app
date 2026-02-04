@@ -282,6 +282,20 @@ export async function GET() {
     }
     gestores = Array.from(byEmail.values()).map(({ user_ids, ...rest }) => rest)
 
+    // Mostrar email/nombre desde Auth cuando el perfil no los tiene (evitar mostrar UUID tipo 408b17ee...)
+    for (const g of gestores) {
+      if ((!g.email || !g.full_name) && g.user_id) {
+        try {
+          const { data: authUser } = await admin.auth.admin.getUserById(g.user_id)
+          if (authUser?.user?.email) g.email = authUser.user.email
+          if (authUser?.user?.user_metadata?.full_name) g.full_name = authUser.user.user_metadata.full_name
+          else if (authUser?.user?.user_metadata?.name) g.full_name = authUser.user.user_metadata.name
+        } catch {
+          // ignorar
+        }
+      }
+    }
+
     // Diagnóstico si sigue vacío: mostrar error real de Supabase o contar filas
     let hint: string | undefined
     if (gestores.length === 0) {

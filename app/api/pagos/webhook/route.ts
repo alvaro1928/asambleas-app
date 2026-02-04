@@ -303,22 +303,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true, skipped: 'monto_insuficiente' }, { status: 200 })
     }
 
-    // Buscar perfil por id (profiles.id = auth.uid en esquema clásico; sin columna user_id)
-    let { data: byId } = await supabase
+    // Obtener TODAS las filas del usuario (id o user_id = userId) para no pisar saldo y actualizar todas
+    let perfilesGestor: Array<{ tokens_disponibles?: number; organization_id?: string }> = []
+    const { data: byId } = await supabase
       .from('profiles')
       .select('id, tokens_disponibles, organization_id')
       .eq('id', userId)
-      .limit(1)
+    const { data: byUserId } = await supabase
+      .from('profiles')
+      .select('id, tokens_disponibles, organization_id')
+      .eq('user_id', userId)
+    // Si la tabla no tiene user_id, byUserId puede ser [] o error; no fallar
+    const fromId = Array.isArray(byId) ? byId : byId ? [byId] : []
+    const fromUser = Array.isArray(byUserId) ? byUserId : byUserId ? [byUserId] : []
+    const seenIds = new Set<string>()
+    for (const row of [...fromId, ...fromUser]) {
+      const r = row as { id?: string; tokens_disponibles?: number; organization_id?: string }
+      if (r?.id && !seenIds.has(r.id)) {
+        seenIds.add(r.id)
+        perfilesGestor.push({ tokens_disponibles: r.tokens_disponibles, organization_id: r.organization_id })
+      }
+    }
 
-    let perfilesGestor: Array<{ tokens_disponibles?: number; organization_id?: string }> = Array.isArray(byId) ? byId : byId ? [byId] : []
-
-    // Si no hay perfil, crear uno mínimo (id = auth.uid; FK a auth.users). Evita depender de auth.admin en serverless.
+    // Si no hay ninguna fila, crear una mínima (id = auth.uid) y rellenar email/nombre desde Auth para no dejar perfil fantasma
     if (perfilesGestor.length === 0) {
+      let insertEmail: string | null = null
+      let insertFullName: string | null = null
+      try {
+        const { data: authUser } = await supabase.auth.admin.getUserById(userId)
+        insertEmail = authUser?.user?.email ?? null
+        insertFullName = authUser?.user?.user_metadata?.full_name ?? authUser?.user?.user_metadata?.name ?? null
+      } catch {
+        // ignorar; insertar sin email/nombre
+      }
       const { error: insertError } = await supabase.from('profiles').insert({
         id: userId,
         user_id: userId,
-        email: null,
-        full_name: null,
+        email: insertEmail,
+        full_name: insertFullName,
         organization_id: null,
         role: 'member',
         tokens_disponibles: 0,
@@ -337,8 +359,12 @@ export async function POST(request: NextRequest) {
           if (retry) {
             perfilesGestor = [retry as { tokens_disponibles?: number; organization_id?: string }]
           } else {
-            await logPaymentError(supabase, null, reference, txId, amountInCents, status, insertError.message)
-            return NextResponse.json({ error: 'Error al crear perfil', details: insertError.message }, { status: 500 })
+            const { data: retry2 } = await supabase.from('profiles').select('id, tokens_disponibles, organization_id').eq('user_id', userId).limit(1).maybeSingle()
+            if (retry2) perfilesGestor = [retry2 as { tokens_disponibles?: number; organization_id?: string }]
+            else {
+              await logPaymentError(supabase, null, reference, txId, amountInCents, status, insertError.message)
+              return NextResponse.json({ error: 'Error al crear perfil', details: insertError.message }, { status: 500 })
+            }
           }
         } else {
           await logPaymentError(supabase, null, reference, txId, amountInCents, status, insertError.message)
@@ -349,9 +375,13 @@ export async function POST(request: NextRequest) {
         perfilesGestor = [{ tokens_disponibles: 0, organization_id: undefined }]
       }
     }
-    const firstProfile = perfilesGestor[0] as { tokens_disponibles?: number; organization_id?: string } | undefined
-    const tokensActuales = Math.max(0, Number(firstProfile?.tokens_disponibles ?? 0))
+
+    // Saldo actual = MÁXIMO de todas las filas del usuario (no pisar si ya tiene más en otra fila)
+    const tokensActuales = perfilesGestor.length
+      ? Math.max(...perfilesGestor.map((p) => Math.max(0, Number(p?.tokens_disponibles ?? 0))))
+      : 0
     const nuevoSaldo = tokensActuales + tokensComprados
+    const firstProfile = perfilesGestor[0] as { tokens_disponibles?: number; organization_id?: string } | undefined
     // Cualquier organización del usuario para pagos_log
     let orgIdForLog =
       firstProfile?.organization_id ??
@@ -397,14 +427,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No se pudo actualizar el perfil del usuario' }, { status: 500 })
     }
 
-    // Siempre registrar en pagos_log si tenemos al menos una org del usuario
-    if (orgIdForLog) {
-      const { error: logError } = await registrarTransaccionPago(supabase, {
-        organization_id: orgIdForLog,
-        monto: amountInCents,
-        wompi_transaction_id: txId,
-        estado: 'APPROVED',
-      })
+    // Registrar en pagos_log (con org si hay; siempre con user_id para que aparezca en Mis pagos)
+    const { error: logError } = await registrarTransaccionPago(supabase, {
+      organization_id: orgIdForLog,
+      monto: amountInCents,
+      wompi_transaction_id: txId,
+      estado: 'APPROVED',
+      user_id: userId,
+    })
       if (logError) {
         console.error('[webhook pagos] Error al registrar transacción:', logError.message)
       }
