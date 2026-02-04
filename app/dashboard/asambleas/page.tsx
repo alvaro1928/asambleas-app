@@ -135,6 +135,13 @@ function AsambleasPageContent() {
   }
 
   const handleProbarDemo = async () => {
+    // Si ya hay una asamblea demo en la lista, ir directo a ella
+    const demoExistente = asambleas.find((a) => a.is_demo === true)
+    if (demoExistente?.id) {
+      setShowWelcomeDemoModal(false)
+      router.push(`/dashboard/asambleas/${demoExistente.id}`)
+      return
+    }
     setCreatingDemo(true)
     try {
       const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')

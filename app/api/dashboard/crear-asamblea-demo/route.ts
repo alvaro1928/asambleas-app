@@ -66,6 +66,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Si ya existe una asamblea demo en este conjunto, devolverla para redirigir
+    const { data: existingDemo } = await admin
+      .from('asambleas')
+      .select('id, nombre, estado, is_demo, pago_realizado')
+      .eq('organization_id', organizationId)
+      .eq('is_demo', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (existingDemo) {
+      return NextResponse.json({ asamblea: existingDemo })
+    }
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('id')
