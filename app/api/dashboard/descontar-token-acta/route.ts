@@ -79,8 +79,13 @@ export async function POST(request: NextRequest) {
 
     // El cobro es solo al activar la asamblea; activar habilita generar el acta sin nuevo cobro
     if (asamblea.pago_realizado === true) {
-      const { data: prof } = await admin.from('profiles').select('tokens_disponibles').eq('user_id', session.user.id).limit(1).maybeSingle()
-      const saldo = Math.max(0, Math.floor(Number((prof as { tokens_disponibles?: number } | null)?.tokens_disponibles ?? 0)))
+      const { data: byUser } = await admin.from('profiles').select('tokens_disponibles').eq('user_id', session.user.id)
+      const { data: byId } = await admin.from('profiles').select('tokens_disponibles').eq('id', session.user.id)
+      const allTokens = [
+        ...(Array.isArray(byUser) ? byUser : byUser ? [byUser] : []),
+        ...(Array.isArray(byId) ? byId : byId ? [byId] : []),
+      ].map((p: { tokens_disponibles?: number }) => Math.max(0, Number(p?.tokens_disponibles ?? 0)))
+      const saldo = allTokens.length ? Math.max(...allTokens) : 0
       return NextResponse.json({
         ok: true,
         ya_pagada: true,

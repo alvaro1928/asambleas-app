@@ -28,12 +28,12 @@ El rol de Administrador gestiona la configuración de la copropiedad y el ciclo 
 - **Importación masiva:** `/dashboard/unidades/importar` (Excel/CSV), con validación de coeficientes (suma en rango 99,9%–100,1%, tolerancia por redondeo Ley 675) y unicidad (torre/número).
 - **Métricas:** El dashboard principal muestra total de unidades, suma de coeficientes, datos del censo.
 
-**Asamblea de Simulación (Demo):**
-- Si el usuario no tiene asambleas, se muestra el modal **welcome-demo-modal** con botón "Probar ahora".
-- "Probar ahora" llama a `POST /api/dashboard/crear-asamblea-demo`, que crea una asamblea con `is_demo: true`, inserta 10 unidades (Apto 101–110, coeficiente 10% c/u) y 2 preguntas abiertas con opciones por defecto, activa la votación sin descontar tokens y redirige al Centro de Control.
-- En vistas de asamblea con `is_demo === true`: se muestra `<StickyBanner />` ("Estás viendo una asamblea de demostración..."); no se pueden añadir/editar/eliminar preguntas ni cambiar su estado; las unidades demo no se pueden editar ni eliminar en `/dashboard/unidades`.
-- El acta de una asamblea demo lleva watermark diagonal: "BORRADOR DE PRUEBA — SIN VALIDEZ LEGAL".
-- Las asambleas `is_demo` no consumen créditos (bypass en `descontar-token-asamblea-pro` y `descontar-token-acta`). En reportes/estadísticas globales (ej. total de votos procesados) deben excluirse las asambleas con `is_demo = true`.
+**Asamblea de Simulación (Demo / Sandbox):**
+- **Dónde acceder:** (1) **Dashboard principal:** botón "Probar en sandbox" junto a "Asambleas". (2) **Listado de asambleas** (`/dashboard/asambleas`): botón "Probar en sandbox" en la cabecera (icono matraz). (3) **URL directa:** `/dashboard/asambleas?demo=1` abre automáticamente el modal de demostración. Si el usuario no tiene asambleas, el modal de bienvenida también se muestra al cargar la página.
+- **Acción:** "Probar ahora" / "Crear asamblea de demostración" llama a `POST /api/dashboard/crear-asamblea-demo`, que crea una asamblea con `is_demo: true`, inserta 10 unidades (Apto 101–110, coeficiente 10% c/u) y 2 preguntas abiertas con opciones por defecto, activa la votación sin descontar tokens y redirige al Centro de Control.
+- **Restricciones en demo:** En vistas de asamblea con `is_demo === true` se muestra `<StickyBanner />` ("Estás viendo una asamblea de demostración..."); no se pueden añadir/editar/eliminar preguntas ni cambiar su estado; las unidades demo no se pueden editar ni eliminar en `/dashboard/unidades`.
+- **Acta:** El acta de una asamblea demo lleva watermark diagonal: "BORRADOR DE PRUEBA — SIN VALIDEZ LEGAL".
+- **Tokens:** Las asambleas `is_demo` no consumen créditos (bypass en `descontar-token-asamblea-pro` y `descontar-token-acta`). En reportes/estadísticas globales deben excluirse las asambleas con `is_demo = true`.
 
 **Gestión de Asambleas:**
 - **Listado:** `/dashboard/asambleas`.
@@ -154,8 +154,12 @@ app/
 │   ├── auth/               # Gestión de sesiones y cierre de sesión.
 │   ├── client-info/        # Obtención de IP del cliente para trazabilidad.
 │   ├── dashboard/          # APIs para funcionalidades del dashboard.
-│   │   ├── mis-pagos/      # Listado de historial de pagos del usuario.
-│   │   └── crear-asamblea/ # Creación de nuevas asambleas.
+│   │   ├── mis-pagos/           # Listado de historial de pagos del usuario.
+│   │   ├── crear-asamblea/      # Creación de nuevas asambleas.
+│   │   ├── crear-asamblea-demo/ # Creación de asamblea de demostración (sandbox; is_demo).
+│   │   ├── descontar-token-asamblea-pro/ # Descuento de tokens al activar asamblea.
+│   │   ├── descontar-token-acta/         # Verificación para generar acta (ya pagada o demo).
+│   │   └── organization-status/ # Tokens disponibles y costo por conjunto (billetera única).
 │   ├── pagos/              # APIs relacionadas con la pasarela de pagos.
 │   │   ├── checkout-url/   # Generación de URLs de pago de Wompi.
 │   │   ├── reprocesar/     # Reprocesamiento manual de pagos.

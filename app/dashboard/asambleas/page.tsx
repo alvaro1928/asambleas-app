@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { 
@@ -16,7 +16,8 @@ import {
   Search,
   Trash2,
   AlertTriangle,
-  Copy
+  Copy,
+  FlaskConical
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -43,6 +44,7 @@ interface PreguntasCount {
 
 export default function AsambleasPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const toast = useToast()
   const [asambleas, setAsambleas] = useState<Asamblea[]>([])
   const [preguntasPorAsamblea, setPreguntasPorAsamblea] = useState<Record<string, PreguntasCount>>({})
@@ -60,6 +62,14 @@ export default function AsambleasPage() {
   const [deleting, setDeleting] = useState(false)
   const [showWelcomeDemoModal, setShowWelcomeDemoModal] = useState(false)
   const [creatingDemo, setCreatingDemo] = useState(false)
+
+  // Si la URL tiene ?demo=1, abrir el modal de sandbox (desde dashboard o enlace directo)
+  useEffect(() => {
+    if (searchParams.get('demo') === '1') {
+      setShowWelcomeDemoModal(true)
+      router.replace('/dashboard/asambleas', { scroll: false })
+    }
+  }, [searchParams, router])
 
   useEffect(() => {
     loadAsambleas()
@@ -274,7 +284,7 @@ export default function AsambleasPage() {
                 <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
                 <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens</span>
                 {costoOperacion > 0 && (
-                  <span className="text-xs text-slate-500 dark:text-slate-400">(costo/op: {costoOperacion})</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">(costo al activar: {costoOperacion})</span>
                 )}
               </div>
               <Button
@@ -284,6 +294,7 @@ export default function AsambleasPage() {
                 onClick={() => setShowWelcomeDemoModal(true)}
                 title="Crear asamblea de demostración (sandbox) sin consumir tokens"
               >
+                <FlaskConical className="w-4 h-4 mr-2" />
                 Probar en sandbox
               </Button>
               <Link href="/dashboard/asambleas/nueva" title="Crear una nueva asamblea para este conjunto">

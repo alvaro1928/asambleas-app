@@ -145,21 +145,24 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .select('id, user_id, tokens_disponibles, organization_id')
       .eq('user_id', userId)
-      .limit(1)
-    let perfiles = Array.isArray(byUserId) ? byUserId : byUserId ? [byUserId] : []
-    if (perfiles.length === 0) {
-      const { data: byId } = await supabase
-        .from('profiles')
-        .select('id, user_id, tokens_disponibles, organization_id')
-        .eq('id', userId)
-        .limit(1)
-      perfiles = Array.isArray(byId) ? byId : byId ? [byId] : []
-    }
+    const { data: byId } = await supabase
+      .from('profiles')
+      .select('id, user_id, tokens_disponibles, organization_id')
+      .eq('id', userId)
+    const listByUser = Array.isArray(byUserId) ? byUserId : byUserId ? [byUserId] : []
+    const listById = Array.isArray(byId) ? byId : byId ? [byId] : []
+    const seen = new Set<string>()
+    const perfiles = [...listByUser, ...listById].filter((p: { id: string }) => {
+      if (seen.has(p.id)) return false
+      seen.add(p.id)
+      return true
+    })
     if (perfiles.length === 0) {
       return NextResponse.json({ error: 'Usuario no encontrado en profiles' }, { status: 404 })
     }
-    const firstProfile = perfiles[0] as { tokens_disponibles?: number; organization_id?: string }
-    const tokensActuales = Math.max(0, Number(firstProfile?.tokens_disponibles ?? 0))
+    const allTokens = perfiles.map((p: { tokens_disponibles?: number }) => Math.max(0, Number(p?.tokens_disponibles ?? 0)))
+    const tokensActuales = allTokens.length ? Math.max(...allTokens) : 0
+    const firstProfile = perfiles[0] as { organization_id?: string }
     let orgIdForLog = firstProfile?.organization_id ?? null
     if (!orgIdForLog) {
       const { data: profOrg } = await supabase
@@ -187,12 +190,16 @@ export async function POST(request: NextRequest) {
 
     if (!soloRegistrarLog) {
       nuevoSaldo = tokensActuales + tokensComprados
-      const { error: updateError } = await supabase
+      const { error: updateByUser } = await supabase
         .from('profiles')
         .update({ tokens_disponibles: nuevoSaldo })
-        .or(`user_id.eq.${userId},id.eq.${userId}`)
-      if (updateError) {
-        return NextResponse.json({ error: 'Error al actualizar tokens', details: updateError.message }, { status: 500 })
+        .eq('user_id', userId)
+      const { error: updateById } = await supabase
+        .from('profiles')
+        .update({ tokens_disponibles: nuevoSaldo })
+        .eq('id', userId)
+      if (updateByUser || updateById) {
+        return NextResponse.json({ error: 'Error al actualizar tokens', details: (updateByUser ?? updateById)?.message }, { status: 500 })
       }
     }
 

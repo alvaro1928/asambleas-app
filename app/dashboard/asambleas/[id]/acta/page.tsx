@@ -419,7 +419,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
             Tu billetera: <strong>{tokensDisponibles} tokens</strong>
-            {costoOperacion > 0 && <> • Costo por operación: {costoOperacion} tokens</>}
+            {costoOperacion > 0 && <> • Costo al activar asamblea: {costoOperacion} tokens</>}
           </p>
           <Link href={`/dashboard/asambleas/${params.id}`}>
             <Button variant="outline" className="mb-4">

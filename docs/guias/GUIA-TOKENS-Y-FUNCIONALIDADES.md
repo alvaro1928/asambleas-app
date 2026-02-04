@@ -45,12 +45,19 @@ Solo necesitas saldo suficiente **en el momento de activar la asamblea**.
 
 ---
 
+## Asamblea de pruebas (sandbox)
+
+- Desde el **Dashboard** o el **listado de Asambleas** puedes usar el botón **"Probar en sandbox"** (también la URL `/dashboard/asambleas?demo=1`).
+- Se crea una asamblea de demostración con datos de ejemplo (10 unidades, 2 preguntas, ya activada). **No se consumen tokens.** Sirve para explorar el Centro de Control, el enlace de votación y el acta sin compromiso. El acta demo lleva la marca "BORRADOR DE PRUEBA — SIN VALIDEZ LEGAL".
+
+---
+
 ## Validación en la app
 
 | Acción | ¿Se exige saldo? |
 |--------|-------------------|
 | Entrar a asamblea, crear preguntas, importar unidades, registrar votos por residentes | No |
-| **Activar la asamblea** | Sí. Se exige `tokens_disponibles >= costo (unidades)`. Si no tienes saldo, se muestra el modal para comprar tokens. |
+| **Activar la asamblea** | Sí. Se exige `tokens_disponibles >= costo (unidades)`. Si no tienes saldo, se muestra el modal para comprar tokens. Las asambleas demo (`is_demo`) no consumen. |
 | Generar el acta | No. Solo está habilitado si la asamblea ya fue activada (cobro único al activar). |
 
 ---

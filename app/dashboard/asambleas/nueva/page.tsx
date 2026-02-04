@@ -213,7 +213,7 @@ export default function NuevaAsambleaPage() {
               <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
               <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens</span>
               {costoOperacion > 0 && (
-                <span className="text-xs text-slate-500 dark:text-slate-400">(costo/op: {costoOperacion})</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">(costo al activar: {costoOperacion})</span>
               )}
             </div>
           )}

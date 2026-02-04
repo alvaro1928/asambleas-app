@@ -82,8 +82,13 @@ export async function POST(request: NextRequest) {
 
     // Cobro único por asamblea: si ya se pagó, permitir acción sin descontar
     if (asamblea.pago_realizado === true) {
-      const { data: prof } = await admin.from('profiles').select('tokens_disponibles').eq('user_id', session.user.id).limit(1).maybeSingle()
-      const saldo = Math.max(0, Math.floor(Number((prof as { tokens_disponibles?: number } | null)?.tokens_disponibles ?? 0)))
+      const { data: byUser } = await admin.from('profiles').select('tokens_disponibles').eq('user_id', session.user.id)
+      const { data: byId } = await admin.from('profiles').select('tokens_disponibles').eq('id', session.user.id)
+      const allTokens = [
+        ...(Array.isArray(byUser) ? byUser : byUser ? [byUser] : []),
+        ...(Array.isArray(byId) ? byId : byId ? [byId] : []),
+      ].map((p: { tokens_disponibles?: number }) => Math.max(0, Number(p?.tokens_disponibles ?? 0)))
+      const saldo = allTokens.length ? Math.max(...allTokens) : 0
       return NextResponse.json({
         ok: true,
         descontado: false,
@@ -126,13 +131,14 @@ export async function POST(request: NextRequest) {
     const unidades = Math.max(0, unidadesCount ?? 0)
     const costo = getCostoEnTokens(unidades)
 
-    const { data: perfilesGestor } = await admin
-      .from('profiles')
-      .select('tokens_disponibles')
-      .eq('user_id', session.user.id)
-
-    const firstProfile = Array.isArray(perfilesGestor) ? perfilesGestor[0] : perfilesGestor
-    const tokensActuales = Math.max(0, Math.floor(Number(firstProfile?.tokens_disponibles ?? 0)))
+    // Billetera única por gestor: saldo = máximo de tokens en TODOS sus perfiles (igual que organization-status)
+    const { data: byUser } = await admin.from('profiles').select('tokens_disponibles').eq('user_id', session.user.id)
+    const { data: byId } = await admin.from('profiles').select('tokens_disponibles').eq('id', session.user.id)
+    const allTokens = [
+      ...(Array.isArray(byUser) ? byUser : byUser ? [byUser] : []),
+      ...(Array.isArray(byId) ? byId : byId ? [byId] : []),
+    ].map((p: { tokens_disponibles?: number }) => Math.max(0, Number(p?.tokens_disponibles ?? 0)))
+    const tokensActuales = allTokens.length ? Math.max(...allTokens) : 0
     const costoInt = Math.max(0, Math.floor(Number(costo)))
     if (tokensActuales < costoInt) {
       return NextResponse.json(

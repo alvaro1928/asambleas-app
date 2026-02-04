@@ -25,6 +25,7 @@
 - Métricas en dashboard: total unidades, suma coeficientes, censo.
 
 ### Asambleas y votaciones
+- **Asamblea de pruebas (sandbox):** Botón "Probar en sandbox" en el Dashboard y en el listado de asambleas; o URL `/dashboard/asambleas?demo=1`. Crea una asamblea de demostración con datos de ejemplo sin consumir tokens.
 - **Listado de asambleas** (`/dashboard/asambleas`).
 - **Crear asamblea** (`/dashboard/asambleas/nueva`).
 - **Detalle de asamblea** (`/dashboard/asambleas/[id]`):
@@ -43,8 +44,8 @@
 
 ### Dashboard principal
 - Métricas: conjuntos, unidades, coeficientes, censo.
-- Tokens de la cuenta: se descontan al crear o activar asambleas; cuando se queden sin tokens, compran más o actualizan a Plan Pro.
-- Enlaces rápidos a asambleas, unidades, conjuntos, configuración.
+- Billetera de tokens por gestor: se descuentan **solo al activar una asamblea** (una vez por asamblea); después se puede generar el acta sin nuevo cobro. Cuando no hay saldo suficiente para activar, pueden comprar más tokens desde la app.
+- Enlaces rápidos a asambleas, unidades, conjuntos, **Probar en sandbox** y configuración.
 
 ---
 

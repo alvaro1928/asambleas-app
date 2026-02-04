@@ -24,6 +24,7 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 | 14 | **AGREGAR-VIGENCIA-PLANES.sql** | En **planes**: `vigencia_meses` (Gratis: null, Piloto: 3, Pro: 12). Duración al asignar el plan a una cuenta. |
 | 15 | **CONFIGURACION-GLOBAL-LANDING.sql** | Tabla o filas de configuración global para landing (color, WhatsApp, etc.). |
 | 16 | **AGREGAR-COLOR-PRINCIPAL-CONFIG.sql** | Columna o clave `color_principal_hex` para la landing. Se edita en Super Admin → Ajustes. |
+| 17 | **ADD-IS-DEMO-ASAMBLEAS-UNIDADES.sql** | Columna `is_demo` en `asambleas` y `unidades` para la asamblea de pruebas (sandbox). No consumen tokens; restricciones de edición en la UI; acta con marca "BORRADOR DE PRUEBA". |
 
 ---
 
@@ -46,6 +47,7 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 14. AGREGAR-VIGENCIA-PLANES.sql
 15. CONFIGURACION-GLOBAL-LANDING.sql
 16. AGREGAR-COLOR-PRINCIPAL-CONFIG.sql
+17. ADD-IS-DEMO-ASAMBLEAS-UNIDADES.sql
 ```
 
 ---
@@ -59,3 +61,4 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 - **6:** Recomendado si tienes muchas votaciones o consultas lentas.
 - **11–14:** Modelo de negocio: tokens por cuenta, precio por asamblea, tokens iniciales y vigencia por plan. Imprescindibles para Super Admin (planes y conjuntos).
 - **15–16:** Configuración global (landing, color). Necesarios para Super Admin → Ajustes.
+- **17:** Asamblea de pruebas (sandbox): necesario si se usa el botón "Probar en sandbox" y la API `crear-asamblea-demo`.

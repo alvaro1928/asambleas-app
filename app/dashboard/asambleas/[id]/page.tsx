@@ -1076,7 +1076,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   <div className="flex flex-col gap-1">
                     {!asamblea.pago_realizado && costoOperacion > 0 && (
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Generar acta consumirá {costoOperacion} tokens (cobro único). Saldo: {tokensDisponibles}.
+                        Para generar el acta primero activa la asamblea (se cobran {costoOperacion} tokens una sola vez al activar). Saldo: {tokensDisponibles}.
                       </p>
                     )}
                     <Link href={`/dashboard/asambleas/${params.id}/acta`}>
@@ -2198,7 +2198,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           <DialogHeader>
             <DialogTitle className="text-amber-800 dark:text-amber-200">¡Ups! Te faltan tokens para iniciar esta asamblea</DialogTitle>
             <DialogDescription>
-              Esta asamblea requiere <strong>{costoOperacion} tokens</strong>. Tu saldo actual es <strong>{tokensDisponibles}</strong>. Compra los tokens necesarios para activar la votación o generar el acta.
+              Para activar esta asamblea necesitas <strong>{costoOperacion} tokens</strong>. Tu saldo actual es <strong>{tokensDisponibles}</strong>. Compra los tokens necesarios para activar la votación; después podrás generar el acta sin nuevo cobro.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex flex-col gap-4">

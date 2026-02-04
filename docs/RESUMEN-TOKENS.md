@@ -15,9 +15,9 @@
 ## 3. Cómo se usan los tokens
 
 - **Regla:** 1 token = 1 unidad de vivienda.
-- **Costo de una operación** en un conjunto = número de **unidades** de ese conjunto (ej. 50 unidades → 50 tokens por operación).
+- **Costo de una operación** en un conjunto = número de **unidades** de ese conjunto (ej. 50 unidades → 50 tokens al activar).
 - **Operación que consume tokens:** solo **activar la asamblea** (cobro único; al activar se descuentan los tokens y se marca `pago_realizado`; eso habilita generar el acta cuantas veces quieras sin nuevo cobro).
-- **No consumen tokens:** crear asambleas, crear preguntas, importar unidades, **generar el acta** (ya habilitada tras activar), **registrar votos manuales**.
+- **No consumen tokens:** crear asambleas, crear preguntas, importar unidades, **generar el acta** (ya habilitada tras activar), **registrar votos manuales**. Las **asambleas de prueba (sandbox)** con `is_demo = true` tampoco consumen tokens.
 
 ## 4. Quién puede operar
 

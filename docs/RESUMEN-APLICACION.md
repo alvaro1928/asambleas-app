@@ -26,6 +26,11 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - Editar y eliminar unidades.
 - Métricas en dashboard: total unidades, suma coeficientes, censo, distribución por tipo.
 
+**Asamblea de pruebas (sandbox)**
+- **Acceso:** En el Dashboard principal (botón "Probar en sandbox" junto a "Asambleas") o en la cabecera del listado de asambleas (`/dashboard/asambleas`). También con la URL `/dashboard/asambleas?demo=1` (se abre el modal automáticamente).
+- **Qué hace:** Crea una asamblea de demostración con datos de ejemplo (10 unidades, 2 preguntas, votación ya activada). **No consume tokens.** Permite explorar el Centro de Control, el enlace de votación y el acta sin compromiso.
+- **Restricciones:** En asambleas y unidades marcadas como demo no se pueden editar ni eliminar preguntas/unidades; el acta lleva la marca "BORRADOR DE PRUEBA — SIN VALIDEZ LEGAL". En reportes globales se excluyen las asambleas demo.
+
 **Asambleas**
 - **Listado de asambleas** (`/dashboard/asambleas`).
 - **Crear asamblea** (`/dashboard/asambleas/nueva`): nombre, descripción, fecha.
@@ -50,8 +55,8 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 
 **Dashboard principal**
 - Métricas: conjuntos, unidades, coeficientes, censo.
-- Enlaces rápidos a asambleas, unidades, conjuntos, configuración.
-- **Billetera de tokens por gestor:** el saldo (`tokens_disponibles`) está en el perfil del usuario (gestor), no por conjunto. **1 token = 1 unidad de vivienda.** Cada operación (Activar votación, Descarga de acta con auditoría, Registro de voto manual) consume tantos tokens como unidades tiene el conjunto. Si el gestor no tiene suficientes tokens, se bloquean esas acciones y se muestra CTA para comprar más. Los nuevos gestores reciben 50 tokens de bienvenida. Enlaces a pago/contacto en Super Admin → Ajustes.
+- Enlaces rápidos a asambleas, unidades, conjuntos, configuración, y **Probar en sandbox** (asamblea de demostración sin consumir tokens).
+- **Billetera de tokens por gestor:** el saldo (`tokens_disponibles`) está en el perfil del usuario (gestor), no por conjunto. **1 token = 1 unidad de vivienda.** Solo se consumen tokens **al activar una asamblea** (cobro único); después se puede generar el acta y registrar votos sin nuevo cobro. Si el gestor no tiene suficientes tokens al intentar activar, se muestra CTA para comprar más. Los nuevos gestores reciben un bono de bienvenida (ej. 50 tokens). Enlaces a pago/contacto en Super Admin → Ajustes.
 
 **Configuración**
 - Perfil de usuario y datos de la organización del conjunto activo (`/dashboard/configuracion`).
@@ -94,11 +99,11 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 
 ### 2.0 Modelo de negocio: Billetera de Tokens por Gestor
 
-- **Saldo:** `profiles.tokens_disponibles` (por usuario/gestor). El gestor usa su billetera en todos sus conjuntos.
-- **Equivalencia:** **1 token = 1 unidad de vivienda.** El costo de una operación en un conjunto = número de unidades de ese conjunto.
-- **Operaciones que consumen tokens:** Activar votación (cambiar asamblea a activa), Descarga de acta con auditoría, Registro de voto manual. Se bloquean si `tokens_gestor < unidades_del_conjunto`.
-- **Regalo de bienvenida:** cada nuevo gestor recibe 50 tokens al registrarse (trigger o default en `profiles`).
-- **Compra:** la pasarela debe usar referencia **`REF_<user_id>_<timestamp>`**; el webhook acredita 1 token en `profiles` del gestor.
+- **Saldo:** `profiles.tokens_disponibles` (por usuario/gestor). El gestor usa su billetera en todos sus conjuntos. El saldo mostrado es el **máximo** entre todas las filas de perfil del mismo usuario (billetera única).
+- **Equivalencia:** **1 token = 1 unidad de vivienda.** El costo al activar una asamblea = número de unidades del conjunto.
+- **Operación que consume tokens:** solo **activar la asamblea** (cambiar de borrador a activa). Es un cobro único; se marca `asambleas.pago_realizado = true` y a partir de ahí se puede generar el acta y registrar votos **sin nuevo cobro**. Las asambleas con `is_demo = true` no consumen tokens.
+- **Regalo de bienvenida:** cada nuevo gestor recibe un bono configurado (ej. 50 tokens) al registrarse (trigger o default en `profiles`).
+- **Compra:** la pasarela Wompi; el webhook acredita tokens en `profiles` del gestor según el pago aprobado.
 
 ### 2.1 Stack
 

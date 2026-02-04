@@ -25,8 +25,9 @@ Aplicación SaaS para asambleas de propiedades horizontales: votaciones, quórum
 
 ## Modelo de negocio (resumen)
 
-- **Tokens por cuenta:** cada cuenta (conjunto) tiene un saldo de tokens que se va descontando al crear o activar asambleas. Cuando se quedan sin tokens, compran más o actualizan a Plan Pro (ilimitado).
-- **Planes:** Gratis (2 tokens iniciales), Piloto (10, vigencia configurable), Pro (ilimitado, vigencia configurable). Precio por token/asamblea y ajustes de landing (color, WhatsApp) se configuran en **Super Admin → Ajustes** y en la tabla de **Planes**.
+- **Billetera de tokens por gestor:** el saldo está en el perfil del usuario (gestor), no por conjunto. **1 token = 1 unidad de vivienda.** El único cobro es **al activar una asamblea** (una vez por asamblea); después se puede generar el acta cuantas veces se quiera sin nuevo cobro. Sin tokens suficientes no se puede activar; el gestor puede comprar más desde la app (pasarela Wompi).
+- **Asamblea de pruebas (sandbox):** desde el Dashboard o el listado de Asambleas hay un botón **"Probar en sandbox"** que crea una asamblea de demostración con datos de ejemplo (10 unidades, 2 preguntas, activada). No consume tokens; el acta lleva marca de "BORRADOR DE PRUEBA — SIN VALIDEZ LEGAL". Sirve para explorar la plataforma sin compromiso.
+- **Planes y configuración:** Precio por token, bono de bienvenida y ajustes de landing (color, WhatsApp) se configuran en **Super Admin → Ajustes** y en la tabla **Planes**.
 
 ## Estructura del proyecto
 
