@@ -155,9 +155,17 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [precioProCop, setPrecioProCop] = useState<number | null>(null)
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null)
   const [sinTokensModalOpen, setSinTokensModalOpen] = useState(false)
+  const [cantidadCompraSinTokens, setCantidadCompraSinTokens] = useState(20)
   const [guiaModalOpen, setGuiaModalOpen] = useState(false)
   const [checkoutLoadingSinTokens, setCheckoutLoadingSinTokens] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+
+  const MIN_TOKENS_COMPRA = 20
+
+  // Al abrir el modal de sin tokens, prellenar cantidad sugerida (necesaria para esta asamblea o 20)
+  useEffect(() => {
+    if (sinTokensModalOpen) setCantidadCompraSinTokens(Math.max(MIN_TOKENS_COMPRA, costoOperacion))
+  }, [sinTokensModalOpen])
 
   // Preguntas archivadas: sección colapsable
   const [showPreguntasArchivadas, setShowPreguntasArchivadas] = useState(false)
@@ -2665,7 +2673,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Sin tokens al activar / generar acta — CTA usa checkout API (monto recalculado en backend) */}
+      {/* Modal: Sin tokens al activar / generar acta — CTA usa checkout API; cantidad editable (mín. 20) */}
       <Dialog open={sinTokensModalOpen} onOpenChange={setSinTokensModalOpen}>
         <DialogContent className="max-w-lg rounded-3xl">
           <DialogHeader>
@@ -2676,39 +2684,62 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           </DialogHeader>
           <div className="mt-4 flex flex-col gap-4">
             {userId ? (
-              <button
-                type="button"
-                disabled={checkoutLoadingSinTokens}
-                onClick={async () => {
-                  setCheckoutLoadingSinTokens(true)
-                  try {
-                    const cantidad = Math.max(20, costoOperacion)
-                    const res = await fetch('/api/pagos/checkout-url', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        user_id: userId,
-                        conjunto_id: asamblea?.organization_id ?? undefined,
-                        cantidad_tokens: cantidad,
-                      }),
-                    })
-                    const data = await res.json().catch(() => ({}))
-                    if (res.ok && data?.url) {
-                      setSinTokensModalOpen(false)
-                      window.location.href = data.url
-                    } else {
-                      toast.error(data?.error ?? 'Error al generar enlace de pago')
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad de tokens (mín. {MIN_TOKENS_COMPRA})</label>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder={`Mín. ${MIN_TOKENS_COMPRA}`}
+                    value={cantidadCompraSinTokens === 0 ? '' : cantidadCompraSinTokens}
+                    onChange={(e) => {
+                      if (e.target.value === '') {
+                        setCantidadCompraSinTokens(0)
+                        return
+                      }
+                      const v = parseInt(e.target.value, 10)
+                      setCantidadCompraSinTokens(Number.isNaN(v) ? 0 : Math.max(0, v))
+                    }}
+                    className="w-full rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-gray-100"
+                  />
+                  {cantidadCompraSinTokens > 0 && cantidadCompraSinTokens < MIN_TOKENS_COMPRA && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Mínimo {MIN_TOKENS_COMPRA} tokens para comprar</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={checkoutLoadingSinTokens || cantidadCompraSinTokens < MIN_TOKENS_COMPRA}
+                  onClick={async () => {
+                    setCheckoutLoadingSinTokens(true)
+                    try {
+                      const cantidad = Math.max(MIN_TOKENS_COMPRA, cantidadCompraSinTokens)
+                      const res = await fetch('/api/pagos/checkout-url', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          user_id: userId,
+                          conjunto_id: asamblea?.organization_id ?? undefined,
+                          cantidad_tokens: cantidad,
+                        }),
+                      })
+                      const data = await res.json().catch(() => ({}))
+                      if (res.ok && data?.url) {
+                        setSinTokensModalOpen(false)
+                        window.location.href = data.url
+                      } else {
+                        toast.error(data?.error ?? 'Error al generar enlace de pago')
+                      }
+                    } catch {
+                      toast.error('Error al generar enlace de pago')
+                    } finally {
+                      setCheckoutLoadingSinTokens(false)
                     }
-                  } catch {
-                    toast.error('Error al generar enlace de pago')
-                  } finally {
-                    setCheckoutLoadingSinTokens(false)
-                  }
-                }}
-                className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-3xl text-white text-base font-semibold hover:opacity-90 transition-opacity disabled:opacity-70 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-              >
-                {checkoutLoadingSinTokens ? 'Generando enlace...' : `Comprar ${Math.max(20, costoOperacion)} tokens ahora`}
-              </button>
+                  }}
+                  className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-3xl text-white text-base font-semibold hover:opacity-90 transition-opacity disabled:opacity-70 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                >
+                  {checkoutLoadingSinTokens ? 'Generando enlace...' : `Comprar ${Math.max(MIN_TOKENS_COMPRA, cantidadCompraSinTokens)} tokens ahora`}
+                </button>
+              </>
             ) : (
               <span className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-3xl bg-slate-200 dark:bg-slate-700 text-slate-500 text-base font-semibold cursor-not-allowed">
                 Inicia sesión para comprar tokens.
