@@ -318,7 +318,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       // Cargar estadísticas y quórum (pasamos preguntas recién cargadas: setState es async y loadEstadisticas usa preguntas)
       await loadEstadisticas(preguntasData || [])
-      await loadQuorum()
+      await loadQuorum(asambleaData)
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -382,12 +382,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
-  const loadQuorum = async () => {
+  const loadQuorum = async (asambleaOverride?: { is_demo?: boolean } | null) => {
     try {
       const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
       if (!selectedConjuntoId) return
 
-      // Intentar usar la función RPC
+      // Intentar usar la función RPC (excluye unidades demo en asambleas reales)
       const { data: rpcData, error: rpcError } = await supabase.rpc('calcular_quorum_asamblea', {
         p_asamblea_id: params.id
       })
@@ -398,31 +398,32 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       }
 
       // Si falla la función RPC (no existe aún), calcular manualmente
+      const isDemo = asambleaOverride?.is_demo ?? asamblea?.is_demo
+      const soloUnidadesDemo = isDemo === true
 
-      // Obtener total de unidades del conjunto
+      // Obtener total de unidades del conjunto (solo reales o solo demo, según la asamblea)
       const { data: unidadesData } = await supabase
         .from('unidades')
         .select('id, coeficiente')
         .eq('organization_id', selectedConjuntoId)
+        .eq('is_demo', soloUnidadesDemo)
 
       const totalUnidades = unidadesData?.length || 0
       const coeficienteTotal = unidadesData?.reduce((sum, u) => sum + u.coeficiente, 0) || 0
+      const idsUnidadesValidas = new Set(unidadesData?.map(u => u.id) || [])
 
-      // Obtener unidades que han votado
+      // Obtener unidades que han votado (solo contar votos de unidades del mismo tipo: reales o demo)
       const { data: votosData } = await supabase
         .from('votos')
         .select('unidad_id, unidades!inner(coeficiente)')
         .in('pregunta_id', preguntas.map(p => p.id))
 
-      const unidadesVotantesSet = new Set(votosData?.map(v => v.unidad_id) || [])
+      const votosFiltrados = (votosData || []).filter((v: any) => idsUnidadesValidas.has(v.unidad_id))
+      const unidadesVotantesSet = new Set(votosFiltrados.map((v: { unidad_id: string }) => v.unidad_id))
       const unidadesVotantes = unidadesVotantesSet.size
 
-      const coeficienteVotante = votosData?.reduce((sum: number, v: any) => {
-        if (unidadesVotantesSet.has(v.unidad_id)) {
-          return sum + (v.unidades?.coeficiente || 0)
-        }
-        return sum
-      }, 0) || 0
+      const mapaCoef = new Map((unidadesData || []).map(u => [u.id, u.coeficiente]))
+      const coeficienteVotante = Array.from(unidadesVotantesSet).reduce((sum, uid) => sum + (mapaCoef.get(uid) ?? 0), 0)
 
       const porcentajeNominal = totalUnidades > 0 ? (unidadesVotantes / totalUnidades) * 100 : 0
       const porcentajeCoeficiente = coeficienteTotal > 0 ? (coeficienteVotante / coeficienteTotal) * 100 : 0
