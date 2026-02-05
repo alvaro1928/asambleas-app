@@ -180,8 +180,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   // Enviar enlace a cada unidad (WhatsApp o correo por separado)
   const [showModalEnviarEnlace, setShowModalEnviarEnlace] = useState(false)
-  const [unidadesParaEnvio, setUnidadesParaEnvio] = useState<Array<{ id: string; torre: string; numero: string; email_propietario?: string | null; telefono_propietario?: string | null }>>([])
+  const [unidadesParaEnvio, setUnidadesParaEnvio] = useState<Array<{ id: string; torre: string; numero: string; email_propietario?: string | null; telefono_propietario?: string | null; email?: string | null; telefono?: string | null }>>([])
   const [loadingUnidadesEnvio, setLoadingUnidadesEnvio] = useState(false)
+
+  const [billeteraColapsada, setBilleteraColapsada] = useState(true)
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -605,7 +607,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     try {
       const { data } = await supabase
         .from('unidades')
-        .select('id, torre, numero, email_propietario, telefono_propietario')
+        .select('id, torre, numero, email_propietario, telefono_propietario, email, telefono')
         .eq('organization_id', asamblea.organization_id)
         .order('torre')
         .order('numero')
@@ -1421,95 +1423,50 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Columna izquierda en desktop; en móvil se muestra después de Preguntas (votos arriba) */}
           <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
-            {/* Billetera de tokens — siempre visible en detalle de asamblea */}
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2h-2m-4-1V7a2 2 0 012-2h2a2 2 0 012 2v1M11 14l2 2 4-4" />
-                </svg>
-                Billetera de tokens
-              </h2>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Saldo:</span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300">
-                    {tokensDisponibles} tokens
-                  </span>
-                </div>
-                {costoOperacion > 0 && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Costo al activar la asamblea (una vez): <strong>{costoOperacion} tokens</strong>. Luego puedes generar el acta sin nuevo cobro.
+            {/* Billetera de tokens — colapsada por defecto */}
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setBilleteraColapsada((v) => !v)}
+                className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              >
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2h-2m-4-1V7a2 2 0 012-2h2a2 2 0 012 2v1M11 14l2 2 4-4" />
+                  </svg>
+                  Billetera de tokens
+                </h2>
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300">
+                  {tokensDisponibles} tokens
+                </span>
+                {billeteraColapsada ? <ChevronDown className="w-5 h-5 text-gray-500" /> : <ChevronUp className="w-5 h-5 text-gray-500" />}
+              </button>
+              {!billeteraColapsada && (
+                <div className="px-6 pb-6 pt-0 space-y-3 border-t border-gray-100 dark:border-gray-700">
+                  {costoOperacion > 0 && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Costo al activar la asamblea (una vez): <strong>{costoOperacion} tokens</strong>. Luego puedes generar el acta sin nuevo cobro.
+                    </p>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`w-full ${costoOperacion > 0 && tokensDisponibles < costoOperacion ? 'border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400' : ''}`}
+                    onClick={() => setSinTokensModalOpen(true)}
+                    title="Comprar más tokens para tu billetera"
+                  >
+                    Comprar tokens
+                  </Button>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 pt-1 border-t border-gray-100 dark:border-gray-700 mt-3">
+                    <strong>Guía:</strong> Los tokens se cobran <strong>una sola vez al activar la asamblea</strong>; eso habilita generar el acta cuantas veces quieras.
                   </p>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`w-full ${costoOperacion > 0 && tokensDisponibles < costoOperacion ? 'border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400' : ''}`}
-                  onClick={() => setSinTokensModalOpen(true)}
-                  title="Comprar más tokens para tu billetera"
-                >
-                  Comprar tokens
-                </Button>
-                <p className="text-xs text-gray-500 dark:text-gray-400 pt-1 border-t border-gray-100 dark:border-gray-700 mt-3">
-                  <strong>Guía:</strong> Los tokens se cobran <strong>una sola vez al activar la asamblea</strong>; eso habilita generar el acta cuantas veces quieras. Crear preguntas, importar unidades y registrar votos no gasta tokens.
-                </p>
-              </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-                Información
-              </h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Fecha y Hora</p>
-                  <div className="flex items-center text-sm text-gray-900 dark:text-white">
-                    <Calendar className="w-4 h-4 mr-2 text-indigo-600" />
-                    {formatFecha(asamblea.fecha)}
-                  </div>
-                </div>
-
-                {asamblea.descripcion && (
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Descripción</p>
-                    <p className="text-sm text-gray-700 dark:text-gray-300">
-                      {asamblea.descripcion}
-                    </p>
-                  </div>
-                )}
-
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Estado</p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 capitalize">
-                    {asamblea.estado}
-                  </p>
-                </div>
-              </div>
-
-              {/* Botón de Gestión de Poderes */}
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <Link
-                  href={`/dashboard/asambleas/${params.id}/poderes`}
-                  className="block w-full"
-                >
-                  <Button
-                    variant="outline"
-                    className="w-full bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 hover:from-purple-100 hover:to-indigo-100 dark:hover:from-purple-900/30 dark:hover:to-indigo-900/30 border-purple-200 dark:border-purple-800"
-                  >
-                    <Users className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
-                    <span className="text-purple-900 dark:text-purple-100 font-semibold">
-                      Gestión de Poderes
-                    </span>
-                  </Button>
-                </Link>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                  Administra quién vota en representación de otros
-                </p>
-              </div>
-
-              {/* Panel de Código de Acceso y URL */}
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              {/* 1. Acceso Público (arriba) */}
+              <div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
                   <LinkIcon className="w-4 h-4 mr-2" />
                   Acceso Público
@@ -1564,25 +1521,15 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     {/* Botones de Acción */}
                     <div className="grid grid-cols-2 gap-2">
                       <Button
-                        onClick={handleCompartirWhatsApp}
+                        onClick={openModalEnviarEnlace}
                         className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
                         size="sm"
-                        title="Compartir el enlace de votación por WhatsApp"
-                      >
-                        <Share2 className="w-4 h-4 mr-1" />
-                        WhatsApp
-                      </Button>
-                      <Button
-                        onClick={openModalEnviarEnlace}
-                        variant="outline"
-                        size="sm"
-                        className="border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20"
                         title="Enviar el enlace por WhatsApp o correo a cada unidad por separado (no se ven entre sí)"
                       >
                         <MessageCircle className="w-4 h-4 mr-1" />
                         Enviar a cada uno
                       </Button>
-                      <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="col-span-2 w-full" title="Ver código QR para que los residentes escaneen y voten">
+                      <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="w-full" title="Ver código QR para que los residentes escaneen y voten">
                         <Button
                           variant="outline"
                           size="sm"
@@ -1593,6 +1540,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                           Ver QR
                         </Button>
                       </Link>
+                      <div className="col-span-2" />
                     </div>
                     
                     <Button
@@ -1610,6 +1558,45 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     </p>
                   </div>
                 )}
+              </div>
+
+              {/* 2. Gestión de Poderes */}
+              <div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                  <Users className="w-4 h-4 mr-2" />
+                  Gestión de Poderes
+                </h3>
+                <Link href={`/dashboard/asambleas/${params.id}/poderes`} className="block" title="Administrar poderes y representación">
+                  <Button
+                    variant="outline"
+                    className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white border-0"
+                    size="lg"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Gestión de Poderes
+                  </Button>
+                </Link>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                  Administra quién vota en representación de otros
+                </p>
+              </div>
+
+              {/* 3. Información (abajo) */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Información
+                </h3>
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-500 shrink-0" />
+                    {asamblea.fecha ? formatFecha(asamblea.fecha) : '—'}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Estado:</span>
+                    {getEstadoBadge(asamblea.estado)}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2555,24 +2542,27 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   </h3>
                   <ul className="space-y-1.5 max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 p-2">
                     {unidadesParaEnvio
-                      .filter((u) => u.telefono_propietario?.trim())
-                      .map((u) => (
-                        <li key={u.id} className="flex items-center justify-between gap-2 text-sm">
-                          <span className="truncate text-gray-700 dark:text-gray-300">
-                            {u.torre ? `${u.torre} - ` : ''}{u.numero}
-                            {u.telefono_propietario ? ` · ${u.telefono_propietario}` : ''}
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="shrink-0 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400"
-                            onClick={() => abrirWhatsAppUnidad(u.telefono_propietario!)}
-                          >
-                            WhatsApp
-                          </Button>
-                        </li>
-                      ))}
-                    {unidadesParaEnvio.filter((u) => u.telefono_propietario?.trim()).length === 0 && (
+                      .filter((u) => (u.telefono_propietario || u.telefono)?.trim())
+                      .map((u) => {
+                        const tel = (u.telefono_propietario || u.telefono)?.trim() ?? ''
+                        return (
+                          <li key={u.id} className="flex items-center justify-between gap-2 text-sm">
+                            <span className="truncate text-gray-700 dark:text-gray-300">
+                              {u.torre ? `${u.torre} - ` : ''}{u.numero}
+                              {tel ? ` · ${tel}` : ''}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="shrink-0 border-green-300 dark:border-green-700 text-green-700 dark:text-green-400"
+                              onClick={() => abrirWhatsAppUnidad(tel)}
+                            >
+                              WhatsApp
+                            </Button>
+                          </li>
+                        )
+                      })}
+                    {unidadesParaEnvio.filter((u) => (u.telefono_propietario || u.telefono)?.trim()).length === 0 && (
                       <li className="text-gray-500 dark:text-gray-400 text-sm py-2">No hay unidades con teléfono registrado.</li>
                     )}
                   </ul>
@@ -2584,24 +2574,27 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   </h3>
                   <ul className="space-y-1.5 max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 p-2">
                     {unidadesParaEnvio
-                      .filter((u) => u.email_propietario?.trim())
-                      .map((u) => (
-                        <li key={u.id} className="flex items-center justify-between gap-2 text-sm">
-                          <span className="truncate text-gray-700 dark:text-gray-300">
-                            {u.torre ? `${u.torre} - ` : ''}{u.numero}
-                            {u.email_propietario ? ` · ${u.email_propietario}` : ''}
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="shrink-0 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400"
-                            onClick={() => abrirCorreoUnidad(u.email_propietario!)}
-                          >
-                            Correo
-                          </Button>
-                        </li>
-                      ))}
-                    {unidadesParaEnvio.filter((u) => u.email_propietario?.trim()).length === 0 && (
+                      .filter((u) => (u.email_propietario || u.email)?.trim())
+                      .map((u) => {
+                        const email = (u.email_propietario || u.email)?.trim() ?? ''
+                        return (
+                          <li key={u.id} className="flex items-center justify-between gap-2 text-sm">
+                            <span className="truncate text-gray-700 dark:text-gray-300">
+                              {u.torre ? `${u.torre} - ` : ''}{u.numero}
+                              {email ? ` · ${email}` : ''}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="shrink-0 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400"
+                              onClick={() => abrirCorreoUnidad(email)}
+                            >
+                              Correo
+                            </Button>
+                          </li>
+                        )
+                      })}
+                    {unidadesParaEnvio.filter((u) => (u.email_propietario || u.email)?.trim()).length === 0 && (
                       <li className="text-gray-500 dark:text-gray-400 text-sm py-2">No hay unidades con correo registrado.</li>
                     )}
                   </ul>
