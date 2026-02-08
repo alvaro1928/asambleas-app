@@ -108,6 +108,39 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load when id changes
   }, [params.id])
 
+  // Auto-fill: al seleccionar unidad otorgante o receptora, buscar datos en BD y autorrellenar Email, Nombre, Coeficiente
+  useEffect(() => {
+    if (!selectedOtorgante?.id) return
+    let cancelled = false
+    supabase
+      .from('unidades')
+      .select('id, numero, torre, coeficiente, nombre_propietario, email_propietario, email')
+      .eq('id', selectedOtorgante.id)
+      .single()
+      .then(({ data }) => {
+        if (cancelled || !data) return
+        setSelectedOtorgante((prev) => (prev ? { ...prev, ...data, coeficiente: Number(data.coeficiente) || 0 } : null))
+      })
+    return () => { cancelled = true }
+  }, [selectedOtorgante?.id])
+
+  useEffect(() => {
+    if (!selectedReceptor?.id) return
+    let cancelled = false
+    supabase
+      .from('unidades')
+      .select('id, numero, torre, coeficiente, nombre_propietario, email_propietario, email')
+      .eq('id', selectedReceptor.id)
+      .single()
+      .then(({ data }) => {
+        if (cancelled || !data) return
+        const u = data as { nombre_propietario?: string; email_propietario?: string; email?: string }
+        setEmailReceptor(u.email_propietario ?? u.email ?? '')
+        setNombreReceptor(u.nombre_propietario ?? '')
+      })
+    return () => { cancelled = true }
+  }, [selectedReceptor?.id])
+
   const loadData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()

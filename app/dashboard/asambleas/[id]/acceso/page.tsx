@@ -479,7 +479,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 flex flex-col items-center">
-                <div className="bg-white p-4 rounded-3xl shadow-inner border border-gray-100 mb-4">
+                <div className="bg-white p-4 rounded-3xl shadow-inner border border-gray-100 mb-4" role="img" aria-label="Código QR de acceso a la votación">
                   {urlPublica && (
                     <QRCodeSVG value={urlPublica} size={180} level="H" includeMargin />
                   )}

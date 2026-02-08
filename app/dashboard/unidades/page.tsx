@@ -16,7 +16,8 @@ import {
   X,
   Save,
   AlertTriangle,
-  HelpCircle
+  HelpCircle,
+  Plus
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +27,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useToast } from '@/components/providers/ToastProvider'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
+import { sumaCoeficientesValida, rangoCoeficientesAceptado } from '@/lib/coeficientes'
 import {
   Table,
   TableBody,
@@ -77,6 +79,22 @@ function UnidadesPageContent() {
   // Estados para conjunto
   const [conjuntoName, setConjuntoName] = useState('')
   const [guiaModalOpen, setGuiaModalOpen] = useState(false)
+
+  // Añadir unidad manual (formulario)
+  const [showAddUnidad, setShowAddUnidad] = useState(false)
+  const [newUnidad, setNewUnidad] = useState({
+    torre: '',
+    numero: '',
+    coeficiente: 0,
+    tipo: 'apartamento',
+    nombre_propietario: '',
+    email: '',
+    telefono: '',
+  })
+  const [adding, setAdding] = useState(false)
+
+  const totalCoeficientes = unidades.reduce((sum, u) => sum + u.coeficiente, 0)
+  const coeficientesCorrecto = sumaCoeficientesValida(totalCoeficientes)
 
   useEffect(() => {
     // Si llegamos desde la asamblea con conjunto_id, usar ese conjunto para mostrar sus unidades
@@ -255,6 +273,51 @@ function UnidadesPageContent() {
     }
   }
 
+  const handleAddUnidad = async () => {
+    const selectedConjuntoId = typeof window !== 'undefined' ? localStorage.getItem('selectedConjuntoId') : null
+    if (!selectedConjuntoId) {
+      toast.error('Selecciona un conjunto primero')
+      return
+    }
+    if (!newUnidad.numero?.trim()) {
+      toast.error('El número de unidad es obligatorio')
+      return
+    }
+    const coef = Number(newUnidad.coeficiente)
+    if (isNaN(coef) || coef <= 0) {
+      toast.error('Coeficiente debe ser un número mayor que 0')
+      return
+    }
+    setAdding(true)
+    try {
+      const { data, error } = await supabase
+        .from('unidades')
+        .insert({
+          organization_id: selectedConjuntoId,
+          torre: newUnidad.torre.trim() || null,
+          numero: newUnidad.numero.trim(),
+          coeficiente: coef,
+          tipo: (newUnidad.tipo || 'apartamento').toLowerCase(),
+          nombre_propietario: newUnidad.nombre_propietario.trim() || null,
+          email: newUnidad.email.trim() || null,
+          telefono: newUnidad.telefono.trim() || null,
+        })
+        .select('id, torre, numero, coeficiente, tipo, nombre_propietario, email, telefono, is_demo')
+        .single()
+
+      if (error) throw error
+      if (data) setUnidades((prev) => [...prev, data as Unidad])
+      setShowAddUnidad(false)
+      setNewUnidad({ torre: '', numero: '', coeficiente: 0, tipo: 'apartamento', nombre_propietario: '', email: '', telefono: '' })
+      toast.success('Unidad añadida')
+    } catch (error: any) {
+      console.error('Error adding unidad:', error)
+      toast.error(error?.message || 'Error al añadir la unidad')
+    } finally {
+      setAdding(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -298,16 +361,41 @@ function UnidadesPageContent() {
                   </Button>
                 </Link>
               )}
+              <Button
+                variant="outline"
+                onClick={() => setShowAddUnidad(true)}
+                className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400"
+              >
+                <Plus className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Añadir unidad</span>
+              </Button>
               <Link href="/dashboard/unidades/importar">
                 <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
-                  <Upload className="w-4 h-4 mr-2" />
-                  Importar Unidades
+                  <Upload className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Importar Unidades</span>
                 </Button>
               </Link>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Sticky bar: suma de coeficientes (Ley 675 = 100%) */}
+      {unidades.length > 0 && (
+        <div
+          className={`sticky top-0 z-10 px-4 py-3 text-center text-sm font-medium shadow-sm ${
+            coeficientesCorrecto
+              ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border-b border-green-200 dark:border-green-800'
+              : 'bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 border-b border-amber-200 dark:border-amber-800'
+          }`}
+        >
+          {coeficientesCorrecto ? (
+            <span>Suma de coeficientes: <strong>{totalCoeficientes.toFixed(2)}%</strong> ✓ Dentro del rango ({rangoCoeficientesAceptado()})</span>
+          ) : (
+            <span>Atención: La suma actual es <strong>{totalCoeficientes.toFixed(2)}%</strong>. Debe ser 100% (rango {rangoCoeficientesAceptado()}) para activar la asamblea.</span>
+          )}
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -422,7 +510,7 @@ function UnidadesPageContent() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end space-x-2">
+                          <div className="flex flex-wrap justify-end gap-2">
                             <Button
                               variant="outline"
                               size="sm"
@@ -583,6 +671,108 @@ function UnidadesPageContent() {
                 </>
               )}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Añadir Unidad */}
+      <Dialog open={showAddUnidad} onOpenChange={setShowAddUnidad}>
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader>
+            <DialogTitle>Añadir unidad</DialogTitle>
+            <DialogDescription>
+              Registra una unidad manualmente. Número y coeficiente son obligatorios.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="new-torre">Torre</Label>
+                <Input
+                  id="new-torre"
+                  value={newUnidad.torre}
+                  onChange={(e) => setNewUnidad({ ...newUnidad, torre: e.target.value })}
+                  placeholder="A, 1..."
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="new-numero">Número <span className="text-red-500">*</span></Label>
+                <Input
+                  id="new-numero"
+                  value={newUnidad.numero}
+                  onChange={(e) => setNewUnidad({ ...newUnidad, numero: e.target.value })}
+                  placeholder="101"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="new-coeficiente">Coeficiente (%) <span className="text-red-500">*</span></Label>
+              <Input
+                id="new-coeficiente"
+                type="number"
+                min={0}
+                step={0.01}
+                value={newUnidad.coeficiente || ''}
+                onChange={(e) => setNewUnidad({ ...newUnidad, coeficiente: parseFloat(e.target.value) || 0 })}
+                placeholder="10.5"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="new-tipo">Tipo</Label>
+              <Select
+                id="new-tipo"
+                value={newUnidad.tipo}
+                onChange={(e) => setNewUnidad({ ...newUnidad, tipo: e.target.value })}
+              >
+                <option value="apartamento">Apartamento</option>
+                <option value="casa">Casa</option>
+                <option value="local">Local</option>
+                <option value="otro">Otro</option>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="new-propietario">Nombre del propietario</Label>
+              <Input
+                id="new-propietario"
+                value={newUnidad.nombre_propietario}
+                onChange={(e) => setNewUnidad({ ...newUnidad, nombre_propietario: e.target.value })}
+                placeholder="Juan Pérez"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="new-email">Email</Label>
+              <Input
+                id="new-email"
+                type="email"
+                value={newUnidad.email}
+                onChange={(e) => setNewUnidad({ ...newUnidad, email: e.target.value })}
+                placeholder="correo@ejemplo.com"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="new-telefono">Teléfono</Label>
+              <Input
+                id="new-telefono"
+                type="tel"
+                value={newUnidad.telefono}
+                onChange={(e) => setNewUnidad({ ...newUnidad, telefono: e.target.value })}
+                placeholder="3001234567"
+                className="mt-1"
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={() => setShowAddUnidad(false)} disabled={adding} className="flex-1">
+                Cancelar
+              </Button>
+              <Button onClick={handleAddUnidad} disabled={adding || !newUnidad.numero?.trim()} className="flex-1 bg-indigo-600 hover:bg-indigo-700">
+                {adding ? 'Añadiendo...' : 'Añadir'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -193,6 +193,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const [billeteraColapsada, setBilleteraColapsada] = useState(true)
 
+  // Edición de fecha (solo borrador o activa; doble confirmación)
+  const [showEditFechaModal, setShowEditFechaModal] = useState(false)
+  const [editFechaValue, setEditFechaValue] = useState('')
+  const [showConfirmFechaModal, setShowConfirmFechaModal] = useState(false)
+  const [savingFecha, setSavingFecha] = useState(false)
+  const puedeEditarFecha = asamblea && (asamblea.estado === 'borrador' || asamblea.estado === 'activa')
+
+  // Guía de paneles (Quórum, Preguntas, Poderes)
+  const [showGuiaAsambleaModal, setShowGuiaAsambleaModal] = useState(false)
+
   // Cargar datos iniciales
   useEffect(() => {
     loadData()
@@ -1095,6 +1105,31 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
+  const openEditFechaModal = () => {
+    if (!asamblea?.fecha) return
+    const d = new Date(asamblea.fecha)
+    setEditFechaValue(d.toISOString().slice(0, 10))
+    setShowEditFechaModal(true)
+  }
+
+  const handleConfirmarCambioFecha = async () => {
+    if (!asamblea || !editFechaValue.trim()) return
+    setSavingFecha(true)
+    try {
+      const fechaHora = `${editFechaValue}T10:00:00`
+      const { error } = await supabase.from('asambleas').update({ fecha: fechaHora }).eq('id', asamblea.id)
+      if (error) throw error
+      setAsamblea({ ...asamblea, fecha: fechaHora })
+      setShowConfirmFechaModal(false)
+      setShowEditFechaModal(false)
+      toast.success('Fecha actualizada')
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al actualizar la fecha')
+    } finally {
+      setSavingFecha(false)
+    }
+  }
+
   const formatFecha = (fecha: string) => {
     return new Date(fecha).toLocaleDateString('es-CO', {
       year: 'numeric',
@@ -1228,7 +1263,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 title="Guía: tokens y funcionalidades"
               >
                 <HelpCircle className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                Guía
+                <span className="hidden sm:inline">Guía tokens</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowGuiaAsambleaModal(true)}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
+                title="Qué hace cada panel: Quórum, Preguntas, Poderes"
+              >
+                <Users className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                <span className="hidden sm:inline">Guía paneles</span>
               </button>
               {getEstadoBadge(asamblea.estado)}
               {asamblea.estado === 'borrador' && (
@@ -1473,6 +1517,57 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               )}
             </div>
 
+            {/* Panel de Credenciales de Prueba (solo Sandbox) */}
+            {isDemo && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-3xl shadow-lg border border-amber-200 dark:border-amber-800 overflow-hidden">
+                <div className="p-4 border-b border-amber-200 dark:border-amber-800">
+                  <h2 className="text-base font-bold text-amber-900 dark:text-amber-100 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    Credenciales de Prueba
+                  </h2>
+                  <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
+                    Usa estos correos en el login de votación para simular votantes (copia y pega).
+                  </p>
+                </div>
+                <div className="overflow-x-auto max-h-56 overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-amber-100/50 dark:bg-amber-900/30 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-amber-900 dark:text-amber-100">#</th>
+                        <th className="px-3 py-2 text-left font-semibold text-amber-900 dark:text-amber-100">Correo</th>
+                        <th className="px-3 py-2 w-16 text-right font-semibold text-amber-900 dark:text-amber-100">Copiar</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-200 dark:divide-amber-800">
+                      {Array.from({ length: 10 }, (_, i) => {
+                        const email = `test${i + 1}@asambleas.online`
+                        return (
+                          <tr key={email} className="hover:bg-amber-100/30 dark:hover:bg-amber-900/20">
+                            <td className="px-3 py-2 text-amber-800 dark:text-amber-200">{i + 1}</td>
+                            <td className="px-3 py-2 font-mono text-amber-900 dark:text-amber-100">{email}</td>
+                            <td className="px-3 py-2 text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-amber-700 dark:text-amber-300 hover:bg-amber-200/50 dark:hover:bg-amber-800/50"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(email)
+                                  toast.success('Correo copiado')
+                                }}
+                                title="Copiar correo"
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
               {/* 1. Acceso Público (arriba) */}
               <div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
@@ -1597,9 +1692,20 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   Información
                 </h3>
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <p className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2 flex-wrap">
                     <Calendar className="w-4 h-4 text-gray-500 shrink-0" />
                     {asamblea.fecha ? formatFecha(asamblea.fecha) : '—'}
+                    {puedeEditarFecha && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-indigo-600 dark:text-indigo-400"
+                        onClick={openEditFechaModal}
+                        title="Cambiar fecha de la asamblea"
+                      >
+                        Editar fecha
+                      </Button>
+                    )}
                   </p>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 dark:text-gray-400">Estado:</span>
@@ -1770,7 +1876,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                             </p>
                           )}
                         </div>
-                        <div className="flex items-center space-x-2 ml-4">
+                        <div className="flex flex-wrap items-center gap-2 ml-2 sm:ml-4 shrink-0">
                           <Button
                             variant="outline"
                             size="sm"
@@ -1922,16 +2028,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                       )}
 
                       {/* Controles de estado: en sandbox se permite abrir/cerrar/reabrir; no editar ni eliminar */}
-                      <div className="flex items-center space-x-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                         {pregunta.estado === 'pendiente' && (
                           <Button
                             size="sm"
                             onClick={() => handleChangeEstadoPregunta(pregunta.id, 'abierta')}
                             className="bg-green-600 hover:bg-green-700"
-                            title="Abrir votación para esta pregunta"
+                            title="Abrir pregunta para votar"
                           >
                             <Play className="w-3 h-3 mr-1" />
-                            Abrir Votación
+                            Abrir Pregunta
                           </Button>
                         )}
                         {pregunta.estado === 'abierta' && (
@@ -1939,25 +2045,25 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                             size="sm"
                             onClick={() => handleChangeEstadoPregunta(pregunta.id, 'cerrada')}
                             className="bg-blue-600 hover:bg-blue-700"
-                            title="Cerrar votación"
+                            title="Cerrar esta pregunta (no se podrán emitir más votos)"
                           >
                             <X className="w-3 h-3 mr-1" />
-                            Cerrar Votación
+                            Cerrar Pregunta
                           </Button>
                         )}
                         {pregunta.estado === 'cerrada' && (
-                          <div className="flex items-center space-x-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => handleChangeEstadoPregunta(pregunta.id, 'abierta')}
-                              title="Reabrir votación"
+                              title="Reabrir pregunta"
                             >
                               <Play className="w-3 h-3 mr-1" />
-                              Reabrir
+                              Reabrir Pregunta
                             </Button>
                             <span className="text-xs text-gray-500 dark:text-gray-400">
-                              • Votación finalizada
+                              • Pregunta cerrada
                             </span>
                           </div>
                         )}
@@ -2751,6 +2857,118 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal: Editar fecha (paso 1) — solo borrador/activa */}
+      <Dialog open={showEditFechaModal} onOpenChange={setShowEditFechaModal}>
+        <DialogContent className="max-w-sm rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+              <Calendar className="w-5 h-5" />
+              Cambiar fecha de la asamblea
+            </DialogTitle>
+            <DialogDescription>
+              La nueva fecha se aplicará a la asamblea. Deberás confirmar el cambio en el siguiente paso.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-4">
+            <Label htmlFor="edit-fecha-input">Nueva fecha</Label>
+            <Input
+              id="edit-fecha-input"
+              type="date"
+              value={editFechaValue}
+              onChange={(e) => setEditFechaValue(e.target.value)}
+              className="w-full"
+            />
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" onClick={() => setShowEditFechaModal(false)} className="flex-1">
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowEditFechaModal(false)
+                  setShowConfirmFechaModal(true)
+                }}
+                disabled={!editFechaValue.trim()}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+              >
+                Continuar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Confirmar cambio de fecha (paso 2 — doble confirmación) */}
+      <Dialog open={showConfirmFechaModal} onOpenChange={setShowConfirmFechaModal}>
+        <DialogContent className="max-w-sm rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>¿Confirmar cambio de fecha?</DialogTitle>
+            <DialogDescription>
+              La fecha de la asamblea pasará a: <strong>{editFechaValue ? new Date(editFechaValue + 'T10:00:00').toLocaleDateString('es-CO', { dateStyle: 'long' }) : ''}</strong>. ¿Deseas guardar este cambio?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex gap-3">
+            <Button variant="outline" onClick={() => setShowConfirmFechaModal(false)} className="flex-1">
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmarCambioFecha}
+              disabled={savingFecha || !editFechaValue.trim()}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+            >
+              {savingFecha ? 'Guardando…' : 'Sí, guardar'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Guía de paneles (Quórum, Preguntas, Poderes) — onboarding asamblea */}
+      <Dialog open={showGuiaAsambleaModal} onOpenChange={setShowGuiaAsambleaModal}>
+        <DialogContent className="max-w-lg rounded-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+              <HelpCircle className="w-5 h-5 text-indigo-500" />
+              Guía de esta asamblea
+            </DialogTitle>
+            <DialogDescription>
+              Qué hace cada sección del panel de control
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-2 text-sm text-gray-700 dark:text-gray-300">
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Users className="w-4 h-4 text-indigo-500" />
+                Quórum y participación
+              </h4>
+              <p className="mt-1">
+                Muestra en tiempo real cuántas unidades han votado y el coeficiente acumulado (Ley 675). Necesitas al menos 50% del coeficiente para alcanzar quórum.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-indigo-500" />
+                Preguntas de votación
+              </h4>
+              <p className="mt-1">
+                Aquí creas y gestionas las preguntas. Puedes abrir o cerrar cada pregunta para que los residentes voten. Los resultados se actualizan en vivo.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <LinkIcon className="w-4 h-4 text-indigo-500" />
+                Gestión de poderes
+              </h4>
+              <p className="mt-1">
+                Desde el enlace correspondiente puedes registrar poderes (delegación de voto) para que un apoderado vote por varias unidades.
+              </p>
+            </div>
+          </div>
+          <Button onClick={() => setShowGuiaAsambleaModal(false)} className="w-full mt-4">
+            Entendido
+          </Button>
+        </DialogContent>
+      </Dialog>
+
       <GuiaTokensModal open={guiaModalOpen} onOpenChange={setGuiaModalOpen} />
     </div>
   )

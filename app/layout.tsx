@@ -7,8 +7,16 @@ import { AuthSessionListener } from "@/components/providers/AuthSessionListener"
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Asambleas App",
-  description: "Aplicación SaaS para gestión de asambleas",
+  title: {
+    default: "Simulador de Votaciones | Asambleas Virtuales",
+    template: "%s | Asambleas Online",
+  },
+  description: "Plataforma líder en votaciones online para asambleas de propiedad horizontal. Simulador de votaciones, actas, quórum en tiempo real y cumplimiento Ley 675.",
+  keywords: ["asambleas virtuales", "votaciones online", "propiedad horizontal", "Ley 675", "actas de asamblea", "quórum"],
+  openGraph: {
+    type: "website",
+    locale: "es_CO",
+  },
 };
 
 export default function RootLayout({

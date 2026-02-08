@@ -14,10 +14,11 @@ export async function createDemoData(
   const unidadesIds: string[] = []
   const preguntaIds: string[] = []
 
-  // 10 unidades: coeficiente 10% cada una (total 100%)
+  // 10 unidades: coeficiente 10% cada una (total 100%); emails test1@asambleas.online ... test10@asambleas.online para login en simulador
   const torre = 'Demo'
   for (let i = 1; i <= 10; i++) {
     const numero = String(100 + i) // 101..110
+    const emailDemo = `test${i}@asambleas.online`
     const { data: u, error: errU } = await supabase
       .from('unidades')
       .insert({
@@ -27,6 +28,8 @@ export async function createDemoData(
         coeficiente: 10,
         tipo: 'apartamento',
         nombre_propietario: `Apto ${numero}`,
+        email: emailDemo,
+        email_propietario: emailDemo,
         is_demo: true,
       })
       .select('id')
