@@ -179,7 +179,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   // Registrar voto a nombre de un residente (admin)
   const [showRegistroVotoAdmin, setShowRegistroVotoAdmin] = useState(false)
-  const [unidadesParaVoto, setUnidadesParaVoto] = useState<Array<{ id: string; torre: string; numero: string; email_propietario?: string | null }>>([])
+  const [unidadesParaVoto, setUnidadesParaVoto] = useState<Array<{ id: string; torre: string; numero: string; email_propietario?: string | null; nombre_propietario?: string | null }>>([])
   const [unidadRegistroVoto, setUnidadRegistroVoto] = useState('')
   const [votanteEmailRegistro, setVotanteEmailRegistro] = useState('')
   const [votanteNombreRegistro, setVotanteNombreRegistro] = useState('')
@@ -529,7 +529,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     try {
       let query = supabase
         .from('unidades')
-        .select('id, torre, numero, email_propietario')
+        .select('id, torre, numero, email_propietario, nombre_propietario')
         .eq('organization_id', asamblea.organization_id)
       // Asamblea real: solo unidades NO demo. Asamblea sandbox: solo unidades demo.
       if (isDemo) {
@@ -550,7 +550,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     const u = unidadesParaVoto.find((x) => x.id === unidadId)
     if (u) {
       setVotanteEmailRegistro(u.email_propietario ?? '')
-      setVotanteNombreRegistro('')
+      setVotanteNombreRegistro(u.nombre_propietario ?? '')
     }
   }
 
@@ -2512,17 +2512,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
           <div className="space-y-4 pt-2">
             <div>
-              <Label className="text-gray-700 dark:text-gray-300">Unidad (propietario o residente)</Label>
+              <Label className="text-gray-700 dark:text-gray-300">Torre y unidad</Label>
               <select
                 value={unidadRegistroVoto}
                 onChange={(e) => handleUnidadChangeRegistro(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
               >
-                <option value="">Selecciona una unidad</option>
+                <option value="">Selecciona torre y unidad</option>
                 {unidadesParaVoto.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.torre} - {u.numero}
-                    {u.email_propietario ? ` (${u.email_propietario})` : ''}
+                    Torre {u.torre || '—'} - Unidad {u.numero}
                   </option>
                 ))}
               </select>
