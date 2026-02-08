@@ -373,18 +373,22 @@ function AsambleasPageContent() {
                   className="pl-9"
                 />
               </div>
-              <select
-                value={filterEstado}
-                onChange={(e) => setFilterEstado(e.target.value)}
-                className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-2 text-sm min-w-[160px]"
-              >
-                <option value="all">Todos los estados</option>
-                <option value="borrador">Borrador</option>
-                <option value="activa">Activa</option>
-                <option value="finalizada">Finalizada</option>
-              </select>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">Estado:</span>
+                <select
+                  value={filterEstado}
+                  onChange={(e) => setFilterEstado(e.target.value)}
+                  className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-2 text-sm min-w-[140px]"
+                  title="Filtrar por estado de la asamblea"
+                >
+                  <option value="all">Todas</option>
+                  <option value="borrador">Borrador</option>
+                  <option value="activa">Activa</option>
+                  <option value="finalizada">Finalizada</option>
+                </select>
+              </div>
             </div>
-            <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
               <button
                 type="button"
                 onClick={() => setTabArchivo('activas')}
