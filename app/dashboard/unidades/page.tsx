@@ -66,6 +66,8 @@ function UnidadesPageContent() {
   // Estados para edición
   const [editingUnidad, setEditingUnidad] = useState<Unidad | null>(null)
   const [editForm, setEditForm] = useState({
+    torre: '',
+    numero: '',
     nombre_propietario: '',
     email: '',
     telefono: '',
@@ -194,6 +196,8 @@ function UnidadesPageContent() {
     }
     setEditingUnidad(unidad)
     setEditForm({
+      torre: unidad.torre || '',
+      numero: unidad.numero || '',
       nombre_propietario: unidad.nombre_propietario || '',
       email: unidad.email || '',
       telefono: unidad.telefono || '',
@@ -212,6 +216,8 @@ function UnidadesPageContent() {
       const { error } = await supabase
         .from('unidades')
         .update({
+          torre: editForm.torre.trim() || null,
+          numero: editForm.numero.trim() || null,
           nombre_propietario: editForm.nombre_propietario || null,
           email: editForm.email || null,
           telefono: editForm.telefono || null,
@@ -548,11 +554,34 @@ function UnidadesPageContent() {
           <DialogHeader>
             <DialogTitle>Editar Unidad</DialogTitle>
             <DialogDescription>
-              {editingUnidad && `Torre ${editingUnidad.torre || 'N/A'} - Unidad ${editingUnidad.numero}`}
+              Modifica los datos de la unidad
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-torre">Torre</Label>
+                <Input
+                  id="edit-torre"
+                  value={editForm.torre}
+                  onChange={(e) => setEditForm({ ...editForm, torre: e.target.value })}
+                  placeholder="1"
+                  className="mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-numero">Número</Label>
+                <Input
+                  id="edit-numero"
+                  value={editForm.numero}
+                  onChange={(e) => setEditForm({ ...editForm, numero: e.target.value })}
+                  placeholder="101"
+                  className="mt-2"
+                />
+              </div>
+            </div>
+
             <div>
               <Label htmlFor="edit-propietario">Nombre del Propietario</Label>
               <Input
