@@ -2512,16 +2512,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
           <div className="space-y-4 pt-2">
             <div>
-              <Label className="text-gray-700 dark:text-gray-300">Torre y unidad</Label>
+              <Label className="text-gray-700 dark:text-gray-300">Torre y número</Label>
               <select
                 value={unidadRegistroVoto}
                 onChange={(e) => handleUnidadChangeRegistro(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
               >
-                <option value="">Selecciona torre y unidad</option>
+                <option value="">Selecciona torre y número</option>
                 {unidadesParaVoto.map((u) => (
                   <option key={u.id} value={u.id}>
-                    Torre {u.torre || '—'} - Unidad {u.numero}
+                    {u.torre || '—'} - {u.numero}
                   </option>
                 ))}
               </select>
