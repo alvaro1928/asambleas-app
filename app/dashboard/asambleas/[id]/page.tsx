@@ -179,7 +179,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   // Registrar voto a nombre de un residente (admin)
   const [showRegistroVotoAdmin, setShowRegistroVotoAdmin] = useState(false)
-  const [unidadesParaVoto, setUnidadesParaVoto] = useState<Array<{ id: string; torre: string; numero: string; email_propietario?: string | null; nombre_propietario?: string | null }>>([])
+  const [unidadesParaVoto, setUnidadesParaVoto] = useState<Array<{ id: string; torre: string; numero: string; email?: string | null; email_propietario?: string | null; nombre_propietario?: string | null }>>([])
   const [unidadRegistroVoto, setUnidadRegistroVoto] = useState('')
   const [votanteEmailRegistro, setVotanteEmailRegistro] = useState('')
   const [votanteNombreRegistro, setVotanteNombreRegistro] = useState('')
@@ -529,7 +529,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     try {
       let query = supabase
         .from('unidades')
-        .select('id, torre, numero, email_propietario, nombre_propietario')
+        .select('id, torre, numero, email, email_propietario, nombre_propietario')
         .eq('organization_id', asamblea.organization_id)
       // Asamblea real: solo unidades NO demo. Asamblea sandbox: solo unidades demo.
       if (isDemo) {
@@ -549,7 +549,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     setUnidadRegistroVoto(unidadId)
     const u = unidadesParaVoto.find((x) => x.id === unidadId)
     if (u) {
-      setVotanteEmailRegistro(u.email_propietario ?? '')
+      setVotanteEmailRegistro(u.email_propietario ?? u.email ?? '')
       setVotanteNombreRegistro(u.nombre_propietario ?? '')
     }
   }
