@@ -527,12 +527,17 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     setVotanteNombreRegistro('')
     setVotosRegistroPorPregunta({})
     try {
-      const { data } = await supabase
+      let query = supabase
         .from('unidades')
         .select('id, torre, numero, email_propietario')
         .eq('organization_id', asamblea.organization_id)
-        .order('torre')
-        .order('numero')
+      // Asamblea real: solo unidades NO demo. Asamblea sandbox: solo unidades demo.
+      if (isDemo) {
+        query = query.eq('is_demo', true)
+      } else {
+        query = query.or('is_demo.eq.false,is_demo.is.null')
+      }
+      const { data } = await query.order('torre').order('numero')
       setUnidadesParaVoto(data ?? [])
     } catch (e) {
       console.error('Error cargando unidades:', e)
