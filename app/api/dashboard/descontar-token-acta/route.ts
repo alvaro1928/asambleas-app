@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { asamblea_id } = body as { asamblea_id?: string }
+    const { asamblea_id, finalizar_asamblea } = body as { asamblea_id?: string; finalizar_asamblea?: boolean }
     if (!asamblea_id) {
       return NextResponse.json({ error: 'Falta asamblea_id' }, { status: 400 })
     }
@@ -86,6 +86,10 @@ export async function POST(request: NextRequest) {
         ...(Array.isArray(byId) ? byId : byId ? [byId] : []),
       ].map((p: { tokens_disponibles?: number }) => Math.max(0, Number(p?.tokens_disponibles ?? 0)))
       const saldo = allTokens.length ? Math.max(...allTokens) : 0
+      // Al generar acta definitiva: pasar asamblea a finalizada (bloquea modificaciones posteriores)
+      if (finalizar_asamblea === true && asamblea.estado === 'activa' && !asamblea.is_demo) {
+        await admin.from('asambleas').update({ estado: 'finalizada' }).eq('id', asamblea_id)
+      }
       return NextResponse.json({
         ok: true,
         ya_pagada: true,
@@ -104,6 +108,9 @@ export async function POST(request: NextRequest) {
         ...(Array.isArray(byId) ? byId : byId ? [byId] : []),
       ].map((p: { tokens_disponibles?: number }) => Math.max(0, Number(p?.tokens_disponibles ?? 0)))
       const saldo = allTokens.length ? Math.max(...allTokens) : 0
+      if (finalizar_asamblea === true && asamblea.estado === 'activa' && !asamblea.is_demo) {
+        await admin.from('asambleas').update({ estado: 'finalizada' }).eq('id', asamblea_id)
+      }
       return NextResponse.json({
         ok: true,
         ya_pagada: true,
