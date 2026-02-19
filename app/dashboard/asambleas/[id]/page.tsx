@@ -1197,8 +1197,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       {isDemo && <StickyBanner />}
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 min-w-0">
           <Breadcrumbs
             items={[
               { label: 'Dashboard', href: '/dashboard' },
@@ -1207,23 +1207,23 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             ]}
             className="mb-2"
           />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between min-w-0">
+            <div className="flex items-center space-x-4 min-w-0 shrink-0">
               <Link
                 href="/dashboard/asambleas"
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors shrink-0"
               >
                 <ArrowLeft className="w-6 h-6" />
               </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
                   {asamblea.nombre}
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {preguntas.length} pregunta{preguntas.length !== 1 ? 's' : ''}
                 </p>
                 <p
-                  className="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1 flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors w-fit"
+                  className="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1 flex items-center gap-1.5 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors w-fit max-w-full"
                   onClick={() => {
                     navigator.clipboard.writeText(asamblea.id)
                     toast.success('ID de asamblea copiado')
@@ -1231,20 +1231,21 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   title="Clic para copiar ID"
                 >
                   <Copy className="w-3 h-3 shrink-0" />
-                  <span className="truncate max-w-[240px] sm:max-w-none">{asamblea.id}</span>
+                  <span className="truncate max-w-[180px] sm:max-w-none">{asamblea.id}</span>
                 </p>
               </div>
             </div>
-            <div className="flex items-center flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto min-w-0">
               {/* Acceso rápido a unidades del mismo conjunto */}
               {asamblea.organization_id && (
                 <Link
                   href={isReadOnlyStructure ? '#' : `/dashboard/unidades?volver_asamblea=${params.id}&conjunto_id=${asamblea.organization_id}`}
-                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-medium transition-colors ${isReadOnlyStructure ? 'pointer-events-none opacity-60 text-gray-500 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-medium transition-colors shrink-0 ${isReadOnlyStructure ? 'pointer-events-none opacity-60 text-gray-500 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                   title={isReadOnlyStructure ? 'Estructura congelada (solo lectura)' : 'Ir a configurar unidades (propietarios, contacto) y volver a esta asamblea'}
                 >
-                  <Building2 className="w-4 h-4" />
-                  Configurar unidades
+                  <Building2 className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline">Configurar unidades</span>
+                  <span className="sm:hidden">Unidades</span>
                 </Link>
               )}
               {/* Billetera de tokens — visible en todas las páginas de administrador */}
@@ -1256,9 +1257,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 )}
               </div>
               {asamblea.pago_realizado && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Asamblea Pagada / Acceso Total
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 shrink-0" title="Asamblea Pagada / Acceso Total">
+                  <CheckCircle2 className="w-3 h-3 mr-1 shrink-0" />
+                  <span className="hidden sm:inline">Asamblea Pagada / Acceso Total</span>
+                  <span className="sm:hidden">Pagada</span>
                 </span>
               )}
               <button
@@ -1290,35 +1292,39 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     )}
                     <Button
                       onClick={() => handleChangeEstadoAsamblea('activa')}
-                      className="bg-green-600 hover:bg-green-700"
+                      className="bg-green-600 hover:bg-green-700 shrink-0"
                     >
-                      <Play className="w-4 h-4 mr-2" />
-                      Activar asamblea
+                      <Play className="w-4 h-4 sm:mr-2 shrink-0" />
+                      <span className="hidden sm:inline">Activar asamblea</span>
+                      <span className="sm:hidden">Activar</span>
                     </Button>
                   </div>
                 ) : (
-                  <Button
-                    onClick={() => setSinTokensModalOpen(true)}
+<Button
+                  onClick={() => setSinTokensModalOpen(true)}
                     variant="outline"
-                    className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                    className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 shrink-0"
                     title="Saldo insuficiente. Clic para comprar tokens"
                   >
-                    <Lock className="w-4 h-4 mr-2" />
-                    Activar (saldo insuficiente — comprar tokens)
+                    <Lock className="w-4 h-4 sm:mr-2 shrink-0" />
+                    <span className="hidden sm:inline">Activar (saldo insuficiente — comprar tokens)</span>
+                    <span className="sm:hidden">Comprar tokens</span>
                   </Button>
                 )
               )}
               {(asamblea.estado === 'finalizada' || asamblea.estado === 'activa' || preguntas.some(p => p.estado === 'cerrada')) && (
                 actaDisponible ? (
                   <div className="flex flex-col gap-1">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                      <FileText className="w-3.5 h-3.5" />
-                      Acta Lista para Descarga
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 shrink-0" title="Acta lista para descarga">
+                      <FileText className="w-3.5 h-3.5 shrink-0" />
+                      <span className="hidden sm:inline">Acta Lista para Descarga</span>
+                      <span className="sm:hidden">Acta lista</span>
                     </span>
-                    <Link href={`/dashboard/asambleas/${params.id}/acta`}>
-                      <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400">
-                        <FileText className="w-4 h-4 mr-2" />
-                        {preguntas.some(p => p.estado === 'cerrada') ? 'Descargar acta (todas las preguntas y votos)' : 'Generar acta'}
+                    <Link href={`/dashboard/asambleas/${params.id}/acta`} className="shrink-0">
+                      <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 w-full sm:w-auto">
+                        <FileText className="w-4 h-4 sm:mr-2 shrink-0" />
+                        <span className="hidden sm:inline">{preguntas.some(p => p.estado === 'cerrada') ? 'Descargar acta (todas las preguntas y votos)' : 'Generar acta'}</span>
+                        <span className="sm:hidden">Acta</span>
                       </Button>
                     </Link>
                   </div>
@@ -1336,22 +1342,24 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 <Button
                   variant="outline"
                   onClick={() => setShowModalConfirmarFinalizar(true)}
-                  className="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                  className="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 shrink-0"
                   title="Cerrar la asamblea de forma permanente (solo lectura)"
                 >
-                  <Clock className="w-4 h-4 mr-2" />
-                  Finalizar Asamblea
+                  <Clock className="w-4 h-4 sm:mr-2 shrink-0" />
+                  <span className="hidden sm:inline">Finalizar Asamblea</span>
+                  <span className="sm:hidden">Finalizar</span>
                 </Button>
               )}
               {(asamblea.estado === 'activa' || asamblea.estado === 'finalizada') && isDemo && (
                 <Button
                   variant="outline"
                   onClick={() => setShowModalConfirmarReiniciarDemo(true)}
-                  className="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                  className="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 shrink-0"
                   title="Borrar votos y repetir la simulación"
                 >
-                  <Play className="w-4 h-4 mr-2" />
-                  Reiniciar Simulación
+                  <Play className="w-4 h-4 sm:mr-2 shrink-0" />
+                  <span className="hidden sm:inline">Reiniciar Simulación</span>
+                  <span className="sm:hidden">Reiniciar</span>
                 </Button>
               )}
             </div>
@@ -1360,7 +1368,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-w-0 overflow-x-hidden">
         {successMessage && (
           <Alert className="mb-6 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
             <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -1478,11 +1486,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
           {/* Columna izquierda en desktop; en móvil se muestra después de Preguntas (votos arriba) */}
-          <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
+          <div className="lg:col-span-1 space-y-6 order-2 lg:order-1 min-w-0">
             {/* Billetera de tokens — colapsada por defecto */}
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden min-w-0">
               <button
                 type="button"
                 onClick={() => setBilleteraColapsada((v) => !v)}
@@ -1722,8 +1730,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           </div>
 
           {/* Preguntas / votos: en móvil arriba */}
-          <div className="lg:col-span-2 order-1 lg:order-2">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+          <div className="lg:col-span-2 order-1 lg:order-2 min-w-0">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 min-w-0 overflow-hidden">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                   Preguntas de Votación
@@ -1861,9 +1869,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                       className="border border-gray-200 dark:border-gray-700 rounded-3xl p-4 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
                     >
                       {/* Header de la pregunta */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-3 min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
                             <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
                               #{index + 1}
                             </span>
@@ -1872,16 +1880,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                             </span>
                             {getEstadoPreguntaBadge(pregunta.estado)}
                           </div>
-                          <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                          <h3 className="font-semibold text-gray-900 dark:text-white mb-1 break-words">
                             {pregunta.texto_pregunta}
                           </h3>
                           {pregunta.descripcion && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 break-words">
                               {pregunta.descripcion}
                             </p>
                           )}
                         </div>
-                        <div className="flex flex-wrap items-center gap-2 ml-2 sm:ml-4 shrink-0">
+                        <div className="flex flex-wrap items-center gap-2 sm:ml-4 shrink-0">
                           <Button
                             variant="outline"
                             size="sm"
