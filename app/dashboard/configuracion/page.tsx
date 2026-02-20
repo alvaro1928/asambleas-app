@@ -126,7 +126,7 @@ export default function ConfiguracionPage() {
         .eq('user_id', user.id)
         .not('organization_id', 'is', null)
 
-      const orgIds = [...new Set((profilesList || []).map((p: { organization_id: string }) => p.organization_id))]
+      const orgIds = Array.from(new Set((profilesList || []).map((p: { organization_id: string }) => p.organization_id)))
       if (orgIds.length > 0) {
         const { data: orgsData } = await supabase
           .from('organizations')
