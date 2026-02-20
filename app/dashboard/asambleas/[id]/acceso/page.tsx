@@ -738,8 +738,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                                 position: 'right',
                                 formatter: (label: unknown, ...args: unknown[]) => {
                                   const v = Number(label ?? 0)
-                                  const payload = (args[0] as { payload?: { aprueba?: boolean; votosCantidad?: number } })?.payload
-                                  const votos = payload?.votosCantidad ?? 0
+                                  const entryOrProps = args[0] as { payload?: { aprueba?: boolean; votosCantidad?: number }; votosCantidad?: number; aprueba?: boolean } | undefined
+                                  const payload = entryOrProps?.payload ?? entryOrProps
+                                  const votos = Math.max(0, Number(payload?.votosCantidad ?? 0))
                                   const suf = votos !== 1 ? 'votos' : 'voto'
                                   if (payload?.aprueba) return `${v}% (${votos} ${suf}) MAYORÍA ALCANZADA`
                                   return `${v}% (${votos} ${suf})`
@@ -860,8 +861,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                             position: 'right',
                             formatter: (label: unknown, ...args: unknown[]) => {
                               const v = Number(label ?? 0)
-                              const payload = (args[0] as { payload?: { aprueba?: boolean; votosCantidad?: number } })?.payload
-                              const votos = payload?.votosCantidad ?? 0
+                              const entryOrProps = args[0] as { payload?: { aprueba?: boolean; votosCantidad?: number }; votosCantidad?: number; aprueba?: boolean } | undefined
+                              const payload = entryOrProps?.payload ?? entryOrProps
+                              const votos = Math.max(0, Number(payload?.votosCantidad ?? 0))
                               const suf = votos !== 1 ? 'votos' : 'voto'
                               if (payload?.aprueba) return `${v}% (${votos} ${suf}) MAYORÍA ALCANZADA`
                               return `${v}% (${votos} ${suf})`
