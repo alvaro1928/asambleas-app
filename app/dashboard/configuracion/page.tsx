@@ -19,6 +19,7 @@ interface Organization {
   name: string
   nit: string | null
   address: string | null
+  city: string | null
 }
 
 export default function ConfiguracionPage() {
@@ -34,10 +35,13 @@ export default function ConfiguracionPage() {
   // Estados del formulario de perfil
   const [fullName, setFullName] = useState('')
 
-  // Estados del formulario de organización
+  // Estados del formulario de organización (conjunto seleccionado para editar)
+  const [conjuntosList, setConjuntosList] = useState<Organization[]>([])
+  const [selectedConjuntoId, setSelectedConjuntoId] = useState<string | null>(null)
   const [orgName, setOrgName] = useState('')
   const [orgNit, setOrgNit] = useState('')
   const [orgAddress, setOrgAddress] = useState('')
+  const [orgCity, setOrgCity] = useState('')
 
   // Estados para cambiar contraseña
   const [newPassword, setNewPassword] = useState('')
@@ -72,6 +76,22 @@ export default function ConfiguracionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, [])
 
+  // Al cambiar el conjunto a editar, cargar sus datos en el formulario
+  useEffect(() => {
+    if (!selectedConjuntoId || conjuntosList.length === 0) return
+    const org = conjuntosList.find((o) => o.id === selectedConjuntoId)
+    if (org) {
+      setOrganization(org)
+      setOrgName(org.name || '')
+      setOrgNit(org.nit || '')
+      setOrgAddress(org.address || '')
+      setOrgCity(org.city || '')
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selectedConjuntoId', selectedConjuntoId)
+    }
+  }, [selectedConjuntoId, conjuntosList])
+
   const loadData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -83,7 +103,7 @@ export default function ConfiguracionPage() {
 
       setUser(user)
 
-      // Cargar perfil
+      // Cargar perfil (para nombre y email)
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -97,24 +117,36 @@ export default function ConfiguracionPage() {
       if (profileData) {
         setProfile(profileData)
         setFullName(profileData.full_name || '')
+      }
 
-        // Cargar organización si existe
-        if (profileData.organization_id) {
-          const { data: orgData, error: orgError } = await supabase
-            .from('organizations')
-            .select('*')
-            .eq('id', profileData.organization_id)
-            .single()
+      // Conjuntos a los que el usuario tiene acceso (profiles con user_id = user.id)
+      const { data: profilesList } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .not('organization_id', 'is', null)
 
-          if (orgError && orgError.code !== 'PGRST116') {
-            throw orgError
-          }
+      const orgIds = [...new Set((profilesList || []).map((p: { organization_id: string }) => p.organization_id))]
+      if (orgIds.length > 0) {
+        const { data: orgsData } = await supabase
+          .from('organizations')
+          .select('id, name, nit, address, city')
+          .in('id', orgIds)
+        const list = (orgsData || []) as Organization[]
+        setConjuntosList(list)
 
-          if (orgData) {
-            setOrganization(orgData)
-            setOrgName(orgData.name || '')
-            setOrgNit(orgData.nit || '')
-            setOrgAddress(orgData.address || '')
+        const savedId = typeof window !== 'undefined' ? localStorage.getItem('selectedConjuntoId') : null
+        const idToUse = savedId && list.some((o) => o.id === savedId) ? savedId : list[0]?.id || null
+        setSelectedConjuntoId(idToUse)
+
+        if (idToUse) {
+          const org = list.find((o) => o.id === idToUse)
+          if (org) {
+            setOrganization(org)
+            setOrgName(org.name || '')
+            setOrgNit(org.nit || '')
+            setOrgAddress(org.address || '')
+            setOrgCity(org.city || '')
           }
         }
       }
@@ -177,61 +209,56 @@ export default function ConfiguracionPage() {
 
   const handleSaveOrganization = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!organization?.id) {
+      setError('Selecciona un conjunto para editar')
+      return
+    }
     setSaving(true)
     setMessage('')
     setError('')
 
     try {
-      if (organization) {
-        // Actualizar organización existente
-        const { error } = await supabase
+      // Validar NIT único si se proporciona
+      if (orgNit && orgNit.trim()) {
+        const { data: existingOrg } = await supabase
           .from('organizations')
-          .update({
-            name: orgName,
-            nit: orgNit,
-            address: orgAddress,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', organization.id)
-
-        if (error) throw error
-      } else {
-        // Crear nueva organización
-        const slug = orgName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-        
-        const { data: newOrg, error: orgError } = await supabase
-          .from('organizations')
-          .insert({
-            name: orgName,
-            nit: orgNit,
-            address: orgAddress,
-            slug: `${slug}-${Date.now()}`,
-          })
-          .select()
-          .single()
-
-        if (orgError) throw orgError
-
-        // Actualizar perfil con la organización
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            organization_id: newOrg.id,
-            role: 'owner',
-          })
-          .eq('id', user!.id)
-
-        if (profileError) throw profileError
-
-        setOrganization(newOrg)
+          .select('id, name')
+          .eq('nit', orgNit.trim())
+          .neq('id', organization.id)
+          .maybeSingle()
+        if (existingOrg) {
+          throw new Error(`El NIT ${orgNit} ya está registrado para el conjunto "${existingOrg.name}"`)
+        }
       }
+
+      const { error } = await supabase
+        .from('organizations')
+        .update({
+          name: orgName.trim(),
+          nit: orgNit?.trim() || null,
+          address: orgAddress?.trim() || null,
+          city: orgCity?.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', organization.id)
+
+      if (error) throw error
 
       setMessage('Datos del conjunto actualizados correctamente')
       setTimeout(() => setMessage(''), 3000)
-      await loadData() // Recargar datos
+      setConjuntosList((prev) =>
+        prev.map((o) =>
+          o.id === organization.id
+            ? { ...o, name: orgName.trim(), nit: orgNit?.trim() || null, address: orgAddress?.trim() || null, city: orgCity?.trim() || null }
+            : o
+        )
+      )
+      setOrganization((prev) =>
+        prev ? { ...prev, name: orgName.trim(), nit: orgNit?.trim() || null, address: orgAddress?.trim() || null, city: orgCity?.trim() || null } : null
+      )
     } catch (error: any) {
       console.error('Error saving organization:', error)
-      setError('Error al guardar los datos del conjunto')
+      setError(error?.message || 'Error al guardar los datos del conjunto')
     } finally {
       setSaving(false)
     }
@@ -558,12 +585,39 @@ export default function ConfiguracionPage() {
                   Datos Legales del Conjunto
                 </h2>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Información legal de la copropiedad
+                  Edita la información del conjunto seleccionado
                 </p>
               </div>
             </div>
 
+            {conjuntosList.length === 0 ? (
+              <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 text-amber-800 dark:text-amber-200">
+                <p className="font-medium">No tienes conjuntos registrados</p>
+                <p className="text-sm mt-1">Crea un conjunto desde el dashboard para poder editar sus datos aquí.</p>
+                <Link href="/dashboard/nuevo-conjunto" className="inline-block mt-3 text-sm font-semibold text-amber-700 dark:text-amber-300 hover:underline">
+                  Crear conjunto →
+                </Link>
+              </div>
+            ) : (
             <form onSubmit={handleSaveOrganization} className="space-y-4">
+              {conjuntosList.length > 1 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Conjunto a editar
+                  </label>
+                  <select
+                    value={selectedConjuntoId || ''}
+                    onChange={(e) => setSelectedConjuntoId(e.target.value || null)}
+                    className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    {conjuntosList.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name || 'Sin nombre'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Nombre del Conjunto *
@@ -598,20 +652,34 @@ export default function ConfiguracionPage() {
                 <textarea
                   value={orgAddress}
                   onChange={(e) => setOrgAddress(e.target.value)}
-                  placeholder="Calle 123 # 45-67, Bogotá"
-                  rows={3}
+                  placeholder="Calle 123 # 45-67"
+                  rows={2}
+                  className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Ciudad
+                </label>
+                <input
+                  type="text"
+                  value={orgCity}
+                  onChange={(e) => setOrgCity(e.target.value)}
+                  placeholder="Bogotá"
                   className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
               <button
                 type="submit"
-                disabled={saving || !orgName}
+                disabled={saving || !orgName.trim()}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-3xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saving ? 'Guardando...' : organization ? 'Actualizar Datos del Conjunto' : 'Registrar Conjunto'}
+                {saving ? 'Guardando...' : 'Actualizar datos del conjunto'}
               </button>
             </form>
+            )}
           </div>
 
           {/* Mis pagos */}
