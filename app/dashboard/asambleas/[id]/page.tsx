@@ -1176,8 +1176,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!asamblea || !editFechaValue.trim()) return
     setSavingFecha(true)
     try {
+      // Construir fecha/hora en hora local del usuario y guardar como UTC para que se muestre correctamente
       const hora = (editHoraValue.trim() || '10:00').slice(0, 5) // HH:mm
-      const fechaHora = `${editFechaValue}T${hora}:00`
+      const localDate = new Date(editFechaValue + 'T' + hora + ':00')
+      const fechaHora = localDate.toISOString()
       const { error } = await supabase.from('asambleas').update({ fecha: fechaHora }).eq('id', asamblea.id)
       if (error) throw error
       setAsamblea({ ...asamblea, fecha: fechaHora })
