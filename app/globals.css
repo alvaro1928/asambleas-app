@@ -50,13 +50,24 @@ body {
   font-family: ui-sans-serif, system-ui, sans-serif, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-/* PDF / impresión: tablas completas y encabezados repetidos */
+/* PDF / impresión: tablas completas, encabezados repetidos y página horizontal para tablas anchas */
 @media print {
+  @page landscape {
+    size: landscape;
+  }
   thead {
     display: table-header-group;
   }
   tr {
     break-inside: avoid;
+  }
+  /* Tabla de auditoría en página apaisada para que no se corte */
+  .print-table-landscape {
+    page: landscape;
+    page-break-before: always;
+  }
+  .print-table-landscape:first-of-type {
+    page-break-before: auto;
   }
 }
 

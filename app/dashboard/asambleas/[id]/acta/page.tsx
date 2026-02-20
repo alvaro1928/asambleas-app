@@ -697,7 +697,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                   )}
 
                   {auditoria[pregunta.id] && auditoria[pregunta.id].length > 0 && (
-                    <div className="ml-4 mt-3 overflow-x-auto print:overflow-visible print:max-h-none">
+                    <div className="ml-4 mt-3 overflow-x-auto print:overflow-visible print:max-h-none print-table-landscape">
                       <p className="font-semibold text-gray-700 mb-1 text-xs">Detalle de auditoría — transacciones (cambios, quién votó, cuándo, dispositivo):</p>
                       <table className="min-w-full border border-gray-300 text-[11px] print:break-inside-auto">
                         <thead>
@@ -739,7 +739,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             <p className="text-sm text-gray-600 mb-3">
               Detalle de las <strong>{unidadesNoParticipation.length}</strong> unidad{unidadesNoParticipation.length !== 1 ? 'es' : ''} que no registraron voto en ninguna pregunta de esta asamblea.
             </p>
-            <div className="overflow-x-auto print:overflow-visible print:max-h-none">
+            <div className="overflow-x-auto print:overflow-visible print:max-h-none print-table-landscape">
               <table className="min-w-full border border-gray-300 text-sm print:break-inside-auto">
                 <thead>
                   <tr className="bg-gray-100">
