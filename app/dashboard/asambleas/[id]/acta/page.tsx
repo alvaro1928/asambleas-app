@@ -735,12 +735,13 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
         {unidadesNoParticipation.length > 0 && (
           <section className="mt-10 break-inside-avoid">
-            <h2 className="text-lg font-bold uppercase mb-2">Unidades que no votaron o no participaron</h2>
-            <p className="text-sm text-gray-600 mb-3">
-              Detalle de las <strong>{unidadesNoParticipation.length}</strong> unidad{unidadesNoParticipation.length !== 1 ? 'es' : ''} que no registraron voto en ninguna pregunta de esta asamblea.
-            </p>
-            <div className="overflow-x-auto print:overflow-visible print:max-h-none print-table-landscape">
-              <table className="min-w-full border border-gray-300 text-sm print:break-inside-auto">
+            <div className="print-table-landscape print:mt-0">
+              <h2 className="text-lg font-bold uppercase mb-2">Unidades que no votaron o no participaron</h2>
+              <p className="text-sm text-gray-600 mb-3">
+                Detalle de las <strong>{unidadesNoParticipation.length}</strong> unidad{unidadesNoParticipation.length !== 1 ? 'es' : ''} que no registraron voto en ninguna pregunta de esta asamblea.
+              </p>
+              <div className="overflow-x-auto print:overflow-visible print:max-h-none">
+                <table className="min-w-full border border-gray-300 text-sm print:break-inside-auto print:w-full">
                 <thead>
                   <tr className="bg-gray-100">
                     <th className="border px-2 py-1.5 text-left font-semibold">Torre</th>
@@ -763,14 +764,15 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Coeficiente total no participante: <strong>{Math.min(100, unidadesNoParticipation.reduce((s, u) => s + u.coeficiente, 0)).toFixed(2)}%</strong>.
+                {quorum && (
+                  <span className="ml-2">(Unidades: {unidadesNoParticipation.length} no votaron; {quorum.unidades_votantes} votaron; total {quorum.total_unidades})</span>
+                )}
+              </p>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Coeficiente total no participante: <strong>{Math.min(100, unidadesNoParticipation.reduce((s, u) => s + u.coeficiente, 0)).toFixed(2)}%</strong>.
-              {quorum && (
-                <span className="ml-2">(Unidades: {unidadesNoParticipation.length} no votaron; {quorum.unidades_votantes} votaron; total {quorum.total_unidades})</span>
-              )}
-            </p>
           </section>
         )}
 
