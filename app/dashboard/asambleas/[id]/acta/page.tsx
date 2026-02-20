@@ -546,7 +546,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
       <main className="max-w-4xl mx-auto px-6 py-10 print:py-6">
         <header className="text-center border-b-2 border-gray-800 pb-6 mb-8">
-          <p className="text-sm font-semibold text-gray-700 mb-2">Votaciones de Asambleas Online</p>
+          <p className="text-base font-bold text-gray-800 mb-2">Votaciones de Asambleas Online</p>
           <h1 className="text-2xl font-bold uppercase tracking-wide">Acta de votación</h1>
           <p className="text-lg mt-2 font-semibold">{asamblea?.nombre}</p>
           <p className="text-sm text-gray-600 mt-1">{conjunto?.name}</p>
@@ -557,12 +557,16 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           <section className="mb-8">
             <h2 className="text-lg font-bold uppercase mb-2">Quórum y participación</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <p><strong>Unidades que votaron:</strong> {quorum.unidades_votantes} / {quorum.total_unidades}</p>
+              <p><strong>Total de unidades:</strong> {quorum.total_unidades}</p>
+              <p><strong>Unidades que votaron:</strong> {quorum.unidades_votantes}</p>
               <p><strong>Unidades que no votaron:</strong> {quorum.total_unidades - quorum.unidades_votantes}</p>
               <p><strong>Coeficiente votante:</strong> {Math.min(100, Number(quorum.coeficiente_votante)).toFixed(2)}%</p>
               <p><strong>Participación (coeficiente):</strong> {Math.min(100, Number(quorum.porcentaje_participacion_coeficiente)).toFixed(2)}%</p>
               <p><strong>Quórum alcanzado:</strong> {quorum.quorum_alcanzado ? 'Sí' : 'No'}</p>
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Comprobación: {quorum.unidades_votantes} + {quorum.total_unidades - quorum.unidades_votantes} = {quorum.total_unidades} unidades.
+            </p>
           </section>
         )}
 
@@ -591,33 +595,58 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                   <p className="text-xs text-gray-500 mb-2">
                     Tipo: {pregunta.tipo_votacion}. Estado: {pregunta.estado}.
                   </p>
-                  {stats && (
-                    <div className="ml-4 space-y-2">
-                      <p className="text-sm">
-                        Total votos: <strong>{stats.total_votos}</strong>. Coeficiente votante: <strong>{Math.min(100, Number(stats.total_coeficiente)).toFixed(2)}%</strong>.
-                      </p>
-                      <ul className="list-disc list-inside text-sm">
-                        {stats.resultados?.map((r: any) => (
-                          <li key={r.opcion_id}>
-                            {r.opcion_texto}: {Math.min(100, Number(r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0)).toFixed(2)}%
-                            {r.votos_cantidad != null && ` (${r.votos_cantidad} voto(s))`}
-                          </li>
-                        ))}
-                      </ul>
-                      {pregunta.umbral_aprobacion != null && stats.resultados?.length > 0 && (() => {
-                        const totalVotos = Number(stats.total_votos) || 0
-                        const maxPct = pregunta.tipo_votacion === 'coeficiente'
-                          ? Math.max(...(stats.resultados as any[]).map((r: any) => Number(r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0)))
-                          : Math.max(...(stats.resultados as any[]).map((r: any) => totalVotos > 0 ? ((Number(r.votos_cantidad) || 0) / totalVotos) * 100 : 0))
-                        const aprobado = maxPct >= (pregunta.umbral_aprobacion ?? 0)
-                        return (
+                  {stats && (() => {
+                    const votosFinales = votacionesFinalesPorPregunta[pregunta.id] || []
+                    const totalCoefVotantes = votosFinales.reduce((s, r) => s + r.coeficiente, 0)
+                    const resumenDesdeTabla = totalCoefVotantes > 0
+                      ? votosFinales.reduce((acc, r) => {
+                          const key = r.opcion_texto
+                          if (!acc[key]) acc[key] = { coef: 0, count: 0 }
+                          acc[key].coef += r.coeficiente
+                          acc[key].count += 1
+                          return acc
+                        }, {} as Record<string, { coef: number; count: number }>)
+                      : null
+                    const items: { opcion_texto: string; pct: number; count: number }[] = resumenDesdeTabla
+                      ? Object.entries(resumenDesdeTabla).map(([opcion, { coef, count }]) => ({
+                          opcion_texto: opcion,
+                          pct: (coef / totalCoefVotantes) * 100,
+                          count,
+                        }))
+                      : (stats.resultados || []).map((r: any) => ({
+                          opcion_texto: r.opcion_texto,
+                          pct: Math.min(100, Number(r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0)),
+                          count: r.votos_cantidad ?? 0,
+                        }))
+                    const maxPct = pregunta.umbral_aprobacion != null && items.length > 0
+                      ? pregunta.tipo_votacion === 'coeficiente'
+                        ? (resumenDesdeTabla && totalCoefVotantes > 0
+                            ? Math.max(...Object.values(resumenDesdeTabla).map((x) => (x.coef / totalCoefVotantes) * 100))
+                            : Math.max(...items.map((i) => i.pct)))
+                        : Math.max(...items.map((i) => i.pct))
+                      : 0
+                    const aprobado = pregunta.umbral_aprobacion != null && maxPct >= pregunta.umbral_aprobacion
+                    return (
+                      <div className="ml-4 space-y-2">
+                        <p className="text-sm">
+                          Total votos: <strong>{stats.total_votos}</strong>. Coeficiente votante: <strong>{Math.min(100, Number(stats.total_coeficiente)).toFixed(2)}%</strong>.
+                        </p>
+                        <ul className="list-disc list-inside text-sm">
+                          {items.map((item, idx) => (
+                            <li key={idx}>
+                              {item.opcion_texto}: {item.pct.toFixed(2)}%
+                              {item.count > 0 && ` (${item.count} voto(s))`}
+                            </li>
+                          ))}
+                        </ul>
+                        {pregunta.umbral_aprobacion != null && items.length > 0 && (
                           <p className={`text-sm font-semibold mt-2 ${aprobado ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
                             Mayoría necesaria ({pregunta.umbral_aprobacion}%) — Resultado: {aprobado ? 'Aprobado' : 'No aprobado'} (máx. {maxPct.toFixed(1)}%).
                           </p>
-                        )
-                      })()}
-                    </div>
-                  )}
+                        )}
+                      </div>
+                    )
+                  })()}
 
                   {/* Cuadro de votaciones finales: una fila por unidad con su voto final + totales */}
                   {votacionesFinalesPorPregunta[pregunta.id] && votacionesFinalesPorPregunta[pregunta.id].length > 0 && (
@@ -643,39 +672,53 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                           ))}
                         </tbody>
                       </table>
-                      {stats && stats.resultados && stats.resultados.length > 0 && (
-                        <p className="mt-2 text-gray-600 font-medium">
-                          Totales: {stats.resultados.map((r: any) => `${r.opcion_texto}: ${r.votos_cantidad ?? 0} unidad(es)`).join('; ')}.
-                        </p>
-                      )}
+                      {(() => {
+                        const vf = votacionesFinalesPorPregunta[pregunta.id] || []
+                        const byOption = vf.length > 0 ? vf.reduce((acc, r) => { acc[r.opcion_texto] = (acc[r.opcion_texto] ?? 0) + 1; return acc }, {} as Record<string, number>) : null
+                        if (byOption) {
+                          return (
+                            <p className="mt-2 text-gray-600 font-medium text-xs">
+                              Totales: {Object.entries(byOption).map(([op, n]) => `${op}: ${n} unidad(es)`).join('; ')}.
+                            </p>
+                          )
+                        }
+                        if (stats?.resultados?.length) {
+                          return (
+                            <p className="mt-2 text-gray-600 font-medium text-xs">
+                              Totales: {stats.resultados.map((r: any) => `${r.opcion_texto}: ${r.votos_cantidad ?? 0} unidad(es)`).join('; ')}.
+                            </p>
+                          )
+                        }
+                        return null
+                      })()}
                     </div>
                   )}
 
                   {auditoria[pregunta.id] && auditoria[pregunta.id].length > 0 && (
-                    <div className="ml-4 mt-3 text-xs overflow-x-auto">
-                      <p className="font-semibold text-gray-700 mb-1">Detalle de auditoría — transacciones (cambios, quién votó, cuándo, dispositivo):</p>
-                      <table className="min-w-full border border-gray-300 table-fixed">
+                    <div className="ml-4 mt-3 overflow-x-auto">
+                      <p className="font-semibold text-gray-700 mb-1 text-xs">Detalle de auditoría — transacciones (cambios, quién votó, cuándo, dispositivo):</p>
+                      <table className="min-w-full border border-gray-300 text-[11px]">
                         <thead>
                           <tr className="bg-gray-100">
-                            <th className="border px-2 py-1 text-left">Votante</th>
-                            <th className="border px-2 py-1 text-left">Unidad</th>
-                            <th className="border px-2 py-1 text-left">Opción</th>
-                            <th className="border px-2 py-1 text-left w-[140px] min-w-[140px]">Acción</th>
-                            <th className="border px-2 py-1 text-left w-[140px] min-w-[140px]">Fecha/hora</th>
-                            <th className="border px-2 py-1 text-left">IP</th>
-                            <th className="border px-2 py-1 text-left">Dispositivo</th>
+                            <th className="border px-2 py-1 text-left min-w-[120px]">Votante</th>
+                            <th className="border px-2 py-1 text-left min-w-[90px]">Unidad</th>
+                            <th className="border px-2 py-1 text-left min-w-[80px]">Opción</th>
+                            <th className="border px-2 py-1 text-left min-w-[160px]">Acción</th>
+                            <th className="border px-2 py-1 text-left min-w-[140px]">Fecha/hora</th>
+                            <th className="border px-2 py-1 text-left min-w-[100px]">IP</th>
+                            <th className="border px-2 py-1 text-left min-w-[140px]">Dispositivo</th>
                           </tr>
                         </thead>
                         <tbody>
                           {auditoria[pregunta.id].map((row, i) => (
                             <tr key={i}>
-                              <td className="border px-2 py-1">{row.votante_email} {row.votante_nombre ? `(${row.votante_nombre})` : ''}</td>
-                              <td className="border px-2 py-1">{row.unidad_torre}-{row.unidad_numero}{row.es_poder ? ' (poder)' : ''}</td>
-                              <td className="border px-2 py-1">{row.opcion_seleccionada}</td>
+                              <td className="border px-2 py-1 whitespace-nowrap">{row.votante_email} {row.votante_nombre ? `(${row.votante_nombre})` : ''}</td>
+                              <td className="border px-2 py-1 whitespace-nowrap">{row.unidad_torre}-{row.unidad_numero}{row.es_poder ? ' (poder)' : ''}</td>
+                              <td className="border px-2 py-1 whitespace-nowrap">{row.opcion_seleccionada}</td>
                               <td className="border px-2 py-1 whitespace-nowrap">{row.accion}{row.opcion_anterior ? ` (antes: ${row.opcion_anterior})` : ''}</td>
                               <td className="border px-2 py-1 whitespace-nowrap">{row.fecha_accion ? new Date(row.fecha_accion).toLocaleString('es-CO') : '-'}</td>
-                              <td className="border px-2 py-1">{row.ip_address || '-'}</td>
-                              <td className="border px-2 py-1 max-w-[200px] truncate" title={row.user_agent || ''}>{row.user_agent || '-'}</td>
+                              <td className="border px-2 py-1 whitespace-nowrap">{row.ip_address || '-'}</td>
+                              <td className="border px-2 py-1 whitespace-nowrap max-w-[180px] truncate" title={row.user_agent || ''}>{row.user_agent || '-'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -712,8 +755,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       <td className="border px-2 py-1.5">{u.torre || '—'}</td>
                       <td className="border px-2 py-1.5">{u.numero || '—'}</td>
                       <td className="border px-2 py-1.5">{u.nombre_propietario || '—'}</td>
-                      <td className="border px-2 py-1.5">{u.email_propietario || '—'}</td>
-                      <td className="border px-2 py-1.5">{u.telefono_propietario || '—'}</td>
+                      <td className="border px-2 py-1.5">{u.email_propietario?.trim() ? u.email_propietario : 'No registrado'}</td>
+                      <td className="border px-2 py-1.5">{u.telefono_propietario?.trim() ? u.telefono_propietario : 'No registrado'}</td>
                       <td className="border px-2 py-1.5 text-right">{u.coeficiente.toFixed(2)}%</td>
                     </tr>
                   ))}
