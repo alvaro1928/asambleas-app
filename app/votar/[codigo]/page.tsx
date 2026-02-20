@@ -7,6 +7,7 @@ import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, BarChart3, Cloc
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { StepIndicator } from '@/components/ui/StepIndicator'
 import { useToast } from '@/components/providers/ToastProvider'
 
@@ -103,6 +104,7 @@ export default function VotacionPublicaPage() {
   const [recargando, setRecargando] = useState(false)
   const [mostrarHistorial, setMostrarHistorial] = useState(false)
   const [descargandoCertificado, setDescargandoCertificado] = useState(false)
+  const [showModalCertificado, setShowModalCertificado] = useState(false)
   const [clientIp, setClientIp] = useState<string | null>(null)
   const [consentimientoAceptado, setConsentimientoAceptado] = useState(false)
   const [guardandoConsentimiento, setGuardandoConsentimiento] = useState(false)
@@ -1343,51 +1345,79 @@ export default function VotacionPublicaPage() {
                 {mostrarHistorial ? 'Ocultar' : 'Ver'} Historial
               </Button>
               <Button
-                onClick={async () => {
-                  setDescargandoCertificado(true)
-                  try {
-                    const res = await fetch('/api/votar/certificado-mis-votos', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ codigo, email: email.trim() }),
-                    })
-                    const text = await res.text()
-                    if (!res.ok) {
-                      let msg = 'No se pudo generar el certificado.'
-                      try {
-                        const data = JSON.parse(text)
-                        if (data?.error) msg = data.error
-                      } catch {
-                        // ignorar
-                      }
-                      if (res.status === 429) {
-                        toast.info(msg)
-                      } else {
-                        toast.error(msg)
-                      }
-                      return
-                    }
-                    const blob = new Blob([text], { type: 'text/html;charset=utf-8' })
-                    const url = URL.createObjectURL(blob)
-                    window.open(url, '_blank', 'noopener,noreferrer')
-                    setTimeout(() => URL.revokeObjectURL(url), 60000)
-                    toast.success('Certificado abierto. Puedes imprimirlo o guardar como PDF.')
-                  } catch (e) {
-                    toast.error('Error al descargar el certificado.')
-                  } finally {
-                    setDescargandoCertificado(false)
-                  }
-                }}
+                onClick={() => setShowModalCertificado(true)}
                 disabled={descargandoCertificado}
                 variant="outline"
                 className="border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                title="Descargar un acta con el registro de tus votos (transparencia). Máximo 3 por hora. No consume tokens."
+                title="Descargar un acta con el registro de tus votos (transparencia)"
               >
                 <FileDown className={`w-4 h-4 mr-2 ${descargandoCertificado ? 'animate-pulse' : ''}`} />
                 {descargandoCertificado ? 'Generando...' : 'Certificado de mis votos'}
               </Button>
             </div>
           </div>
+
+          {/* Modal: mensaje antes de generar certificado */}
+          <Dialog open={showModalCertificado} onOpenChange={setShowModalCertificado}>
+            <DialogContent className="max-w-md rounded-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-gray-900 dark:text-white">Certificado de mis votos</DialogTitle>
+                <DialogDescription>
+                  Este certificado no consume tokens; límite: 3 por hora.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex gap-3 mt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowModalCertificado(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={async () => {
+                    setShowModalCertificado(false)
+                    setDescargandoCertificado(true)
+                    try {
+                      const res = await fetch('/api/votar/certificado-mis-votos', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ codigo, email: email.trim() }),
+                      })
+                      const text = await res.text()
+                      if (!res.ok) {
+                        let msg = 'No se pudo generar el certificado.'
+                        try {
+                          const data = JSON.parse(text)
+                          if (data?.error) msg = data.error
+                        } catch {
+                          // ignorar
+                        }
+                        if (res.status === 429) {
+                          toast.info(msg)
+                        } else {
+                          toast.error(msg)
+                        }
+                        return
+                      }
+                      const blob = new Blob([text], { type: 'text/html;charset=utf-8' })
+                      const url = URL.createObjectURL(blob)
+                      window.open(url, '_blank', 'noopener,noreferrer')
+                      setTimeout(() => URL.revokeObjectURL(url), 60000)
+                      toast.success('Certificado abierto. Puedes imprimirlo o guardar como PDF.')
+                    } catch (e) {
+                      toast.error('Error al descargar el certificado.')
+                    } finally {
+                      setDescargandoCertificado(false)
+                    }
+                  }}
+                >
+                  Generar
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Historial de Votaciones Cerradas */}
           {mostrarHistorial && (

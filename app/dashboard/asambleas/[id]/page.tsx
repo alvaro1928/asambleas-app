@@ -202,9 +202,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const [billeteraColapsada, setBilleteraColapsada] = useState(true)
 
-  // Edición de fecha (solo borrador o activa; doble confirmación)
+  // Edición de fecha y hora (solo borrador o activa; doble confirmación)
   const [showEditFechaModal, setShowEditFechaModal] = useState(false)
   const [editFechaValue, setEditFechaValue] = useState('')
+  const [editHoraValue, setEditHoraValue] = useState('10:00')
   const [showConfirmFechaModal, setShowConfirmFechaModal] = useState(false)
   const [savingFecha, setSavingFecha] = useState(false)
   const puedeEditarFecha = asamblea && (asamblea.estado === 'borrador' || asamblea.estado === 'activa')
@@ -1165,6 +1166,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!asamblea?.fecha) return
     const d = new Date(asamblea.fecha)
     setEditFechaValue(d.toISOString().slice(0, 10))
+    const h = d.getHours()
+    const m = d.getMinutes()
+    setEditHoraValue(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
     setShowEditFechaModal(true)
   }
 
@@ -1172,7 +1176,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!asamblea || !editFechaValue.trim()) return
     setSavingFecha(true)
     try {
-      const fechaHora = `${editFechaValue}T10:00:00`
+      const hora = (editHoraValue.trim() || '10:00').slice(0, 5) // HH:mm
+      const fechaHora = `${editFechaValue}T${hora}:00`
       const { error } = await supabase.from('asambleas').update({ fecha: fechaHora }).eq('id', asamblea.id)
       if (error) throw error
       setAsamblea({ ...asamblea, fecha: fechaHora })
@@ -1779,9 +1784,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         size="sm"
                         className="h-7 text-xs text-indigo-600 dark:text-indigo-400"
                         onClick={openEditFechaModal}
-                        title="Cambiar fecha de la asamblea"
+                        title="Cambiar fecha y hora de la asamblea"
                       >
-                        Editar fecha
+                        Editar fecha y hora
                       </Button>
                     )}
                   </p>
@@ -3001,21 +3006,33 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
               <Calendar className="w-5 h-5" />
-              Cambiar fecha de la asamblea
+              Cambiar fecha y hora de la asamblea
             </DialogTitle>
             <DialogDescription>
-              La nueva fecha se aplicará a la asamblea. Deberás confirmar el cambio en el siguiente paso.
+              La nueva fecha y hora se aplicarán a la asamblea. Deberás confirmar el cambio en el siguiente paso.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 space-y-4">
-            <Label htmlFor="edit-fecha-input">Nueva fecha</Label>
-            <Input
-              id="edit-fecha-input"
-              type="date"
-              value={editFechaValue}
-              onChange={(e) => setEditFechaValue(e.target.value)}
-              className="w-full"
-            />
+            <div>
+              <Label htmlFor="edit-fecha-input">Nueva fecha</Label>
+              <Input
+                id="edit-fecha-input"
+                type="date"
+                value={editFechaValue}
+                onChange={(e) => setEditFechaValue(e.target.value)}
+                className="w-full mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-hora-input">Hora</Label>
+              <Input
+                id="edit-hora-input"
+                type="time"
+                value={editHoraValue}
+                onChange={(e) => setEditHoraValue(e.target.value)}
+                className="w-full mt-1"
+              />
+            </div>
             <div className="flex gap-3 pt-2">
               <Button variant="outline" onClick={() => setShowEditFechaModal(false)} className="flex-1">
                 Cancelar
@@ -3039,9 +3056,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       <Dialog open={showConfirmFechaModal} onOpenChange={setShowConfirmFechaModal}>
         <DialogContent className="max-w-sm rounded-3xl">
           <DialogHeader>
-            <DialogTitle>¿Confirmar cambio de fecha?</DialogTitle>
+            <DialogTitle>¿Confirmar cambio de fecha y hora?</DialogTitle>
             <DialogDescription>
-              La fecha de la asamblea pasará a: <strong>{editFechaValue ? new Date(editFechaValue + 'T10:00:00').toLocaleDateString('es-CO', { dateStyle: 'long' }) : ''}</strong>. ¿Deseas guardar este cambio?
+              La asamblea quedará programada para: <strong>{editFechaValue && editHoraValue ? new Date(editFechaValue + 'T' + (editHoraValue.trim() || '10:00').slice(0, 5) + ':00').toLocaleString('es-CO', { dateStyle: 'long', timeStyle: 'short' }) : ''}</strong>. ¿Deseas guardar este cambio?
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex gap-3">

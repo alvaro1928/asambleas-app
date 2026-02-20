@@ -292,7 +292,7 @@ function buildCertificadoHtml(params: {
     </thead>
     <tbody>${filasHtml}</tbody>
   </table>
-  <p class="footer">Documento generado el ${fechaEmision}. Puedes guardar o imprimir esta página como PDF. Este certificado no consume tokens; límite: 3 por hora.</p>
+  <p class="footer">Documento generado el ${fechaEmision}. Puedes guardar o imprimir esta página como PDF.</p>
 </body>
 </html>`
 }
