@@ -56,7 +56,15 @@ Ejemplo: `https://epbco.cloud/api/pagos/webhook`. Luego **Guardar**. Con `WOMPI_
 
 ## 5. Envío de correo (enlace de votación)
 
-Para que el botón **"Enviar enlace por correo"** envíe los correos desde el servidor (sin abrir Outlook), usa **una** de estas dos opciones.
+Para que el botón **"Enviar enlace por correo"** envíe los correos desde el servidor (sin abrir Outlook), puedes configurarlo de dos formas (recomendado: **parametrizado en Supabase**).
+
+### Recomendado: SMTP en Super Admin (Supabase)
+
+El super administrador puede configurar el correo desde **Super Admin → Ajustes**, sección **Correo (SMTP)**. Esos datos se guardan en la tabla `configuracion_smtp` en Supabase y tienen **prioridad** sobre las variables de entorno. No hace falta tocar variables ni redesplegar para cambiar servidor, usuario o contraseña.
+
+**Requisito:** Ejecutar en Supabase (SQL Editor) el script **`supabase/CONFIGURACION-SMTP-SUPER-ADMIN.sql`** una vez, para crear la tabla y políticas.
+
+Si no configuras nada en Ajustes, se usan las opciones siguientes (variables de entorno).
 
 ### Opción A: Resend (API externa)
 

@@ -1,35 +1,83 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { Resend } from 'resend'
 
+/** Prioridad: 1) SMTP en Supabase (Super Admin), 2) Resend (env), 3) SMTP (env). */
+type EmailConfig =
+  | { type: 'resend'; from: string }
+  | { type: 'smtp'; from: string; host: string; port: number; secure: boolean; user: string; pass: string }
+
+async function getEmailConfig(): Promise<EmailConfig | null> {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (serviceRoleKey) {
+    const admin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+      { auth: { persistSession: false } }
+    )
+    const { data: row } = await admin
+      .from('configuracion_smtp')
+      .select('host, port, secure, user, pass, from_address')
+      .eq('key', 'default')
+      .maybeSingle()
+    const r = row as { host?: string; port?: number; secure?: boolean; user?: string; pass?: string; from_address?: string } | null
+    if (r?.host?.trim() && r?.user?.trim() && r?.pass) {
+      return {
+        type: 'smtp',
+        from: (r.from_address?.trim() || r.user?.trim()) || 'Votaciones <noreply@epbco.cloud>',
+        host: r.host.trim(),
+        port: typeof r.port === 'number' && r.port > 0 ? r.port : 465,
+        secure: r.secure !== false,
+        user: r.user.trim(),
+        pass: r.pass,
+      }
+    }
+  }
+  const useResend = process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM?.trim()
+  if (useResend) {
+    return { type: 'resend', from: process.env.RESEND_FROM!.trim() }
+  }
+  const useSmtp =
+    process.env.SMTP_HOST?.trim() &&
+    process.env.SMTP_USER?.trim() &&
+    process.env.SMTP_PASS
+  if (useSmtp) {
+    const port = parseInt(process.env.SMTP_PORT || '465', 10)
+    return {
+      type: 'smtp',
+      from: process.env.SMTP_FROM?.trim() || process.env.SMTP_USER?.trim() || 'Votaciones <noreply@epbco.cloud>',
+      host: process.env.SMTP_HOST!.trim(),
+      port: isNaN(port) ? 465 : port,
+      secure: process.env.SMTP_SECURE !== 'false',
+      user: process.env.SMTP_USER!.trim(),
+      pass: process.env.SMTP_PASS!,
+    }
+  }
+  return null
+}
+
 /**
  * POST /api/dashboard/enviar-enlace-votacion
  * Envía por correo el enlace de votación.
- * Configuración: Resend (RESEND_API_KEY + RESEND_FROM) O bien SMTP (ej. Hostinger: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM).
+ * Configuración (prioridad): 1) SMTP en Supabase (Super Admin → Ajustes), 2) Resend (env), 3) SMTP (env).
  */
 export async function POST(request: NextRequest) {
   try {
-    const useResend = process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM?.trim()
-    const useSmtp =
-      process.env.SMTP_HOST?.trim() &&
-      process.env.SMTP_USER?.trim() &&
-      process.env.SMTP_PASS
-
-    if (!useResend && !useSmtp) {
+    const emailConfig = await getEmailConfig()
+    if (!emailConfig) {
       return NextResponse.json(
         {
           error:
-            'Envío por correo no configurado. Añade en el servidor: opción A) RESEND_API_KEY y RESEND_FROM (Resend.com), o opción B) SMTP_HOST, SMTP_USER, SMTP_PASS y SMTP_FROM (ej. correo de Hostinger).',
+            'Envío por correo no configurado. Configura SMTP en Super Admin → Ajustes, o añade en el servidor RESEND_API_KEY+RESEND_FROM o SMTP_HOST+SMTP_USER+SMTP_PASS.',
         },
         { status: 503 }
       )
     }
 
-    const fromAddress = useResend
-      ? process.env.RESEND_FROM!.trim()
-      : (process.env.SMTP_FROM?.trim() || process.env.SMTP_USER?.trim() || 'Votaciones <noreply@epbco.cloud>')
+    const fromAddress = emailConfig.from
 
     const cookieStore = await cookies()
     const supabase = createServerClient(
@@ -159,7 +207,7 @@ ${urlVotacion}
     const errores: string[] = []
     let enviados = 0
 
-    if (useResend) {
+    if (emailConfig.type === 'resend') {
       const resend = new Resend(process.env.RESEND_API_KEY!.trim())
       for (const to of emails) {
         const { error } = await resend.emails.send({
@@ -176,15 +224,13 @@ ${urlVotacion}
         }
       }
     } else {
-      const port = parseInt(process.env.SMTP_PORT || '465', 10)
-      const secure = process.env.SMTP_SECURE !== 'false'
       const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST!.trim(),
-        port: isNaN(port) ? 465 : port,
-        secure,
+        host: emailConfig.host,
+        port: emailConfig.port,
+        secure: emailConfig.secure,
         auth: {
-          user: process.env.SMTP_USER!.trim(),
-          pass: process.env.SMTP_PASS!,
+          user: emailConfig.user,
+          pass: emailConfig.pass,
         },
       })
       for (const to of emails) {

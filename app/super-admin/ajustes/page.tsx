@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Shield, Save, Loader2, ArrowLeft } from 'lucide-react'
+import { Shield, Save, Loader2, ArrowLeft, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/providers/ToastProvider'
 
@@ -22,6 +22,13 @@ export default function SuperAdminAjustesPage() {
   const [textoHeroPrecio, setTextoHeroPrecio] = useState('')
   const [textoAhorro, setTextoAhorro] = useState('')
   const [ctaWhatsappText, setCtaWhatsappText] = useState('Contactanos')
+  const [savingSmtp, setSavingSmtp] = useState(false)
+  const [smtpHost, setSmtpHost] = useState('')
+  const [smtpPort, setSmtpPort] = useState<number | ''>(465)
+  const [smtpSecure, setSmtpSecure] = useState(true)
+  const [smtpUser, setSmtpUser] = useState('')
+  const [smtpPass, setSmtpPass] = useState('')
+  const [smtpFromAddress, setSmtpFromAddress] = useState('')
 
   const isAllowed = (email: string | undefined) => {
     if (!email) return false
@@ -59,6 +66,16 @@ export default function SuperAdminAjustesPage() {
       setTextoHeroPrecio(data.texto_hero_precio ?? '')
       setTextoAhorro(data.texto_ahorro ?? '')
       setCtaWhatsappText(data.cta_whatsapp_text?.trim() || 'Contactanos')
+      const smtpRes = await fetch('/api/super-admin/configuracion-smtp', { credentials: 'include' })
+      if (smtpRes.ok) {
+        const smtpData = await smtpRes.json()
+        setSmtpHost(smtpData.host ?? '')
+        setSmtpPort(smtpData.port != null ? smtpData.port : 465)
+        setSmtpSecure(smtpData.secure !== false)
+        setSmtpUser(smtpData.user ?? '')
+        setSmtpPass(smtpData.pass ?? '')
+        setSmtpFromAddress(smtpData.from_address ?? '')
+      }
       setLoading(false)
     }
     load()
@@ -94,6 +111,36 @@ export default function SuperAdminAjustesPage() {
       toast.error('Error al guardar')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSaveSmtp = async () => {
+    setSavingSmtp(true)
+    try {
+      const res = await fetch('/api/super-admin/configuracion-smtp', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          host: smtpHost.trim() || null,
+          port: typeof smtpPort === 'number' ? smtpPort : (smtpPort !== '' ? parseInt(String(smtpPort), 10) : 465),
+          secure: smtpSecure,
+          user: smtpUser.trim() || null,
+          pass: smtpPass.trim() || null,
+          from_address: smtpFromAddress.trim() || null,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Error al guardar SMTP')
+        return
+      }
+      toast.success('Configuración SMTP guardada. El envío de enlace de votación usará estos datos.')
+    } catch (e) {
+      console.error(e)
+      toast.error('Error al guardar SMTP')
+    } finally {
+      setSavingSmtp(false)
     }
   }
 
@@ -246,6 +293,87 @@ export default function SuperAdminAjustesPage() {
             <Button onClick={handleSave} disabled={saving} className="gap-2">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Guardar ajustes
+            </Button>
+
+            <hr className="border-gray-200 dark:border-gray-700" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <Mail className="w-5 h-5 text-indigo-600" />
+              Correo (SMTP)
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Para que el botón &quot;Enviar enlace por correo&quot; funcione desde el servidor. Si lo configuras aquí tiene prioridad sobre las variables de entorno (Resend o SMTP en .env).
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Servidor (host)</label>
+                <input
+                  type="text"
+                  value={smtpHost}
+                  onChange={(e) => setSmtpHost(e.target.value)}
+                  placeholder="smtp.hostinger.com"
+                  className="w-full rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Puerto</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={65535}
+                  value={smtpPort}
+                  onChange={(e) => setSmtpPort(e.target.value === '' ? '' : parseInt(e.target.value, 10) || 465)}
+                  placeholder="465"
+                  className="w-full rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">465 (SSL) o 587 (TLS)</p>
+              </div>
+              <div className="flex items-center gap-2 pt-8">
+                <input
+                  type="checkbox"
+                  id="smtpSecure"
+                  checked={smtpSecure}
+                  onChange={(e) => setSmtpSecure(e.target.checked)}
+                  className="rounded border-gray-300 dark:border-gray-600"
+                />
+                <label htmlFor="smtpSecure" className="text-sm text-gray-700 dark:text-gray-300">Conexión segura (SSL)</label>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Usuario / correo</label>
+                <input
+                  type="text"
+                  value={smtpUser}
+                  onChange={(e) => setSmtpUser(e.target.value)}
+                  placeholder="contactanos@epbco.cloud"
+                  className="w-full rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña</label>
+                <input
+                  type="password"
+                  value={smtpPass}
+                  onChange={(e) => setSmtpPass(e.target.value)}
+                  placeholder="Contraseña del correo"
+                  className="w-full rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+                  autoComplete="off"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">La misma que usas en el cliente de correo (ej. Hostinger).</p>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Remitente (From)</label>
+                <input
+                  type="text"
+                  value={smtpFromAddress}
+                  onChange={(e) => setSmtpFromAddress(e.target.value)}
+                  placeholder='Votaciones &lt;contactanos@epbco.cloud&gt;'
+                  className="w-full rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Nombre y correo que verá el destinatario. Opcional; si está vacío se usa el usuario.</p>
+              </div>
+            </div>
+            <Button onClick={handleSaveSmtp} disabled={savingSmtp} variant="outline" className="gap-2">
+              {savingSmtp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Guardar configuración SMTP
             </Button>
           </div>
         </div>

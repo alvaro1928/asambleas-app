@@ -27,6 +27,7 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 | 16b | **ADD-LANDING-TEXTOS-CONFIG.sql** | Columnas `texto_hero_precio`, `texto_ahorro`, `cta_whatsapp_text` en `configuracion_global`. Textos publicitarios editables y botón "Contactanos" (los créditos se venden en la app). |
 | 17 | **ADD-IS-DEMO-ASAMBLEAS-UNIDADES.sql** | Columna `is_demo` en `asambleas` y `unidades` para la asamblea de pruebas (sandbox). No consumen tokens; restricciones de edición en la UI; acta con marca "DEMO - SIN VALIDEZ LEGAL". |
 | 18 | **ADD-IS-ARCHIVED-ASAMBLEAS-PREGUNTAS.sql** | Columnas `is_archived` en `asambleas` y `preguntas`. Asambleas archivadas se muestran en pestaña "Archivadas"; preguntas archivadas no se incluyen en el acta ni en reportes. |
+| 19 | **CONFIGURACION-SMTP-SUPER-ADMIN.sql** | Tabla `configuracion_smtp` para que el Super Admin configure el envío de correo (enlace de votación) desde Ajustes, sin usar variables de entorno. |
 
 ---
 
@@ -52,6 +53,7 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 16b. ADD-LANDING-TEXTOS-CONFIG.sql
 17. ADD-IS-DEMO-ASAMBLEAS-UNIDADES.sql
 18. ADD-IS-ARCHIVED-ASAMBLEAS-PREGUNTAS.sql
+19. CONFIGURACION-SMTP-SUPER-ADMIN.sql
 ```
 
 ---
@@ -67,4 +69,5 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 - **15–16:** Configuración global (landing, color). Necesarios para Super Admin → Ajustes.
 - **17:** Asamblea de pruebas (sandbox): necesario si se usa el botón "Probar en sandbox" y la API `crear-asamblea-demo`.
 - **18:** Archivado: necesario para pestañas Activas/Archivadas en asambleas y para archivar preguntas (no incluidas en el acta).
+- **19:** SMTP: necesario si quieres que el Super Admin configure el correo (enlace de votación) desde Ajustes en lugar de variables de entorno.
 - **TRIGGER-PROFILE-ON-SIGNUP.sql** (opcional pero recomendado): crea perfil en `profiles` al registrarse un nuevo usuario (email/password, Magic Link u OAuth) para que la billetera y la demo funcionen desde el primer acceso.
