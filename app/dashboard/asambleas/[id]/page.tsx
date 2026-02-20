@@ -43,6 +43,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { getEffectivePlanLimits } from '@/lib/plan-limits'
 import { useToast } from '@/components/providers/ToastProvider'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+
+/** URL canónica del sitio para enlaces de votación (WhatsApp, correo, copiar). Ver https://www.asamblea.online */
+const SITE_URL = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL)
+  ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '')
+  : 'https://www.asamblea.online'
 import { StickyBanner } from '@/components/StickyBanner'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
 
@@ -468,11 +473,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!asamblea) return
     
     try {
-      const baseUrl = window.location.origin
-      
       const { data, error } = await supabase.rpc('activar_votacion_publica', {
         p_asamblea_id: asamblea.id,
-        p_base_url: baseUrl
+        p_base_url: SITE_URL
       })
       
       if (error) throw error
@@ -613,7 +616,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   }
 
   const handleCompartirWhatsApp = () => {
-    if (!asamblea || !asamblea.url_publica) return
+    if (!asamblea || (!asamblea.url_publica && !asamblea.codigo_acceso)) return
     const msg = getMensajeVotacion()
     if (!msg) return
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank')
@@ -627,7 +630,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   }
 
   const openModalEnviarEnlace = async () => {
-    if (!asamblea?.organization_id || !asamblea?.url_publica) return
+    const tieneEnlace = asamblea?.codigo_acceso || asamblea?.url_publica
+    if (!asamblea?.organization_id || !tieneEnlace) return
     setShowModalEnviarEnlace(true)
     setLoadingUnidadesEnvio(true)
     try {
@@ -658,7 +662,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!email?.trim()) return
     const msg = getMensajeVotacion()
     const subject = encodeURIComponent(`Votación: ${asamblea?.nombre ?? 'Asamblea'}`)
-    const body = encodeURIComponent((msg || '') + '\n\nEnlace: ' + (asamblea?.url_publica ?? ''))
+    const urlVotacion = asamblea?.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea?.url_publica ?? '')
+    const body = encodeURIComponent((msg || '') + '\n\nEnlace: ' + urlVotacion)
     window.open(`mailto:${email.trim()}?subject=${subject}&body=${body}`, '_blank')
   }
 
@@ -1148,8 +1153,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   }
 
   const getMensajeVotacion = (): string => {
-    if (!asamblea?.url_publica) return ''
-    return `🗳️ VOTACIÓN VIRTUAL ACTIVA\n\n📋 ${asamblea.nombre}\n📅 ${formatFecha(asamblea.fecha)}\n\n👉 Vota aquí:\n${asamblea.url_publica}\n\n⚠️ Necesitas tu email registrado en el conjunto\n\n¡Tu participación es importante! 🏠`
+    if (!asamblea) return ''
+    const url = asamblea.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea.url_publica || '')
+    if (!url) return ''
+    return `🗳️ VOTACIÓN VIRTUAL ACTIVA\n\n📋 ${asamblea.nombre}\n📅 ${formatFecha(asamblea.fecha)}\n\n👉 Vota aquí:\n${url}\n\n⚠️ Necesitas tu email registrado en el conjunto\n\n¡Tu participación es importante! 🏠`
   }
 
   const getEstadoBadge = (estado: string) => {
@@ -1622,12 +1629,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                       <div className="flex items-center gap-2">
                         <input
                           type="text"
-                          value={asamblea.url_publica || ''}
+                          value={asamblea.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea.url_publica || '')}
                           readOnly
                           className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-xs text-gray-700 dark:text-gray-300"
                         />
                         <Button
-                          onClick={() => handleCopiarTexto(asamblea.url_publica || '', 'URL')}
+                          onClick={() => handleCopiarTexto(asamblea.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea.url_publica || ''), 'URL')}
                           variant="outline"
                           size="sm"
                           title="Copiar el enlace de votación al portapapeles"

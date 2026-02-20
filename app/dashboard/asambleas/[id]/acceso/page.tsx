@@ -149,7 +149,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       if (error) throw error
       setAsamblea(data)
-      setUrlPublica(`${window.location.origin}/votar/${data.codigo_acceso}`)
+      const siteUrl = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL) ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '') : 'https://www.asamblea.online'
+      setUrlPublica(`${siteUrl}/votar/${data.codigo_acceso}`)
       if (data.organization_id) {
         const res = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(data.organization_id)}`, { credentials: 'include' })
         if (res.ok) {
