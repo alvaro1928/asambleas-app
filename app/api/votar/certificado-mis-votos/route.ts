@@ -115,10 +115,15 @@ export async function POST(request: NextRequest) {
     const preguntaIds = (preguntasData ?? []).map((p: { id: string }) => p.id)
 
     if (preguntaIds.length === 0) {
+      const fechaEmision = new Date().toLocaleString('es-CO', {
+        dateStyle: 'medium',
+        timeStyle: 'medium',
+      })
       const html = buildCertificadoHtml({
         nombreAsamblea,
         nombreConjunto,
         fechaAsamblea,
+        fechaEmision,
         email: identificador,
         filas: [],
       })
@@ -138,6 +143,7 @@ export async function POST(request: NextRequest) {
         pregunta_id,
         unidad_id,
         opcion_id,
+        created_at,
         preguntas(asamblea_id, texto_pregunta, orden),
         opciones_pregunta(texto_opcion),
         unidades(torre, numero)
@@ -174,17 +180,29 @@ export async function POST(request: NextRequest) {
         const p = norm(v.preguntas)
         const u = norm(v.unidades)
         const o = norm(v.opciones_pregunta)
+        const fechaHora = v.created_at
+          ? new Date(v.created_at).toLocaleString('es-CO', {
+              dateStyle: 'short',
+              timeStyle: 'medium',
+            })
+          : '—'
         return {
           pregunta: p?.texto_pregunta ?? '—',
           unidad: `${u?.torre ?? ''} - ${u?.numero ?? ''}`.trim() || '—',
           opcion: o?.texto_opcion ?? '—',
+          fechaHora,
         }
       })
 
+    const fechaEmision = new Date().toLocaleString('es-CO', {
+      dateStyle: 'medium',
+      timeStyle: 'medium',
+    })
     const html = buildCertificadoHtml({
       nombreAsamblea,
       nombreConjunto,
       fechaAsamblea,
+      fechaEmision,
       email: identificador,
       filas,
     })
@@ -209,14 +227,15 @@ function buildCertificadoHtml(params: {
   nombreAsamblea: string
   nombreConjunto: string
   fechaAsamblea: string
+  fechaEmision: string
   email: string
-  filas: Array<{ pregunta: string; unidad: string; opcion: string }>
+  filas: Array<{ pregunta: string; unidad: string; opcion: string; fechaHora?: string }>
 }): string {
-  const { nombreAsamblea, nombreConjunto, fechaAsamblea, email, filas } = params
+  const { nombreAsamblea, nombreConjunto, fechaAsamblea, fechaEmision, email, filas } = params
 
   const filasHtml =
     filas.length === 0
-      ? '<tr><td colspan="3" style="text-align:center;padding:1rem;">No hay votos registrados para esta asamblea.</td></tr>'
+      ? '<tr><td colspan="4" style="text-align:center;padding:1rem;">No hay votos registrados para esta asamblea.</td></tr>'
       : filas
           .map(
             (f) =>
@@ -224,6 +243,7 @@ function buildCertificadoHtml(params: {
                 <td style="padding:0.5rem 0.75rem;border:1px solid #e5e7eb;">${escapeHtml(f.pregunta)}</td>
                 <td style="padding:0.5rem 0.75rem;border:1px solid #e5e7eb;">${escapeHtml(f.unidad)}</td>
                 <td style="padding:0.5rem 0.75rem;border:1px solid #e5e7eb;">${escapeHtml(f.opcion)}</td>
+                <td style="padding:0.5rem 0.75rem;border:1px solid #e5e7eb;">${escapeHtml(f.fechaHora ?? '—')}</td>
               </tr>`
           )
           .join('')
@@ -235,19 +255,27 @@ function buildCertificadoHtml(params: {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Certificado de mis votos - ${escapeHtml(nombreAsamblea)}</title>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; color: #111; }
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #111; }
     h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
-    .subtitle { color: #555; font-size: 0.95rem; margin-bottom: 1.5rem; }
+    .subtitle { color: #555; font-size: 0.95rem; margin-bottom: 0.5rem; }
+    .fecha-emision { font-size: 0.9rem; color: #374151; margin-bottom: 1.5rem; }
     .votante { margin-bottom: 1.5rem; font-weight: 500; }
     table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
     th { background: #f3f4f6; padding: 0.5rem 0.75rem; text-align: left; border: 1px solid #e5e7eb; }
     .footer { margin-top: 2rem; font-size: 0.85rem; color: #6b7280; }
-    @media print { body { margin: 1rem; } }
+    @media print {
+      @page { margin: 1.5cm; }
+      body { margin: 0; max-width: none; padding: 0; }
+      thead { display: table-header-group; }
+      tr { break-inside: avoid; }
+      table { overflow: visible; width: 100%; }
+    }
   </style>
 </head>
 <body>
   <h1>Certificado de votación</h1>
   <p class="subtitle">Registro de tus votos emitidos (transparencia)</p>
+  <p class="fecha-emision"><strong>Certificado emitido el:</strong> ${escapeHtml(fechaEmision)}</p>
   <p><strong>Asamblea:</strong> ${escapeHtml(nombreAsamblea)}</p>
   <p><strong>Conjunto:</strong> ${escapeHtml(nombreConjunto)}</p>
   ${fechaAsamblea ? `<p><strong>Fecha de la asamblea:</strong> ${escapeHtml(fechaAsamblea)}</p>` : ''}
@@ -259,11 +287,12 @@ function buildCertificadoHtml(params: {
         <th>Pregunta</th>
         <th>Unidad</th>
         <th>Tu voto</th>
+        <th>Fecha/hora (registro)</th>
       </tr>
     </thead>
     <tbody>${filasHtml}</tbody>
   </table>
-  <p class="footer">Documento generado el ${new Date().toLocaleString('es-CO')}. Puedes guardar o imprimir esta página como PDF. Este certificado no consume tokens; límite: 3 por hora.</p>
+  <p class="footer">Documento generado el ${fechaEmision}. Puedes guardar o imprimir esta página como PDF. Este certificado no consume tokens; límite: 3 por hora.</p>
 </body>
 </html>`
 }
