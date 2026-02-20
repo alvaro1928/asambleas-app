@@ -593,7 +593,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     <p className="text-sm text-gray-600 mb-2">{pregunta.descripcion}</p>
                   )}
                   <p className="text-xs text-gray-500 mb-2">
-                    Tipo: {pregunta.tipo_votacion}. Estado: {pregunta.estado}.
+                    Tipo: {pregunta.tipo_votacion}. Estado: Cerrada.
                   </p>
                   {stats && (() => {
                     const votosFinales = votacionesFinalesPorPregunta[pregunta.id] || []
@@ -625,7 +625,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                             : Math.max(...items.map((i) => i.pct)))
                         : Math.max(...items.map((i) => i.pct))
                       : 0
-                    const aprobado = pregunta.umbral_aprobacion != null && maxPct >= pregunta.umbral_aprobacion
+                    const opcionAfavor = items.find((i) => i.opcion_texto?.trim().toLowerCase().includes('a favor'))
+                    const pctAfavor = opcionAfavor?.pct ?? 0
+                    const aprobado = pregunta.umbral_aprobacion != null && pctAfavor >= pregunta.umbral_aprobacion
                     return (
                       <div className="ml-4 space-y-2">
                         <p className="text-sm">
@@ -641,7 +643,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                         </ul>
                         {pregunta.umbral_aprobacion != null && items.length > 0 && (
                           <p className={`text-sm font-semibold mt-2 ${aprobado ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
-                            Mayoría necesaria ({pregunta.umbral_aprobacion}%) — Resultado: {aprobado ? 'Aprobado' : 'No aprobado'} (máx. {maxPct.toFixed(1)}%).
+                            Mayoría necesaria ({pregunta.umbral_aprobacion}%) — Resultado: {aprobado ? 'Aprobado' : 'No Aprobado'} (A favor: {pctAfavor.toFixed(1)}%).
                           </p>
                         )}
                       </div>
@@ -777,8 +779,32 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           <div className="h-16 border-b border-gray-400 mt-8 max-w-xs" aria-label="Espacio para firma del administrador" />
           <p className="text-xs text-gray-500 mt-1">Nombre y firma de quien administra la asamblea</p>
         </section>
-        <footer className="mt-8 pt-6 border-t border-gray-300 text-center text-sm text-gray-500">
-          Documento generado por Votaciones de Asambleas Online como soporte de las votaciones. {new Date().toLocaleString('es-CO')}.
+
+        <section className="mt-10 pt-6 border-t border-gray-300 break-inside-avoid">
+          <h2 className="text-lg font-bold uppercase mb-4">Firmas de la asamblea</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-6">
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-1">Presidente de la Asamblea</p>
+              <div className="h-14 border-b border-gray-400 mt-4" aria-label="Firma del Presidente" />
+              <p className="text-xs text-gray-500 mt-2">Nombre completo</p>
+              <div className="h-8 border-b border-gray-300 mt-1 max-w-xs" />
+              <p className="text-xs text-gray-500 mt-2">Número de documento</p>
+              <div className="h-8 border-b border-gray-300 mt-1 max-w-xs" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-1">Secretario de la Asamblea</p>
+              <div className="h-14 border-b border-gray-400 mt-4" aria-label="Firma del Secretario" />
+              <p className="text-xs text-gray-500 mt-2">Nombre completo</p>
+              <div className="h-8 border-b border-gray-300 mt-1 max-w-xs" />
+              <p className="text-xs text-gray-500 mt-2">Número de documento</p>
+              <div className="h-8 border-b border-gray-300 mt-1 max-w-xs" />
+            </div>
+          </div>
+        </section>
+
+        <footer className="mt-8 pt-6 border-t border-gray-300 text-center text-sm text-gray-500 space-y-2">
+          <p>Este documento es fiel reflejo de las votaciones electrónicas registradas en la plataforma Votaciones de Asambleas Online.</p>
+          <p>Documento generado por Votaciones de Asambleas Online como soporte de las votaciones. {new Date().toLocaleString('es-CO')}.</p>
         </footer>
       </main>
     </div>
