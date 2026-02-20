@@ -1,23 +1,35 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import nodemailer from 'nodemailer'
 import { Resend } from 'resend'
 
 /**
  * POST /api/dashboard/enviar-enlace-votacion
- * Envía por correo el enlace de votación a todos los emails registrados en las unidades del conjunto.
- * Requiere RESEND_API_KEY y RESEND_FROM en el entorno (ej. "Votaciones <noreply@tudominio.com>").
+ * Envía por correo el enlace de votación.
+ * Configuración: Resend (RESEND_API_KEY + RESEND_FROM) O bien SMTP (ej. Hostinger: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM).
  */
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = process.env.RESEND_API_KEY
-    const from = process.env.RESEND_FROM
-    if (!apiKey?.trim() || !from?.trim()) {
+    const useResend = process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM?.trim()
+    const useSmtp =
+      process.env.SMTP_HOST?.trim() &&
+      process.env.SMTP_USER?.trim() &&
+      process.env.SMTP_PASS
+
+    if (!useResend && !useSmtp) {
       return NextResponse.json(
-        { error: 'Envío por correo no configurado. Añade RESEND_API_KEY y RESEND_FROM en el servidor.' },
+        {
+          error:
+            'Envío por correo no configurado. Añade en el servidor: opción A) RESEND_API_KEY y RESEND_FROM (Resend.com), o opción B) SMTP_HOST, SMTP_USER, SMTP_PASS y SMTP_FROM (ej. correo de Hostinger).',
+        },
         { status: 503 }
       )
     }
+
+    const fromAddress = useResend
+      ? process.env.RESEND_FROM!.trim()
+      : (process.env.SMTP_FROM?.trim() || process.env.SMTP_USER?.trim() || 'Votaciones <noreply@epbco.cloud>')
 
     const cookieStore = await cookies()
     const supabase = createServerClient(
@@ -95,7 +107,12 @@ export async function POST(request: NextRequest) {
 
     if (emails.length === 0) {
       return NextResponse.json(
-        { error: Array.isArray(emailsParam) && emailsParam.length > 0 ? 'Ninguno de los correos pertenece a este conjunto.' : 'No hay unidades con correo registrado en este conjunto.' },
+        {
+          error:
+            Array.isArray(emailsParam) && emailsParam.length > 0
+              ? 'Ninguno de los correos pertenece a este conjunto.'
+              : 'No hay unidades con correo registrado en este conjunto.',
+        },
         { status: 400 }
       )
     }
@@ -139,22 +156,51 @@ ${urlVotacion}
 </body>
 </html>`
 
-    const resend = new Resend(apiKey)
     const errores: string[] = []
     let enviados = 0
 
-    for (const to of emails) {
-      const { error } = await resend.emails.send({
-        from: from.trim(),
-        to: to.trim(),
-        subject,
-        text: textBody,
-        html: htmlBody,
+    if (useResend) {
+      const resend = new Resend(process.env.RESEND_API_KEY!.trim())
+      for (const to of emails) {
+        const { error } = await resend.emails.send({
+          from: fromAddress,
+          to: to.trim(),
+          subject,
+          text: textBody,
+          html: htmlBody,
+        })
+        if (error) {
+          errores.push(`${to}: ${error.message}`)
+        } else {
+          enviados++
+        }
+      }
+    } else {
+      const port = parseInt(process.env.SMTP_PORT || '465', 10)
+      const secure = process.env.SMTP_SECURE !== 'false'
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST!.trim(),
+        port: isNaN(port) ? 465 : port,
+        secure,
+        auth: {
+          user: process.env.SMTP_USER!.trim(),
+          pass: process.env.SMTP_PASS!,
+        },
       })
-      if (error) {
-        errores.push(`${to}: ${error.message}`)
-      } else {
-        enviados++
+      for (const to of emails) {
+        try {
+          await transporter.sendMail({
+            from: fromAddress,
+            to: to.trim(),
+            subject,
+            text: textBody,
+            html: htmlBody,
+          })
+          enviados++
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          errores.push(`${to}: ${msg}`)
+        }
       }
     }
 

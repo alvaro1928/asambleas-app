@@ -54,7 +54,39 @@ Ejemplo: `https://epbco.cloud/api/pagos/webhook`. Luego **Guardar**. Con `WOMPI_
 
 ---
 
-## 5. Landing, contacto y precio (ahora en Administración)
+## 5. Envío de correo (enlace de votación)
+
+Para que el botón **"Enviar enlace por correo"** envíe los correos desde el servidor (sin abrir Outlook), usa **una** de estas dos opciones.
+
+### Opción A: Resend (API externa)
+
+Regístrate en [Resend](https://resend.com) y crea una API Key:
+
+| Variable | Dónde sacarla | Uso |
+|----------|---------------|-----|
+| **`RESEND_API_KEY`** | Resend → API Keys → Create | Envío por API de Resend. |
+| **`RESEND_FROM`** | Tu dominio verificado en Resend | Remitente. Formato: `"Votaciones <noreply@tudominio.com>"`. En pruebas: `onboarding@resend.dev`. |
+
+### Opción B: SMTP (tu correo, ej. Hostinger)
+
+Usa el **servidor saliente (SMTP)** de tu proveedor de correo. Con Hostinger (o similar) suele ser:
+
+| Variable | Ejemplo (Hostinger) | Uso |
+|----------|---------------------|-----|
+| **`SMTP_HOST`** | `smtp.hostinger.com` | Servidor saliente. |
+| **`SMTP_PORT`** | `465` | Puerto (465 = SSL). |
+| **`SMTP_SECURE`** | `true` (opcional; por defecto true con 465) | Conexión SSL. |
+| **`SMTP_USER`** | `contactanos@epbco.cloud` | Usuario = tu dirección de correo. |
+| **`SMTP_PASS`** | Contraseña del correo | La misma que usas en el cliente de correo (Hostinger → Correo → contraseña de esa cuenta). |
+| **`SMTP_FROM`** | `"Votaciones <contactanos@epbco.cloud>"` (opcional) | Remitente que verá el destinatario. Si no se pone, se usa `SMTP_USER`. |
+
+**Dónde sacar la contraseña en Hostinger:** Panel de Hostinger → Correo → la cuenta (ej. contactanos@epbco.cloud) → contraseña que configuraste para esa cuenta (o “Cambiar contraseña” para generar una). Es la misma que pondrías en Outlook o en un cliente de correo.
+
+Si no configuras ni Resend ni SMTP, la app mostrará que el envío por correo no está configurado.
+
+---
+
+## 6. Landing, contacto y precio (ahora en Administración)
 
 **Ya no se configuran por variables de entorno.** La URL de Plan Pro, el precio por token/asamblea, el número de WhatsApp y el color principal de la landing se gestionan desde **Super Admin → Ajustes** y desde la tabla de **Planes** (precio por asamblea). No hace falta definir `NEXT_PUBLIC_PLAN_PRO_URL`, `NEXT_PUBLIC_PRECIO_PRO_ANUAL` ni `NEXT_PUBLIC_WHATSAPP_NUMBER` en Vercel; la app lee esos valores de la base de datos.
 
@@ -81,6 +113,18 @@ SUPER_ADMIN_EMAIL=tu_correo@ejemplo.com
 WOMPI_EVENTS_SECRET=prod_events_xxxxxxxxxxxx
 WOMPI_PRIVATE_KEY=prv_prod_xxxxxxxxxxxx
 # NEXT_PUBLIC_PASARELA_PAGOS_URL=...  # solo si usas Opción B (página propia de checkout)
+
+# ========== Envío de correo: elige UNA opción ==========
+# Opción A – Resend (resend.com):
+# RESEND_API_KEY=re_xxxxxxxxxxxx
+# RESEND_FROM="Votaciones <noreply@tudominio.com>"
+
+# Opción B – SMTP (Hostinger u otro; usa TU correo):
+SMTP_HOST=smtp.hostinger.com
+SMTP_PORT=465
+SMTP_USER=contactanos@epbco.cloud
+SMTP_PASS=tu_contraseña_del_correo
+SMTP_FROM="Votaciones <contactanos@epbco.cloud>"
 ```
 
 ---
@@ -88,5 +132,5 @@ WOMPI_PRIVATE_KEY=prv_prod_xxxxxxxxxxxx
 ## Notas
 
 - Las que empiezan por **`NEXT_PUBLIC_`** se exponen al navegador; no pongas secretos ahí.
-- **`SUPABASE_SERVICE_ROLE_KEY`** y **`WOMPI_EVENTS_SECRET`** son secretas; no las expongas en el cliente.
+- **`SUPABASE_SERVICE_ROLE_KEY`**, **`WOMPI_EVENTS_SECRET`** y **`SMTP_PASS`** son secretas; no las expongas en el cliente.
 - Para más detalle: **Wompi** → [integracion-Wompi.md](../integracion-Wompi.md); **Super Admin** → [../referencia/SUPER-ADMIN.md](../referencia/SUPER-ADMIN.md).
