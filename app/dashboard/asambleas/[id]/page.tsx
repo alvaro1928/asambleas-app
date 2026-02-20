@@ -197,6 +197,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [showModalEnviarEnlace, setShowModalEnviarEnlace] = useState(false)
   const [unidadesParaEnvio, setUnidadesParaEnvio] = useState<Array<{ id: string; torre: string; numero: string; email_propietario?: string | null; telefono_propietario?: string | null; email?: string | null; telefono?: string | null }>>([])
   const [loadingUnidadesEnvio, setLoadingUnidadesEnvio] = useState(false)
+  const [enviandoCorreoTodos, setEnviandoCorreoTodos] = useState(false)
+  const [enviandoCorreoEmail, setEnviandoCorreoEmail] = useState<string | null>(null)
   /** WhatsApp adicional (ej. grupo de la copropiedad no inscrito a ninguna unidad) */
   const [whatsappAdicionalEnvio, setWhatsappAdicionalEnvio] = useState('')
 
@@ -666,13 +668,55 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank')
   }
 
-  const abrirCorreoUnidad = (email: string) => {
+  const enviarCorreoPorApi = async (emailsDestino: string[]) => {
+    const res = await fetch('/api/dashboard/enviar-enlace-votacion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        asamblea_id: params.id,
+        ...(emailsDestino.length > 0 ? { emails: emailsDestino } : {}),
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(data?.error ?? 'Error al enviar')
+    }
+    return data as { enviados: number; total: number; errores?: string[] }
+  }
+
+  const abrirCorreoUnidad = async (email: string) => {
     if (!email?.trim()) return
-    const msg = getMensajeVotacion()
-    const subject = encodeURIComponent(`Votación: ${asamblea?.nombre ?? 'Asamblea'}`)
-    const urlVotacion = asamblea?.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea?.url_publica ?? '')
-    const body = encodeURIComponent((msg || '') + '\n\nEnlace: ' + urlVotacion)
-    window.open(`mailto:${email.trim()}?subject=${subject}&body=${body}`, '_blank')
+    setEnviandoCorreoEmail(email.trim())
+    try {
+      const data = await enviarCorreoPorApi([email.trim()])
+      toast.success(data.enviados >= 1 ? 'Correo enviado correctamente' : 'No se pudo enviar')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al enviar el correo')
+    } finally {
+      setEnviandoCorreoEmail(null)
+    }
+  }
+
+  const correosRegistrados = unidadesParaEnvio
+    .map((u) => (u.email_propietario || u.email)?.trim())
+    .filter((e): e is string => !!e)
+  const abrirCorreoATodos = async () => {
+    if (correosRegistrados.length === 0) {
+      toast.error('No hay unidades con correo registrado')
+      return
+    }
+    setEnviandoCorreoTodos(true)
+    try {
+      const data = await enviarCorreoPorApi([])
+      toast.success(`Enviados ${data.enviados} de ${data.total} correo(s).`)
+      if (data.errores?.length) {
+        toast.error(`Algunos fallaron: ${data.errores.slice(0, 2).join(', ')}${data.errores.length > 2 ? '…' : ''}`)
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al enviar los correos')
+    } finally {
+      setEnviandoCorreoTodos(false)
+    }
   }
 
   const handleCreatePregunta = async () => {
@@ -2809,6 +2853,28 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     <Mail className="w-4 h-4 text-indigo-600" />
                     Por correo (email de la unidad)
                   </h3>
+                  {correosRegistrados.length > 0 && (
+                    <div className="mb-2">
+                      <Button
+                        size="sm"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                        onClick={abrirCorreoATodos}
+                        disabled={enviandoCorreoTodos}
+                      >
+                        {enviandoCorreoTodos ? (
+                          <>Enviando…</>
+                        ) : (
+                          <>
+                            <Mail className="w-4 h-4 mr-1" />
+                            Enviar a todos los registrados ({correosRegistrados.length})
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Se enviarán por correo electrónico desde el servidor (sin abrir Outlook).
+                      </p>
+                    </div>
+                  )}
                   <ul className="space-y-1.5 max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 p-2">
                     {unidadesParaEnvio
                       .filter((u) => (u.email_propietario || u.email)?.trim())
@@ -2825,8 +2891,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                               variant="outline"
                               className="shrink-0 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400"
                               onClick={() => abrirCorreoUnidad(email)}
+                              disabled={enviandoCorreoEmail === email}
                             >
-                              Correo
+                              {enviandoCorreoEmail === email ? 'Enviando…' : 'Correo'}
                             </Button>
                           </li>
                         )
