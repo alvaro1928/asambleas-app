@@ -585,7 +585,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             {preguntas.map((pregunta, idx) => {
               const stats = estadisticas[pregunta.id]
               return (
-                <div key={pregunta.id} className="break-inside-avoid">
+                <div key={pregunta.id} className="break-inside-avoid print:break-inside-auto">
                   <h3 className="font-bold text-base mb-2">
                     Pregunta {idx + 1}. {pregunta.texto_pregunta}
                   </h3>
@@ -652,9 +652,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
                   {/* Cuadro de votaciones finales: una fila por unidad con su voto final + totales */}
                   {votacionesFinalesPorPregunta[pregunta.id] && votacionesFinalesPorPregunta[pregunta.id].length > 0 && (
-                    <div className="ml-4 mt-4 text-xs overflow-x-auto">
+                    <div className="ml-4 mt-4 text-xs overflow-x-auto print:overflow-visible print:max-h-none">
                       <p className="font-semibold text-gray-700 mb-1">Votación final por unidad (auditoría — voto final de cada unidad y totales):</p>
-                      <table className="min-w-full border border-gray-300 mt-1">
+                      <table className="min-w-full border border-gray-300 mt-1 print:break-inside-auto">
                         <thead>
                           <tr className="bg-gray-100">
                             <th className="border px-2 py-1 text-left">Unidad</th>
@@ -697,9 +697,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                   )}
 
                   {auditoria[pregunta.id] && auditoria[pregunta.id].length > 0 && (
-                    <div className="ml-4 mt-3 overflow-x-auto">
+                    <div className="ml-4 mt-3 overflow-x-auto print:overflow-visible print:max-h-none">
                       <p className="font-semibold text-gray-700 mb-1 text-xs">Detalle de auditoría — transacciones (cambios, quién votó, cuándo, dispositivo):</p>
-                      <table className="min-w-full border border-gray-300 text-[11px]">
+                      <table className="min-w-full border border-gray-300 text-[11px] print:break-inside-auto">
                         <thead>
                           <tr className="bg-gray-100">
                             <th className="border px-2 py-1 text-left min-w-[200px]">Votante (email / nombre)</th>
@@ -739,8 +739,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             <p className="text-sm text-gray-600 mb-3">
               Detalle de las <strong>{unidadesNoParticipation.length}</strong> unidad{unidadesNoParticipation.length !== 1 ? 'es' : ''} que no registraron voto en ninguna pregunta de esta asamblea.
             </p>
-            <div className="overflow-x-auto">
-              <table className="min-w-full border border-gray-300 text-sm">
+            <div className="overflow-x-auto print:overflow-visible print:max-h-none">
+              <table className="min-w-full border border-gray-300 text-sm print:break-inside-auto">
                 <thead>
                   <tr className="bg-gray-100">
                     <th className="border px-2 py-1.5 text-left font-semibold">Torre</th>

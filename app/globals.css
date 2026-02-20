@@ -50,6 +50,16 @@ body {
   font-family: ui-sans-serif, system-ui, sans-serif, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
+/* PDF / impresión: tablas completas y encabezados repetidos */
+@media print {
+  thead {
+    display: table-header-group;
+  }
+  tr {
+    break-inside: avoid;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
