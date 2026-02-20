@@ -367,12 +367,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         })
 
         if (!error && data && data.length > 0) {
-          const statsData = data[0]
-          
-          console.log('📊 Admin - Stats raw:', statsData)
-          
-          // Parsear resultados del nuevo formato
-          let resultados = []
+          const statsData = data[0] as any
+          let resultados: any[] = []
           if (typeof statsData.resultados === 'string') {
             try {
               resultados = JSON.parse(statsData.resultados)
@@ -382,18 +378,27 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             }
           } else if (Array.isArray(statsData.resultados)) {
             resultados = statsData.resultados
-          } else {
-            // JSONB de PostgreSQL
+          } else if (statsData.resultados != null) {
             resultados = statsData.resultados || []
+          } else if (data.length >= 1 && (data as any[]).every((row: any) => row.opcion_id != null && row.texto_opcion != null && row.resultados == null)) {
+            // Formato antiguo del RPC: una fila por opción con votos_count en cada fila
+            resultados = (data as any[]).map((row: any) => ({
+              opcion_id: row.opcion_id,
+              texto_opcion: row.texto_opcion,
+              color: row.color,
+              votos_cantidad: row.votos_count,
+              votos_coeficiente: row.votos_coeficiente,
+              porcentaje_votos_emitidos: row.porcentaje_nominal,
+              porcentaje_coeficiente_total: row.porcentaje_coeficiente
+            }))
           }
-          
 
           // Convertir al formato esperado
           const estadisticasFormateadas: EstadisticaOpcion[] = resultados.map((r: any) => ({
             opcion_id: r.opcion_id,
             texto_opcion: r.opcion_texto,
             color: r.color,
-            votos_count: r.votos_cantidad || 0,
+            votos_count: Math.max(0, Number(r.votos_cantidad ?? r.votos_count ?? 0)),
             votos_coeficiente: parseFloat(r.votos_coeficiente) || 0,
             // Usar porcentaje según Ley 675 (sobre coeficiente total del conjunto)
             porcentaje_nominal: parseFloat(r.porcentaje_votos_emitidos || r.porcentaje_cantidad || 0),
