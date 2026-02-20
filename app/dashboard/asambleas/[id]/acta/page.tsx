@@ -643,7 +643,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                         </ul>
                         {pregunta.umbral_aprobacion != null && items.length > 0 && (
                           <p className={`text-sm font-semibold mt-2 ${aprobado ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
-                            Mayoría necesaria ({pregunta.umbral_aprobacion}%) — Resultado: {aprobado ? 'Aprobado' : 'No Aprobado'} (A favor: {pctAfavor.toFixed(1)}%).
+                            Mayoría necesaria ({pregunta.umbral_aprobacion}%) — Resultado: {aprobado ? 'Aprobado' : 'No Aprobado'} ({items.map((i) => `${i.opcion_texto}: ${i.pct.toFixed(1)}%`).join(' | ')}).
                           </p>
                         )}
                       </div>
@@ -702,13 +702,13 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       <table className="min-w-full border border-gray-300 text-[11px]">
                         <thead>
                           <tr className="bg-gray-100">
-                            <th className="border px-2 py-1 text-left min-w-[120px]">Votante</th>
-                            <th className="border px-2 py-1 text-left min-w-[90px]">Unidad</th>
-                            <th className="border px-2 py-1 text-left min-w-[80px]">Opción</th>
-                            <th className="border px-2 py-1 text-left min-w-[160px]">Acción</th>
-                            <th className="border px-2 py-1 text-left min-w-[140px]">Fecha/hora</th>
-                            <th className="border px-2 py-1 text-left min-w-[100px]">IP</th>
-                            <th className="border px-2 py-1 text-left min-w-[140px]">Dispositivo</th>
+                            <th className="border px-2 py-1 text-left min-w-[200px]">Votante (email / nombre)</th>
+                            <th className="border px-2 py-1 text-left min-w-[100px]">Unidad</th>
+                            <th className="border px-2 py-1 text-left min-w-[100px]">Opción</th>
+                            <th className="border px-2 py-1 text-left min-w-[180px]">Acción</th>
+                            <th className="border px-2 py-1 text-left min-w-[150px]">Fecha/hora</th>
+                            <th className="border px-2 py-1 text-left min-w-[120px]">IP</th>
+                            <th className="border px-2 py-1 text-left min-w-[220px]">Dispositivo</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -720,7 +720,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                               <td className="border px-2 py-1 whitespace-nowrap">{row.accion}{row.opcion_anterior ? ` (antes: ${row.opcion_anterior})` : ''}</td>
                               <td className="border px-2 py-1 whitespace-nowrap">{row.fecha_accion ? new Date(row.fecha_accion).toLocaleString('es-CO') : '-'}</td>
                               <td className="border px-2 py-1 whitespace-nowrap">{row.ip_address || '-'}</td>
-                              <td className="border px-2 py-1 whitespace-nowrap max-w-[180px] truncate" title={row.user_agent || ''}>{row.user_agent || '-'}</td>
+                              <td className="border px-2 py-1 whitespace-nowrap" title={row.user_agent || ''}>{row.user_agent || '-'}</td>
                             </tr>
                           ))}
                         </tbody>
