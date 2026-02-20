@@ -190,6 +190,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [showModalEnviarEnlace, setShowModalEnviarEnlace] = useState(false)
   const [unidadesParaEnvio, setUnidadesParaEnvio] = useState<Array<{ id: string; torre: string; numero: string; email_propietario?: string | null; telefono_propietario?: string | null; email?: string | null; telefono?: string | null }>>([])
   const [loadingUnidadesEnvio, setLoadingUnidadesEnvio] = useState(false)
+  /** WhatsApp adicional (ej. grupo de la copropiedad no inscrito a ninguna unidad) */
+  const [whatsappAdicionalEnvio, setWhatsappAdicionalEnvio] = useState('')
 
   const [billeteraColapsada, setBilleteraColapsada] = useState(true)
 
@@ -2654,7 +2656,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               Enviar enlace de votación a cada contacto
             </DialogTitle>
             <DialogDescription>
-              Cada envío se abre por separado (WhatsApp o correo) para que nadie vea el teléfono o email de otros. Usa los teléfonos y correos registrados en las unidades del conjunto.
+              Cada envío se abre por separado (WhatsApp o correo) para que nadie vea el teléfono o email de otros. Usa los teléfonos y correos registrados en las unidades del conjunto. Puedes añadir un WhatsApp adicional (ej. grupo de la copropiedad) que no esté asociado a ninguna unidad.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-6 py-2">
@@ -2662,6 +2664,39 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               <p className="text-sm text-gray-500 dark:text-gray-400">Cargando unidades...</p>
             ) : (
               <>
+                <div className="rounded-lg border border-gray-200 dark:border-gray-600 p-3 bg-gray-50 dark:bg-gray-800/50">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+                    <MessageCircle className="w-4 h-4 text-green-600" />
+                    WhatsApp adicional (ej. grupo de la copropiedad)
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Si tienes un grupo o número de WhatsApp de la copropiedad que no está inscrito a ninguna unidad, agrégalo aquí.
+                  </p>
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <Input
+                      type="tel"
+                      placeholder="Ej. 573001234567 o 3001234567"
+                      value={whatsappAdicionalEnvio}
+                      onChange={(e) => setWhatsappAdicionalEnvio(e.target.value)}
+                      className="max-w-[220px]"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-green-300 dark:border-green-700 text-green-700 dark:text-green-400"
+                      onClick={() => {
+                        const num = normalizarTelefonoWhatsApp(whatsappAdicionalEnvio)
+                        if (!num) {
+                          toast.error('Ingresa un número válido')
+                          return
+                        }
+                        abrirWhatsAppUnidad(whatsappAdicionalEnvio)
+                      }}
+                    >
+                      Enviar a este número
+                    </Button>
+                  </div>
+                </div>
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
                     <MessageCircle className="w-4 h-4 text-green-600" />
