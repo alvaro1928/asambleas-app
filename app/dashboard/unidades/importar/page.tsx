@@ -210,7 +210,11 @@ export default function ImportarUnidadesPage() {
         coeficiente,
         tipo,
         nombre_propietario: row['Nombre Propietario'] || row.propietario || row.Propietario || row.PROPIETARIO || '',
-        email: row.email || row.Email || row.EMAIL || '',
+        email: (
+          row.email ?? row.Email ?? row.EMAIL ??
+          row.correo ?? row.Correo ?? row.CORREO ??
+          row['Correo electrónico'] ?? row['correo electrónico'] ?? row['E-mail'] ?? row['e-mail'] ?? ''
+        ).toString().trim(),
         telefono: row.telefono || row.Telefono || row['Teléfono'] || row.TELEFONO || '',
       })
     })
@@ -544,7 +548,7 @@ export default function ImportarUnidadesPage() {
                     </div>
                   </div>
                   <p className="text-xs mt-2 text-gray-600 dark:text-gray-400">
-                    * Campos requeridos: <strong>numero</strong> y <strong>coeficiente</strong>
+                    * Campos requeridos: <strong>numero</strong> y <strong>coeficiente</strong>. El correo puede ir en columna <strong>email</strong> o <strong>Correo</strong>.
                   </p>
                 </AlertDescription>
               </Alert>

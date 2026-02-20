@@ -206,7 +206,10 @@ function AsambleasPageContent() {
     })
   }
 
-  const puedeEliminarAsamblea = (a: Asamblea) => a.estado === 'borrador' || a.estado === 'finalizada'
+  const puedeEliminarAsamblea = (a: Asamblea) =>
+    a.is_demo === true
+      ? true
+      : a.estado === 'borrador' || a.estado === 'finalizada'
 
   const openDeleteModal = (e: React.MouseEvent, a: Asamblea) => {
     e.preventDefault()

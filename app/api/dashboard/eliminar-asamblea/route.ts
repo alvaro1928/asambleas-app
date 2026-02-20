@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     const { data: asamblea, error: fetchError } = await supabase
       .from('asambleas')
-      .select('id, nombre, estado, organization_id')
+      .select('id, nombre, estado, organization_id, is_demo')
       .eq('id', asamblea_id)
       .single()
 
@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (asamblea.estado === 'activa') {
+    const esDemo = (asamblea as { is_demo?: boolean }).is_demo === true
+    if (!esDemo && asamblea.estado === 'activa') {
       return NextResponse.json(
         { error: 'No se puede eliminar una asamblea activa. Finalízala antes.' },
         { status: 400 }
