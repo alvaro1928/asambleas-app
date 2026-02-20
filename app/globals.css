@@ -61,13 +61,30 @@ body {
   tr {
     break-inside: avoid;
   }
-  /* Tabla de auditoría en página apaisada para que no se corte */
+  /* Tabla de auditoría en página apaisada: empieza arriba y ocupa todo el ancho */
   .print-table-landscape {
     page: landscape;
     page-break-before: always;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    margin-left: 0 !important;
   }
   .print-table-landscape:first-of-type {
-    page-break-before: auto;
+    page-break-before: always;
+  }
+  /* La tabla usa todo el ancho de la página y las celdas hacen wrap para no cortarse */
+  .print-table-landscape table {
+    width: 100% !important;
+    table-layout: fixed;
+  }
+  .print-table-landscape th,
+  .print-table-landscape td {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  .print-table-landscape td.print-wrap-dispositivo {
+    white-space: normal;
+    word-break: break-word;
   }
 }
 

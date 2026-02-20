@@ -697,30 +697,30 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                   )}
 
                   {auditoria[pregunta.id] && auditoria[pregunta.id].length > 0 && (
-                    <div className="ml-4 mt-3 overflow-x-auto print:overflow-visible print:max-h-none print-table-landscape">
-                      <p className="font-semibold text-gray-700 mb-1 text-xs">Detalle de auditoría — transacciones (cambios, quién votó, cuándo, dispositivo):</p>
-                      <table className="min-w-full border border-gray-300 text-[11px] print:break-inside-auto">
+                    <div className="ml-4 mt-3 overflow-x-auto print:overflow-visible print:max-h-none print-table-landscape print:ml-0">
+                      <p className="font-semibold text-gray-700 mb-1 text-xs print:mb-1">Detalle de auditoría — transacciones (cambios, quién votó, cuándo, dispositivo):</p>
+                      <table className="min-w-full border border-gray-300 text-[11px] print:break-inside-auto print:w-full">
                         <thead>
                           <tr className="bg-gray-100">
-                            <th className="border px-2 py-1 text-left min-w-[200px]">Votante (email / nombre)</th>
-                            <th className="border px-2 py-1 text-left min-w-[100px]">Unidad</th>
-                            <th className="border px-2 py-1 text-left min-w-[100px]">Opción</th>
-                            <th className="border px-2 py-1 text-left min-w-[180px]">Acción</th>
-                            <th className="border px-2 py-1 text-left min-w-[150px]">Fecha/hora</th>
-                            <th className="border px-2 py-1 text-left min-w-[120px]">IP</th>
-                            <th className="border px-2 py-1 text-left min-w-[220px]">Dispositivo</th>
+                            <th className="border px-2 py-1 text-left min-w-[200px] print:min-w-0">Votante (email / nombre)</th>
+                            <th className="border px-2 py-1 text-left min-w-[100px] print:min-w-0">Unidad</th>
+                            <th className="border px-2 py-1 text-left min-w-[100px] print:min-w-0">Opción</th>
+                            <th className="border px-2 py-1 text-left min-w-[180px] print:min-w-0">Acción</th>
+                            <th className="border px-2 py-1 text-left min-w-[150px] print:min-w-0">Fecha/hora</th>
+                            <th className="border px-2 py-1 text-left min-w-[120px] print:min-w-0">IP</th>
+                            <th className="border px-2 py-1 text-left min-w-[220px] print:min-w-0">Dispositivo</th>
                           </tr>
                         </thead>
                         <tbody>
                           {auditoria[pregunta.id].map((row, i) => (
                             <tr key={i}>
-                              <td className="border px-2 py-1 whitespace-nowrap">{row.votante_email} {row.votante_nombre ? `(${row.votante_nombre})` : ''}</td>
+                              <td className="border px-2 py-1 whitespace-nowrap print:whitespace-normal print:break-words">{row.votante_email} {row.votante_nombre ? `(${row.votante_nombre})` : ''}</td>
                               <td className="border px-2 py-1 whitespace-nowrap">{row.unidad_torre}-{row.unidad_numero}{row.es_poder ? ' (poder)' : ''}</td>
-                              <td className="border px-2 py-1 whitespace-nowrap">{row.opcion_seleccionada}</td>
-                              <td className="border px-2 py-1 whitespace-nowrap">{row.accion}{row.opcion_anterior ? ` (antes: ${row.opcion_anterior})` : ''}</td>
+                              <td className="border px-2 py-1 whitespace-nowrap print:whitespace-normal print:break-words">{row.opcion_seleccionada}</td>
+                              <td className="border px-2 py-1 whitespace-nowrap print:whitespace-normal print:break-words">{row.accion}{row.opcion_anterior ? ` (antes: ${row.opcion_anterior})` : ''}</td>
                               <td className="border px-2 py-1 whitespace-nowrap">{row.fecha_accion ? new Date(row.fecha_accion).toLocaleString('es-CO') : '-'}</td>
                               <td className="border px-2 py-1 whitespace-nowrap">{row.ip_address || '-'}</td>
-                              <td className="border px-2 py-1 whitespace-nowrap" title={row.user_agent || ''}>{row.user_agent || '-'}</td>
+                              <td className="border px-2 py-1 whitespace-nowrap print-wrap-dispositivo" title={row.user_agent || ''}>{row.user_agent || '-'}</td>
                             </tr>
                           ))}
                         </tbody>
