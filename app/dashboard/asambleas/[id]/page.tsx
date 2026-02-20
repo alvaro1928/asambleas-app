@@ -179,8 +179,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [showModalAsambleaActivada, setShowModalAsambleaActivada] = useState(false)
   const [showModalConfirmarFinalizar, setShowModalConfirmarFinalizar] = useState(false)
   const [showModalConfirmarReiniciarDemo, setShowModalConfirmarReiniciarDemo] = useState(false)
+  const [showModalConfirmarReabrir, setShowModalConfirmarReabrir] = useState(false)
   const [finalizando, setFinalizando] = useState(false)
   const [reiniciandoDemo, setReiniciandoDemo] = useState(false)
+  const [reabriendo, setReabriendo] = useState(false)
 
   // Registrar voto a nombre de un residente (admin)
   const [showRegistroVotoAdmin, setShowRegistroVotoAdmin] = useState(false)
@@ -1095,6 +1097,48 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
+  const costoReapertura = Math.max(1, Math.ceil(costoOperacion * 0.1))
+  const handleReabrirAsamblea = async () => {
+    if (!asamblea || asamblea.estado !== 'finalizada' || asamblea.is_demo) return
+    if (tokensDisponibles < costoReapertura) {
+      setShowModalConfirmarReabrir(false)
+      setSinTokensModalOpen(true)
+      toast.error('Saldo insuficiente para reabrir.')
+      return
+    }
+    setReabriendo(true)
+    try {
+      const res = await fetch('/api/dashboard/reabrir-asamblea', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ asamblea_id: asamblea.id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.status === 402) {
+        setShowModalConfirmarReabrir(false)
+        setSinTokensModalOpen(true)
+        return
+      }
+      if (!res.ok) {
+        toast.error(data.error ?? 'Error al reabrir')
+        return
+      }
+      setShowModalConfirmarReabrir(false)
+      if (data.tokens_restantes != null) setTokensDisponibles(Math.max(0, Number(data.tokens_restantes)))
+      setAsamblea((prev) =>
+        prev ? { ...prev, estado: 'activa', activated_at: data.activated_at ?? new Date().toISOString() } : null
+      )
+      setSuccessMessage(`Asamblea reabierta. Se descontaron ${data.costo_reapertura ?? costoReapertura} tokens (10% del costo de activación).`)
+      setTimeout(() => setSuccessMessage(''), 5000)
+      loadData()
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al reabrir la asamblea')
+    } finally {
+      setReabriendo(false)
+    }
+  }
+
   const handleReiniciarSimulacion = async () => {
     if (!asamblea?.is_demo) return
     setReiniciandoDemo(true)
@@ -1357,6 +1401,18 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   <Clock className="w-4 h-4 sm:mr-2 shrink-0" />
                   <span className="hidden sm:inline">Finalizar Asamblea</span>
                   <span className="sm:hidden">Finalizar</span>
+                </Button>
+              )}
+              {asamblea.estado === 'finalizada' && !isDemo && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowModalConfirmarReabrir(true)}
+                  className="border-green-300 dark:border-green-600 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 shrink-0"
+                  title="Reabrir la asamblea para permitir votaciones de nuevo (consume tokens)"
+                >
+                  <Play className="w-4 h-4 sm:mr-2 shrink-0" />
+                  <span className="hidden sm:inline">Reabrir asamblea</span>
+                  <span className="sm:hidden">Reabrir</span>
                 </Button>
               )}
               {(asamblea.estado === 'activa' || asamblea.estado === 'finalizada') && isDemo && (
@@ -2828,6 +2884,33 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               onClick={handleReiniciarSimulacion}
             >
               {reiniciandoDemo ? 'Reiniciando…' : 'Sí, reiniciar simulación'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Confirmar reabrir asamblea (solo finalizada; consume 10% tokens) */}
+      <Dialog open={showModalConfirmarReabrir} onOpenChange={setShowModalConfirmarReabrir}>
+        <DialogContent className="max-w-lg rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-800 dark:text-green-200">
+              <Play className="w-5 h-5" />
+              ¿Reabrir asamblea?
+            </DialogTitle>
+            <DialogDescription>
+              Al reabrir la asamblea se permitirá de nuevo el acceso a la votación con el mismo enlace y código. Esta acción consumirá <strong>{costoReapertura} tokens</strong> (10% del costo de la primera activación). Tu saldo actual es <strong>{tokensDisponibles} tokens</strong>. ¿Deseas continuar?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex gap-3">
+            <Button variant="outline" onClick={() => setShowModalConfirmarReabrir(false)} className="flex-1">
+              Cancelar
+            </Button>
+            <Button
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+              disabled={reabriendo || tokensDisponibles < costoReapertura}
+              onClick={handleReabrirAsamblea}
+            >
+              {reabriendo ? 'Reabriendo…' : `Sí, reabrir (${costoReapertura} tokens)`}
             </Button>
           </div>
         </DialogContent>

@@ -3,11 +3,12 @@
 import { CheckCircle2, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type VotarPaso = 'email' | 'unidades' | 'votar'
+export type VotarPaso = 'email' | 'unidades' | 'consentimiento' | 'votar'
 
 const PASOS: { key: VotarPaso; label: string }[] = [
   { key: 'email', label: 'Email' },
   { key: 'unidades', label: 'Unidades' },
+  { key: 'consentimiento', label: 'Datos' },
   { key: 'votar', label: 'Votar' },
 ]
 

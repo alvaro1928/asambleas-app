@@ -85,7 +85,7 @@ export default function VotacionPublicaPage() {
   const codigo = params.codigo as string
   const toast = useToast()
 
-  const [step, setStep] = useState<'validando' | 'email' | 'verificando' | 'votar' | 'error'>('validando')
+  const [step, setStep] = useState<'validando' | 'email' | 'verificando' | 'consentimiento' | 'votar' | 'error'>('validando')
   const [asamblea, setAsamblea] = useState<AsambleaInfo | null>(null)
   const [email, setEmail] = useState('')
   const [unidades, setUnidades] = useState<UnidadInfo[]>([])
@@ -104,6 +104,8 @@ export default function VotacionPublicaPage() {
   const [mostrarHistorial, setMostrarHistorial] = useState(false)
   const [descargandoCertificado, setDescargandoCertificado] = useState(false)
   const [clientIp, setClientIp] = useState<string | null>(null)
+  const [consentimientoAceptado, setConsentimientoAceptado] = useState(false)
+  const [guardandoConsentimiento, setGuardandoConsentimiento] = useState(false)
 
   // Para marcar salida al cerrar/abandonar la página (solo sesiones activas en el registro)
   const salidaRef = useRef<{ asamblea_id: string; email: string } | null>(null)
@@ -219,16 +221,26 @@ export default function VotacionPublicaPage() {
       } catch {
         // Ignorar
       }
-      setStep('votar')
       try {
         const res = await fetch('/api/client-info', { credentials: 'include' })
         const info = await res.json()
         if (info?.ip) setClientIp(info.ip)
       } catch {
-        // Ignorar; ip es opcional para trazabilidad
+        // Ignorar
       }
-      await cargarPreguntas(unidadesConInfo)
-
+      const identificador = email.trim().toLowerCase()
+      const consentRes = await fetch(
+        `/api/votar/consentimiento?codigo=${encodeURIComponent(codigo)}&identificador=${encodeURIComponent(identificador)}`,
+        { credentials: 'include' }
+      )
+      const consentData = consentRes.ok ? await consentRes.json().catch(() => ({})) : {}
+      if (consentData.accepted) {
+        setStep('votar')
+        await cargarPreguntas(unidadesConInfo)
+      } else {
+        setConsentimientoAceptado(false)
+        setStep('consentimiento')
+      }
     } catch (error: any) {
       console.error('Error validando votante:', error)
       setError(mensajeErrorAmigable(error?.message || 'Error al validar el votante'))
@@ -287,6 +299,36 @@ export default function VotacionPublicaPage() {
 
     setUnidades(unidadesConInfo)
     return unidadesConInfo
+  }
+
+  const handleAceptarConsentimiento = async () => {
+    if (!consentimientoAceptado || !email.trim()) return
+    setGuardandoConsentimiento(true)
+    setError('')
+    try {
+      const identificador = email.trim().toLowerCase()
+      const res = await fetch('/api/votar/consentimiento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          codigo,
+          identificador,
+          ip: clientIp ?? undefined,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error ?? 'Error al registrar la aceptación')
+        return
+      }
+      setStep('votar')
+      await cargarPreguntas(unidades)
+    } catch (err: any) {
+      setError(err?.message ?? 'Error al continuar')
+    } finally {
+      setGuardandoConsentimiento(false)
+    }
   }
 
   const cargarPreguntas = async (unidadesParam?: UnidadInfo[]) => {
@@ -778,6 +820,79 @@ export default function VotacionPublicaPage() {
               🔒 Solo podrás votar si tu email o teléfono está registrado en una unidad del conjunto.
             </p>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (step === 'consentimiento') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-light to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-surface dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-border dark:border-gray-700">
+          <StepIndicator pasoActual="consentimiento" />
+          <div className="text-center mb-6">
+            <div className="mx-auto w-16 h-16 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center mb-4">
+              <Vote className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Tratamiento de datos personales
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Para participar en la votación debe aceptar el tratamiento de sus datos según la ley.
+            </p>
+          </div>
+
+          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 mb-6 border border-gray-200 dark:border-gray-700 text-left text-sm text-gray-700 dark:text-gray-300 max-h-48 overflow-y-auto">
+            <p className="font-semibold mb-2">Ley 1581 de 2012 (Colombia) — Protección de datos personales</p>
+            <p className="mb-2">
+              Al continuar, usted acepta que sus datos personales (correo electrónico o teléfono, votos emitidos y actividad en la plataforma) sean tratados por <strong>Votaciones de Asambleas Online</strong> y por el administrador del conjunto únicamente para:
+            </p>
+            <ul className="list-disc list-inside space-y-1 mb-2">
+              <li>Gestionar su participación en esta votación</li>
+              <li>Generar el acta y la auditoría de la asamblea</li>
+              <li>Cumplir con las obligaciones legales aplicables</li>
+            </ul>
+            <p>
+              Puede ejercer sus derechos de acceso, corrección y supresión de sus datos contactando al administrador de su conjunto o a través de los canales indicados en la plataforma.
+            </p>
+          </div>
+
+          <label className="flex items-start gap-3 cursor-pointer mb-6">
+            <input
+              type="checkbox"
+              checked={consentimientoAceptado}
+              onChange={(e) => setConsentimientoAceptado(e.target.checked)}
+              className="mt-1 rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-primary"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Acepto el tratamiento de mis datos personales conforme a lo indicado anteriormente y según la Ley 1581 de 2012.
+            </span>
+          </label>
+
+          {error && (
+            <Alert className="mb-4 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <AlertDescription className="text-red-800 dark:text-red-200">{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <Button
+            onClick={handleAceptarConsentimiento}
+            disabled={!consentimientoAceptado || guardandoConsentimiento}
+            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-lg py-6"
+          >
+            {guardandoConsentimiento ? (
+              <>
+                <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                Guardando...
+              </>
+            ) : (
+              <>
+                Aceptar y continuar a la votación
+                <ChevronRight className="w-5 h-5 ml-2" />
+              </>
+            )}
+          </Button>
         </div>
       </div>
     )
