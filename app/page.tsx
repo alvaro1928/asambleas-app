@@ -1,10 +1,10 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import {
   Building2,
-  Check,
   FileText,
   Shield,
   Users,
@@ -55,6 +55,7 @@ export default function Home() {
   const [textoHeroPrecio, setTextoHeroPrecio] = useState<string | null>(null)
   const [textoAhorro, setTextoAhorro] = useState<string | null>(null)
   const [ctaWhatsappText, setCtaWhatsappText] = useState<string>('Contactanos')
+  const [logoError, setLogoError] = useState(false)
 
   useEffect(() => {
     fetch('/api/config/public', { cache: 'no-store' })
@@ -96,8 +97,23 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-purple-500/10" />
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
           <div className="flex flex-col items-center text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl shadow-lg mb-6" style={{ backgroundColor: colorPrincipalHex }}>
-              <Building2 className="w-8 h-8 text-white" />
+            <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-lg mb-6 ring-2 ring-white/20">
+              {!logoError ? (
+                <Image
+                  src="/logo.png"
+                  alt="VOTA TECH - Soluciones Comunitarias Digitales"
+                  width={96}
+                  height={96}
+                  className="object-contain w-full h-full bg-white"
+                  priority
+                  unoptimized
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: colorPrincipalHex }}>
+                  <Building2 className="w-10 h-10 text-white" />
+                </div>
+              )}
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white max-w-3xl">
               {titulo || 'Asambleas digitales para propiedad horizontal'}
@@ -259,9 +275,12 @@ export default function Home() {
 
       <footer className="py-6 border-t border-slate-800 text-center text-sm text-slate-500" style={{ backgroundColor: '#0B0E14' }}>
         <p>Asambleas App — Para administradores de propiedad horizontal</p>
-        <p className="mt-2">
+        <p className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
           <Link href="/politica-privacidad" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">
             Política de Privacidad
+          </Link>
+          <Link href="/epbco" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">
+            EPBCO Solutions
           </Link>
         </p>
       </footer>
