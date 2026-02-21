@@ -259,6 +259,11 @@ export default function Home() {
 
       <footer className="py-6 border-t border-slate-800 text-center text-sm text-slate-500" style={{ backgroundColor: '#0B0E14' }}>
         <p>Asambleas App — Para administradores de propiedad horizontal</p>
+        <p className="mt-2">
+          <Link href="/politica-privacidad" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">
+            Política de Privacidad
+          </Link>
+        </p>
       </footer>
     </main>
   )
