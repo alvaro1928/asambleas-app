@@ -54,6 +54,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
 - **Color principal (hex)** — para la landing y elementos de marca.
 - **WhatsApp de contacto** — botones de contacto en la landing. Vacío = no mostrar.
+- **Correo (SMTP)** — configuración para envío de enlace de votación por correo. Host, puerto, usuario, contraseña y remitente. Tiene prioridad sobre las variables de entorno. Requiere ejecutar `CONFIGURACION-SMTP-SUPER-ADMIN.sql`.
 - La URL de Plan Pro y el precio por token se leen de la tabla de planes y de la configuración global (BD); no se configuran por variables de entorno.
 
 ### Carga masiva piloto
@@ -72,7 +73,9 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 | GET | `/api/super-admin/planes` | Lista planes (nombre, precio_por_asamblea_cop, tokens_iniciales, vigencia_meses, límites). |
 | PATCH | `/api/super-admin/planes` | Body: `{ key, nombre?, precio_por_asamblea_cop?, tokens_iniciales?, vigencia_meses?, max_preguntas_por_asamblea?, incluye_acta_detallada? }`. Actualiza un plan. |
 | GET | `/api/super-admin/configuracion-landing` | Color principal y WhatsApp (para Ajustes). |
-| PATCH | `/api/super-admin/configuracion-landing` | Body: `{ color_principal_hex?, whatsapp_number? }`. Guarda ajustes. |
+| PATCH | `/api/super-admin/configuracion-landing` | Body: `{ color_principal_hex?, whatsapp_number?, ... }`. Guarda ajustes de landing. |
+| GET | `/api/super-admin/configuracion-smtp` | Configuración SMTP para correo (Super Admin). |
+| PATCH | `/api/super-admin/configuracion-smtp` | Body: `{ host?, port?, secure?, user?, pass?, from_address? }`. Guarda SMTP. |
 | POST | `/api/super-admin/carga-masiva-piloto` | Body: CSV o JSON con organization_id/nombre. Asigna plan Piloto a las cuentas indicadas. |
 | GET | `/api/planes` | Público: datos de planes para precios en dashboard/landing. |
 

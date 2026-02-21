@@ -34,7 +34,8 @@
   - Estados: pendiente, abierta, cerrada.
   - Activar/desactivar votación pública (genera código de acceso).
 - **Acceso público** (`/dashboard/asambleas/[id]/acceso`): código, QR, enlace para votantes.
-- **Poderes** (`/dashboard/asambleas/[id]/poderes`): asignar apoderados por unidad; importación masiva de poderes.
+- **Envío de correo:** Botón "Enviar enlace por correo" (por API, sin abrir Outlook). Usa **SMTP** (configurable en Super Admin → Ajustes o por variables de entorno). Plantilla configurable en Dashboard → Configuración → Poderes y correo (texto adicional, ej. enlace a Teams/Meet).
+- **Poderes** (`/dashboard/asambleas/[id]/poderes`): asignar apoderados por unidad; importación masiva; límite máximo por apoderado configurable en Dashboard → Configuración → Poderes y correo.
 - **Acta** (`/dashboard/asambleas/[id]/acta`): descarga/impresión con resultados por pregunta, quórum y **detalle de auditoría** (quién votó, cuándo, IP, dispositivo).
 
 ### Votación pública (votantes)
@@ -142,8 +143,9 @@ Ejecución: `k6 run script-load-test.js`.
 
 ## 3. Documentos relacionados
 
+- **Variables de entorno (incl. SMTP correo):** [docs/configuracion/VARIABLES-ENTORNO-VERCEL.md](../configuracion/VARIABLES-ENTORNO-VERCEL.md)
 - **Autenticación:** `AUTH-RESUMEN-COMPLETO.md`
-- **Plantillas de email:** [docs/supabase/PLANTILLAS-EMAIL-SUPABASE.md](../supabase/PLANTILLAS-EMAIL-SUPABASE.md)
+- **Plantillas de email (Supabase Auth):** [docs/supabase/PLANTILLAS-EMAIL-SUPABASE.md](../supabase/PLANTILLAS-EMAIL-SUPABASE.md)
 - **Despliegue:** `DEPLOYMENT-GUIDE.md`, `LISTO-PARA-DEPLOY.md`
 - **Votaciones y códigos:** `GUIA-CODIGOS-ACCESO-VOTACION.md`, `GUIA-SISTEMA-VOTACION-PUBLICA.md`
 - **Auditoría:** [docs/supabase/AUDITORIA-Y-BLOCKCHAIN.md](../supabase/AUDITORIA-Y-BLOCKCHAIN.md)

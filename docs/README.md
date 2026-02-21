@@ -33,7 +33,7 @@
 
 | Documento | Descripción |
 |-----------|-------------|
-| **[configuracion/VARIABLES-ENTORNO-VERCEL.md](configuracion/VARIABLES-ENTORNO-VERCEL.md)** | **Lista oficial** de variables de entorno para Vercel y desarrollo: Supabase, Auth, Super Admin, Wompi. Landing, precio y WhatsApp se configuran en Super Admin → Ajustes. |
+| **[configuracion/VARIABLES-ENTORNO-VERCEL.md](configuracion/VARIABLES-ENTORNO-VERCEL.md)** | **Lista oficial** de variables de entorno para Vercel y desarrollo: Supabase, Auth, Super Admin, Wompi, **SMTP (correo de enlace de votación)**. Landing, precio y WhatsApp se configuran en Super Admin → Ajustes. |
 | **[integracion-Wompi.md](integracion-Wompi.md)** | **Wompi (pasarela de pagos):** Opción 1 (la pasarela se encarga), URL de Eventos, variables `WOMPI_EVENTS_SECRET` y `WOMPI_PRIVATE_KEY`, referencia y flujo. |
 | [configuracion/CONFIGURAR-WOMPI.md](configuracion/CONFIGURAR-WOMPI.md) | Redirección a la guía principal de Wompi (integracion-Wompi.md). |
 
@@ -68,7 +68,7 @@
 | Documento | Descripción |
 |-----------|-------------|
 | [referencia/AUTH-RESUMEN-COMPLETO.md](referencia/AUTH-RESUMEN-COMPLETO.md) | Auth: login, Magic Link, Google OAuth, cierre de sesión, callbacks. |
-| [referencia/SUPER-ADMIN.md](referencia/SUPER-ADMIN.md) | Super Admin: conjuntos, planes, tokens por cuenta, Ajustes (landing, color, WhatsApp), carga masiva piloto, APIs. |
+| [referencia/SUPER-ADMIN.md](referencia/SUPER-ADMIN.md) | Super Admin: conjuntos, planes, tokens por cuenta, Ajustes (landing, color, WhatsApp, **SMTP correo**), carga masiva piloto, APIs. |
 | [referencia/RESUMEN-CODIGOS-ACCESO.md](referencia/RESUMEN-CODIGOS-ACCESO.md) | Resumen de códigos de acceso a votación. |
 | [referencia/RESUMEN-IMPLEMENTACION-CODIGO-ACCESO.md](referencia/RESUMEN-IMPLEMENTACION-CODIGO-ACCESO.md) | Implementación del código de acceso. |
 | [referencia/SEGURIDAD-VOTACION-OTP.md](referencia/SEGURIDAD-VOTACION-OTP.md) | Seguridad de la votación (OTP, trazabilidad). |

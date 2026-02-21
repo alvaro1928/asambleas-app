@@ -31,12 +31,15 @@ CONSTRAINT UNIQUE(asamblea_id, unidad_otorgante_id, estado)
 ```sql
 - id: UUID (Primary Key)
 - organization_id: UUID (FK a organizations)
-- max_poderes_por_apoderado: INTEGER (default: 3)
+- max_poderes_por_apoderado: INTEGER (default: 3, configurable 1–10)
+- plantilla_adicional_correo: TEXT (opcional) — texto que se añade al cuerpo del correo de enlace de votación (ej. enlace Teams/Meet)
 - requiere_documento: BOOLEAN (default: false)
 - notas: TEXT
 
 CONSTRAINT UNIQUE(organization_id)
 ```
+
+**Configuración:** El gestor modifica estos valores en **Dashboard → Configuración → Poderes y correo**.
 
 ---
 
@@ -123,7 +126,7 @@ SELECT * FROM resumen_poderes_asamblea('asamblea-uuid');
 **Regulación Colombia (Ley 675):**
 - Los reglamentos de propiedad horizontal pueden limitar cuántos poderes puede recibir una persona
 - Típicamente: 2-3 poderes máximo por apoderado
-- Configurable por conjunto
+- **Configurable por conjunto** en **Dashboard → Configuración → Poderes y correo** (1–10 poderes máximo por apoderado)
 
 **Validación:**
 - Al registrar un nuevo poder, se valida contra el límite
@@ -345,8 +348,7 @@ WHERE v.pregunta_id = p_pregunta_id;
    - Evita confusiones el día del evento
 
 2. **Verifica el límite configurado:**
-   - Revisa si 3 poderes por apoderado es adecuado para tu conjunto
-   - Ajusta según el reglamento interno
+   - Ajusta en **Dashboard → Configuración → Poderes y correo** según el reglamento interno (1–10 poderes por apoderado)
 
 3. **Comunica claramente:**
    - Informa a los propietarios sobre el proceso

@@ -46,9 +46,10 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
   - Código QR y URL para que los votantes entren a `/votar/[codigo]`.
   - **Registro de ingresos en tiempo real** (sesiones activas con actividad reciente).
   - **Avance de votaciones**: quórum (unidades que ya votaron) y progreso por pregunta abierta; se actualiza cada 10 s.
+- **Envío de correo:** Botón "Enviar enlace por correo" envía por **SMTP** desde el servidor (sin Outlook). Configurable en Super Admin → Ajustes o por variables. Plantilla adicional en Configuración → Poderes y correo.
 - **Poderes** (`/dashboard/asambleas/[id]/poderes`):
   - Asignar apoderados por unidad (quién otorga, email y nombre del apoderado).
-  - Límites por plan (máx. poderes por apoderado); validación antes de crear.
+  - Límite máximo de poderes por apoderado **configurable** en Dashboard → Configuración → Poderes y correo; validación antes de crear.
   - Revocar poder (con diálogo de confirmación).
   - **Importación masiva** de poderes desde Excel/CSV (`/dashboard/asambleas/[id]/poderes/importar`).
 - **Acta** (`/dashboard/asambleas/[id]/acta`): descarga/impresión con resultados por pregunta, quórum y **detalle de auditoría** (quién votó, cuándo, IP, user-agent).
@@ -58,8 +59,9 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - Enlaces rápidos a asambleas, unidades, conjuntos, configuración, y **Probar en sandbox** (asamblea de demostración sin consumir tokens).
 - **Billetera de tokens por gestor:** el saldo (`tokens_disponibles`) está en el perfil del usuario (gestor), no por conjunto. **1 token = 1 unidad de vivienda.** Solo se consumen tokens **al activar una asamblea** (cobro único); después se puede generar el acta y registrar votos sin nuevo cobro. Si el gestor no tiene suficientes tokens al intentar activar, se muestra CTA para comprar más. Los nuevos gestores reciben un bono de bienvenida (ej. 50 tokens). Enlaces a pago/contacto en Super Admin → Ajustes.
 
-**Configuración**
-- Perfil de usuario y datos de la organización del conjunto activo (`/dashboard/configuracion`).
+**Configuración** (`/dashboard/configuracion`)
+- **Mi perfil**, **Contraseña**, **Datos del conjunto**, **Poderes y correo**, **Mis pagos**.
+- **Poderes y correo:** Máx. poderes por apoderado (parametrizable) y plantilla adicional para correos de votación (ej. enlace Teams/Meet).
 
 ---
 
@@ -88,7 +90,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 **Funcionalidad**
 - **Tabla de conjuntos (cuentas):** listado; los **tokens** están en **profiles** (billetera por gestor), no por conjunto. El super admin puede gestionar planes y precios.
 - **Tabla de planes:** edición de nombre, **precio por token (COP)** (`precio_por_asamblea_cop`), etc.; botón Guardar por plan. El webhook acredita tokens en el perfil del gestor cuando la referencia es `REF_<user_id>_<timestamp>`.
-- **Ajustes** (`/super-admin/ajustes`): color principal de la landing, número de WhatsApp de contacto. URL de compra de tokens y precio desde la tabla de planes.
+- **Ajustes** (`/super-admin/ajustes`): color principal, WhatsApp, precio por token, bono de bienvenida. **Correo (SMTP):** host, puerto, usuario, contraseña para envío de enlace de votación.
 - **Exportar lista** de conjuntos (CSV).
 - Filtros por nombre de conjunto.
 - Toasts para éxito/error al guardar.

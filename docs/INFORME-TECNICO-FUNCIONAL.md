@@ -64,8 +64,12 @@ El rol de Administrador gestiona la configuración de la copropiedad y el ciclo 
 
 **Configuración (`/dashboard/configuracion`):**
 - Interfaz organizada con **menú lateral** (desktop) o navegación por secciones (móvil).
-- **Secciones:** Mi perfil, Contraseña, Datos del conjunto, Mis pagos. (Se eliminó la sección "Info unidades").
+- **Secciones (ordenadas):** Mi perfil, Contraseña, Datos del conjunto, Poderes y correo, Mis pagos.
+- **Poderes y correo:** Máximo poderes por apoderado (configurable, según Ley 675) y plantilla adicional para correos de votación (ej. enlace a Teams o Google Meet). Se usa en el envío de enlace por correo.
 - **Mis pagos:** Historial de compras de tokens.
+
+**Envío de correo (enlace de votación):**
+- El botón "Enviar enlace por correo" envía desde el servidor por **SMTP** (no abre Outlook). Prioridad: 1) SMTP en Super Admin → Ajustes, 2) variables de entorno (SMTP_HOST, SMTP_USER, SMTP_PASS), 3) Resend (RESEND_API_KEY). El gestor puede añadir texto adicional a la plantilla en Configuración → Poderes y correo.
 
 ### 1.2 Votantes (Página Pública)
 
@@ -89,7 +93,7 @@ Acceso restringido para la gestión global y configuración del sistema.
 **Funcionalidad:**
 - **Conjuntos:** Listado, gestión de planes y precios.
 - **Planes:** Edición de parámetros (nombre, precio por token COP, límites, tokens iniciales, vigencia).
-- **Ajustes:** Configuración del color principal de la landing page, número de WhatsApp de contacto.
+- **Ajustes:** Color principal de la landing, número de WhatsApp, precio por token, bono de bienvenida. **Correo (SMTP):** Configuración del servidor SMTP para envío de enlace de votación (host, puerto, usuario, contraseña, remitente). Si se configura aquí tiene prioridad sobre las variables de entorno.
 - **Transacciones y pagos:** Lista `pagos_log` con filtros. Herramienta "Reprocesar pago manualmente".
 - **Ranking:** Visualización del ranking de gestores por tokens.
 

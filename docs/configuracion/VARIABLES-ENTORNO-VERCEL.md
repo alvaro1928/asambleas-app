@@ -54,30 +54,19 @@ Ejemplo: `https://epbco.cloud/api/pagos/webhook`. Luego **Guardar**. Con `WOMPI_
 
 ---
 
-## 5. Envío de correo (enlace de votación)
+## 5. Envío de correo (enlace de votación) — SMTP
 
-Para que el botón **"Enviar enlace por correo"** envíe los correos desde el servidor (sin abrir Outlook), puedes configurarlo de dos formas (recomendado: **parametrizado en Supabase**).
+El botón **"Enviar enlace por correo"** envía los correos desde el servidor por **SMTP** (sin abrir Outlook). La funcionalidad usa **SMTP** como método principal. Puedes configurarlo de tres formas (prioridad de mayor a menor):
 
-### Recomendado: SMTP en Super Admin (Supabase)
+### 1. SMTP parametrizado en Super Admin (recomendado)
 
-El super administrador puede configurar el correo desde **Super Admin → Ajustes**, sección **Correo (SMTP)**. Esos datos se guardan en la tabla `configuracion_smtp` en Supabase y tienen **prioridad** sobre las variables de entorno. No hace falta tocar variables ni redesplegar para cambiar servidor, usuario o contraseña.
+El super administrador configura el correo desde **Super Admin → Ajustes**, sección **Correo (SMTP)**. Los datos se guardan en la tabla `configuracion_smtp` y tienen **prioridad** sobre las variables de entorno. No hace falta redesplegar para cambiar servidor, usuario o contraseña.
 
-**Requisito:** Ejecutar en Supabase (SQL Editor) el script **`supabase/CONFIGURACION-SMTP-SUPER-ADMIN.sql`** una vez, para crear la tabla y políticas.
+**Requisito:** Ejecutar en Supabase el script **`supabase/CONFIGURACION-SMTP-SUPER-ADMIN.sql`** una vez.
 
-Si no configuras nada en Ajustes, se usan las opciones siguientes (variables de entorno).
+### 2. SMTP por variables de entorno (ej. Hostinger)
 
-### Opción A: Resend (API externa)
-
-Regístrate en [Resend](https://resend.com) y crea una API Key:
-
-| Variable | Dónde sacarla | Uso |
-|----------|---------------|-----|
-| **`RESEND_API_KEY`** | Resend → API Keys → Create | Envío por API de Resend. |
-| **`RESEND_FROM`** | Tu dominio verificado en Resend | Remitente. Formato: `"Votaciones <noreply@tudominio.com>"`. En pruebas: `onboarding@resend.dev`. |
-
-### Opción B: SMTP (tu correo, ej. Hostinger)
-
-Usa el **servidor saliente (SMTP)** de tu proveedor de correo. Con Hostinger (o similar) suele ser:
+Usa el **servidor saliente (SMTP)** de tu proveedor de correo. Con Hostinger (o similar):
 
 | Variable | Ejemplo (Hostinger) | Uso |
 |----------|---------------------|-----|
@@ -88,9 +77,18 @@ Usa el **servidor saliente (SMTP)** de tu proveedor de correo. Con Hostinger (o 
 | **`SMTP_PASS`** | Contraseña del correo | La misma que usas en el cliente de correo (Hostinger → Correo → contraseña de esa cuenta). |
 | **`SMTP_FROM`** | `"Votaciones <contactanos@epbco.cloud>"` (opcional) | Remitente que verá el destinatario. Si no se pone, se usa `SMTP_USER`. |
 
-**Dónde sacar la contraseña en Hostinger:** Panel de Hostinger → Correo → la cuenta (ej. contactanos@epbco.cloud) → contraseña que configuraste para esa cuenta (o “Cambiar contraseña” para generar una). Es la misma que pondrías en Outlook o en un cliente de correo.
+**Dónde sacar la contraseña en Hostinger:** Panel de Hostinger → Correo → la cuenta (ej. contactanos@epbco.cloud) → contraseña que configuraste (o “Cambiar contraseña”). Es la misma que pondrías en Outlook.
 
-Si no configuras ni Resend ni SMTP, la app mostrará que el envío por correo no está configurado.
+### 3. Resend (API externa, alternativa)
+
+Si prefieres [Resend](https://resend.com) en lugar de SMTP:
+
+| Variable | Dónde sacarla | Uso |
+|----------|---------------|-----|
+| **`RESEND_API_KEY`** | Resend → API Keys → Create | Envío por API de Resend. |
+| **`RESEND_FROM`** | Tu dominio verificado en Resend | Remitente. Formato: `"Votaciones <noreply@tudominio.com>"`. |
+
+Si no configuras ninguna opción, la app mostrará que el envío por correo no está configurado.
 
 ---
 
@@ -122,12 +120,9 @@ WOMPI_EVENTS_SECRET=prod_events_xxxxxxxxxxxx
 WOMPI_PRIVATE_KEY=prv_prod_xxxxxxxxxxxx
 # NEXT_PUBLIC_PASARELA_PAGOS_URL=...  # solo si usas Opción B (página propia de checkout)
 
-# ========== Envío de correo: elige UNA opción ==========
-# Opción A – Resend (resend.com):
-# RESEND_API_KEY=re_xxxxxxxxxxxx
-# RESEND_FROM="Votaciones <noreply@tudominio.com>"
-
-# Opción B – SMTP (Hostinger u otro; usa TU correo):
+# ========== Envío de correo (SMTP recomendado) ==========
+# Recomendado: configurar SMTP en Super Admin → Ajustes (sin variables).
+# Alternativa por variables – SMTP (Hostinger u otro):
 SMTP_HOST=smtp.hostinger.com
 SMTP_PORT=465
 SMTP_USER=contactanos@epbco.cloud
