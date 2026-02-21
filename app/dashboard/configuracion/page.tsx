@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import Link from 'next/link'
-import { CreditCard, ChevronDown, ChevronUp, RefreshCw, User as UserIcon, Lock, Building2, Receipt } from 'lucide-react'
+import { CreditCard, ChevronDown, ChevronUp, RefreshCw, User as UserIcon, Lock, Building2, Receipt, Users, Mail } from 'lucide-react'
 
 interface Profile {
   id: string
@@ -64,10 +64,16 @@ export default function ConfiguracionPage() {
   const [pagosLoading, setPagosLoading] = useState(false)
   const [pagoDetalleId, setPagoDetalleId] = useState<string | null>(null)
 
+  // Configuración poderes y correo (por conjunto)
+  const [maxPoderesPorApoderado, setMaxPoderesPorApoderado] = useState<number>(3)
+  const [plantillaAdicionalCorreo, setPlantillaAdicionalCorreo] = useState('')
+  const [savingConfigPoderes, setSavingConfigPoderes] = useState(false)
+
   const secciones = [
     { id: 'perfil', label: 'Mi perfil', icon: UserIcon },
     { id: 'contraseña', label: 'Contraseña', icon: Lock },
     { id: 'conjunto', label: 'Datos del conjunto', icon: Building2 },
+    { id: 'poderes-correo', label: 'Poderes y correo', icon: Users },
     { id: 'pagos', label: 'Mis pagos', icon: Receipt },
   ]
 
@@ -89,6 +95,23 @@ export default function ConfiguracionPage() {
     }
     if (typeof window !== 'undefined') {
       localStorage.setItem('selectedConjuntoId', selectedConjuntoId)
+    }
+    // Cargar configuración de poderes y correo
+    if (selectedConjuntoId) {
+      supabase
+        .from('configuracion_poderes')
+        .select('max_poderes_por_apoderado, plantilla_adicional_correo')
+        .eq('organization_id', selectedConjuntoId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setMaxPoderesPorApoderado(Number(data.max_poderes_por_apoderado) || 3)
+            setPlantillaAdicionalCorreo(data.plantilla_adicional_correo ?? '')
+          } else {
+            setMaxPoderesPorApoderado(3)
+            setPlantillaAdicionalCorreo('')
+          }
+        })
     }
   }, [selectedConjuntoId, conjuntosList])
 
@@ -261,6 +284,37 @@ export default function ConfiguracionPage() {
       setError(error?.message || 'Error al guardar los datos del conjunto')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSaveConfigPoderes = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedConjuntoId) {
+      setError('Selecciona un conjunto')
+      return
+    }
+    setSavingConfigPoderes(true)
+    setMessage('')
+    setError('')
+    try {
+      const { error: upsertError } = await supabase
+        .from('configuracion_poderes')
+        .upsert(
+          {
+            organization_id: selectedConjuntoId,
+            max_poderes_por_apoderado: Math.max(1, Math.min(10, maxPoderesPorApoderado)),
+            plantilla_adicional_correo: plantillaAdicionalCorreo.trim() || null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'organization_id' }
+        )
+      if (upsertError) throw upsertError
+      setMessage('Configuración de poderes y correo guardada')
+      setTimeout(() => setMessage(''), 3000)
+    } catch (err: any) {
+      setError(err?.message || 'Error al guardar')
+    } finally {
+      setSavingConfigPoderes(false)
     }
   }
 
@@ -677,6 +731,89 @@ export default function ConfiguracionPage() {
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-3xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Guardando...' : 'Actualizar datos del conjunto'}
+              </button>
+            </form>
+            )}
+          </div>
+
+          {/* Poderes y correo */}
+          <div id="poderes-correo" className="scroll-mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-3xl flex items-center justify-center">
+                <Users className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Poderes y plantilla de correo
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Límite de poderes por apoderado y texto adicional para los correos de votación
+                </p>
+              </div>
+            </div>
+
+            {conjuntosList.length === 0 ? (
+              <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 text-amber-800 dark:text-amber-200">
+                <p className="font-medium">Selecciona un conjunto primero</p>
+                <p className="text-sm mt-1">Configura datos del conjunto antes de ajustar poderes y correo.</p>
+              </div>
+            ) : (
+            <form onSubmit={handleSaveConfigPoderes} className="space-y-4">
+              {conjuntosList.length > 1 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Conjunto
+                  </label>
+                  <select
+                    value={selectedConjuntoId || ''}
+                    onChange={(e) => setSelectedConjuntoId(e.target.value || null)}
+                    className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {conjuntosList.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name || 'Sin nombre'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Máximo poderes por apoderado
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={maxPoderesPorApoderado}
+                  onChange={(e) => setMaxPoderesPorApoderado(Math.max(1, Math.min(10, parseInt(e.target.value, 10) || 3)))}
+                  className="w-full max-w-xs px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Según Ley 675, típico 2–3. Limita cuántos poderes puede recibir una misma persona.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Texto adicional para correos de votación <span className="text-gray-500 font-normal">(opcional)</span>
+                </label>
+                <textarea
+                  value={plantillaAdicionalCorreo}
+                  onChange={(e) => setPlantillaAdicionalCorreo(e.target.value)}
+                  placeholder="Ej: Únete a la sesión por Teams: https://teams.microsoft.com/...&#10;&#10;O: Enlace a Google Meet: https://meet.google.com/..."
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Se añadirá al correo que envía el sistema al mandar el enlace de votación. Ideal para incluir enlace a sesión Teams, Google Meet, etc.
+                </p>
+              </div>
+              <button
+                type="submit"
+                disabled={savingConfigPoderes}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-3xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {savingConfigPoderes ? 'Guardando...' : 'Guardar configuración'}
               </button>
             </form>
             )}

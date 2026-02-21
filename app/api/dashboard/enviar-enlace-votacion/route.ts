@@ -178,6 +178,19 @@ export async function POST(request: NextRequest) {
           minute: '2-digit',
         })
       : ''
+
+    const { data: configPoderes } = await supabase
+      .from('configuracion_poderes')
+      .select('plantilla_adicional_correo')
+      .eq('organization_id', orgId)
+      .maybeSingle()
+    const textoAdicional = (configPoderes as { plantilla_adicional_correo?: string | null } | null)?.plantilla_adicional_correo?.trim() || ''
+    const bloqueAdicionalTexto = textoAdicional ? `\n\n${textoAdicional}\n\n` : '\n\n'
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    const bloqueAdicionalHtml = textoAdicional
+      ? `<p style="margin: 1rem 0; padding: 0.75rem; background: #f3f4f6; border-radius: 8px;">${esc(textoAdicional).replace(/\n/g, '<br>')}</p>`
+      : ''
+
     const subject = `Votación: ${asamblea.nombre ?? 'Asamblea'}`
     const textBody = `🗳️ VOTACIÓN VIRTUAL ACTIVA
 
@@ -188,8 +201,7 @@ export async function POST(request: NextRequest) {
 ${urlVotacion}
 
 ⚠️ Necesitas tu email registrado en el conjunto
-
-¡Tu participación es importante! 🏠`
+${bloqueAdicionalTexto}¡Tu participación es importante! 🏠`
     const htmlBody = `
 <!DOCTYPE html>
 <html>
@@ -200,6 +212,7 @@ ${urlVotacion}
   <p>📅 ${fechaStr}</p>
   <p><a href="${urlVotacion}" style="display: inline-block; background: #4f46e5; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 8px;">👉 Ir a votar</a></p>
   <p style="color: #6b7280; font-size: 0.9rem;">Necesitas tu email registrado en el conjunto.</p>
+  ${bloqueAdicionalHtml}
   <p>¡Tu participación es importante! 🏠</p>
 </body>
 </html>`
