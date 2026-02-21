@@ -75,6 +75,23 @@ interface ConfigPoderes {
   requiere_documento: boolean
 }
 
+const MAX_DOC_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
+const DOC_MIME_ALLOWED = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+]
+
+function isValidDocFile(file: File): boolean {
+  return file.size <= MAX_DOC_SIZE_BYTES && DOC_MIME_ALLOWED.includes(file.type)
+}
+
+function getDocExtension(file: File): string {
+  if (file.name.toLowerCase().endsWith('.pdf')) return '.pdf'
+  if (file.name.toLowerCase().endsWith('.doc')) return '.doc'
+  return '.docx'
+}
+
 export default function PoderesPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const toast = useToast()
@@ -95,7 +112,13 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   const [emailReceptor, setEmailReceptor] = useState('')
   const [nombreReceptor, setNombreReceptor] = useState('')
   const [observaciones, setObservaciones] = useState('')
+  const [archivoPoder, setArchivoPoder] = useState<File | null>(null)
   const [savingPoder, setSavingPoder] = useState(false)
+
+  // Reemplazar documento
+  const [reemplazandoPoderId, setReemplazandoPoderId] = useState<string | null>(null)
+  const [archivoReemplazo, setArchivoReemplazo] = useState<File | null>(null)
+  const [reemplazando, setReemplazando] = useState(false)
 
   // Estados para búsqueda y filtros
   const [searchTerm, setSearchTerm] = useState('')
@@ -292,10 +315,15 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       console.error('Error en validación:', error)
     }
 
+    if (archivoPoder && !isValidDocFile(archivoPoder)) {
+      toast.error('El documento debe ser PDF o Word (.doc, .docx) y máximo 2MB')
+      return
+    }
+
     const emailOtorgante = (selectedOtorgante as { email?: string; email_propietario?: string }).email_propietario ?? (selectedOtorgante as { email?: string }).email ?? ''
     setSavingPoder(true)
     try {
-      const { error } = await supabase
+      const { data: newPoder, error } = await supabase
         .from('poderes')
         .insert({
           asamblea_id: params.id,
@@ -308,8 +336,22 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
           observaciones: observaciones.trim() || null,
           estado: 'activo'
         })
+        .select('id')
+        .single()
 
       if (error) throw error
+
+      if (archivoPoder && newPoder) {
+        const ext = getDocExtension(archivoPoder)
+        const path = `${params.id}/${newPoder.id}/doc${ext}`
+        const { error: uploadError } = await supabase.storage
+          .from('poderes-docs')
+          .upload(path, archivoPoder, { upsert: true })
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from('poderes-docs').getPublicUrl(path)
+          await supabase.from('poderes').update({ archivo_poder: urlData.publicUrl }).eq('id', newPoder.id)
+        }
+      }
 
       setSuccessMessage('Poder registrado exitosamente')
       setTimeout(() => setSuccessMessage(''), 3000)
@@ -319,6 +361,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       setEmailReceptor('')
       setNombreReceptor('')
       setObservaciones('')
+      setArchivoPoder(null)
       setSearchOtorgante('')
       setSearchReceptor('')
       
@@ -348,6 +391,38 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       setRevocandoPoderId(null)
     } finally {
       setRevocando(false)
+    }
+  }
+
+  const handleReemplazarDocumento = async () => {
+    if (!reemplazandoPoderId || !archivoReemplazo) return
+    if (!isValidDocFile(archivoReemplazo)) {
+      toast.error('El documento debe ser PDF o Word (.doc, .docx) y máximo 2MB')
+      return
+    }
+    setReemplazando(true)
+    try {
+      const ext = getDocExtension(archivoReemplazo)
+      const path = `${params.id}/${reemplazandoPoderId}/doc${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('poderes-docs')
+        .upload(path, archivoReemplazo, { upsert: true })
+      if (uploadError) throw uploadError
+      const { data: urlData } = supabase.storage.from('poderes-docs').getPublicUrl(path)
+      const { error: updateError } = await supabase
+        .from('poderes')
+        .update({ archivo_poder: urlData.publicUrl })
+        .eq('id', reemplazandoPoderId)
+      if (updateError) throw updateError
+      setSuccessMessage('Documento reemplazado correctamente')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      setReemplazandoPoderId(null)
+      setArchivoReemplazo(null)
+      await loadPoderes()
+    } catch (error: any) {
+      toast.error('Error al reemplazar documento: ' + error.message)
+    } finally {
+      setReemplazando(false)
     }
   }
 
@@ -594,6 +669,12 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                       Coeficiente
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Documento
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Registrado
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Estado
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -629,6 +710,60 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                         <div className="text-sm font-bold text-green-600 dark:text-green-400">
                           {poder.coeficiente_delegado.toFixed(4)}%
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1">
+                          {poder.archivo_poder ? (
+                            <>
+                              <a
+                                href={poder.archivo_poder}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                              >
+                                <FileText className="w-4 h-4" />
+                                Ver documento
+                              </a>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => {
+                                  setReemplazandoPoderId(poder.id)
+                                  setArchivoReemplazo(null)
+                                }}
+                              >
+                                Reemplazar
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                              onClick={() => {
+                                setReemplazandoPoderId(poder.id)
+                                setArchivoReemplazo(null)
+                              }}
+                            >
+                              Cargar documento
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-xs text-gray-600 dark:text-gray-400" title="Fecha y hora de registro del poder">
+                          {poder.created_at
+                            ? new Date(poder.created_at).toLocaleString('es-CO', {
+                                timeZone: 'America/Bogota',
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : '—'}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {poder.estado === 'activo' ? (
@@ -882,6 +1017,50 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                     rows={3}
                   />
                 </div>
+
+                <div>
+                  <Label>Documento del poder (Opcional)</Label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-2">
+                    PDF o Word (.doc, .docx), máximo 2MB. Puedes reemplazarlo después si lo necesitas.
+                  </p>
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors">
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (!f) { setArchivoPoder(null); return }
+                        if (!isValidDocFile(f)) {
+                          toast.error('Archivo debe ser PDF o Word y máximo 2MB')
+                          e.target.value = ''
+                          return
+                        }
+                        setArchivoPoder(f)
+                      }}
+                      className="hidden"
+                      id="archivo-poder-input"
+                    />
+                    <label htmlFor="archivo-poder-input" className="cursor-pointer flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-indigo-500" />
+                      {archivoPoder ? (
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {archivoPoder.name} ({(archivoPoder.size / 1024).toFixed(1)} KB)
+                          <button
+                            type="button"
+                            onClick={(ev) => { ev.preventDefault(); setArchivoPoder(null); }}
+                            className="ml-2 text-red-600 hover:underline"
+                          >
+                            Quitar
+                          </button>
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          Clic para seleccionar o arrastrar
+                        </span>
+                      )}
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -896,6 +1075,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   setEmailReceptor('')
                   setNombreReceptor('')
                   setObservaciones('')
+                  setArchivoPoder(null)
                   setSearchOtorgante('')
                   setSearchReceptor('')
                 }}
@@ -917,6 +1097,75 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   <>
                     <CheckCircle2 className="w-4 h-4 mr-2" />
                     Registrar Poder
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Reemplazar documento */}
+      <Dialog open={!!reemplazandoPoderId} onOpenChange={(open) => {
+        if (!open) { setReemplazandoPoderId(null); setArchivoReemplazo(null) }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Documento del poder</DialogTitle>
+            <DialogDescription>
+              Sube un PDF o Word (máx. 2MB). Reemplazará el documento actual si ya existe uno.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (!f) { setArchivoReemplazo(null); return }
+                  if (!isValidDocFile(f)) {
+                    toast.error('Archivo debe ser PDF o Word y máximo 2MB')
+                    e.target.value = ''
+                    return
+                  }
+                  setArchivoReemplazo(f)
+                }}
+                className="hidden"
+                id="archivo-reemplazo-input"
+              />
+              <label htmlFor="archivo-reemplazo-input" className="cursor-pointer flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-500" />
+                {archivoReemplazo ? (
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    {archivoReemplazo.name} ({(archivoReemplazo.size / 1024).toFixed(1)} KB)
+                    <button
+                      type="button"
+                      onClick={(ev) => { ev.preventDefault(); setArchivoReemplazo(null); }}
+                      className="ml-2 text-red-600 hover:underline"
+                    >
+                      Quitar
+                    </button>
+                  </span>
+                ) : (
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Seleccionar archivo</span>
+                )}
+              </label>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setReemplazandoPoderId(null); setArchivoReemplazo(null) }} disabled={reemplazando}>
+                Cancelar
+              </Button>
+              <Button onClick={handleReemplazarDocumento} disabled={!archivoReemplazo || reemplazando}>
+                {reemplazando ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Subiendo...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Subir
                   </>
                 )}
               </Button>

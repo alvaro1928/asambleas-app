@@ -112,10 +112,15 @@ SELECT * FROM resumen_poderes_asamblea('asamblea-uuid');
    |-----------------|-------------|-----------|-------------|--------|----------|
    | Torre - Apto    | Nombre      | Nombre    | %           | Badge  | Revocar  |
 
-5. **Botón "Registrar Poder":**
+5. **Documento del poder (opcional):**
+   - En el modal de registro y en la tabla: cargar documento PDF o Word (.doc, .docx), máximo 2MB
+   - Se puede reemplazar en cualquier momento con el botón "Reemplazar" o "Cargar documento"
+   - Requiere ejecutar `supabase/STORAGE-BUCKET-PODERES-DOCS.sql` una vez
+
+6. **Botón "Registrar Poder":**
    - Abre modal con 2 pasos:
      1. Seleccionar unidad que otorga el poder
-     2. Ingresar datos del apoderado
+     2. Ingresar datos del apoderado y opcionalmente adjuntar documento
 
 ---
 
@@ -268,11 +273,11 @@ WHERE v.pregunta_id = p_pregunta_id;
 
 ## 🔮 Funcionalidades Futuras
 
-### 1. Subir Documento del Poder
-- Campo `archivo_poder` para almacenar URL
-- Integración con almacenamiento (Supabase Storage)
-- Validación de formato (PDF preferido)
-- Opción de marcar como obligatorio en configuración
+### 1. Documento del poder (implementado)
+- Campo `archivo_poder` almacena la URL del documento en Supabase Storage
+- Carga opcional al registrar (PDF o Word, máx. 2MB)
+- Botón "Reemplazar" o "Cargar documento" en la tabla de poderes
+- Bucket `poderes-docs`; ejecutar `STORAGE-BUCKET-PODERES-DOCS.sql`
 
 ### 2. Interfaz Pública para Propietarios
 - Los propietarios pueden registrar sus propios poderes
