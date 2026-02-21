@@ -492,21 +492,25 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     }
   }
 
-  const filteredOtorgantes = unidades.filter(u =>
-    !searchOtorgante ||
-    u.numero.toLowerCase().includes(searchOtorgante.toLowerCase()) ||
-    u.torre.toLowerCase().includes(searchOtorgante.toLowerCase()) ||
-    u.nombre_propietario.toLowerCase().includes(searchOtorgante.toLowerCase())
-  )
-  const filteredReceptores = unidades.filter(u => {
-    if (!searchReceptor) return true
-    const num = (u as { numero?: string }).numero ?? ''
-    const torre = (u as { torre?: string }).torre ?? ''
-    const nom = (u as { nombre_propietario?: string }).nombre_propietario ?? ''
-    const em = (u as { email?: string; email_propietario?: string }).email_propietario ?? (u as { email?: string }).email ?? ''
-    const q = searchReceptor.toLowerCase()
-    return num.toLowerCase().includes(q) || torre.toLowerCase().includes(q) || nom.toLowerCase().includes(q) || em.toLowerCase().includes(q)
-  })
+  const matchUnidad = (u: Unidad, search: string) => {
+    if (!search) return true
+    const q = search.toLowerCase().replace(/[\s\-]/g, '')
+    const torre = String(u.torre ?? '').toLowerCase()
+    const numero = String(u.numero ?? '').toLowerCase()
+    const torreNumero = torre + numero // ej. "10"+"301" = "10301"
+    const nom = String(u.nombre_propietario ?? '').toLowerCase()
+    const em = String((u as { email_propietario?: string }).email_propietario ?? (u as { email?: string }).email ?? '').toLowerCase()
+    return (
+      numero.includes(q) ||
+      torre.includes(q) ||
+      torreNumero.includes(q) ||
+      nom.includes(search.toLowerCase()) ||
+      em.includes(search.toLowerCase())
+    )
+  }
+
+  const filteredOtorgantes = unidades.filter(u => matchUnidad(u, searchOtorgante))
+  const filteredReceptores = unidades.filter(u => matchUnidad(u, searchReceptor))
 
   const filteredPoderes = poderes.filter(p => {
     if (p.estado !== 'activo') return false
