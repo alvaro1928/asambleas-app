@@ -322,76 +322,92 @@ export default function SuperAdminPage() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* 1. Resumen */}
-        <section className="space-y-4">
+        <section className="space-y-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             Resumen
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Fila 1: Operación — Conjuntos y usuarios */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 shrink-0">
                   <Building2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Total conjuntos</p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">{conjuntos.length}</p>
                 </div>
               </div>
             </div>
+            {estadoSistema != null && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 shrink-0">
+                    <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Gestores</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{estadoSistema.total_gestores}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Usuarios con conjuntos</p>
+                  </div>
+                </div>
+              </div>
+            )}
             {resumen != null && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 shrink-0">
+                    <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Conjuntos que pagaron</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{resumen.conjuntos_que_pagaron}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* Fila 2: Tokens y finanzas */}
+            {estadoSistema != null && (
               <>
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-                      <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30 shrink-0">
+                      <Coins className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Conjuntos que pagaron</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{resumen.conjuntos_que_pagaron}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Tokens vendidos</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{estadoSistema.tokens_vendidos}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Por pagos APPROVED</p>
                     </div>
                   </div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                      <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30 shrink-0">
+                      <Gift className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Dinero recaudado</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatDinero(resumen.dinero_total_centavos)}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Tokens regalados (est.)</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{estadoSistema.tokens_regalados_estimado}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Bono × gestores</p>
                     </div>
                   </div>
                 </div>
               </>
             )}
-            {estadoSistema != null && (
-              <>
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium">
-                    <DollarSign className="w-4 h-4" />
-                    Tokens vendidos
+            {resumen != null && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 shrink-0">
+                    <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{estadoSistema.tokens_vendidos}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Por pagos APPROVED</p>
-                </div>
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium">
-                    <Gift className="w-4 h-4" />
-                    Tokens regalados (est.)
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Dinero recaudado</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatDinero(resumen.dinero_total_centavos)}</p>
                   </div>
-                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{estadoSistema.tokens_regalados_estimado}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Bono × gestores</p>
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 p-5">
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm font-medium">
-                    <Users className="w-4 h-4" />
-                    Gestores
-                  </div>
-                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{estadoSistema.total_gestores}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Usuarios con conjuntos</p>
-                </div>
-              </>
+              </div>
             )}
           </div>
         </section>
