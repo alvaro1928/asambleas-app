@@ -102,6 +102,7 @@ function UnidadesPageContent() {
   const [whatsappSending, setWhatsappSending] = useState(false)
   const [asambleasOpciones, setAsambleasOpciones] = useState<Array<{ id: string; nombre: string }>>([])
   const [whatsappAsambleaId, setWhatsappAsambleaId] = useState('')
+  const [tokensPorMensajeWhatsapp, setTokensPorMensajeWhatsapp] = useState<number>(1)
 
   const totalCoeficientes = unidades.reduce((sum, u) => sum + u.coeficiente, 0)
   const coeficientesCorrecto = sumaCoeficientesValida(totalCoeficientes)
@@ -219,8 +220,15 @@ function UnidadesPageContent() {
     setWhatsappAsambleaId(volverAsambleaId ?? '')
     const selectedConjuntoId = typeof window !== 'undefined' ? localStorage.getItem('selectedConjuntoId') : null
     if (selectedConjuntoId) {
-      const { data } = await supabase.from('asambleas').select('id, nombre').eq('organization_id', selectedConjuntoId).order('fecha', { ascending: false }).limit(50)
-      setAsambleasOpciones((data ?? []) as Array<{ id: string; nombre: string }>)
+      const [{ data: asambleasData }, costoRes] = await Promise.all([
+        supabase.from('asambleas').select('id, nombre').eq('organization_id', selectedConjuntoId).order('fecha', { ascending: false }).limit(50),
+        fetch('/api/dashboard/whatsapp-costo', { credentials: 'include' }),
+      ])
+      setAsambleasOpciones((asambleasData ?? []) as Array<{ id: string; nombre: string }>)
+      if (costoRes.ok) {
+        const costoData = await costoRes.json().catch(() => ({}))
+        setTokensPorMensajeWhatsapp(Math.max(1, Number(costoData.tokens_por_mensaje_whatsapp ?? 1)))
+      }
     } else {
       setAsambleasOpciones([])
     }
@@ -818,7 +826,17 @@ function UnidadesPageContent() {
               Notificar vía WhatsApp
             </DialogTitle>
             <DialogDescription>
-              Se enviará el enlace de votación por WhatsApp a las unidades seleccionadas (o a todas las que tengan teléfono si no hay ninguna seleccionada). Se descontarán tokens de tu saldo según la configuración del Super Admin.
+              {(() => {
+                const numMensajes = selectedUnidadIds.size > 0
+                  ? filteredUnidades.filter(u => selectedUnidadIds.has(u.id) && (u.telefono ?? '').trim() && !u.is_demo).length
+                  : unidadesConTelefono.length
+                const totalTokens = numMensajes * tokensPorMensajeWhatsapp
+                return (
+                  <>
+                    Se enviará el enlace de votación por WhatsApp a {numMensajes} {numMensajes === 1 ? 'unidad' : 'unidades'} {selectedUnidadIds.size > 0 ? 'seleccionada(s)' : 'con teléfono del conjunto'}. Se descontarán <strong>{totalTokens} tokens</strong> de tu saldo ({numMensajes} mensaje{numMensajes !== 1 ? 's' : ''} × {tokensPorMensajeWhatsapp} {tokensPorMensajeWhatsapp === 1 ? 'token' : 'tokens'} por mensaje).
+                  </>
+                )
+              })()}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-4">
@@ -838,8 +856,8 @@ function UnidadesPageContent() {
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {selectedUnidadIds.size > 0
-                ? `${selectedUnidadIds.size} unidad(es) seleccionada(s) con teléfono.`
-                : 'Sin selección: se enviará a todas las unidades con teléfono del conjunto.'}
+                ? `${filteredUnidades.filter(u => selectedUnidadIds.has(u.id) && (u.telefono ?? '').trim() && !u.is_demo).length} unidad(es) seleccionada(s) con teléfono.`
+                : `${unidadesConTelefono.length} unidad(es) con teléfono en el conjunto.`}
             </p>
           </div>
           <div className="flex gap-3 pt-4">
