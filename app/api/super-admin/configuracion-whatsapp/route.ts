@@ -47,7 +47,7 @@ export async function GET() {
 
     const { data, error } = await admin
       .from('configuracion_whatsapp')
-      .select('id, access_token, phone_number_id, template_name, tokens_por_mensaje_whatsapp')
+      .select('id, access_token, phone_number_id, template_name, tokens_por_mensaje_whatsapp, habilitado')
       .eq('key', 'default')
       .maybeSingle()
 
@@ -61,6 +61,7 @@ export async function GET() {
       phone_number_id?: string | null
       template_name?: string | null
       tokens_por_mensaje_whatsapp?: number | null
+      habilitado?: boolean | null
     } | null
 
     return NextResponse.json({
@@ -68,6 +69,7 @@ export async function GET() {
       phone_number_id: row?.phone_number_id ?? '',
       template_name: row?.template_name ?? '',
       tokens_por_mensaje_whatsapp: row?.tokens_por_mensaje_whatsapp != null ? Number(row.tokens_por_mensaje_whatsapp) : 1,
+      habilitado: row?.habilitado !== false,
     })
   } catch (e) {
     console.error('configuracion-whatsapp GET:', e)
@@ -112,11 +114,13 @@ export async function PATCH(request: NextRequest) {
       phone_number_id,
       template_name,
       tokens_por_mensaje_whatsapp,
+      habilitado,
     } = body as {
       access_token?: string
       phone_number_id?: string
       template_name?: string
       tokens_por_mensaje_whatsapp?: number
+      habilitado?: boolean
     }
 
     const admin = createClient(
@@ -125,7 +129,7 @@ export async function PATCH(request: NextRequest) {
       { auth: { persistSession: false } }
     )
 
-    const updates: Record<string, string | number | null> = {
+    const updates: Record<string, string | number | boolean | null> = {
       updated_at: new Date().toISOString(),
     }
     if (access_token !== undefined) updates.access_token = typeof access_token === 'string' ? access_token.trim() || null : null
@@ -135,6 +139,7 @@ export async function PATCH(request: NextRequest) {
       const n = Math.max(1, Math.floor(Number(tokens_por_mensaje_whatsapp)))
       updates.tokens_por_mensaje_whatsapp = n
     }
+    if (habilitado !== undefined) updates.habilitado = !!habilitado
 
     const { data: existing } = await admin
       .from('configuracion_whatsapp')
@@ -149,6 +154,7 @@ export async function PATCH(request: NextRequest) {
         phone_number_id: updates.phone_number_id ?? null,
         template_name: updates.template_name ?? null,
         tokens_por_mensaje_whatsapp: updates.tokens_por_mensaje_whatsapp ?? 1,
+        habilitado: updates.habilitado !== false,
       })
       return NextResponse.json({ ok: true })
     }

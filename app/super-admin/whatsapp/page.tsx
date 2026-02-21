@@ -16,6 +16,7 @@ export default function SuperAdminWhatsAppPage() {
   const [phoneNumberId, setPhoneNumberId] = useState('')
   const [templateName, setTemplateName] = useState('')
   const [tokensPorMensaje, setTokensPorMensaje] = useState<number | ''>(1)
+  const [habilitado, setHabilitado] = useState(true)
 
   const isAllowed = (email: string | undefined) => {
     if (!email) return false
@@ -49,6 +50,7 @@ export default function SuperAdminWhatsAppPage() {
       setPhoneNumberId(data.phone_number_id ?? '')
       setTemplateName(data.template_name ?? '')
       setTokensPorMensaje(data.tokens_por_mensaje_whatsapp != null ? data.tokens_por_mensaje_whatsapp : 1)
+      setHabilitado(data.habilitado !== false)
       setLoading(false)
     }
     load()
@@ -66,6 +68,7 @@ export default function SuperAdminWhatsAppPage() {
           phone_number_id: phoneNumberId.trim() || null,
           template_name: templateName.trim() || null,
           tokens_por_mensaje_whatsapp: typeof tokensPorMensaje === 'number' ? tokensPorMensaje : (tokensPorMensaje !== '' ? parseInt(String(tokensPorMensaje), 10) : 1),
+          habilitado,
         }),
       })
       if (!res.ok) {
@@ -113,6 +116,23 @@ export default function SuperAdminWhatsAppPage() {
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="p-6 space-y-6">
+            <div className="flex items-center justify-between rounded-2xl border border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-800/50">
+              <div>
+                <label className="text-sm font-medium text-gray-900 dark:text-white">Envío masivo por WhatsApp</label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Activa o desactiva el envío masivo para todos los usuarios (ej. mientras la plantilla está en verificación en Meta)</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={habilitado}
+                onClick={() => setHabilitado(v => !v)}
+                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${habilitado ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+              >
+                <span
+                  className={`pointer-events-none block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${habilitado ? 'translate-x-6' : 'translate-x-1'}`}
+                />
+              </button>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Token de acceso (Meta)</label>
               <input

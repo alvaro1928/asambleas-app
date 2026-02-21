@@ -103,6 +103,7 @@ function UnidadesPageContent() {
   const [asambleasOpciones, setAsambleasOpciones] = useState<Array<{ id: string; nombre: string }>>([])
   const [whatsappAsambleaId, setWhatsappAsambleaId] = useState('')
   const [tokensPorMensajeWhatsapp, setTokensPorMensajeWhatsapp] = useState<number>(1)
+  const [whatsappHabilitado, setWhatsappHabilitado] = useState<boolean | null>(null)
 
   const totalCoeficientes = unidades.reduce((sum, u) => sum + u.coeficiente, 0)
   const coeficientesCorrecto = sumaCoeficientesValida(totalCoeficientes)
@@ -162,6 +163,15 @@ function UnidadesPageContent() {
       }
 
       setUnidades(unidadesData || [])
+
+      // Estado de WhatsApp (habilitado/deshabilitado para todos los usuarios)
+      const costoRes = await fetch('/api/dashboard/whatsapp-costo', { credentials: 'include' })
+      if (costoRes.ok) {
+        const costoData = await costoRes.json().catch(() => ({}))
+        setWhatsappHabilitado(costoData.habilitado !== false)
+      } else {
+        setWhatsappHabilitado(false)
+      }
 
       // Extraer torres únicas
       const uniqueTorres = Array.from(
@@ -459,15 +469,17 @@ function UnidadesPageContent() {
                 <Plus className="w-4 h-4 sm:mr-2" />
                 <span className="hidden sm:inline">Añadir unidad</span>
               </Button>
-              <Button
-                variant="outline"
-                onClick={openWhatsAppModal}
-                className="border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 gap-2"
-                title="Enviar enlace de votación por WhatsApp a las unidades seleccionadas (se descontarán tokens)"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">Notificar vía WhatsApp</span>
-              </Button>
+              {whatsappHabilitado && (
+                <Button
+                  variant="outline"
+                  onClick={openWhatsAppModal}
+                  className="border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 gap-2"
+                  title="Enviar enlace de votación por WhatsApp a las unidades seleccionadas (se descontarán tokens)"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span className="hidden sm:inline">Notificar vía WhatsApp</span>
+                </Button>
+              )}
               <Link href="/dashboard/unidades/importar">
                 <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
                   <Upload className="w-4 h-4 sm:mr-2" />
@@ -564,15 +576,17 @@ function UnidadesPageContent() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-10">
-                        <input
-                          type="checkbox"
-                          checked={unidadesConTelefono.length > 0 && selectedUnidadIds.size >= unidadesConTelefono.length}
-                          onChange={toggleSelectAllWhatsApp}
-                          title="Seleccionar todas las unidades con teléfono para WhatsApp"
-                          className="rounded border-gray-300 dark:border-gray-600"
-                        />
-                      </TableHead>
+                      {whatsappHabilitado && (
+                        <TableHead className="w-10">
+                          <input
+                            type="checkbox"
+                            checked={unidadesConTelefono.length > 0 && selectedUnidadIds.size >= unidadesConTelefono.length}
+                            onChange={toggleSelectAllWhatsApp}
+                            title="Seleccionar todas las unidades con teléfono para WhatsApp"
+                            className="rounded border-gray-300 dark:border-gray-600"
+                          />
+                        </TableHead>
+                      )}
                       <TableHead>Torre</TableHead>
                       <TableHead>Número</TableHead>
                       <TableHead>Coeficiente</TableHead>
@@ -584,17 +598,19 @@ function UnidadesPageContent() {
                   <TableBody>
                     {filteredUnidades.map((unidad) => (
                       <TableRow key={unidad.id}>
-                        <TableCell className="w-10">
-                          {(unidad.telefono ?? '').trim() && !unidad.is_demo ? (
-                            <input
-                              type="checkbox"
-                              checked={selectedUnidadIds.has(unidad.id)}
-                              onChange={() => toggleUnidadSelection(unidad.id)}
-                              title="Incluir en envío WhatsApp"
-                              className="rounded border-gray-300 dark:border-gray-600"
-                            />
-                          ) : null}
-                        </TableCell>
+                        {whatsappHabilitado && (
+                          <TableCell className="w-10">
+                            {(unidad.telefono ?? '').trim() && !unidad.is_demo ? (
+                              <input
+                                type="checkbox"
+                                checked={selectedUnidadIds.has(unidad.id)}
+                                onChange={() => toggleUnidadSelection(unidad.id)}
+                                title="Incluir en envío WhatsApp"
+                                className="rounded border-gray-300 dark:border-gray-600"
+                              />
+                            ) : null}
+                          </TableCell>
+                        )}
                         <TableCell className="font-medium">
                           {unidad.torre || '-'}
                         </TableCell>

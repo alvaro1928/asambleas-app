@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     const { data: whatsappRow } = await admin
       .from('configuracion_whatsapp')
-      .select('access_token, phone_number_id, template_name, tokens_por_mensaje_whatsapp')
+      .select('access_token, phone_number_id, template_name, tokens_por_mensaje_whatsapp, habilitado')
       .eq('key', 'default')
       .maybeSingle()
 
@@ -62,11 +62,19 @@ export async function POST(request: NextRequest) {
       phone_number_id?: string | null
       template_name?: string | null
       tokens_por_mensaje_whatsapp?: number | null
+      habilitado?: boolean | null
     } | null
+
+    if (wa?.habilitado === false) {
+      return NextResponse.json(
+        { error: 'La notificación por WhatsApp está temporalmente deshabilitada.' },
+        { status: 503 }
+      )
+    }
 
     if (!wa?.access_token?.trim() || !wa?.phone_number_id?.trim() || !wa?.template_name?.trim()) {
       return NextResponse.json(
-        { error: 'WhatsApp no configurado. Configura Token, Phone Number ID y nombre de plantilla en Super Admin → WhatsApp.' },
+        { error: 'WhatsApp no está configurado aún.' },
         { status: 503 }
       )
     }

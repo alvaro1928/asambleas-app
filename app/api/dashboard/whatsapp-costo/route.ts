@@ -45,15 +45,19 @@ export async function GET() {
 
     const { data } = await admin
       .from('configuracion_whatsapp')
-      .select('tokens_por_mensaje_whatsapp')
+      .select('tokens_por_mensaje_whatsapp, habilitado')
       .eq('key', 'default')
       .maybeSingle()
 
     const tokensPorMensaje = data?.tokens_por_mensaje_whatsapp != null
       ? Math.max(1, Number(data.tokens_por_mensaje_whatsapp))
       : 1
+    const habilitado = data?.habilitado !== false
 
-    return NextResponse.json({ tokens_por_mensaje_whatsapp: tokensPorMensaje })
+    return NextResponse.json({
+      tokens_por_mensaje_whatsapp: tokensPorMensaje,
+      habilitado,
+    })
   } catch (e) {
     console.error('GET /api/dashboard/whatsapp-costo:', e)
     return NextResponse.json({ error: 'Error al obtener costo' }, { status: 500 })
