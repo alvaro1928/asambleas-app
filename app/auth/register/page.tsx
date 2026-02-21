@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/providers/ToastProvider'
@@ -93,7 +94,10 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-4 py-8">
+        <Link href="/" className="mb-4 flex justify-center">
+          <Image src="/logo.png" alt="VOTA TECH" width={80} height={80} className="rounded-full object-contain" unoptimized />
+        </Link>
         <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md text-center space-y-6">
           <div className="w-20 h-20 bg-indigo-600 rounded-full flex items-center justify-center mx-auto">
             <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -119,7 +123,10 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-4 py-8">
+      <Link href="/" className="mb-4 flex justify-center">
+        <Image src="/logo.png" alt="VOTA TECH" width={80} height={80} className="rounded-full object-contain" unoptimized />
+      </Link>
       <form
         onSubmit={handleSubmit}
         className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-4"

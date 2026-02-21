@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import { Wallet, Plus, HelpCircle, RefreshCw } from 'lucide-react'
@@ -289,9 +290,17 @@ export default function DashboardPage() {
       <header className="border-b rounded-b-3xl shadow-soft" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0B0E14' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h1 className="text-2xl font-bold text-white">
-              Asambleas App
-            </h1>
+            <Link href="/dashboard" className="flex items-center gap-3 shrink-0">
+              <Image
+                src="/logo.png"
+                alt="VOTA TECH"
+                width={40}
+                height={40}
+                className="rounded-full object-contain bg-white shrink-0"
+                unoptimized
+              />
+              <span className="text-2xl font-bold text-white">Asambleas App</span>
+            </Link>
             <div className="flex items-center flex-wrap gap-3">
               <ConjuntoSelector />
               {/* Billetera: tarjeta de crédito compacta 210px, glassmorphism (Saldo = profiles.tokens_disponibles, Costo = unidades conjunto) */}
