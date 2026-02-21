@@ -17,7 +17,8 @@ import {
   Save,
   AlertTriangle,
   HelpCircle,
-  Plus
+  Plus,
+  MessageCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -94,6 +95,13 @@ function UnidadesPageContent() {
     telefono: '',
   })
   const [adding, setAdding] = useState(false)
+
+  // Selección para WhatsApp
+  const [selectedUnidadIds, setSelectedUnidadIds] = useState<Set<string>>(new Set())
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
+  const [whatsappSending, setWhatsappSending] = useState(false)
+  const [asambleasOpciones, setAsambleasOpciones] = useState<Array<{ id: string; nombre: string }>>([])
+  const [whatsappAsambleaId, setWhatsappAsambleaId] = useState('')
 
   const totalCoeficientes = unidades.reduce((sum, u) => sum + u.coeficiente, 0)
   const coeficientesCorrecto = sumaCoeficientesValida(totalCoeficientes)
@@ -187,6 +195,74 @@ function UnidadesPageContent() {
     }
 
     setFilteredUnidades(filtered)
+  }
+
+  const unidadesConTelefono = filteredUnidades.filter(u => (u.telefono ?? '').trim().length > 0 && !u.is_demo)
+  const toggleUnidadSelection = (id: string) => {
+    setSelectedUnidadIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const toggleSelectAllWhatsApp = () => {
+    if (selectedUnidadIds.size >= unidadesConTelefono.length) {
+      setSelectedUnidadIds(new Set())
+    } else {
+      setSelectedUnidadIds(new Set(unidadesConTelefono.map(u => u.id)))
+    }
+  }
+
+  const openWhatsAppModal = async () => {
+    setShowWhatsAppModal(true)
+    setWhatsappAsambleaId(volverAsambleaId ?? '')
+    const selectedConjuntoId = typeof window !== 'undefined' ? localStorage.getItem('selectedConjuntoId') : null
+    if (selectedConjuntoId) {
+      const { data } = await supabase.from('asambleas').select('id, nombre').eq('organization_id', selectedConjuntoId).order('fecha', { ascending: false }).limit(50)
+      setAsambleasOpciones((data ?? []) as Array<{ id: string; nombre: string }>)
+    } else {
+      setAsambleasOpciones([])
+    }
+  }
+
+  const handleEnviarWhatsApp = async () => {
+    const asambleaId = whatsappAsambleaId?.trim()
+    if (!asambleaId) {
+      toast.error('Elige una asamblea para el enlace de votación.')
+      return
+    }
+    setWhatsappSending(true)
+    try {
+      const res = await fetch('/api/dashboard/enviar-whatsapp-votacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          asamblea_id: asambleaId,
+          unidad_ids: selectedUnidadIds.size > 0 ? Array.from(selectedUnidadIds) : undefined,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data.error || `Error ${res.status}`)
+        if (res.status === 402) {
+          setShowWhatsAppModal(false)
+        }
+        return
+      }
+      const enviados = data.enviados ?? 0
+      const total = data.total ?? 0
+      const tokens = data.tokens_descontados ?? 0
+      toast.success(`WhatsApp: enviados ${enviados} de ${total} mensajes. Se descontaron ${tokens} tokens.`)
+      setShowWhatsAppModal(false)
+      setSelectedUnidadIds(new Set())
+    } catch (e) {
+      console.error(e)
+      toast.error('Error al enviar por WhatsApp')
+    } finally {
+      setWhatsappSending(false)
+    }
   }
 
   const handleEditClick = (unidad: Unidad) => {
@@ -375,6 +451,15 @@ function UnidadesPageContent() {
                 <Plus className="w-4 h-4 sm:mr-2" />
                 <span className="hidden sm:inline">Añadir unidad</span>
               </Button>
+              <Button
+                variant="outline"
+                onClick={openWhatsAppModal}
+                className="border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 gap-2"
+                title="Enviar enlace de votación por WhatsApp a las unidades seleccionadas (se descontarán tokens)"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span className="hidden sm:inline">Notificar vía WhatsApp</span>
+              </Button>
               <Link href="/dashboard/unidades/importar">
                 <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
                   <Upload className="w-4 h-4 sm:mr-2" />
@@ -471,6 +556,15 @@ function UnidadesPageContent() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <input
+                          type="checkbox"
+                          checked={unidadesConTelefono.length > 0 && selectedUnidadIds.size >= unidadesConTelefono.length}
+                          onChange={toggleSelectAllWhatsApp}
+                          title="Seleccionar todas las unidades con teléfono para WhatsApp"
+                          className="rounded border-gray-300 dark:border-gray-600"
+                        />
+                      </TableHead>
                       <TableHead>Torre</TableHead>
                       <TableHead>Número</TableHead>
                       <TableHead>Coeficiente</TableHead>
@@ -482,6 +576,17 @@ function UnidadesPageContent() {
                   <TableBody>
                     {filteredUnidades.map((unidad) => (
                       <TableRow key={unidad.id}>
+                        <TableCell className="w-10">
+                          {(unidad.telefono ?? '').trim() && !unidad.is_demo ? (
+                            <input
+                              type="checkbox"
+                              checked={selectedUnidadIds.has(unidad.id)}
+                              onChange={() => toggleUnidadSelection(unidad.id)}
+                              title="Incluir en envío WhatsApp"
+                              className="rounded border-gray-300 dark:border-gray-600"
+                            />
+                          ) : null}
+                        </TableCell>
                         <TableCell className="font-medium">
                           {unidad.torre || '-'}
                         </TableCell>
@@ -697,6 +802,60 @@ function UnidadesPageContent() {
                 <>
                   <Trash2 className="w-4 h-4 mr-2" />
                   Eliminar
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Notificar vía WhatsApp */}
+      <Dialog open={showWhatsAppModal} onOpenChange={setShowWhatsAppModal}>
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-green-600" />
+              Notificar vía WhatsApp
+            </DialogTitle>
+            <DialogDescription>
+              Se enviará el enlace de votación por WhatsApp a las unidades seleccionadas (o a todas las que tengan teléfono si no hay ninguna seleccionada). Se descontarán tokens de tu saldo según la configuración del Super Admin.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label htmlFor="whatsapp-asamblea">Asamblea para el enlace</Label>
+              <Select
+                id="whatsapp-asamblea"
+                value={whatsappAsambleaId}
+                onChange={(e) => setWhatsappAsambleaId(e.target.value)}
+                className="mt-2 w-full"
+              >
+                <option value="">Elige una asamblea</option>
+                {asambleasOpciones.map(a => (
+                  <option key={a.id} value={a.id}>{a.nombre}</option>
+                ))}
+              </Select>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {selectedUnidadIds.size > 0
+                ? `${selectedUnidadIds.size} unidad(es) seleccionada(s) con teléfono.`
+                : 'Sin selección: se enviará a todas las unidades con teléfono del conjunto.'}
+            </p>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowWhatsAppModal(false)} disabled={whatsappSending} className="flex-1">
+              Cancelar
+            </Button>
+            <Button onClick={handleEnviarWhatsApp} disabled={whatsappSending || !whatsappAsambleaId} className="flex-1 bg-green-600 hover:bg-green-700 gap-2">
+              {whatsappSending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="w-4 h-4" />
+                  Enviar
                 </>
               )}
             </Button>

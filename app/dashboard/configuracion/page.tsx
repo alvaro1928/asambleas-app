@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import Link from 'next/link'
-import { CreditCard, ChevronDown, ChevronUp, RefreshCw, User as UserIcon, Lock, Building2, Receipt, Users, Mail } from 'lucide-react'
+import { CreditCard, ChevronDown, ChevronUp, RefreshCw, User as UserIcon, Lock, Building2, Receipt, Users, Mail, Coins } from 'lucide-react'
 
 interface Profile {
   id: string
@@ -69,13 +69,28 @@ export default function ConfiguracionPage() {
   const [plantillaAdicionalCorreo, setPlantillaAdicionalCorreo] = useState('')
   const [savingConfigPoderes, setSavingConfigPoderes] = useState(false)
 
+  // Uso de tokens (billing_logs)
+  interface UsoTokenItem {
+    id: string
+    fecha: string
+    tipo_operacion: string
+    tokens_usados: number
+    saldo_restante: number
+    asamblea_nombre: string | null
+    conjunto_nombre: string | null
+    metadata: Record<string, unknown> | null
+  }
+  const [usoTokens, setUsoTokens] = useState<UsoTokenItem[]>([])
+  const [usoTokensLoading, setUsoTokensLoading] = useState(false)
+
   const secciones = [
-    { id: 'perfil', label: 'Mi perfil', icon: UserIcon },
-    { id: 'contraseña', label: 'Contraseña', icon: Lock },
-    { id: 'conjunto', label: 'Datos del conjunto', icon: Building2 },
-    { id: 'poderes-correo', label: 'Poderes y correo', icon: Users },
-    { id: 'pagos', label: 'Mis pagos', icon: Receipt },
-  ]
+    { id: 'perfil', label: 'Mi perfil', icon: UserIcon, orden: 1 },
+    { id: 'contraseña', label: 'Contraseña', icon: Lock, orden: 2 },
+    { id: 'conjunto', label: 'Datos del conjunto', icon: Building2, orden: 3 },
+    { id: 'poderes-correo', label: 'Poderes y correo', icon: Users, orden: 4 },
+    { id: 'pagos', label: 'Mis pagos', icon: Receipt, orden: 5 },
+    { id: 'uso-tokens', label: 'Uso de tokens', icon: Coins, orden: 6 },
+  ].sort((a, b) => (a.orden as number) - (b.orden as number))
 
   useEffect(() => {
     loadData()
@@ -198,8 +213,29 @@ export default function ConfiguracionPage() {
     }
   }
 
+  const loadUsoTokens = async () => {
+    setUsoTokensLoading(true)
+    try {
+      const res = await fetch('/api/dashboard/uso-tokens', { credentials: 'include' })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && Array.isArray(data.uso)) {
+        setUsoTokens(data.uso)
+      } else {
+        setUsoTokens([])
+      }
+    } catch {
+      setUsoTokens([])
+    } finally {
+      setUsoTokensLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (user) loadPagos()
+  }, [user])
+
+  useEffect(() => {
+    if (user) loadUsoTokens()
   }, [user])
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -936,6 +972,93 @@ export default function ConfiguracionPage() {
                             </tr>
                           )}
                         </React.Fragment>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Uso de tokens */}
+          <div id="uso-tokens" className="scroll-mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-3xl flex items-center justify-center">
+                  <Coins className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    Uso de tokens
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Historial de operaciones que han consumido tus tokens (votación, acta, WhatsApp, etc.)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={loadUsoTokens}
+                disabled={usoTokensLoading}
+                className="p-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                title="Actualizar lista"
+              >
+                <RefreshCw className={`w-5 h-5 ${usoTokensLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            {usoTokensLoading && usoTokens.length === 0 ? (
+              <div className="py-8 text-center text-gray-500 dark:text-gray-400">
+                Cargando uso de tokens...
+              </div>
+            ) : usoTokens.length === 0 ? (
+              <div className="py-8 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+                Aún no hay registros de uso de tokens. Aquí aparecerán las operaciones que consuman tu saldo (activar votación, descargar acta, notificar por WhatsApp, etc.).
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Fecha y hora</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Operación</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Tokens</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Saldo restante</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Detalle</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usoTokens.map((row) => {
+                      const fechaHora = new Date(row.fecha).toLocaleString('es-CO', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      })
+                      const operacionLabel =
+                        row.tipo_operacion === 'Votación'
+                          ? 'Activar votación'
+                          : row.tipo_operacion === 'Acta'
+                            ? 'Descargar acta'
+                            : row.tipo_operacion === 'Registro_manual'
+                              ? 'Registro manual'
+                              : row.tipo_operacion === 'Compra'
+                                ? 'Compra'
+                                : row.tipo_operacion === 'Ajuste_manual'
+                                  ? 'Ajuste manual'
+                                  : row.tipo_operacion === 'WhatsApp'
+                                    ? 'WhatsApp'
+                                    : row.tipo_operacion
+                      const detalle = [row.asamblea_nombre, row.conjunto_nombre].filter(Boolean).join(' · ') || '—'
+                      return (
+                        <tr
+                          key={row.id}
+                          className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50/50 dark:hover:bg-gray-900/30"
+                        >
+                          <td className="py-3 px-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">{fechaHora}</td>
+                          <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{operacionLabel}</td>
+                          <td className="py-3 px-4 text-right font-medium text-gray-900 dark:text-white">{row.tokens_usados}</td>
+                          <td className="py-3 px-4 text-right text-gray-600 dark:text-gray-400">{row.saldo_restante}</td>
+                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title={detalle}>{detalle}</td>
+                        </tr>
                       )
                     })}
                   </tbody>

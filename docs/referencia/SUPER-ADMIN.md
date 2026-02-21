@@ -57,6 +57,13 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 - **Correo (SMTP)** — configuración para envío de enlace de votación por correo. Host, puerto, usuario, contraseña y remitente. Tiene prioridad sobre las variables de entorno. Requiere ejecutar `CONFIGURACION-SMTP-SUPER-ADMIN.sql`.
 - La URL de Plan Pro y el precio por token se leen de la tabla de planes y de la configuración global (BD); no se configuran por variables de entorno.
 
+### WhatsApp (Meta API) (`/super-admin/whatsapp`)
+
+- **Token de acceso** — Token de la app de Meta for Developers (Graph API).
+- **Phone Number ID** — ID del número de WhatsApp Business en Meta.
+- **Nombre de la plantilla** — Nombre exacto de la plantilla aprobada por Meta (variables: {{1}} nombre, {{2}} conjunto, {{3}} título asamblea, {{4}} fecha, {{5}} link).
+- **Tokens por mensaje** — Tokens que se descuentan por cada mensaje WhatsApp enviado. Meta cobra ~USD 0,025–0,14 por mensaje tipo marketing según país; se recomienda fijar este valor para que (tokens por mensaje × precio por token en COP) cubra ese costo. Requiere ejecutar `CONFIGURACION-WHATSAPP-Y-TOKENS-POR-MENSAJE.sql`.
+
 ### Carga masiva piloto
 
 - Subida de CSV con columna `organization_id` o `nombre`.
@@ -76,6 +83,8 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 | PATCH | `/api/super-admin/configuracion-landing` | Body: `{ color_principal_hex?, whatsapp_number?, ... }`. Guarda ajustes de landing. |
 | GET | `/api/super-admin/configuracion-smtp` | Configuración SMTP para correo (Super Admin). |
 | PATCH | `/api/super-admin/configuracion-smtp` | Body: `{ host?, port?, secure?, user?, pass?, from_address? }`. Guarda SMTP. |
+| GET | `/api/super-admin/configuracion-whatsapp` | Configuración WhatsApp Meta (token, phone_number_id, template_name, tokens_por_mensaje_whatsapp). |
+| PATCH | `/api/super-admin/configuracion-whatsapp` | Body: `{ access_token?, phone_number_id?, template_name?, tokens_por_mensaje_whatsapp? }`. Guarda WhatsApp. |
 | POST | `/api/super-admin/carga-masiva-piloto` | Body: CSV o JSON con organization_id/nombre. Asigna plan Piloto a las cuentas indicadas. |
 | GET | `/api/planes` | Público: datos de planes para precios en dashboard/landing. |
 

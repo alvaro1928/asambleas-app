@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, BarChart3, Clock, RefreshCw, History, LogOut, FileDown } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -86,7 +86,8 @@ export default function VotacionPublicaPage() {
   const codigo = params.codigo as string
   const toast = useToast()
 
-  const [step, setStep] = useState<'validando' | 'email' | 'verificando' | 'consentimiento' | 'votar' | 'error'>('validando')
+  const [step, setStep] = useState<'validando' | 'email' | 'verificando' | 'consentimiento' | 'rechazo_consentimiento' | 'votar' | 'error'>('validando')
+  const router = useRouter()
   const [asamblea, setAsamblea] = useState<AsambleaInfo | null>(null)
   const [email, setEmail] = useState('')
   const [unidades, setUnidades] = useState<UnidadInfo[]>([])
@@ -895,6 +896,42 @@ export default function VotacionPublicaPage() {
               </>
             )}
           </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full mt-3 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            onClick={() => setStep('rechazo_consentimiento')}
+            disabled={guardandoConsentimiento}
+          >
+            No acepto — salir
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (step === 'rechazo_consentimiento') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
+          <div className="text-center">
+            <div className="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+              <XCircle className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+              No has aceptado el tratamiento de datos
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Para participar en esta votación es necesario aceptar el tratamiento de tus datos personales según la Ley 1581 de 2012. Sin tu aceptación no puedes continuar. Puedes volver al inicio o cerrar esta página.
+            </p>
+            <Button
+              onClick={() => router.push('/')}
+              className="w-full bg-gray-700 hover:bg-gray-800 text-white"
+            >
+              Volver al inicio
+            </Button>
+          </div>
         </div>
       </div>
     )

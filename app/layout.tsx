@@ -17,6 +17,10 @@ export const metadata: Metadata = {
     type: "website",
     locale: "es_CO",
   },
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

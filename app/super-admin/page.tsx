@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Shield, Building2, Loader2, LogOut, Gift, Users, DollarSign, Settings2, Save, Search, Layout, BarChart3, Coins, Receipt } from 'lucide-react'
+import { Shield, Building2, Loader2, LogOut, Gift, Users, DollarSign, Settings2, Save, Search, Layout, BarChart3, Coins, Receipt, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/providers/ToastProvider'
 
@@ -299,6 +299,12 @@ export default function SuperAdminPage() {
             <Link href="/super-admin/ajustes">
               <Button variant="outline" className="gap-2" title="Ajustes globales: landing y color principal">
                 Ajustes
+              </Button>
+            </Link>
+            <Link href="/super-admin/whatsapp">
+              <Button variant="outline" className="gap-2" title="Token Meta, Phone Number ID, plantilla y tokens por mensaje">
+                <MessageCircle className="w-4 h-4" />
+                WhatsApp
               </Button>
             </Link>
             <Button

@@ -24,6 +24,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - **Listado de unidades** (`/dashboard/unidades`) con búsqueda y filtro por torre.
 - **Importación masiva** desde Excel/CSV (`/dashboard/unidades/importar`) con validación de coeficientes (suma 100%) y torre/unidad única.
 - Editar y eliminar unidades.
+- **Notificar vía WhatsApp**: selección por checkbox y botón para enviar enlace de votación por Meta API. Se descuentan tokens (configurable en Super Admin → WhatsApp). Delay 300 ms entre mensajes.
 - Métricas en dashboard: total unidades, suma coeficientes, censo, distribución por tipo.
 
 **Asamblea de pruebas (sandbox)**
@@ -60,8 +61,9 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - **Billetera de tokens por gestor:** el saldo (`tokens_disponibles`) está en el perfil del usuario (gestor), no por conjunto. **1 token = 1 unidad de vivienda.** Solo se consumen tokens **al activar una asamblea** (cobro único); después se puede generar el acta y registrar votos sin nuevo cobro. Si el gestor no tiene suficientes tokens al intentar activar, se muestra CTA para comprar más. Los nuevos gestores reciben un bono de bienvenida (ej. 50 tokens). Enlaces a pago/contacto en Super Admin → Ajustes.
 
 **Configuración** (`/dashboard/configuracion`)
-- **Mi perfil**, **Contraseña**, **Datos del conjunto**, **Poderes y correo**, **Mis pagos**.
+- **Mi perfil**, **Contraseña**, **Datos del conjunto**, **Poderes y correo**, **Mis pagos**, **Uso de tokens**.
 - **Poderes y correo:** Máx. poderes por apoderado (parametrizable) y plantilla adicional para correos de votación (ej. enlace Teams/Meet).
+- **Uso de tokens:** Tabla con historial de operaciones que consumieron tokens (fecha/hora, tipo, tokens usados, saldo restante, detalle). Incluye Votación, Acta, Registro manual, Compra, Ajuste manual, WhatsApp.
 
 ---
 
@@ -91,6 +93,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - **Tabla de conjuntos (cuentas):** listado; los **tokens** están en **profiles** (billetera por gestor), no por conjunto. El super admin puede gestionar planes y precios.
 - **Tabla de planes:** edición de nombre, **precio por token (COP)** (`precio_por_asamblea_cop`), etc.; botón Guardar por plan. El webhook acredita tokens en el perfil del gestor cuando la referencia es `REF_<user_id>_<timestamp>`.
 - **Ajustes** (`/super-admin/ajustes`): color principal, WhatsApp, precio por token, bono de bienvenida. **Correo (SMTP):** host, puerto, usuario, contraseña para envío de enlace de votación.
+- **WhatsApp** (`/super-admin/whatsapp`): Token Meta, Phone Number ID, nombre de plantilla, tokens por mensaje. Meta cobra por mensaje marketing; se configura tokens_por_mensaje para no perder dinero.
 - **Exportar lista** de conjuntos (CSV).
 - Filtros por nombre de conjunto.
 - Toasts para éxito/error al guardar.
@@ -103,7 +106,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 
 - **Saldo:** `profiles.tokens_disponibles` (por usuario/gestor). El gestor usa su billetera en todos sus conjuntos. El saldo mostrado es el **máximo** entre todas las filas de perfil del mismo usuario (billetera única).
 - **Equivalencia:** **1 token = 1 unidad de vivienda.** El costo al activar una asamblea = número de unidades del conjunto.
-- **Operación que consume tokens:** solo **activar la asamblea** (cambiar de borrador a activa). Es un cobro único; se marca `asambleas.pago_realizado = true` y a partir de ahí se puede generar el acta y registrar votos **sin nuevo cobro**. Las asambleas con `is_demo = true` no consumen tokens.
+- **Operaciones que consumen tokens:** **activar la asamblea** (cobro único; se marca `pago_realizado = true`; después acta y votos sin nuevo cobro), **descargar acta** y **enviar WhatsApp** (configurable tokens/mensaje en Super Admin). Las asambleas con `is_demo = true` no consumen tokens.
 - **Regalo de bienvenida:** cada nuevo gestor recibe un bono configurado (ej. 50 tokens) al registrarse (trigger o default en `profiles`).
 - **Compra:** la pasarela Wompi; el webhook acredita tokens en `profiles` del gestor según el pago aprobado.
 
@@ -128,6 +131,8 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 app/
 ├── layout.tsx              # ToastProvider global
 ├── page.tsx                # Landing / inicio
+├── politica-privacidad/    # Política de privacidad (Meta, tratamiento de datos)
+├── epbco/                  # Página EPBCO Solutions (empresa, producto, contacto)
 ├── not-found.tsx           # 404 amigable
 ├── globals.css             # Variables CSS (paleta psicología/marketing)
 ├── login/page.tsx          # Login (contraseña, Magic Link, Google)
@@ -142,12 +147,16 @@ app/
 │   ├── ping-quorum/       # Heartbeat sesión activa
 │   ├── votar/              # Proxy/registro voto (opcional)
 │   ├── admin/registrar-voto/ # Registrar voto desde admin
+│   ├── dashboard/
+│   │   ├── uso-tokens/     # GET historial uso tokens (billing_logs)
+│   │   └── enviar-whatsapp-votacion/  # POST envío masivo WhatsApp (descuenta tokens)
 │   ├── planes/             # GET planes (público)
 │   ├── pagos/webhook/      # Webhook Wompi (pagos)
 │   └── super-admin/
 │       ├── conjuntos/      # GET/PATCH conjuntos (plan, tokens)
 │       ├── planes/         # GET/PATCH planes (límites, precio, tokens_iniciales, vigencia_meses)
 │       ├── configuracion-landing/  # GET/PATCH color, WhatsApp (Ajustes)
+│       ├── configuracion-whatsapp/ # GET/PATCH Meta API (token, plantilla, tokens/mensaje)
 │       └── carga-masiva-piloto/   # POST carga masiva plan Piloto
 ├── dashboard/              # Todas las rutas protegidas por sesión
 │   ├── page.tsx            # Dashboard principal
@@ -180,6 +189,7 @@ app/
 | `plan-limits.ts` | Límites por plan (max_preguntas_por_asamblea, incluye_acta_detallada). |
 | `precio-pro.ts` | Formateo precio Plan Pro. |
 | `super-admin.ts` | `isAdminEmail()` / comprobación super admin. |
+| `metaWhatsapp.ts` | `sendWhatsAppTemplate()` — envío de plantilla Meta API (variables {{1}}..{{5}}). |
 | `utils.ts` | `cn()` (Tailwind merge), etc. |
 
 ### 2.5 Componentes

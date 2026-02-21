@@ -29,6 +29,7 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 | 18 | **ADD-IS-ARCHIVED-ASAMBLEAS-PREGUNTAS.sql** | Columnas `is_archived` en `asambleas` y `preguntas`. Asambleas archivadas se muestran en pestaña "Archivadas"; preguntas archivadas no se incluyen en el acta ni en reportes. |
 | 19 | **CONFIGURACION-SMTP-SUPER-ADMIN.sql** | Tabla `configuracion_smtp` para que el Super Admin configure el envío de correo (enlace de votación) desde Ajustes, sin usar variables de entorno. |
 | 20 | **AGREGAR-CONFIG-PODERES-Y-CORREO.sql** | Columna `plantilla_adicional_correo` en `configuracion_poderes`. Permite al gestor añadir texto (ej. enlace Teams/Meet) a los correos de votación. |
+| 21 | **CONFIGURACION-WHATSAPP-Y-TOKENS-POR-MENSAJE.sql** | Tabla `configuracion_whatsapp` (Token Meta, Phone Number ID, plantilla, `tokens_por_mensaje_whatsapp`). Añade `WhatsApp` a `billing_logs.tipo_operacion`. Para envío masivo por WhatsApp (cobro en tokens). |
 
 ---
 
@@ -56,6 +57,7 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 18. ADD-IS-ARCHIVED-ASAMBLEAS-PREGUNTAS.sql
 19. CONFIGURACION-SMTP-SUPER-ADMIN.sql
 20. AGREGAR-CONFIG-PODERES-Y-CORREO.sql
+21. CONFIGURACION-WHATSAPP-Y-TOKENS-POR-MENSAJE.sql
 ```
 
 ---
@@ -73,4 +75,5 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 - **18:** Archivado: necesario para pestañas Activas/Archivadas en asambleas y para archivar preguntas (no incluidas en el acta).
 - **19:** SMTP: necesario si quieres que el Super Admin configure el correo (enlace de votación) desde Ajustes en lugar de variables de entorno.
 - **20:** Requiere `AGREGAR-CONFIG-PODERES.sql` (tabla configuracion_poderes). Permite configurar plantilla adicional para correos en Dashboard → Configuración → Poderes y correo.
+- **21:** Necesario si se usa el envío masivo por WhatsApp (API Meta). Crea `configuracion_whatsapp` y permite registrar tipo `WhatsApp` en `billing_logs`. Se configura en Super Admin → WhatsApp.
 - **TRIGGER-PROFILE-ON-SIGNUP.sql** (opcional pero recomendado): crea perfil en `profiles` al registrarse un nuevo usuario (email/password, Magic Link u OAuth) para que la billetera y la demo funcionen desde el primer acceso.
