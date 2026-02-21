@@ -115,6 +115,7 @@ SELECT * FROM resumen_poderes_asamblea('asamblea-uuid');
 5. **Documento del poder (opcional):**
    - En el modal de registro y en la tabla: cargar documento PDF o Word (.doc, .docx), máximo 2MB
    - Se puede reemplazar en cualquier momento con el botón "Reemplazar" o "Cargar documento"
+   - **Checklist manual (Ley 675):** Lista desplegable con lo que debe contener el documento según normativa, para que el gestor verifique antes de subir
    - Requiere ejecutar `supabase/STORAGE-BUCKET-PODERES-DOCS.sql` una vez
 
 6. **Botón "Registrar Poder":**

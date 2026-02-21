@@ -11,6 +11,9 @@ import {
   Search,
   FileText,
   Users,
+  ChevronDown,
+  ChevronUp,
+  ClipboardCheck,
   AlertTriangle,
   CheckCircle2,
   XCircle,
@@ -73,6 +76,46 @@ interface ResumenPoderes {
 interface ConfigPoderes {
   max_poderes_por_apoderado: number
   requiere_documento: boolean
+}
+
+function ChecklistPoderLey675() {
+  const [abierto, setAbierto] = useState(false)
+  const items = [
+    'Datos completos del propietario que otorga (nombre, identificación, unidad)',
+    'Datos completos del apoderado (nombre, identificación)',
+    'Descripción clara de los actos autorizados (votar en la asamblea, temas específicos)',
+    'Identificación explícita de quién otorga y quién recibe el poder',
+    'Firma del propietario y fecha',
+    'Referencia a la asamblea o conjunto (según reglamento)'
+  ]
+  return (
+    <div className="mb-4 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
+      <button
+        type="button"
+        onClick={() => setAbierto(!abierto)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left text-sm font-medium text-amber-900 dark:text-amber-100 hover:bg-amber-100/50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+      >
+        <span className="flex items-center gap-2">
+          <ClipboardCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+          Verifique que el documento incluya (Ley 675 y práctica)
+        </span>
+        {abierto ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+      {abierto && (
+        <ul className="px-4 pb-4 pt-1 space-y-2 text-sm text-amber-900/90 dark:text-amber-100/90">
+          {items.map((item, i) => (
+            <li key={i} className="flex gap-2">
+              <span className="text-amber-500 dark:text-amber-400 shrink-0">•</span>
+              {item}
+            </li>
+          ))}
+          <p className="text-xs text-amber-700/80 dark:text-amber-200/80 pt-1">
+            Revise el documento antes de subirlo. Esta lista es orientativa; consulte a un abogado si tiene dudas.
+          </p>
+        </ul>
+      )}
+    </div>
+  )
 }
 
 const MAX_DOC_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
@@ -1023,6 +1066,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-2">
                     PDF o Word (.doc, .docx), máximo 2MB. Puedes reemplazarlo después si lo necesitas.
                   </p>
+                  <ChecklistPoderLey675 />
                   <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors">
                     <input
                       type="file"
@@ -1109,7 +1153,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       <Dialog open={!!reemplazandoPoderId} onOpenChange={(open) => {
         if (!open) { setReemplazandoPoderId(null); setArchivoReemplazo(null) }
       }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Documento del poder</DialogTitle>
             <DialogDescription>
@@ -1117,6 +1161,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-4">
+            <ChecklistPoderLey675 />
             <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
               <input
                 type="file"
