@@ -508,15 +508,27 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     return num.toLowerCase().includes(q) || torre.toLowerCase().includes(q) || nom.toLowerCase().includes(q) || em.toLowerCase().includes(q)
   })
 
-  const filteredPoderes = poderes.filter(p =>
-    p.estado === 'activo' && (
-      !searchTerm ||
-      p.nombre_otorgante.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.nombre_receptor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.unidad_otorgante_numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.email_receptor.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredPoderes = poderes.filter(p => {
+    if (p.estado !== 'activo') return false
+    if (!searchTerm) return true
+    const q = searchTerm.toLowerCase().replace(/[\s\-]/g, '')
+    const torre = (p.unidad_otorgante_torre || '').toLowerCase()
+    const numero = (p.unidad_otorgante_numero || '').toLowerCase()
+    const torreNumero = torre + numero // ej. "13"+"04" = "1304"
+    const torreRecep = ((p as { unidad_receptor_torre?: string }).unidad_receptor_torre || '').toLowerCase()
+    const numeroRecep = ((p as { unidad_receptor_numero?: string }).unidad_receptor_numero || '').toLowerCase()
+    const torreNumeroRecep = torreRecep + numeroRecep
+    return (
+      p.nombre_otorgante?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.email_otorgante?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.nombre_receptor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.email_receptor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.unidad_otorgante_numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.unidad_otorgante_torre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      torreNumero.includes(q) ||
+      torreNumeroRecep.includes(q)
     )
-  )
+  })
 
   if (loading) {
     return (
@@ -661,7 +673,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <Input
               type="text"
-              placeholder="Buscar por unidad, propietario o apoderado..."
+              placeholder="Buscar por torre-numero (ej. 1304), propietario o apoderado..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
