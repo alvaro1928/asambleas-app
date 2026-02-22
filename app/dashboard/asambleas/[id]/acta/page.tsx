@@ -14,6 +14,7 @@ interface Asamblea {
   estado: string
   organization_id: string
   is_demo?: boolean
+  sandbox_usar_unidades_reales?: boolean
 }
 
 interface Conjunto {
@@ -137,6 +138,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         return
       }
       setAsamblea(asambleaData)
+      // Unidades a considerar en sandbox: demo o reales según sandbox_usar_unidades_reales (solo aplica si is_demo)
+      const esDemoUnidades = (asambleaData as { is_demo?: boolean }).is_demo === true && !((asambleaData as { sandbox_usar_unidades_reales?: boolean }).sandbox_usar_unidades_reales === true)
       // Acceso gratuito al acta: si ya se pagó al activar, es demo, o la asamblea está activa/finalizada
       const esDemo = (asambleaData as { is_demo?: boolean }).is_demo === true
       const yaPagada = (asambleaData as { pago_realizado?: boolean }).pago_realizado === true
@@ -261,12 +264,11 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           votacionesFinalesMap[p.id] = []
           continue
         }
-        const esDemoAsambleaP = (asambleaData as { is_demo?: boolean }).is_demo === true
         const { data: unidadesVotantes } = await supabase
           .from('unidades')
           .select('id, torre, numero, nombre_propietario, coeficiente')
           .in('id', unidadIds)
-          .eq('is_demo', esDemoAsambleaP)
+          .eq('is_demo', esDemoUnidades)
         const opcionesById = new Map(p.opciones.map((o) => [o.id, o.texto_opcion]))
         const lista: VotoFinalUnidad[] = (unidadesVotantes || []).map((u: any) => {
           const opcionId = porUnidad.get(u.id)?.opcion_id
@@ -299,12 +301,11 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       const unidadIdsPoderes = (poderesData || []).map((p: any) => p.unidad_otorgante_id)
       let coef = 0
       if (unidadIdsPoderes.length > 0) {
-        const esDemoAsambleaPoderes = (asambleaData as { is_demo?: boolean }).is_demo === true
         const { data: unids } = await supabase
           .from('unidades')
           .select('coeficiente')
           .in('id', unidadIdsPoderes)
-          .eq('is_demo', esDemoAsambleaPoderes)
+          .eq('is_demo', esDemoUnidades)
         const unidsList = unids || []
         coef = unidsList.reduce((sum: number, u: any) => sum + (u.coeficiente || 0), 0)
         setTotalPoderes(unidsList.length)
@@ -323,14 +324,13 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           .in('pregunta_id', preguntaIds)
         unidadIdsVotaron = Array.from(new Set((votosData || []).map((v: any) => v.unidad_id).filter(Boolean)))
       }
-      // Solo unidades del mismo tipo que la asamblea (real vs demo); si asamblea no es demo, excluir también nombre/torre con 'Demo'
-      const esDemoAsamblea = (asambleaData as { is_demo?: boolean }).is_demo === true
+      // Solo unidades del mismo tipo (demo o reales según asamblea/sandbox_usar_unidades_reales)
       const { data: todasUnidades } = await supabase
         .from('unidades')
         .select('id, torre, numero, nombre_propietario, email_propietario, telefono_propietario, coeficiente, is_demo')
         .eq('organization_id', asambleaData.organization_id)
-        .eq('is_demo', esDemoAsamblea)
-      const filtrarDemoEnNombre = !esDemoAsamblea
+        .eq('is_demo', esDemoUnidades)
+      const filtrarDemoEnNombre = !esDemoUnidades
       const unidadesFiltradas = (todasUnidades || []).filter((u: any) => {
         if (!filtrarDemoEnNombre) return true
         const torre = (u.torre || '').toString()

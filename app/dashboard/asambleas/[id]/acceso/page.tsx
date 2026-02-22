@@ -44,6 +44,7 @@ interface Asamblea {
   estado: string
   organization_id?: string
   is_demo?: boolean
+  sandbox_usar_unidades_reales?: boolean
 }
 
 interface Asistente {
@@ -153,7 +154,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       const { data, error } = await supabase
         .from('asambleas')
-        .select('id, nombre, codigo_acceso, estado, organization_id, is_demo')
+        .select('id, nombre, codigo_acceso, estado, organization_id, is_demo, sandbox_usar_unidades_reales')
         .eq('id', params.id)
         .eq('organization_id', selectedConjuntoId)
         .single()
@@ -312,7 +313,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         })))
       } else setYaVotaron([])
 
-      const soloUnidadesDemo = asamblea?.is_demo === true
+      const soloUnidadesDemo = asamblea?.is_demo === true && !(asamblea?.sandbox_usar_unidades_reales === true)
       let queryUnidades = supabase
         .from('unidades')
         .select('id, torre, numero, nombre_propietario, email_propietario, coeficiente')

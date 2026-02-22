@@ -65,6 +65,8 @@ interface Asamblea {
   pago_realizado?: boolean
   /** Asamblea de simulación: no consume créditos; reversible y reiniciable */
   is_demo?: boolean
+  /** Solo sandbox: true = usar unidades reales del conjunto; false = usar 10 unidades demo */
+  sandbox_usar_unidades_reales?: boolean
   /** Timestamp de activación; ventana de gracia 3 días para ajustes */
   activated_at?: string | null
 }
@@ -183,6 +185,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [finalizando, setFinalizando] = useState(false)
   const [reiniciandoDemo, setReiniciandoDemo] = useState(false)
   const [reabriendo, setReabriendo] = useState(false)
+  const [sandboxToggleLoading, setSandboxToggleLoading] = useState(false)
 
   // Registrar voto a nombre de un residente (admin)
   const [showRegistroVotoAdmin, setShowRegistroVotoAdmin] = useState(false)
@@ -431,16 +434,17 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         return
       }
 
-      // Si falla la función RPC (no existe aún), calcular manualmente
-      const isDemo = asambleaOverride?.is_demo ?? asamblea?.is_demo
-      const soloUnidadesDemo = isDemo === true
+      // Si falla la función RPC (no existe aún), calcular manualmente con mismo criterio que el RPC
+      const isDemoAsam = asambleaOverride?.is_demo ?? asamblea?.is_demo
+      const usarReales = asambleaOverride?.sandbox_usar_unidades_reales ?? asamblea?.sandbox_usar_unidades_reales
+      const soloUnidadesDemoFallback = isDemoAsam === true && !(usarReales === true)
 
       // Obtener total de unidades del conjunto (solo reales o solo demo, según la asamblea)
       const { data: unidadesData } = await supabase
         .from('unidades')
         .select('id, coeficiente')
         .eq('organization_id', selectedConjuntoId)
-        .eq('is_demo', soloUnidadesDemo)
+        .eq('is_demo', soloUnidadesDemoFallback)
 
       const totalUnidades = unidadesData?.length || 0
       const coeficienteTotal = unidadesData?.reduce((sum, u) => sum + u.coeficiente, 0) || 0
@@ -545,8 +549,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         .from('unidades')
         .select('id, torre, numero, email, email_propietario, nombre_propietario')
         .eq('organization_id', asamblea.organization_id)
-      // Asamblea real: solo unidades NO demo. Asamblea sandbox: solo unidades demo.
-      if (isDemo) {
+      // Asamblea real: solo unidades NO demo. Sandbox: demo o reales según sandbox_usar_unidades_reales
+      if (soloUnidadesDemo) {
         query = query.eq('is_demo', true)
       } else {
         query = query.or('is_demo.eq.false,is_demo.is.null')
@@ -1188,6 +1192,33 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
+  const handleSandboxUnidadesChange = async (usarReales: boolean) => {
+    if (!asamblea?.is_demo || sandboxToggleLoading) return
+    if (asamblea.sandbox_usar_unidades_reales === usarReales) return
+    setSandboxToggleLoading(true)
+    try {
+      const res = await fetch('/api/dashboard/sandbox-unidades-reales', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ asamblea_id: asamblea.id, sandbox_usar_unidades_reales: usarReales }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data?.error || 'Error al cambiar modo')
+        return
+      }
+      setAsamblea({ ...asamblea, sandbox_usar_unidades_reales: usarReales })
+      await loadQuorum({ ...asamblea, sandbox_usar_unidades_reales: usarReales })
+      await loadEstadisticas()
+      toast.success(usarReales ? 'Ahora la simulación usa las unidades reales del conjunto.' : 'Ahora la simulación usa las 10 unidades de demostración.')
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error al actualizar')
+    } finally {
+      setSandboxToggleLoading(false)
+    }
+  }
+
   const handleReiniciarSimulacion = async () => {
     if (!asamblea?.is_demo) return
     setReiniciandoDemo(true)
@@ -1300,6 +1331,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   if (!asamblea) return null
 
   const isDemo = asamblea.is_demo === true
+  // Sandbox: por defecto unidades demo; si sandbox_usar_unidades_reales entonces unidades reales del conjunto
+  const soloUnidadesDemo = isDemo && !(asamblea.sandbox_usar_unidades_reales === true)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -1496,6 +1529,36 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               {successMessage}
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* Sandbox: elegir unidades de demo o reales del conjunto (no afecta asambleas productivas) */}
+        {isDemo && (
+          <div className="mb-6 p-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mb-3">Probar con:</p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={soloUnidadesDemo ? 'default' : 'outline'}
+                size="sm"
+                disabled={sandboxToggleLoading}
+                onClick={() => handleSandboxUnidadesChange(false)}
+                className={soloUnidadesDemo ? 'bg-amber-600 hover:bg-amber-700' : 'border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300'}
+              >
+                {sandboxToggleLoading ? '…' : 'Unidades de demostración (10)'}
+              </Button>
+              <Button
+                variant={!soloUnidadesDemo ? 'default' : 'outline'}
+                size="sm"
+                disabled={sandboxToggleLoading}
+                onClick={() => handleSandboxUnidadesChange(true)}
+                className={!soloUnidadesDemo ? 'bg-amber-600 hover:bg-amber-700' : 'border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300'}
+              >
+                {sandboxToggleLoading ? '…' : 'Unidades reales del conjunto'}
+              </Button>
+            </div>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
+              Las asambleas reales (no sandbox) no se ven afectadas; solo esta simulación usa el criterio elegido.
+            </p>
+          </div>
         )}
 
         {/* Panel de Quórum */}
