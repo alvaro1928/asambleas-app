@@ -72,6 +72,7 @@ interface EstadisticasPregunta {
   total_coeficiente: number
   coeficiente_total_conjunto?: number
   porcentaje_participacion?: number
+  tipo_votacion?: string
   resultados: Array<{
     opcion_id: string
     opcion_texto: string
@@ -562,6 +563,7 @@ export default function VotacionPublicaPage() {
             total_votos: parseInt(statsData.total_votos) || 0,
             total_coeficiente: parseFloat(statsData.total_coeficiente) || 0,
             porcentaje_participacion: parseFloat(statsData.porcentaje_participacion) || 0,
+            tipo_votacion: (statsData.tipo_votacion ?? 'coeficiente') as string,
             resultados: resultados
           }
         } else {
@@ -570,6 +572,7 @@ export default function VotacionPublicaPage() {
             total_votos: 0,
             total_coeficiente: 0,
             porcentaje_participacion: 0,
+            tipo_votacion: 'coeficiente',
             resultados: []
           }
         }
@@ -612,6 +615,7 @@ export default function VotacionPublicaPage() {
             total_coeficiente: parseFloat(statsData.total_coeficiente) || 0,
             coeficiente_total_conjunto: parseFloat(statsData.coeficiente_total_conjunto) || 100,
             porcentaje_participacion: parseFloat(statsData.porcentaje_participacion) || 0,
+            tipo_votacion: (statsData.tipo_votacion ?? 'coeficiente') as string,
             resultados: resultados
           }
         }
@@ -1119,7 +1123,8 @@ export default function VotacionPublicaPage() {
                                 {pregunta.opciones.map((opcion) => {
                                   const esVotoActual = votoUnidad?.opcion_id === opcion.id
                                   const stats_opcion = stats?.resultados?.find(r => r.opcion_id === opcion.id)
-                                  const porcentajeTotal = stats_opcion ? pctRelevante(stats_opcion, pregunta.tipo_votacion) : 0
+                                  const tipoVotBtn = stats?.tipo_votacion ?? pregunta.tipo_votacion ?? 'coeficiente'
+                                  const porcentajeTotal = stats_opcion ? pctRelevante(stats_opcion, tipoVotBtn) : 0
                                   const porcentajeEmitidos = stats_opcion?.porcentaje_coeficiente_emitido ?? stats_opcion?.porcentaje_coeficiente ?? 0
 
                                   return (
@@ -1198,12 +1203,13 @@ export default function VotacionPublicaPage() {
                 {preguntas.map((pregunta, index) => {
                   const stats = estadisticas[pregunta.id]
                   if (!stats) return null
+                  const tipoVot = stats.tipo_votacion ?? pregunta.tipo_votacion ?? 'coeficiente'
                   const participacion = stats.porcentaje_participacion ?? 0
                   const umbral = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
                   const resultados = stats.resultados ?? []
                   const maxPct = resultados.length > 0
                     ? Math.max(...resultados.map((r: { porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }) =>
-                        pctRelevante(r, pregunta.tipo_votacion)))
+                        pctRelevante(r, tipoVot)))
                     : 0
                   const algunaAprobada = maxPct >= umbral
 
@@ -1231,7 +1237,7 @@ export default function VotacionPublicaPage() {
                       </div>
                       <div className="space-y-2">
                         {resultados.map((r: { opcion_id?: string; opcion_texto?: string; color?: string; votos_cantidad?: number; porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }, ri: number) => {
-                          const pct = pctRelevante(r, pregunta.tipo_votacion)
+                          const pct = pctRelevante(r, tipoVot)
                           const pasaUmbral = pct >= umbral
                           return (
                             <div key={r.opcion_id ?? `opt-${index}-${ri}`} className="flex items-center gap-2">
@@ -1266,7 +1272,7 @@ export default function VotacionPublicaPage() {
                       </div>
                       {/* Resultado global: Aprobado / Pendiente */}
                       {resultados.length > 0 && (() => {
-                        const maxPctLocal = Math.max(...resultados.map((r) => pctRelevante(r, pregunta.tipo_votacion)))
+                        const maxPctLocal = Math.max(...resultados.map((r) => pctRelevante(r, tipoVot)))
                         const aprobado = maxPctLocal >= umbral
                         return (
                           <div className={`mt-3 py-2 px-3 rounded-lg text-center text-sm font-semibold ${aprobado ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'}`}>
@@ -1275,7 +1281,7 @@ export default function VotacionPublicaPage() {
                         )
                       })()}
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                        {pregunta.tipo_votacion === 'nominal' ? 'Porcentajes sobre total de unidades (un voto por unidad)' : 'Porcentajes sobre coeficiente total del conjunto (Ley 675)'}
+                        {tipoVot === 'nominal' ? 'Porcentajes sobre total de unidades (un voto por unidad)' : 'Porcentajes sobre coeficiente total del conjunto (Ley 675)'}
                       </p>
                     </div>
                   )
@@ -1568,14 +1574,16 @@ export default function VotacionPublicaPage() {
                             )}
 
                             {/* Resultados Finales */}
-                            {stats && stats.resultados && stats.resultados.length > 0 && (
+                            {stats && stats.resultados && stats.resultados.length > 0 && (() => {
+                              const tipoVotCerrada = stats.tipo_votacion ?? pregunta.tipo_votacion ?? 'coeficiente'
+                              return (
                               <div>
                                 <h4 className="font-bold text-gray-900 dark:text-white mb-3">
                                   📊 Resultados finales:
                                 </h4>
                                 <div className="space-y-2">
                                   {stats.resultados.map((resultado: any) => {
-                                    const porcentaje = pctRelevante(resultado, pregunta.tipo_votacion)
+                                    const porcentaje = pctRelevante(resultado, tipoVotCerrada)
                                     return (
                                       <div key={resultado.opcion_id} className="relative">
                                         <div className="flex items-center justify-between mb-1">
@@ -1597,7 +1605,7 @@ export default function VotacionPublicaPage() {
                                         </div>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                           {resultado.votos_cantidad || 0} voto{(resultado.votos_cantidad || 0) !== 1 ? 's' : ''}
-                                          {pregunta.tipo_votacion === 'coeficiente' && (
+                                          {tipoVotCerrada === 'coeficiente' && (
                                             <> • {parseFloat(resultado.votos_coeficiente || 0).toFixed(2)}% coeficiente</>
                                           )}
                                         </p>
@@ -1610,7 +1618,7 @@ export default function VotacionPublicaPage() {
                                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                                   {(() => {
                                     const umbralEfectivo = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
-                                    const maxPct = Math.max(...stats.resultados.map((r: any) => pctRelevante(r, pregunta.tipo_votacion)))
+                                    const maxPct = Math.max(...stats.resultados.map((r: any) => pctRelevante(r, tipoVotCerrada)))
                                     const aprobado = maxPct >= umbralEfectivo
                                     return (
                                       <div className="flex justify-between items-center text-sm">
@@ -1634,12 +1642,12 @@ export default function VotacionPublicaPage() {
                                       Participación total:
                                     </span>
                                     <span className="font-bold text-gray-900 dark:text-white">
-                                      {stats.total_votos || 0} votos • {(stats.porcentaje_participacion || 0).toFixed(2)}% {pregunta.tipo_votacion === 'nominal' ? 'del total de unidades' : 'del coeficiente'}
+                                      {stats.total_votos || 0} votos • {(stats.porcentaje_participacion || 0).toFixed(2)}% {tipoVotCerrada === 'nominal' ? 'del total de unidades' : 'del coeficiente'}
                                     </span>
                                   </div>
                                 </div>
                               </div>
-                            )}
+                            )})()}
                           </div>
                         </div>
                       )

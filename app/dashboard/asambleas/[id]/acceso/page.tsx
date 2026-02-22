@@ -250,6 +250,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           p_pregunta_id: p.id
         })
         const s = statsData?.[0] as any
+        const tipoVotRpc = (s?.tipo_votacion ?? 'coeficiente') as string
         const totalCoef = Number(s?.total_coeficiente) || 0
         const coefConjunto = s?.coeficiente_total_conjunto != null ? Number(s.coeficiente_total_conjunto) : undefined
         avances.push({
@@ -274,7 +275,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             porcentaje_nominal_total: Number(r.porcentaje_nominal_total ?? 0) || 0
           }))
         }
-        const tipoVot = (p as { tipo_votacion?: string }).tipo_votacion || 'coeficiente'
+        const tipoVot = tipoVotRpc || (p as { tipo_votacion?: string }).tipo_votacion || 'coeficiente'
         conResultados.push({
           id: p.id,
           texto_pregunta: p.texto_pregunta,
