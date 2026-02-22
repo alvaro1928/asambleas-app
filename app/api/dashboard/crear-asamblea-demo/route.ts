@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
         estado: 'borrador',
         is_demo: true,
         pago_realizado: true,
+        sandbox_usar_unidades_reales: false,
       })
       .select()
       .single()

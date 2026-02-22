@@ -8,6 +8,9 @@ ALTER TABLE asambleas
 
 COMMENT ON COLUMN asambleas.sandbox_usar_unidades_reales IS 'Solo para asambleas demo: si true, quórum y estadísticas usan unidades reales del conjunto en lugar de las 10 unidades de demostración.';
 
+-- Si la columna llegó a ser nullable en algún entorno, fijar demo sin preferencia a false (acceso con test1@...test10@)
+UPDATE asambleas SET sandbox_usar_unidades_reales = false WHERE is_demo = true AND sandbox_usar_unidades_reales IS NULL;
+
 -- =====================================================
 -- Quórum: en sandbox con sandbox_usar_unidades_reales usar unidades reales
 -- =====================================================
@@ -324,3 +327,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION validar_votante_asamblea(TEXT, TEXT) IS 'Valida votante por email o teléfono. En sandbox usa unidades demo o reales según sandbox_usar_unidades_reales.';
+
+-- Opcional: si ya tenías una asamblea demo y con "Unidades de demostración" no daba acceso con test1@...test10@,
+-- ejecuta esto una vez para que use de nuevo las unidades de demostración:
+-- UPDATE asambleas SET sandbox_usar_unidades_reales = false WHERE is_demo = true;
