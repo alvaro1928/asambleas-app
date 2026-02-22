@@ -682,7 +682,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 <div>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Vote className="w-5 h-5 text-emerald-500" />
-                    Avance de votaciones (coeficiente)
+                    Avance de votaciones
                   </CardTitle>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Línea vertical = Mayoría necesaria (51%). Se actualiza cada 10 s.
@@ -747,7 +747,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                               formatter={(value: number | undefined, _name?: string, props?: unknown) => {
                                 const payload = (props as { payload?: { votosCantidad?: number } })?.payload
                                 const votos = payload?.votosCantidad ?? 0
-                                return [`${value ?? 0}% (${votos} ${votos !== 1 ? 'votos' : 'voto'})`, 'Coeficiente']
+                                const labelTipo = preg.tipo_votacion === 'nominal' ? 'Porcentaje (unidades)' : 'Coeficiente'
+                                return [`${value ?? 0}% (${votos} ${votos !== 1 ? 'votos' : 'voto'})`, labelTipo]
                               }}
                               labelFormatter={(_: ReactNode, payload: readonly { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName ?? ''}
                               contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
@@ -876,7 +877,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                           formatter={(value: number | undefined, _n?: string, props?: unknown) => {
                             const payload = (props as { payload?: { votosCantidad?: number } })?.payload
                             const votos = payload?.votosCantidad ?? 0
-                            return [`${value ?? 0}% (${votos} ${votos !== 1 ? 'votos' : 'voto'})`, 'Coeficiente']
+                            const labelTipo = preg.tipo_votacion === 'nominal' ? 'Porcentaje (unidades)' : 'Coeficiente'
+                            return [`${value ?? 0}% (${votos} ${votos !== 1 ? 'votos' : 'voto'})`, labelTipo]
                           }}
                           labelFormatter={(_: ReactNode, payload: readonly { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName ?? ''}
                           contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
