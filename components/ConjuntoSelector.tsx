@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 import { ChevronDown, Building2, Copy } from 'lucide-react'
 import { useToast } from '@/components/providers/ToastProvider'
@@ -18,10 +19,12 @@ interface ConjuntoSelectorProps {
 
 export default function ConjuntoSelector({ onConjuntoChange }: ConjuntoSelectorProps) {
   const toast = useToast()
+  const buttonRef = useRef<HTMLButtonElement>(null)
   const [conjuntos, setConjuntos] = useState<Conjunto[]>([])
   const [selectedConjunto, setSelectedConjunto] = useState<Conjunto | null>(null)
   const [loading, setLoading] = useState(true)
   const [showDropdown, setShowDropdown] = useState(false)
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 })
 
   useEffect(() => {
     loadConjuntos()
@@ -83,6 +86,17 @@ export default function ConjuntoSelector({ onConjuntoChange }: ConjuntoSelectorP
     }
   }
 
+  const toggleDropdown = () => {
+    if (!showDropdown && buttonRef.current && typeof document !== 'undefined') {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setMenuPosition({
+        top: rect.bottom + 8,
+        right: document.documentElement.clientWidth - rect.right,
+      })
+    }
+    setShowDropdown((v) => !v)
+  }
+
   const handleSelectConjunto = (conjunto: Conjunto) => {
     setSelectedConjunto(conjunto)
     localStorage.setItem('selectedConjuntoId', conjunto.id)
@@ -118,7 +132,8 @@ export default function ConjuntoSelector({ onConjuntoChange }: ConjuntoSelectorP
   return (
     <div className="relative">
       <button
-        onClick={() => setShowDropdown(!showDropdown)}
+        ref={buttonRef}
+        onClick={toggleDropdown}
         className="flex items-center space-x-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 border-2 border-indigo-200 dark:border-indigo-700 rounded-xl px-4 py-2.5 hover:border-indigo-300 dark:hover:border-indigo-600 transition-all shadow-sm hover:shadow-md"
       >
         <div className="flex items-center space-x-2">
@@ -143,17 +158,20 @@ export default function ConjuntoSelector({ onConjuntoChange }: ConjuntoSelectorP
         )}
       </button>
 
-      {/* Dropdown */}
-      {showDropdown && conjuntos.length > 1 && (
+      {/* Dropdown: renderizado en portal para evitar recorte por overflow del header */}
+      {showDropdown && conjuntos.length > 1 && typeof document !== 'undefined' && createPortal(
         <>
           {/* Overlay */}
           <div 
-            className="fixed inset-0 z-10" 
+            className="fixed inset-0 z-[100]" 
             onClick={() => setShowDropdown(false)}
           />
           
-          {/* Menu */}
-          <div className="absolute top-full mt-2 right-0 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-20">
+          {/* Menu: fixed para evitar clipping por overflow en padres */}
+          <div 
+            className="fixed w-72 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-[101]"
+            style={{ top: menuPosition.top, right: menuPosition.right }}
+          >
             <div className="p-2 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
               <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 px-3 py-1">
                 Mis Conjuntos ({conjuntos.length})
@@ -211,7 +229,8 @@ export default function ConjuntoSelector({ onConjuntoChange }: ConjuntoSelectorP
               ))}
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   )
