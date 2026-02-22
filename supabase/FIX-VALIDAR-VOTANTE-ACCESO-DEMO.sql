@@ -2,10 +2,11 @@
 -- FIX: Acceso con test1@...test10@ en asamblea de demostración
 -- =====================================================
 -- Si con "Unidades de demostración" no te deja entrar con test1@asambleas.online,
--- ejecuta este script completo en Supabase → SQL Editor → Run.
--- 1) Asegura la columna en asambleas
--- 2) Fuerza asambleas demo a usar unidades de demostración
--- 3) Reemplaza validar_votante_asamblea (con SECURITY DEFINER para que RLS no bloquee la lectura)
+-- ejecuta en Supabase → SQL Editor → Run (en este orden):
+-- 1) ASEGURAR-UNIDADES-DEMO-SANDBOX.sql (crea la función asegurar_unidades_demo_organizacion)
+-- 2) Este script (FIX-VALIDAR-VOTANTE-ACCESO-DEMO.sql)
+--
+-- Las unidades demo son solo para sandbox y no se mezclan con las productivas.
 -- =====================================================
 
 -- 1. Columna (por si no existe)
@@ -86,9 +87,11 @@ BEGIN
       AND LOWER(TRIM(p.email_receptor)) = v_identificador;
   END IF;
 
-  -- Fallback: asamblea demo y email de prueba (test1@...test10@asambleas.online) → buscar siempre en unidades demo
+  -- Fallback: asamblea demo y email de prueba (test1@...test10@asambleas.online)
+  -- Las unidades demo NO están en "unidades normales"; son solo para sandbox. Asegurar que existan y buscar.
   IF v_is_demo AND v_unidades_propias IS NULL AND v_unidades_poderes IS NULL
      AND v_es_email AND v_identificador ~ '^test[0-9]+@asambleas\.online$' THEN
+    PERFORM asegurar_unidades_demo_organizacion(v_organization_id);
     v_unidades_is_demo := true;
     IF v_es_email THEN
       SELECT ARRAY_AGG(u.id) INTO v_unidades_propias

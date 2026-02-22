@@ -288,9 +288,11 @@ BEGIN
       AND LOWER(TRIM(p.email_receptor)) = v_identificador;
   END IF;
 
-  -- Fallback: asamblea demo y email test1@...test10@asambleas.online → buscar siempre en unidades demo
+  -- Fallback: asamblea demo y email test1@...test10@asambleas.online
+  -- Unidades demo son solo sandbox; no se mezclan con productivas. Asegurar que existan.
   IF v_is_demo AND v_unidades_propias IS NULL AND v_unidades_poderes IS NULL
      AND v_es_email AND v_identificador ~ '^test[0-9]+@asambleas\.online$' THEN
+    PERFORM asegurar_unidades_demo_organizacion(v_organization_id);
     v_unidades_is_demo := true;
     SELECT ARRAY_AGG(u.id) INTO v_unidades_propias
     FROM unidades u
