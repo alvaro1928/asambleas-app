@@ -43,6 +43,7 @@ interface Asamblea {
   codigo_acceso: string
   estado: string
   organization_id?: string
+  is_demo?: boolean
 }
 
 interface Asistente {
@@ -142,7 +143,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       const { data, error } = await supabase
         .from('asambleas')
-        .select('id, nombre, codigo_acceso, estado, organization_id')
+        .select('id, nombre, codigo_acceso, estado, organization_id, is_demo')
         .eq('id', params.id)
         .eq('organization_id', selectedConjuntoId)
         .single()
@@ -297,10 +298,13 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         })))
       } else setYaVotaron([])
 
-      const { data: todasUnidades } = await supabase
+      const soloUnidadesDemo = asamblea?.is_demo === true
+      let queryUnidades = supabase
         .from('unidades')
         .select('id, torre, numero, nombre_propietario, email_propietario, coeficiente')
         .eq('organization_id', orgId)
+      queryUnidades = soloUnidadesDemo ? queryUnidades.eq('is_demo', true) : queryUnidades.or('is_demo.eq.false,is_demo.is.null')
+      const { data: todasUnidades } = await queryUnidades
 
       const idsVotaronSet = new Set(unidadIdsVotaron)
       const faltantesList = (todasUnidades || []).filter((u: any) => !idsVotaronSet.has(u.id)).map((u: any) => ({
