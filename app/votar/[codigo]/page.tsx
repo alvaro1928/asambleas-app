@@ -54,6 +54,7 @@ interface Pregunta {
   tipo_votacion: string
   estado: string
   opciones: OpcionPregunta[]
+  umbral_aprobacion?: number | null
 }
 
 interface VotoActual {
@@ -344,7 +345,7 @@ export default function VotacionPublicaPage() {
       // Cargar preguntas abiertas
       const { data: preguntasData, error: preguntasError } = await supabase
         .from('preguntas')
-        .select('id, texto_pregunta, descripcion, tipo_votacion, estado')
+        .select('id, texto_pregunta, descripcion, tipo_votacion, estado, umbral_aprobacion')
         .eq('asamblea_id', asamblea.asamblea_id)
         .eq('estado', 'abierta')
         .eq('is_archived', false)
@@ -410,7 +411,7 @@ export default function VotacionPublicaPage() {
       // Cargar preguntas cerradas
       const { data: preguntasCerradasData, error: preguntasError } = await supabase
         .from('preguntas')
-        .select('id, texto_pregunta, descripcion, tipo_votacion, estado')
+        .select('id, texto_pregunta, descripcion, tipo_votacion, estado, umbral_aprobacion')
         .eq('asamblea_id', asamblea.asamblea_id)
         .eq('estado', 'cerrada')
         .eq('is_archived', false)
@@ -915,23 +916,42 @@ export default function VotacionPublicaPage() {
   if (step === 'rechazo_consentimiento') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 overflow-x-hidden">
-        <div className="max-w-md w-full min-w-0 bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-gray-200 dark:border-gray-700">
-          <div className="text-center min-w-0">
-            <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-3 sm:mb-4">
-              <XCircle className="w-7 h-7 sm:w-8 sm:h-8 text-gray-600 dark:text-gray-400" />
+        <div className="max-w-md w-full min-w-0 bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-8 border border-gray-200 dark:border-gray-700">
+          <div className="text-center min-w-0 space-y-6">
+            <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center">
+              <span className="text-3xl sm:text-4xl" aria-hidden>🙏</span>
             </div>
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-2">
-              No has aceptado el tratamiento de datos
-            </h2>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4 sm:mb-6 break-words">
-              Para participar en esta votación es necesario aceptar el tratamiento de tus datos personales según la Ley 1581 de 2012. Sin tu aceptación no puedes continuar. Puedes volver al inicio o cerrar esta página.
-            </p>
-            <Button
-              onClick={() => router.push('/')}
-              className="w-full min-w-0 bg-gray-700 hover:bg-gray-800 text-white text-sm sm:text-base"
-            >
-              Volver al inicio
-            </Button>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                ¡Gracias por usar nuestra aplicación!
+              </h2>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 break-words">
+                Valoramos que hayas visitado nuestra plataforma de votaciones en línea para asambleas.
+              </p>
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800 text-left">
+              <p className="text-sm text-amber-900 dark:text-amber-200 break-words">
+                <strong>Sin aceptar el tratamiento de tus datos personales</strong> no es posible participar en la votación en línea. Esto es requerido por la Ley 1581 de 2012 (Colombia) para proteger tu información.
+              </p>
+              <p className="text-sm text-amber-800 dark:text-amber-300 mt-2 break-words">
+                Si cambias de opinión, puedes volver atrás y aceptar para continuar con tu voto.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <Button
+                onClick={() => router.push('/')}
+                className="w-full min-w-0 bg-indigo-600 hover:bg-indigo-700 text-white text-sm sm:text-base"
+              >
+                Volver al inicio
+              </Button>
+              <button
+                type="button"
+                onClick={() => setStep('consentimiento')}
+                className="w-full text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                Volver atrás para aceptar
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1155,7 +1175,7 @@ export default function VotacionPublicaPage() {
                               Actualización cada 10s
                             </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-3">
+                          <div className="grid grid-cols-3 gap-3 mb-3">
                             <div>
                               <p className="text-xs text-gray-500 dark:text-gray-400">Votos</p>
                               <p className="text-lg font-bold text-gray-900 dark:text-white">
@@ -1175,6 +1195,22 @@ export default function VotacionPublicaPage() {
                               </p>
                             </div>
                           </div>
+                          {pregunta.umbral_aprobacion != null && pregunta.umbral_aprobacion > 0 && (
+                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                              <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                Umbral de aprobación: {pregunta.umbral_aprobacion}%
+                              </p>
+                              {stats.resultados && stats.resultados.length > 0 && (() => {
+                                const maxPct = Math.max(...stats.resultados.map(r => r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0))
+                                const aprobado = maxPct >= pregunta.umbral_aprobacion!
+                                return (
+                                  <p className={`text-xs ${aprobado ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                    {aprobado ? '✓ Aprobado' : '○ Pendiente'} (máx. {maxPct.toFixed(1)}%)
+                                  </p>
+                                )
+                              })()}
+                            </div>
+                          )}
                           {stats.porcentaje_participacion !== undefined && (
                             <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                               <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -1225,11 +1261,15 @@ export default function VotacionPublicaPage() {
                       </div>
                       {participaciones.map(({ pregunta, stats, index }) => {
                         const pct = stats.porcentaje_participacion ?? stats.total_coeficiente ?? 0
+                        const umbral = pregunta.umbral_aprobacion ?? null
                         return (
                           <div key={pregunta.id}>
                             <div className="flex justify-between text-xs mb-1">
                               <span className="text-gray-600 dark:text-gray-400 truncate max-w-[70%]">
                                 Pregunta {index}
+                                {umbral != null && (
+                                  <span className="ml-1 text-slate-500 dark:text-slate-400">(umbral {umbral}%)</span>
+                                )}
                               </span>
                               <span className="font-medium text-gray-800 dark:text-gray-200 shrink-0 ml-2">
                                 {pct.toFixed(1)}%
@@ -1569,6 +1609,25 @@ export default function VotacionPublicaPage() {
                                   })}
                                 </div>
 
+                                {/* Umbral de aprobación y estado */}
+                                {pregunta.umbral_aprobacion != null && pregunta.umbral_aprobacion > 0 && (
+                                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                    {(() => {
+                                      const maxPct = Math.max(...stats.resultados.map((r: any) => parseFloat(r.porcentaje_coeficiente_total || r.porcentaje_coeficiente || 0)))
+                                      const aprobado = maxPct >= pregunta.umbral_aprobacion!
+                                      return (
+                                        <div className="flex justify-between items-center text-sm">
+                                          <span className="text-gray-600 dark:text-gray-400">
+                                            Umbral de aprobación: {pregunta.umbral_aprobacion}%
+                                          </span>
+                                          <span className={`font-semibold ${aprobado ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                            {aprobado ? '✓ Aprobado' : '○ No aprobado'} (máx. {maxPct.toFixed(1)}%)
+                                          </span>
+                                        </div>
+                                      )
+                                    })()}
+                                  </div>
+                                )}
                                 {/* Participación Total */}
                                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                                   <div className="flex justify-between items-center text-sm">
