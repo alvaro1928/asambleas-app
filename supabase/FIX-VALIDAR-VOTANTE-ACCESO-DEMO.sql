@@ -86,6 +86,27 @@ BEGIN
       AND LOWER(TRIM(p.email_receptor)) = v_identificador;
   END IF;
 
+  -- Fallback: asamblea demo y email de prueba (test1@...test10@asambleas.online) → buscar siempre en unidades demo
+  IF v_is_demo AND v_unidades_propias IS NULL AND v_unidades_poderes IS NULL
+     AND v_es_email AND v_identificador ~ '^test[0-9]+@asambleas\.online$' THEN
+    v_unidades_is_demo := true;
+    IF v_es_email THEN
+      SELECT ARRAY_AGG(u.id) INTO v_unidades_propias
+      FROM unidades u
+      WHERE u.organization_id = v_organization_id
+        AND u.is_demo = true
+        AND LOWER(TRIM(COALESCE(u.email, u.email_propietario, ''))) = v_identificador;
+    END IF;
+    IF v_es_email THEN
+      SELECT ARRAY_AGG(p.unidad_otorgante_id) INTO v_unidades_poderes
+      FROM poderes p
+      JOIN unidades u ON u.id = p.unidad_otorgante_id AND u.organization_id = v_organization_id AND u.is_demo = true
+      WHERE p.asamblea_id = v_asamblea_id
+        AND p.estado = 'activo'
+        AND LOWER(TRIM(p.email_receptor)) = v_identificador;
+    END IF;
+  END IF;
+
   IF v_unidades_propias IS NULL AND v_unidades_poderes IS NULL THEN
     RETURN QUERY SELECT
       false,
