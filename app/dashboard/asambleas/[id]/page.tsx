@@ -395,16 +395,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             }))
           }
 
-          // Convertir al formato esperado; nominal usa % sobre total unidades, coeficiente usa Ley 675
+          // Guardar ambos porcentajes (nominal y coeficiente) para elegir según tipo_votacion al mostrar
           const estadisticasFormateadas: EstadisticaOpcion[] = resultados.map((r: any) => ({
             opcion_id: r.opcion_id,
             texto_opcion: r.opcion_texto,
             color: r.color,
             votos_count: Math.max(0, Number(r.votos_cantidad ?? r.votos_count ?? 0)),
             votos_coeficiente: parseFloat(r.votos_coeficiente) || 0,
-            porcentaje_nominal: pregunta.tipo_votacion === 'nominal'
-              ? parseFloat(r.porcentaje_nominal_total ?? r.porcentaje_votos_emitidos ?? 0)
-              : parseFloat(r.porcentaje_votos_emitidos || r.porcentaje_cantidad || 0),
+            porcentaje_nominal: parseFloat(r.porcentaje_nominal_total ?? r.porcentaje_votos_emitidos ?? 0),
             porcentaje_coeficiente: parseFloat(r.porcentaje_coeficiente_total || r.porcentaje_coeficiente_emitido || r.porcentaje_coeficiente || 0)
           }))
 
@@ -979,12 +977,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       if (updateError) throw updateError
 
       if (esSoloTexto) {
-        setPreguntas(prev => prev.map(p => p.id === editingPregunta.id
+        const actualizadas = preguntas.map(p => p.id === editingPregunta.id
           ? { ...p, texto_pregunta: editForm.texto_pregunta.trim(), descripcion: editForm.descripcion.trim() || '', tipo_votacion: editForm.tipo_votacion, umbral_aprobacion: editForm.umbral_aprobacion ?? null }
-          : p))
+          : p)
+        setPreguntas(actualizadas)
         setEditingPregunta(null)
         setSavingEdit(false)
-        toast.success('Texto de la pregunta actualizado. Se verá el cambio en la página de acceso.')
+        toast.success('Pregunta actualizada. La gráfica reflejará el nuevo tipo de votación.')
+        await loadEstadisticas(actualizadas) // Refrescar con tipo actualizado
         return
       }
 
