@@ -1226,7 +1226,7 @@ export default function VotacionPublicaPage() {
                       <div className="mb-3">
                         <div className="flex justify-between text-xs mb-1">
                           <span className="text-gray-600 dark:text-gray-400">Participación general</span>
-                          <span className="font-medium text-gray-800 dark:text-gray-200">{participacion.toFixed(1)}% ({stats.total_votos ?? 0} votos)</span>
+                          <span className="font-medium text-gray-800 dark:text-gray-200">{participacion.toFixed(2)}% ({stats.total_votos ?? 0} votos)</span>
                         </div>
                         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                           <div
@@ -1249,7 +1249,7 @@ export default function VotacionPublicaPage() {
                                 <div className="flex justify-between text-xs mb-0.5">
                                   <span className="text-gray-700 dark:text-gray-300 truncate">{r.opcion_texto ?? '—'}</span>
                                   <span className={`font-medium shrink-0 ml-2 ${pasaUmbral ? 'text-green-600 dark:text-green-400' : ''}`}>
-                                    {pct.toFixed(1)}% ({r.votos_cantidad ?? 0} votos){pasaUmbral ? ' ✓' : ''}
+                                    {pct.toFixed(2)}% ({r.votos_cantidad ?? 0} votos){pasaUmbral ? ' ✓' : ''}
                                   </span>
                                 </div>
                                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden relative">
@@ -1276,7 +1276,7 @@ export default function VotacionPublicaPage() {
                         const aprobado = maxPctLocal >= umbral
                         return (
                           <div className={`mt-3 py-2 px-3 rounded-lg text-center text-sm font-semibold ${aprobado ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'}`}>
-                            {aprobado ? '✓ Aprobado' : '○ Pendiente'} — Mayoría necesaria ({umbral}%). Máx. opción: {maxPctLocal.toFixed(1)}%
+                            {aprobado ? '✓ Aprobado' : '○ Pendiente'} — Mayoría necesaria ({umbral}%). Máx. opción: {maxPctLocal.toFixed(2)}%
                           </div>
                         )
                       })()}
@@ -1629,7 +1629,7 @@ export default function VotacionPublicaPage() {
                                           )}
                                         </span>
                                         <span className={`font-semibold ${aprobado ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                                          {aprobado ? '✓ Aprobado' : '○ No aprobado'} — Opción líder: {maxPct.toFixed(1)}% (umbral ≥{umbralEfectivo}%)
+                                          {aprobado ? '✓ Aprobado' : '○ No aprobado'} — Opción líder: {maxPct.toFixed(2)}% (umbral ≥{umbralEfectivo}%)
                                         </span>
                                       </div>
                                     )
