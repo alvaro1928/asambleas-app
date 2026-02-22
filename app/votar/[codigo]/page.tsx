@@ -984,20 +984,12 @@ export default function VotacionPublicaPage() {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Gracias, tu participación quedó registrada
               </h2>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
+              <p className="text-gray-600 dark:text-gray-400 mb-2">
                 Has votado con todas tus unidades en las preguntas abiertas.
               </p>
-              <Button
-                onClick={() => {
-                  setMostrarHistorial(true)
-                  if (preguntasCerradas.length === 0) cargarHistorial(unidades)
-                }}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                title="Ver historial de votaciones cerradas"
-              >
-                <History className="w-4 h-4 mr-2" />
-                Ver historial
-              </Button>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Desplázate hacia abajo para ver el historial de votaciones cerradas.
+              </p>
             </div>
           )}
 
