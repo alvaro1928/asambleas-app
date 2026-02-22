@@ -35,6 +35,9 @@ export default function PagoOkPage() {
         <h1 className="text-2xl font-bold text-white">
           Proceso de pago finalizado
         </h1>
+        <p className="text-lg text-slate-300">
+          Gracias por completar tu compra. Valoramos tu confianza.
+        </p>
         <p className="text-slate-400">
           Si tu pago fue <strong className="text-slate-300">aprobado</strong>, los tokens se acreditarán en unos segundos. Revisa tu saldo en el dashboard o en Configuración → Mis pagos.
         </p>
