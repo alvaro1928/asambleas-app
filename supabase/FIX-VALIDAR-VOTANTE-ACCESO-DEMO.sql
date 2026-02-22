@@ -5,7 +5,7 @@
 -- ejecuta este script completo en Supabase → SQL Editor → Run.
 -- 1) Asegura la columna en asambleas
 -- 2) Fuerza asambleas demo a usar unidades de demostración
--- 3) Reemplaza validar_votante_asamblea para que respete is_demo y sandbox_usar_unidades_reales
+-- 3) Reemplaza validar_votante_asamblea (con SECURITY DEFINER para que RLS no bloquee la lectura)
 -- =====================================================
 
 -- 1. Columna (por si no existe)
@@ -122,6 +122,6 @@ BEGIN
     v_total_coef,
     'Votante válido'::TEXT;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-COMMENT ON FUNCTION validar_votante_asamblea(TEXT, TEXT) IS 'Valida votante por email o teléfono. En asambleas demo con sandbox_usar_unidades_reales=false usa unidades is_demo=true (test1@...test10@).';
+COMMENT ON FUNCTION validar_votante_asamblea(TEXT, TEXT) IS 'Valida votante por email o teléfono. En asambleas demo con sandbox_usar_unidades_reales=false usa unidades is_demo=true (test1@...test10@). SECURITY DEFINER para que RLS no bloquee la lectura de asambleas/unidades.';

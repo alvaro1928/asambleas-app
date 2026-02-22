@@ -324,9 +324,9 @@ BEGIN
     v_total_coef,
     'Votante válido'::TEXT;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-COMMENT ON FUNCTION validar_votante_asamblea(TEXT, TEXT) IS 'Valida votante por email o teléfono. En sandbox usa unidades demo o reales según sandbox_usar_unidades_reales.';
+COMMENT ON FUNCTION validar_votante_asamblea(TEXT, TEXT) IS 'Valida votante por email o teléfono. En sandbox usa unidades demo o reales según sandbox_usar_unidades_reales. SECURITY DEFINER para que RLS no bloquee la lectura de asambleas/unidades.';
 
 -- Opcional: si ya tenías una asamblea demo y con "Unidades de demostración" no daba acceso con test1@...test10@,
 -- ejecuta esto una vez para que use de nuevo las unidades de demostración:
