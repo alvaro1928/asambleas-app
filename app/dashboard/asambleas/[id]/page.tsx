@@ -965,16 +965,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
     setSavingEdit(true)
     try {
-      // Siempre permitir actualizar texto y descripción (incluso si la pregunta está abierta o cerrada)
+      // Siempre permitir actualizar texto, descripción, tipo y umbral (incluso si la pregunta está abierta o cerrada)
       const { error: updateError } = await supabase
         .from('preguntas')
         .update({
           texto_pregunta: editForm.texto_pregunta.trim(),
           descripcion: editForm.descripcion.trim() || null,
-          ...(esSoloTexto ? {} : {
-            tipo_votacion: editForm.tipo_votacion,
-            umbral_aprobacion: editForm.umbral_aprobacion ?? null
-          })
+          tipo_votacion: editForm.tipo_votacion,
+          umbral_aprobacion: editForm.umbral_aprobacion ?? null
         })
         .eq('id', editingPregunta.id)
 
@@ -982,7 +980,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       if (esSoloTexto) {
         setPreguntas(prev => prev.map(p => p.id === editingPregunta.id
-          ? { ...p, texto_pregunta: editForm.texto_pregunta.trim(), descripcion: editForm.descripcion.trim() || '' }
+          ? { ...p, texto_pregunta: editForm.texto_pregunta.trim(), descripcion: editForm.descripcion.trim() || '', tipo_votacion: editForm.tipo_votacion, umbral_aprobacion: editForm.umbral_aprobacion ?? null }
           : p))
         setEditingPregunta(null)
         setSavingEdit(false)
@@ -2423,7 +2421,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             <DialogTitle>Editar Pregunta</DialogTitle>
             <DialogDescription>
               {editingPregunta && (editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada')
-                ? 'Puedes editar solo el texto y la descripción. El cambio se verá en la página de acceso.'
+                ? 'Puedes editar el texto, descripción, tipo de votación y umbral. Las opciones de respuesta no se pueden modificar si ya hay votos.'
                 : 'Modifica los datos de la pregunta.'}
             </DialogDescription>
           </DialogHeader>
@@ -2454,8 +2452,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               />
             </div>
 
-            {editingPregunta && editingPregunta.estado === 'pendiente' && (
-            <>
             <div>
               <Label htmlFor="edit-tipo_votacion">Tipo de Votación</Label>
               <Select
@@ -2495,6 +2491,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               </p>
             </div>
 
+            {editingPregunta && editingPregunta.estado === 'pendiente' && (
+            <>
             {/* Opciones de Respuesta */}
             <div className="border-t pt-4">
               <div className="flex items-center justify-between mb-3">
