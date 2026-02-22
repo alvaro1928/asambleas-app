@@ -310,63 +310,66 @@ function AsambleasPageContent() {
   const asambleasFiltradas = asambleasPorTab
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 overflow-x-hidden">
+      {/* Header — responsive: columna en móvil, fila en desktop */}
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Asambleas' }]} className="mb-2" />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-w-0">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0 shrink-0">
               <Link
                 href="/dashboard"
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors shrink-0"
               >
                 <ArrowLeft className="w-6 h-6" />
               </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
                   Asambleas
                 </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate max-w-full">
                   {conjuntoName} • {tabArchivo === 'activas' ? 'Activas' : 'Archivadas'}: {asambleasFiltradas.length} asamblea{asambleasFiltradas.length !== 1 ? 's' : ''}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
-                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+              <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600 min-w-0">
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-400 shrink-0">Billetera:</span>
                 <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens</span>
                 {costoOperacion > 0 && (
-                  <span className="text-xs text-slate-500 dark:text-slate-400">(costo al activar: {costoOperacion})</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">(costo: {costoOperacion})</span>
                 )}
               </div>
               <Button
                 type="button"
                 variant="outline"
-                className="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                size="sm"
+                className="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 shrink-0"
                 onClick={() => setShowWelcomeDemoModal(true)}
                 title="Crear asamblea de demostración (sandbox) sin consumir tokens"
               >
-                <FlaskConical className="w-4 h-4 mr-2" />
-                Probar en sandbox
+                <FlaskConical className="w-4 h-4 sm:mr-2 shrink-0" />
+                <span className="hidden sm:inline">Probar en sandbox</span>
+                <span className="sm:hidden">Sandbox</span>
               </Button>
-              <Link href="/dashboard/asambleas/nueva" title="Crear una nueva asamblea para este conjunto">
-              <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" title="Crear una nueva asamblea para este conjunto">
-                <Plus className="w-4 h-4 mr-2" />
-                Nueva Asamblea
-              </Button>
-            </Link>
+              <Link href="/dashboard/asambleas/nueva" title="Crear una nueva asamblea para este conjunto" className="shrink-0">
+                <Button size="sm" className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 w-full sm:w-auto" title="Crear una nueva asamblea para este conjunto">
+                  <Plus className="w-4 h-4 sm:mr-2 shrink-0" />
+                  <span className="hidden sm:inline">Nueva Asamblea</span>
+                  <span className="sm:hidden">Nueva</span>
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-w-0 overflow-x-hidden">
         {asambleas.length > 0 && (
           <>
-            <div className="flex flex-col sm:flex-row gap-4 mb-4">
-              <div className="relative flex-1">
+            <div className="flex flex-col sm:flex-row gap-4 mb-4 min-w-0">
+              <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   type="search"
@@ -410,8 +413,8 @@ function AsambleasPageContent() {
           </>
         )}
         {asambleas.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-12 text-center border border-gray-200 dark:border-gray-700">
-            <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-12 text-center border border-gray-200 dark:border-gray-700 min-w-0">
+            <Users className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               No hay asambleas creadas
             </h3>
@@ -426,8 +429,8 @@ function AsambleasPageContent() {
             </Link>
           </div>
         ) : asambleasFiltradas.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center border border-gray-200 dark:border-gray-700">
-            <Archive className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 sm:p-12 text-center border border-gray-200 dark:border-gray-700 min-w-0">
+            <Archive className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               {tabArchivo === 'archivadas' ? 'No hay asambleas archivadas' : 'No hay asambleas en esta vista'}
             </h3>
@@ -441,7 +444,7 @@ function AsambleasPageContent() {
             )}
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 min-w-0 w-full">
             {asambleasFiltradas.map((asamblea) => {
               const counts = preguntasPorAsamblea[asamblea.id]
               const totalPreguntas = counts ? counts.abierta + counts.pendiente + counts.cerrada : 0
@@ -451,9 +454,9 @@ function AsambleasPageContent() {
               <Link
                 key={asamblea.id}
                 href={`/dashboard/asambleas/${asamblea.id}`}
-                className="group"
+                className="group min-w-0"
               >
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 hover:shadow-2xl hover:border-indigo-300 dark:hover:border-indigo-700 transition-all cursor-pointer">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700 hover:shadow-2xl hover:border-indigo-300 dark:hover:border-indigo-700 transition-all cursor-pointer min-w-0 overflow-hidden">
                   {/* Header con estado */}
                   <div className="flex items-start justify-between mb-4 gap-2">
                     <div className="flex-1 min-w-0">
