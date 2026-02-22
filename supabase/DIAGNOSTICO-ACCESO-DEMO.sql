@@ -42,6 +42,48 @@ FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE p.proname = 'validar_votante_asamblea';
 
--- 4) Llamada directa: debe devolver puede_votar=true y unidades_propias con 1 UUID
---    (Si devuelve puede_votar=false, el problema está en la BD o en la función.)
+-- 4) Paso a paso: qué ve la función (para localizar el fallo)
+WITH codigo_ok AS (
+  SELECT asamblea_id, organization_id
+  FROM validar_codigo_acceso('H49Z-3WVM')
+  WHERE acceso_valido = true
+),
+asam AS (
+  SELECT
+    a.id,
+    a.organization_id,
+    COALESCE(a.is_demo, false) AS is_demo,
+    COALESCE(a.sandbox_usar_unidades_reales, false) AS sandbox_reales
+  FROM asambleas a
+  WHERE a.id = (SELECT asamblea_id FROM codigo_ok LIMIT 1)
+),
+v_unidades_is_demo AS (
+  SELECT
+    CASE WHEN asam.is_demo AND asam.sandbox_reales THEN false ELSE asam.is_demo END AS valor
+  FROM asam
+)
+SELECT
+  '1. validar_codigo_acceso' AS paso,
+  (SELECT COUNT(*) FROM codigo_ok) AS filas,
+  (SELECT asamblea_id::text FROM codigo_ok LIMIT 1) AS detalle
+UNION ALL
+SELECT
+  '2. asamblea is_demo, sandbox_reales',
+  (SELECT COUNT(*) FROM asam),
+  (SELECT is_demo::text || ', ' || sandbox_reales::text FROM asam LIMIT 1)
+UNION ALL
+SELECT
+  '3. v_unidades_is_demo (true=buscar demo)',
+  (SELECT COUNT(*) FROM v_unidades_is_demo),
+  (SELECT valor::text FROM v_unidades_is_demo LIMIT 1)
+UNION ALL
+SELECT
+  '4. unidades que coinciden (org + is_demo + email)',
+  (SELECT COUNT(*) FROM unidades u
+   WHERE u.organization_id = (SELECT organization_id FROM asam LIMIT 1)
+     AND u.is_demo = (SELECT valor FROM v_unidades_is_demo LIMIT 1)
+     AND LOWER(TRIM(COALESCE(u.email, u.email_propietario, ''))) = 'test1@asambleas.online'),
+  NULL;
+
+-- 5) Llamada directa a la función
 SELECT * FROM validar_votante_asamblea('H49Z-3WVM', 'test1@asambleas.online');
