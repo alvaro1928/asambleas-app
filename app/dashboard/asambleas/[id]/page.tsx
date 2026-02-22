@@ -395,15 +395,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             }))
           }
 
-          // Convertir al formato esperado
+          // Convertir al formato esperado; nominal usa % sobre total unidades, coeficiente usa Ley 675
           const estadisticasFormateadas: EstadisticaOpcion[] = resultados.map((r: any) => ({
             opcion_id: r.opcion_id,
             texto_opcion: r.opcion_texto,
             color: r.color,
             votos_count: Math.max(0, Number(r.votos_cantidad ?? r.votos_count ?? 0)),
             votos_coeficiente: parseFloat(r.votos_coeficiente) || 0,
-            // Usar porcentaje según Ley 675 (sobre coeficiente total del conjunto)
-            porcentaje_nominal: parseFloat(r.porcentaje_votos_emitidos || r.porcentaje_cantidad || 0),
+            porcentaje_nominal: pregunta.tipo_votacion === 'nominal'
+              ? parseFloat(r.porcentaje_nominal_total ?? r.porcentaje_votos_emitidos ?? 0)
+              : parseFloat(r.porcentaje_votos_emitidos || r.porcentaje_cantidad || 0),
             porcentaje_coeficiente: parseFloat(r.porcentaje_coeficiente_total || r.porcentaje_coeficiente_emitido || r.porcentaje_coeficiente || 0)
           }))
 

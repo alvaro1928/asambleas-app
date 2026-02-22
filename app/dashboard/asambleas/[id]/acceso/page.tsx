@@ -90,11 +90,13 @@ interface ResultadoOpcion {
   votos_cantidad: number
   votos_coeficiente: number
   porcentaje_coeficiente_total: number
+  porcentaje_nominal_total?: number
 }
 
 interface PreguntaConResultados {
   id: string
   texto_pregunta: string
+  tipo_votacion?: string
   umbral_aprobacion: number | null
   resultados: ResultadoOpcion[]
 }
@@ -226,7 +228,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       const { data: preguntasData } = await supabase
         .from('preguntas')
-        .select('id, texto_pregunta, umbral_aprobacion')
+        .select('id, texto_pregunta, umbral_aprobacion, tipo_votacion')
         .eq('asamblea_id', params.id)
         .eq('estado', 'abierta')
         .eq('is_archived', false)
@@ -260,12 +262,15 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             color: r.color || '#6366f1',
             votos_cantidad: Number(r.votos_cantidad) || 0,
             votos_coeficiente: Number(r.votos_coeficiente) || 0,
-            porcentaje_coeficiente_total: Number(r.porcentaje_coeficiente_total) || 0
+            porcentaje_coeficiente_total: Number(r.porcentaje_coeficiente_total) || 0,
+            porcentaje_nominal_total: Number(r.porcentaje_nominal_total ?? 0) || 0
           }))
         }
+        const tipoVot = (p as { tipo_votacion?: string }).tipo_votacion || 'coeficiente'
         conResultados.push({
           id: p.id,
           texto_pregunta: p.texto_pregunta,
+          tipo_votacion: tipoVot,
           umbral_aprobacion: p.umbral_aprobacion ?? null,
           resultados
         })
@@ -694,14 +699,19 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   </div>
                 )}
                 {preguntasConResultados.map((preg) => {
-                  const data = preg.resultados.map((r) => ({
-                    name: r.opcion_texto.length > 24 ? r.opcion_texto.slice(0, 22) + '…' : r.opcion_texto,
-                    fullName: r.opcion_texto,
-                    porcentaje: Math.round(r.porcentaje_coeficiente_total * 100) / 100,
-                    votosCantidad: Number(r.votos_cantidad) || 0,
-                    color: r.color,
-                    aprueba: preg.umbral_aprobacion != null && r.porcentaje_coeficiente_total >= preg.umbral_aprobacion
-                  }))
+                  const pctRelevante = (r: ResultadoOpcion) =>
+                    preg.tipo_votacion === 'nominal' ? (r.porcentaje_nominal_total ?? 0) : r.porcentaje_coeficiente_total
+                  const data = preg.resultados.map((r) => {
+                    const pct = pctRelevante(r)
+                    return {
+                      name: r.opcion_texto.length > 24 ? r.opcion_texto.slice(0, 22) + '…' : r.opcion_texto,
+                      fullName: r.opcion_texto,
+                      porcentaje: Math.round(pct * 100) / 100,
+                      votosCantidad: Number(r.votos_cantidad) || 0,
+                      color: r.color,
+                      aprueba: preg.umbral_aprobacion != null && pct >= preg.umbral_aprobacion
+                    }
+                  })
                   const umbral = preg.umbral_aprobacion ?? 51
                   return (
                     <div key={preg.id} className="space-y-3">
@@ -817,14 +827,19 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </div>
             )}
             {preguntasConResultados.map((preg) => {
-              const data = preg.resultados.map((r) => ({
-                name: r.opcion_texto.length > 28 ? r.opcion_texto.slice(0, 26) + '…' : r.opcion_texto,
-                fullName: r.opcion_texto,
-                porcentaje: Math.round(r.porcentaje_coeficiente_total * 100) / 100,
-                votosCantidad: Number(r.votos_cantidad) || 0,
-                color: r.color,
-                aprueba: preg.umbral_aprobacion != null && r.porcentaje_coeficiente_total >= preg.umbral_aprobacion
-              }))
+              const pctRelevante = (r: ResultadoOpcion) =>
+                preg.tipo_votacion === 'nominal' ? (r.porcentaje_nominal_total ?? 0) : r.porcentaje_coeficiente_total
+              const data = preg.resultados.map((r) => {
+                const pct = pctRelevante(r)
+                return {
+                  name: r.opcion_texto.length > 28 ? r.opcion_texto.slice(0, 26) + '…' : r.opcion_texto,
+                  fullName: r.opcion_texto,
+                  porcentaje: Math.round(pct * 100) / 100,
+                  votosCantidad: Number(r.votos_cantidad) || 0,
+                  color: r.color,
+                  aprueba: preg.umbral_aprobacion != null && pct >= preg.umbral_aprobacion
+                }
+              })
               const umbral = preg.umbral_aprobacion ?? 51
               return (
                 <div key={preg.id} className="space-y-4">

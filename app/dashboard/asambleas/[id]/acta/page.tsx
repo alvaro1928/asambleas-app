@@ -607,15 +607,19 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                           return acc
                         }, {} as Record<string, { coef: number; count: number }>)
                       : null
-                    const items: { opcion_texto: string; pct: number; count: number }[] = resumenDesdeTabla
+                    const pctDeResultado = (r: any) =>
+                      pregunta.tipo_votacion === 'nominal'
+                        ? Number(r.porcentaje_nominal_total ?? r.porcentaje_votos_emitidos ?? 0)
+                        : Number(r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0)
+                    const items: { opcion_texto: string; pct: number; count: number }[] = resumenDesdeTabla && pregunta.tipo_votacion === 'coeficiente'
                       ? Object.entries(resumenDesdeTabla).map(([opcion, { coef, count }]) => ({
                           opcion_texto: opcion,
-                          pct: (coef / totalCoefVotantes) * 100,
+                          pct: totalCoefVotantes > 0 ? (coef / totalCoefVotantes) * 100 : 0,
                           count,
                         }))
                       : (stats.resultados || []).map((r: any) => ({
                           opcion_texto: r.opcion_texto,
-                          pct: Math.min(100, Number(r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0)),
+                          pct: Math.min(100, pctDeResultado(r)),
                           count: r.votos_cantidad ?? 0,
                         }))
                     const maxPct = pregunta.umbral_aprobacion != null && items.length > 0

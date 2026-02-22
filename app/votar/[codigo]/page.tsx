@@ -82,7 +82,15 @@ interface EstadisticasPregunta {
     porcentaje_votos_emitidos?: number
     porcentaje_coeficiente_emitido?: number
     porcentaje_coeficiente_total?: number
+    porcentaje_nominal_total?: number
   }>
+}
+
+/** Porcentaje a usar según tipo de votación (nominal vs coeficiente) */
+function pctRelevante(r: { porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number; porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number }, tipo: string): number {
+  return tipo === 'nominal'
+    ? (r.porcentaje_nominal_total ?? r.porcentaje_votos_emitidos ?? 0)
+    : (r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0)
 }
 
 export default function VotacionPublicaPage() {
@@ -1110,13 +1118,8 @@ export default function VotacionPublicaPage() {
                                 {pregunta.opciones.map((opcion) => {
                                   const esVotoActual = votoUnidad?.opcion_id === opcion.id
                                   const stats_opcion = stats?.resultados?.find(r => r.opcion_id === opcion.id)
-                                  // Usar porcentaje sobre coeficiente TOTAL del conjunto (Ley 675)
-                                  const porcentajeTotal = stats_opcion?.porcentaje_coeficiente_total ?? 
-                                    stats_opcion?.porcentaje_coeficiente ?? 0
-                                  
-                                  // Porcentaje sobre los que ya votaron (referencia)
-                                  const porcentajeEmitidos = stats_opcion?.porcentaje_coeficiente_emitido ?? 
-                                    stats_opcion?.porcentaje_coeficiente ?? 0
+                                  const porcentajeTotal = stats_opcion ? pctRelevante(stats_opcion, pregunta.tipo_votacion) : 0
+                                  const porcentajeEmitidos = stats_opcion?.porcentaje_coeficiente_emitido ?? stats_opcion?.porcentaje_coeficiente ?? 0
 
                                   return (
                                     <button
@@ -1198,8 +1201,8 @@ export default function VotacionPublicaPage() {
                           </div>
                           {/* Cada opción con barra y % (como en la sección de creación de preguntas) */}
                           <div className="space-y-3">
-                            {(stats.resultados ?? []).map((r: { opcion_id?: string; opcion_texto?: string; color?: string; votos_cantidad?: number; porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number }, ri: number) => {
-                              const pct = r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0
+                            {(stats.resultados ?? []).map((r: { opcion_id?: string; opcion_texto?: string; color?: string; votos_cantidad?: number; porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }, ri: number) => {
+                              const pct = pctRelevante(r, pregunta.tipo_votacion)
                               const umbralEfectivo = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
                               const pasaUmbral = pct >= umbralEfectivo
                               return (
@@ -1246,8 +1249,8 @@ export default function VotacionPublicaPage() {
                           {/* Resultado global: Aprobado / Pendiente */}
                           {stats.resultados && stats.resultados.length > 0 && (() => {
                             const umbralEfectivo = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
-                            const maxPct = Math.max(...stats.resultados.map((r: { porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number }) =>
-                              r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0))
+                            const maxPct = Math.max(...stats.resultados.map((r: { porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }) =>
+                              pctRelevante(r, pregunta.tipo_votacion)))
                             const aprobado = maxPct >= umbralEfectivo
                             return (
                               <div className={`mt-3 py-2 px-3 rounded-lg text-center text-sm font-semibold ${aprobado ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'}`}>
@@ -1256,7 +1259,7 @@ export default function VotacionPublicaPage() {
                             )
                           })()}
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-                            ℹ️ Porcentajes sobre coeficiente total del conjunto (Ley 675)
+                            ℹ️ {pregunta.tipo_votacion === 'nominal' ? 'Porcentajes sobre total de unidades (un voto por unidad)' : 'Porcentajes sobre coeficiente total del conjunto (Ley 675)'}
                           </p>
                         </div>
                       )}
@@ -1285,8 +1288,8 @@ export default function VotacionPublicaPage() {
                   const umbral = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
                   const resultados = stats.resultados ?? []
                   const maxPct = resultados.length > 0
-                    ? Math.max(...resultados.map((r: { porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number }) =>
-                        r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0))
+                    ? Math.max(...resultados.map((r: { porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }) =>
+                        pctRelevante(r, pregunta.tipo_votacion)))
                     : 0
                   const algunaAprobada = maxPct >= umbral
 
@@ -1313,8 +1316,8 @@ export default function VotacionPublicaPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        {resultados.map((r: { opcion_id?: string; opcion_texto?: string; color?: string; porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number }, ri: number) => {
-                          const pct = r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0
+                        {resultados.map((r: { opcion_id?: string; opcion_texto?: string; color?: string; porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }, ri: number) => {
+                          const pct = pctRelevante(r, pregunta.tipo_votacion)
                           const pasaUmbral = pct >= umbral
                           return (
                             <div key={r.opcion_id ?? `opt-${index}-${ri}`} className="flex items-center gap-2">
@@ -1643,7 +1646,7 @@ export default function VotacionPublicaPage() {
                                 </h4>
                                 <div className="space-y-2">
                                   {stats.resultados.map((resultado: any) => {
-                                    const porcentaje = parseFloat(resultado.porcentaje_coeficiente_total || resultado.porcentaje_coeficiente || 0)
+                                    const porcentaje = pctRelevante(resultado, pregunta.tipo_votacion)
                                     return (
                                       <div key={resultado.opcion_id} className="relative">
                                         <div className="flex items-center justify-between mb-1">
@@ -1664,8 +1667,10 @@ export default function VotacionPublicaPage() {
                                           />
                                         </div>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                          {resultado.votos_cantidad || 0} voto{(resultado.votos_cantidad || 0) !== 1 ? 's' : ''} • 
-                                          {' '}{parseFloat(resultado.votos_coeficiente || 0).toFixed(2)}% coeficiente
+                                          {resultado.votos_cantidad || 0} voto{(resultado.votos_cantidad || 0) !== 1 ? 's' : ''}
+                                          {pregunta.tipo_votacion === 'coeficiente' && (
+                                            <> • {parseFloat(resultado.votos_coeficiente || 0).toFixed(2)}% coeficiente</>
+                                          )}
                                         </p>
                                       </div>
                                     )
@@ -1676,7 +1681,7 @@ export default function VotacionPublicaPage() {
                                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                                   {(() => {
                                     const umbralEfectivo = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
-                                    const maxPct = Math.max(...stats.resultados.map((r: any) => parseFloat(r.porcentaje_coeficiente_total || r.porcentaje_coeficiente || 0)))
+                                    const maxPct = Math.max(...stats.resultados.map((r: any) => pctRelevante(r, pregunta.tipo_votacion)))
                                     const aprobado = maxPct >= umbralEfectivo
                                     return (
                                       <div className="flex justify-between items-center text-sm">
@@ -1700,7 +1705,7 @@ export default function VotacionPublicaPage() {
                                       Participación total:
                                     </span>
                                     <span className="font-bold text-gray-900 dark:text-white">
-                                      {stats.total_votos || 0} votos • {(stats.porcentaje_participacion || 0).toFixed(2)}% del coeficiente
+                                      {stats.total_votos || 0} votos • {(stats.porcentaje_participacion || 0).toFixed(2)}% {pregunta.tipo_votacion === 'nominal' ? 'del total de unidades' : 'del coeficiente'}
                                     </span>
                                   </div>
                                 </div>
