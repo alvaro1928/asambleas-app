@@ -708,16 +708,16 @@ export default function VotacionPublicaPage() {
 
   if (step === 'error') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-red-200 dark:border-red-800">
-          <div className="text-center">
-            <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
-              <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 overflow-x-hidden">
+        <div className="max-w-md w-full min-w-0 bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-red-200 dark:border-red-800">
+          <div className="text-center min-w-0">
+            <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+              <AlertTriangle className="w-7 h-7 sm:w-8 sm:h-8 text-red-600 dark:text-red-400" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">
               Acceso Denegado
             </h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4 sm:mb-6 break-words">
               {error}
             </p>
             <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
@@ -736,15 +736,15 @@ export default function VotacionPublicaPage() {
 
   if (step === 'email') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-light to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-surface dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-border dark:border-gray-700">
+      <div className="min-h-screen bg-gradient-to-br from-primary-light to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 overflow-x-hidden">
+        <div className="max-w-md w-full min-w-0 bg-surface dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-border dark:border-gray-700">
           <StepIndicator pasoActual="email" />
           {/* Header */}
-          <div className="text-center mb-8">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center mb-4">
-              <Vote className="w-8 h-8 text-white" />
+          <div className="text-center mb-6 sm:mb-8 min-w-0">
+            <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+              <Vote className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
               Votación Virtual
             </h1>
             <p className="text-gray-600 dark:text-gray-400 text-sm">
@@ -800,7 +800,7 @@ export default function VotacionPublicaPage() {
             <Button
               onClick={handleValidarEmail}
               disabled={loading || !email.trim()}
-              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-lg py-6"
+              className="w-full min-w-0 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-sm sm:text-lg py-4 sm:py-6"
               title="Continuar para ver tus unidades y votar"
             >
               {loading ? (
@@ -830,22 +830,22 @@ export default function VotacionPublicaPage() {
 
   if (step === 'consentimiento') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-light to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-surface dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-border dark:border-gray-700">
+      <div className="min-h-screen bg-gradient-to-br from-primary-light to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 overflow-x-hidden">
+        <div className="max-w-md w-full min-w-0 bg-surface dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-border dark:border-gray-700">
           <StepIndicator pasoActual="consentimiento" />
-          <div className="text-center mb-6">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center mb-4">
-              <Vote className="w-8 h-8 text-white" />
+          <div className="text-center mb-4 sm:mb-6">
+            <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+              <Vote className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2">
               Tratamiento de datos personales
             </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               Para participar en la votación debe aceptar el tratamiento de sus datos según la ley.
             </p>
           </div>
 
-          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 mb-6 border border-gray-200 dark:border-gray-700 text-left text-sm text-gray-700 dark:text-gray-300 max-h-48 overflow-y-auto">
+          <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 border border-gray-200 dark:border-gray-700 text-left text-xs sm:text-sm text-gray-700 dark:text-gray-300 max-h-40 sm:max-h-48 overflow-y-auto min-w-0">
             <p className="font-semibold mb-2">Ley 1581 de 2012 (Colombia) — Protección de datos personales</p>
             <p className="mb-2">
               Al continuar, usted acepta que sus datos personales (correo electrónico o teléfono, votos emitidos y actividad en la plataforma) sean tratados por <strong>Votaciones de Asambleas Online</strong> y por el administrador del conjunto únicamente para:
@@ -860,39 +860,40 @@ export default function VotacionPublicaPage() {
             </p>
           </div>
 
-          <label className="flex items-start gap-3 cursor-pointer mb-6">
+          <label className="flex items-start gap-3 cursor-pointer mb-4 sm:mb-6 min-w-0">
             <input
               type="checkbox"
               checked={consentimientoAceptado}
               onChange={(e) => setConsentimientoAceptado(e.target.checked)}
-              className="mt-1 rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-primary"
+              className="mt-1 shrink-0 rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-primary"
             />
-            <span className="text-sm text-gray-700 dark:text-gray-300">
+            <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 min-w-0 break-words">
               Acepto el tratamiento de mis datos personales conforme a lo indicado anteriormente y según la Ley 1581 de 2012.
             </span>
           </label>
 
           {error && (
-            <Alert className="mb-4 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
-              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-              <AlertDescription className="text-red-800 dark:text-red-200">{error}</AlertDescription>
+            <Alert className="mb-4 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 min-w-0">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+              <AlertDescription className="text-red-800 dark:text-red-200 break-words">{error}</AlertDescription>
             </Alert>
           )}
 
           <Button
             onClick={handleAceptarConsentimiento}
             disabled={!consentimientoAceptado || guardandoConsentimiento}
-            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-lg py-6"
+            className="w-full min-w-0 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-sm sm:text-lg py-4 sm:py-6 px-4"
           >
             {guardandoConsentimiento ? (
               <>
-                <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                Guardando...
+                <div className="inline-block animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white mr-2 shrink-0"></div>
+                <span>Guardando...</span>
               </>
             ) : (
               <>
-                Aceptar y continuar a la votación
-                <ChevronRight className="w-5 h-5 ml-2" />
+                <span className="hidden sm:inline">Aceptar y continuar a la votación</span>
+                <span className="sm:hidden">Aceptar y continuar</span>
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2 shrink-0" />
               </>
             )}
           </Button>
@@ -900,7 +901,7 @@ export default function VotacionPublicaPage() {
           <Button
             type="button"
             variant="outline"
-            className="w-full mt-3 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="w-full mt-3 min-w-0 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm sm:text-base py-4"
             onClick={() => setStep('rechazo_consentimiento')}
             disabled={guardandoConsentimiento}
           >
@@ -913,21 +914,21 @@ export default function VotacionPublicaPage() {
 
   if (step === 'rechazo_consentimiento') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
-          <div className="text-center">
-            <div className="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
-              <XCircle className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 overflow-x-hidden">
+        <div className="max-w-md w-full min-w-0 bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-gray-200 dark:border-gray-700">
+          <div className="text-center min-w-0">
+            <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+              <XCircle className="w-7 h-7 sm:w-8 sm:h-8 text-gray-600 dark:text-gray-400" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-2">
               No has aceptado el tratamiento de datos
             </h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4 sm:mb-6 break-words">
               Para participar en esta votación es necesario aceptar el tratamiento de tus datos personales según la Ley 1581 de 2012. Sin tu aceptación no puedes continuar. Puedes volver al inicio o cerrar esta página.
             </p>
             <Button
               onClick={() => router.push('/')}
-              className="w-full bg-gray-700 hover:bg-gray-800 text-white"
+              className="w-full min-w-0 bg-gray-700 hover:bg-gray-800 text-white text-sm sm:text-base"
             >
               Volver al inicio
             </Button>
