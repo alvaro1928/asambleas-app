@@ -419,7 +419,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
-  const loadQuorum = async (asambleaOverride?: { is_demo?: boolean } | null) => {
+  const loadQuorum = async (asambleaOverride?: { is_demo?: boolean; sandbox_usar_unidades_reales?: boolean } | null) => {
     try {
       const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
       if (!selectedConjuntoId) return
