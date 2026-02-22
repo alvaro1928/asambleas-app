@@ -955,20 +955,13 @@ export default function VotacionPublicaPage() {
                 Si cambias de opinión, puedes volver atrás y aceptar para continuar con tu voto.
               </p>
             </div>
-            <div className="space-y-3">
+            <div>
               <Button
-                onClick={() => router.push('/')}
+                onClick={() => setStep('consentimiento')}
                 className="w-full min-w-0 bg-indigo-600 hover:bg-indigo-700 text-white text-sm sm:text-base"
               >
-                Volver al inicio
+                Volver atrás
               </Button>
-              <button
-                type="button"
-                onClick={() => setStep('consentimiento')}
-                className="w-full text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
-              >
-                Volver atrás para aceptar
-              </button>
             </div>
           </div>
         </div>
