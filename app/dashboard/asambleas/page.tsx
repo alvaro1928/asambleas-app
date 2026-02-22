@@ -346,11 +346,11 @@ function AsambleasPageContent() {
                 size="sm"
                 className="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 shrink-0"
                 onClick={() => setShowWelcomeDemoModal(true)}
-                title="Crear asamblea de demostración (sandbox) sin consumir tokens"
+                title="Crear asamblea de demostración (entorno de pruebas) sin consumir tokens"
               >
                 <FlaskConical className="w-4 h-4 sm:mr-2 shrink-0" />
-                <span className="hidden sm:inline">Probar en sandbox</span>
-                <span className="sm:hidden">Sandbox</span>
+                <span className="hidden sm:inline">Probar en entorno de pruebas</span>
+                <span className="sm:hidden">Pruebas</span>
               </Button>
               <Link href="/dashboard/asambleas/nueva" title="Crear una nueva asamblea para este conjunto" className="shrink-0">
                 <Button size="sm" className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 w-full sm:w-auto" title="Crear una nueva asamblea para este conjunto">
@@ -647,7 +647,7 @@ function AsambleasPageContent() {
           <DialogHeader>
             <DialogTitle>Bienvenido a Votaciones de Asambleas Online</DialogTitle>
             <DialogDescription>
-              ¿Deseas explorar con una simulación? Crearemos una asamblea de demostración con datos de ejemplo. No se consumen créditos y podrás practicar el Centro de Control, el enlace de votación y el acta.
+              ¿Deseas explorar en un entorno de pruebas? Crearemos una asamblea de demostración con datos de ejemplo. No se consumen créditos y podrás practicar el Centro de Control, el enlace de votación y el acta.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col sm:flex-row gap-3 pt-2">

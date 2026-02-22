@@ -1531,10 +1531,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           </Alert>
         )}
 
-        {/* Sandbox: elegir unidades de demo o reales del conjunto (no afecta asambleas productivas) */}
+        {/* Entorno de pruebas: elegir unidades de demo o reales (no afecta asambleas productivas) */}
         {isDemo && (
           <div className="mb-6 p-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
-            <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mb-3">Probar con:</p>
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mb-3">Entorno de pruebas — Probar con:</p>
             <div className="flex flex-wrap gap-2">
               <Button
                 variant={soloUnidadesDemo ? 'default' : 'outline'}
@@ -1556,7 +1556,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               </Button>
             </div>
             <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
-              Las asambleas reales (no sandbox) no se ven afectadas; solo esta simulación usa el criterio elegido.
+              Las asambleas reales no se ven afectadas; solo esta simulación de pruebas usa el criterio elegido.
             </p>
           </div>
         )}
