@@ -118,6 +118,14 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [searchFaltantes, setSearchFaltantes] = useState('')
   const [copiado, setCopiado] = useState(false)
   const [graficaMaximizada, setGraficaMaximizada] = useState(false)
+  const [esMobile, setEsMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)')
+    const fn = () => setEsMobile(mq.matches)
+    fn()
+    mq.addEventListener('change', fn)
+    return () => mq.removeEventListener('change', fn)
+  }, [])
   const [tokensDisponibles, setTokensDisponibles] = useState<number>(0)
   const [totalUnidadesConjunto, setTotalUnidadesConjunto] = useState<number>(0)
 
@@ -701,11 +709,13 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 {preguntasConResultados.map((preg) => {
                   const pctRelevante = (r: ResultadoOpcion) =>
                     preg.tipo_votacion === 'nominal' ? (r.porcentaje_nominal_total ?? 0) : r.porcentaje_coeficiente_total
+                  const maxLabelLen = esMobile ? 14 : 22
                   const data = preg.resultados.map((r) => {
                     const pct = pctRelevante(r)
+                    const texto = r.opcion_texto || ''
                     return {
-                      name: r.opcion_texto.length > 24 ? r.opcion_texto.slice(0, 22) + '…' : r.opcion_texto,
-                      fullName: r.opcion_texto,
+                      name: texto.length > maxLabelLen + 2 ? texto.slice(0, maxLabelLen) + '…' : texto,
+                      fullName: texto,
                       porcentaje: Math.round(pct * 100) / 100,
                       votosCantidad: Number(r.votos_cantidad) || 0,
                       color: r.color,
@@ -713,21 +723,25 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     }
                   })
                   const umbral = preg.umbral_aprobacion ?? 51
+                  const margenes = esMobile ? { top: 8, right: 40, left: 50, bottom: 8 } : { top: 12, right: 90, left: 100, bottom: 12 }
+                  const yAxisWidth = esMobile ? 48 : 95
+                  const barLabelFontSize = esMobile ? 9 : 12
                   return (
-                    <div key={preg.id} className="space-y-3">
+                    <div key={preg.id} className="space-y-3 min-w-0">
                       <p className="text-base font-semibold text-slate-200 line-clamp-2">
                         {preg.texto_pregunta}
                       </p>
-                      <div className="h-[320px] min-h-[280px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart
-                            layout="vertical"
-                            data={data}
-                            margin={{ top: 12, right: 90, left: 100, bottom: 12 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#475569" opacity={0.3} />
-                            <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                            <YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 13, fill: '#94a3b8' }} />
+                      <div className="h-[320px] min-h-[240px] w-full overflow-x-auto overflow-y-hidden -mx-1 px-1">
+                        <div className="h-full min-w-[260px] w-full">
+                          <ResponsiveContainer width="100%" height="100%" minWidth={280}>
+                            <BarChart
+                              layout="vertical"
+                              data={data}
+                              margin={margenes}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke="#475569" opacity={0.3} />
+                              <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: esMobile ? 10 : 12, fill: '#94a3b8' }} />
+                              <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ fontSize: esMobile ? 11 : 13, fill: '#94a3b8' }} />
                             <Tooltip
                               formatter={(value: number | undefined, _name?: string, props?: unknown) => {
                                 const payload = (props as { payload?: { votosCantidad?: number } })?.payload
@@ -747,7 +761,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                             <Bar
                               dataKey="porcentaje"
                               radius={[0, 6, 6, 0]}
-                              maxBarSize={40}
+                              maxBarSize={esMobile ? 28 : 40}
                               label={{
                                 position: 'right',
                                 formatter: (label: unknown, ...args: unknown[]) => {
@@ -756,10 +770,10 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                                   const payload = entryOrProps?.payload ?? entryOrProps
                                   const votos = Math.max(0, Number(payload?.votosCantidad ?? 0))
                                   const suf = votos !== 1 ? 'votos' : 'voto'
-                                  if (payload?.aprueba) return `${v}% (${votos} ${suf}) MAYORÍA ALCANZADA`
-                                  return `${v}% (${votos} ${suf})`
+                                  if (payload?.aprueba) return esMobile ? `${v}% ✓` : `${v}% (${votos} ${suf}) MAYORÍA ALCANZADA`
+                                  return esMobile ? `${v}%` : `${v}% (${votos} ${suf})`
                                 },
-                                fontSize: 12,
+                                fontSize: barLabelFontSize,
                                 fill: '#e2e8f0'
                               }}
                             >
@@ -774,6 +788,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
+                        </div>
                       </div>
                       {data.some((d) => d.aprueba) && (
                         <div className="flex flex-wrap gap-2">
