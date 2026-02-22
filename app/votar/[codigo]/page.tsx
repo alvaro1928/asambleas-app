@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -121,6 +121,7 @@ export default function VotacionPublicaPage() {
   const [clientIp, setClientIp] = useState<string | null>(null)
   const [consentimientoAceptado, setConsentimientoAceptado] = useState(false)
   const [guardandoConsentimiento, setGuardandoConsentimiento] = useState(false)
+  const [avanceColapsado, setAvanceColapsado] = useState(false)
 
   // Para marcar salida al cerrar/abandonar la página (solo sesiones activas en el registro)
   const salidaRef = useRef<{ asamblea_id: string; email: string } | null>(null)
@@ -1270,14 +1271,28 @@ export default function VotacionPublicaPage() {
             )}
           </div>
 
-          {/* Avance de la votación: participación + cada opción con % y si pasó umbral */}
+          {/* Avance de la votación: participación + cada opción con % y si pasó umbral (colapsable) */}
           {preguntas.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                <BarChart3 className="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" />
-                Avance de la votación
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              <button
+                type="button"
+                onClick={() => setAvanceColapsado((v) => !v)}
+                className="w-full flex items-center justify-between text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg"
+                aria-expanded={!avanceColapsado}
+              >
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center">
+                  <BarChart3 className="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" />
+                  Avance de la votación
+                </h3>
+                {avanceColapsado ? (
+                  <ChevronDown className="w-5 h-5 text-gray-500 dark:text-gray-400 shrink-0" />
+                ) : (
+                  <ChevronUp className="w-5 h-5 text-gray-500 dark:text-gray-400 shrink-0" />
+                )}
+              </button>
+              {!avanceColapsado && (
+                <>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 mt-2">
                 Umbral de aprobación: {UMBRAL_APROBACION_DEFECTO}% (mayoría simple). Se actualiza cada 10 s.
               </p>
               <div className="space-y-6">
@@ -1354,6 +1369,8 @@ export default function VotacionPublicaPage() {
                   )
                 })}
               </div>
+                </>
+              )}
             </div>
           )}
 
