@@ -6,7 +6,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
-import { Wallet, Plus, HelpCircle, RefreshCw } from 'lucide-react'
+import { Wallet, Plus, HelpCircle, RefreshCw, ChevronDown, ChevronUp, Menu } from 'lucide-react'
 import ConjuntoSelector from '@/components/ConjuntoSelector'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
@@ -46,6 +46,8 @@ export default function DashboardPage() {
   const [cantidadManual, setCantidadManual] = useState<number>(20)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [refreshingSaldo, setRefreshingSaldo] = useState(false)
+  const [billeteraColapsada, setBilleteraColapsada] = useState(true)
+  const [menuMobileOpen, setMenuMobileOpen] = useState(false)
   const router = useRouter()
 
   const handleActualizarSaldo = async () => {
@@ -287,46 +289,126 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#0B0E14' }}>
       {/* Header */}
-      <header className="border-b rounded-b-3xl shadow-soft" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0B0E14' }}>
+      <header className="border-b rounded-b-3xl shadow-soft overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0B0E14' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <Link href="/dashboard" className="flex items-center gap-3 shrink-0">
+          {/* Fila superior: logo + menú móvil */}
+          <div className="flex items-center justify-between gap-3 min-w-0">
+            <Link href="/dashboard" className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
               <Image
                 src="/logo.png"
                 alt="VOTA TECH"
-                width={40}
-                height={40}
-                className="rounded-full object-contain bg-white shrink-0"
+                width={36}
+                height={36}
+                className="rounded-full object-contain bg-white shrink-0 sm:w-10 sm:h-10"
                 unoptimized
               />
-              <span className="text-2xl font-bold text-white">Asambleas App</span>
+              <span className="text-lg sm:text-2xl font-bold text-white truncate">Asambleas App</span>
             </Link>
-            <div className="flex items-center flex-wrap gap-3">
+            {/* Botones en desktop */}
+            <div className="hidden md:flex items-center flex-wrap gap-2 shrink-0">
+              {user?.email && isAdminEmail(user.email) && (
+                <UiTooltip content="Panel de super administrador: conjuntos, créditos y configuración">
+                  <a
+                    href="/super-admin"
+                    onClick={(e) => { e.preventDefault(); window.location.href = '/super-admin' }}
+                    className="px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-3xl transition-colors inline-flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    <span>Administración</span>
+                  </a>
+                </UiTooltip>
+              )}
+              <UiTooltip content="Cambiar contraseña, preferencias y datos de tu cuenta">
+                <Link href="/dashboard/configuracion" className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-3xl transition-colors inline-flex items-center gap-2">
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span>Configuración</span>
+                </Link>
+              </UiTooltip>
+              <UiTooltip content="Cerrar sesión y volver a la pantalla de inicio">
+                <button onClick={handleSignOut} className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-3xl transition-colors">
+                  Cerrar sesión
+                </button>
+              </UiTooltip>
+            </div>
+            {/* Menú hamburguesa en móvil */}
+            <div className="md:hidden relative">
+              <button
+                type="button"
+                onClick={() => setMenuMobileOpen((v) => !v)}
+                className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10"
+                aria-label="Menú"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              {menuMobileOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMenuMobileOpen(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-white/20 bg-slate-900 shadow-xl z-50 overflow-hidden">
+                    {user?.email && isAdminEmail(user.email) && (
+                      <a
+                        href="/super-admin"
+                        onClick={(e) => { e.preventDefault(); setMenuMobileOpen(false); window.location.href = '/super-admin' }}
+                        className="flex items-center gap-2 px-4 py-3 text-slate-200 hover:bg-white/10 border-b border-white/10"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                        Administración
+                      </a>
+                    )}
+                    <Link href="/dashboard/configuracion" onClick={() => setMenuMobileOpen(false)} className="flex items-center gap-2 px-4 py-3 text-slate-200 hover:bg-white/10 border-b border-white/10">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      Configuración
+                    </Link>
+                    <button onClick={() => { setMenuMobileOpen(false); handleSignOut(); }} className="flex items-center gap-2 w-full px-4 py-3 text-slate-200 hover:bg-white/10 text-left">
+                      Cerrar sesión
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Fila inferior: selector de conjunto + billetera colapsable */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-3 min-w-0">
+            <div className="min-w-0 shrink-0">
               <ConjuntoSelector />
-              {/* Billetera: tarjeta de crédito compacta 210px, glassmorphism (Saldo = profiles.tokens_disponibles, Costo = unidades conjunto) */}
-              {selectedConjuntoId && (
-                <div className="w-[210px] rounded-3xl border border-white/20 bg-white/10 backdrop-blur-md shadow-lg overflow-hidden shrink-0">
-                  <div className="px-3.5 py-2.5 border-b border-white/10 flex items-center gap-2">
+            </div>
+            {/* Billetera colapsable — se ajusta al dropdown de Unidades */}
+            {selectedConjuntoId && (
+              <div className="min-w-0 w-full sm:w-auto sm:min-w-[200px] rounded-3xl border border-white/20 bg-white/10 backdrop-blur-md shadow-lg overflow-hidden shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setBilleteraColapsada((v) => !v)}
+                  className="w-full px-3.5 py-2.5 border-b border-white/10 flex items-center justify-between gap-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
                     <Wallet className="w-4 h-4 shrink-0" style={{ color: colorPrincipalHex }} />
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-200">Billetera</span>
+                    <span className="text-sm font-bold truncate" style={{ color: colorPrincipalHex }}>{tokensDisponibles} tokens</span>
                   </div>
+                  {billeteraColapsada ? <ChevronDown className="w-4 h-4 shrink-0 text-slate-400" /> : <ChevronUp className="w-4 h-4 shrink-0 text-slate-400" />}
+                </button>
+                {!billeteraColapsada && (
                   <div className="px-3.5 py-3 space-y-2">
-                    <div>
+                    <div className="flex items-center gap-2">
                       <p className="text-[10px] uppercase tracking-wider text-slate-400">Saldo</p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-lg font-bold leading-tight" style={{ color: colorPrincipalHex }}>
-                          {tokensDisponibles} <span className="text-sm font-medium text-slate-300">tokens</span>
-                        </p>
-                        <button
-                          type="button"
-                          onClick={handleActualizarSaldo}
-                          disabled={refreshingSaldo}
-                          className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
-                          title="Actualizar saldo (por si acabas de recargar)"
-                        >
-                          <RefreshCw className={`w-4 h-4 ${refreshingSaldo ? 'animate-spin' : ''}`} />
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={handleActualizarSaldo}
+                        disabled={refreshingSaldo}
+                        className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-50"
+                        title="Actualizar saldo"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${refreshingSaldo ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-lg font-bold leading-tight" style={{ color: colorPrincipalHex }}>
+                        {tokensDisponibles} <span className="text-sm font-medium text-slate-300">tokens</span>
+                      </p>
                     </div>
                     {costoOperacion > 0 && (
                       <div>
@@ -335,23 +417,27 @@ export default function DashboardPage() {
                       </div>
                     )}
                     {precioProCop != null && precioProCop > 0 && (
-                      <p className="text-[10px] text-slate-500">Paga solo {formatPrecioCop(precioProCop)}/unidad · Ahorra hasta 75%</p>
+                      <p className="text-[10px] text-slate-500">Paga solo {formatPrecioCop(precioProCop)}/unidad</p>
                     )}
                     <button
                       type="button"
                       onClick={() => setModalCompraOpen(true)}
-                      className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-3xl text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+                      className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-3xl text-white text-xs font-semibold hover:opacity-90"
                       style={{ backgroundColor: colorPrincipalHex }}
-                      title="Abrir modal de compra (rápida o libre)"
                     >
                       <Plus className="w-4 h-4" />
                       Recargar
                     </button>
                   </div>
-                </div>
-              )}
-              {/* Modal compra: rápida (cantidad = unidades) o libre; total = cantidad × precio global */}
-              <Dialog open={modalCompraOpen} onOpenChange={setModalCompraOpen}>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Modal compra: rápida (cantidad = unidades) o libre */}
+      <Dialog open={modalCompraOpen} onOpenChange={setModalCompraOpen}>
                 <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-sm">
                   <DialogHeader>
                     <DialogTitle className="text-slate-100">Comprar tokens</DialogTitle>
@@ -439,64 +525,6 @@ export default function DashboardPage() {
                   </div>
                 </DialogContent>
               </Dialog>
-              <div className="flex items-center space-x-3">
-              {user?.email && isAdminEmail(user.email) && (
-                <UiTooltip content="Panel de super administrador: conjuntos, créditos y configuración">
-                  <a
-                    href="/super-admin"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      window.location.href = '/super-admin'
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded-3xl transition-colors inline-flex items-center space-x-2 cursor-pointer"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    <span>Administración</span>
-                  </a>
-                </UiTooltip>
-              )}
-              <UiTooltip content="Cambiar contraseña, preferencias y datos de tu cuenta">
-                <Link
-                  href="/dashboard/configuracion"
-                  className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-3xl transition-colors inline-flex items-center space-x-2"
-                >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
-                <span>Configuración</span>
-              </Link>
-              </UiTooltip>
-              <UiTooltip content="Cerrar sesión y volver a la pantalla de inicio">
-                <button
-                  onClick={handleSignOut}
-                  className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-3xl transition-colors"
-                >
-                  Cerrar sesión
-                </button>
-              </UiTooltip>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12" style={{ backgroundColor: '#0B0E14' }}>
@@ -535,48 +563,50 @@ export default function DashboardPage() {
             />
           )}
 
-          {/* Welcome Card */}
-          <div className="rounded-3xl shadow-xl p-8 border" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
-            <div className="flex items-start space-x-4">
+          {/* Guía — arriba del Bienvenido */}
+          <div className="flex justify-center sm:justify-start">
+            <button
+              type="button"
+              onClick={() => setGuiaModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-3xl border border-white/20 text-slate-200 hover:text-white hover:bg-white/10 transition-colors text-sm"
+            >
+              <HelpCircle className="w-4 h-4 shrink-0" style={{ color: colorPrincipalHex }} />
+              Guía: tokens y funcionalidades
+            </button>
+          </div>
+
+          {/* Welcome Card — responsive */}
+          <div className="rounded-3xl shadow-xl p-6 sm:p-8 border min-w-0 overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
+            <div className="flex flex-col sm:flex-row items-start gap-4 min-w-0">
               <div className="flex-shrink-0">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: `${colorPrincipalHex}99` }}>
-                  <svg
-                    className="w-8 h-8 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                    />
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: `${colorPrincipalHex}99` }}>
+                  <svg className="w-7 h-7 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
               </div>
-              <div className="flex-1">
-                <h2 className="text-3xl font-bold text-white mb-2">
+              <div className="flex-1 min-w-0 w-full">
+                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">
                   ¡Bienvenido!
                 </h2>
-                <p className="text-slate-300 text-lg">
+                <p className="text-slate-300 text-base sm:text-lg truncate max-w-full" title={user?.email ?? undefined}>
                   {user?.email}
                 </p>
-                <p className="text-slate-400 mt-1">
+                <p className="text-slate-400 mt-1 text-sm sm:text-base">
                   Estás listo para gestionar tus asambleas
                 </p>
                 {selectedConjuntoId && (
-                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
                     <span className="text-sm text-slate-400">
                       Saldo: <strong className="text-slate-200">{tokensDisponibles} tokens</strong>
                     </span>
                     <button
                       type="button"
                       onClick={() => setModalCompraOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl border border-white/20 text-slate-200 hover:text-white hover:bg-white/10 transition-colors text-sm font-medium"
+                      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-2xl border border-white/20 text-slate-200 hover:text-white hover:bg-white/10 transition-colors text-sm font-medium shrink-0"
                       title="Abrir modal de compra de tokens"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-4 h-4 shrink-0" />
                       Cargar Créditos
                     </button>
                   </div>
@@ -743,17 +773,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Botón para abrir Guía en modal */}
-          <div className="flex justify-center pt-4">
-            <button
-              type="button"
-              onClick={() => setGuiaModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-3xl border border-white/20 text-slate-200 hover:text-white hover:bg-white/10 transition-colors text-sm"
-            >
-              <HelpCircle className="w-4 h-4 text-violet-400" style={{ color: colorPrincipalHex }} />
-              Guía: tokens y funcionalidades
-            </button>
-          </div>
         </div>
       </main>
 
