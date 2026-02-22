@@ -87,9 +87,9 @@ BEGIN
       AND LOWER(TRIM(p.email_receptor)) = v_identificador;
   END IF;
 
-  -- Fallback: asamblea demo y email de prueba (test1@...test10@asambleas.online)
-  -- Las unidades demo NO están en "unidades normales"; son solo para sandbox. Asegurar que existan y buscar.
-  IF v_is_demo AND v_unidades_propias IS NULL AND v_unidades_poderes IS NULL
+  -- Fallback: solo cuando la asamblea demo usa "Unidades de demostración" (no unidades reales).
+  -- Si sandbox_usar_unidades_reales = true, test1@...test10@ NO deben tener acceso; solo cuentas de unidades reales.
+  IF v_is_demo AND NOT v_sandbox_reales AND v_unidades_propias IS NULL AND v_unidades_poderes IS NULL
      AND v_es_email AND v_identificador ~ '^test[0-9]+@asambleas\.online$' THEN
     PERFORM asegurar_unidades_demo_organizacion(v_organization_id);
     v_unidades_is_demo := true;
