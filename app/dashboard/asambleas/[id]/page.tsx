@@ -1713,54 +1713,78 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               )}
             </div>
 
-            {/* Panel de Credenciales de Prueba (solo Sandbox) */}
+            {/* Panel de acceso para votantes (entorno de pruebas): credenciales demo o instrucciones para unidades reales */}
             {isDemo && (
               <div className="bg-amber-50 dark:bg-amber-900/20 rounded-3xl shadow-lg border border-amber-200 dark:border-amber-800 overflow-hidden">
                 <div className="p-4 border-b border-amber-200 dark:border-amber-800">
                   <h2 className="text-base font-bold text-amber-900 dark:text-amber-100 flex items-center gap-2">
                     <Users className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                    Credenciales de Prueba
+                    {soloUnidadesDemo ? 'Credenciales de Prueba' : 'Cómo dar acceso a los votantes'}
                   </h2>
-                  <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
-                    Usa estos correos en el login de votación para simular votantes (copia y pega).
-                  </p>
+                  {soloUnidadesDemo ? (
+                    <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
+                      Usa estos correos en el login de votación para simular votantes (copia y pega). Cada correo representa una de las 10 unidades de demostración.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
+                      Los votantes acceden con el <strong>correo o teléfono</strong> registrado en cada unidad. Comparte el enlace de votación más abajo; cada propietario o residente debe ingresar con el mismo email o teléfono que figure en su unidad. Si no han creado unidades aún, ve a <strong>Unidades</strong> para cargarlas y revisar los datos de contacto.
+                    </p>
+                  )}
                 </div>
-                <div className="overflow-x-auto max-h-56 overflow-y-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-amber-100/50 dark:bg-amber-900/30 sticky top-0">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-amber-900 dark:text-amber-100">#</th>
-                        <th className="px-3 py-2 text-left font-semibold text-amber-900 dark:text-amber-100">Correo</th>
-                        <th className="px-3 py-2 w-16 text-right font-semibold text-amber-900 dark:text-amber-100">Copiar</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-amber-200 dark:divide-amber-800">
-                      {Array.from({ length: 10 }, (_, i) => {
-                        const email = `test${i + 1}@asambleas.online`
-                        return (
-                          <tr key={email} className="hover:bg-amber-100/30 dark:hover:bg-amber-900/20">
-                            <td className="px-3 py-2 text-amber-800 dark:text-amber-200">{i + 1}</td>
-                            <td className="px-3 py-2 font-mono text-amber-900 dark:text-amber-100">{email}</td>
-                            <td className="px-3 py-2 text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-amber-700 dark:text-amber-300 hover:bg-amber-200/50 dark:hover:bg-amber-800/50"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(email)
-                                  toast.success('Correo copiado')
-                                }}
-                                title="Copiar correo"
-                              >
-                                <Copy className="w-4 h-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                {soloUnidadesDemo ? (
+                  <div className="overflow-x-auto max-h-56 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-amber-100/50 dark:bg-amber-900/30 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-amber-900 dark:text-amber-100">#</th>
+                          <th className="px-3 py-2 text-left font-semibold text-amber-900 dark:text-amber-100">Correo</th>
+                          <th className="px-3 py-2 w-16 text-right font-semibold text-amber-900 dark:text-amber-100">Copiar</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-amber-200 dark:divide-amber-800">
+                        {Array.from({ length: 10 }, (_, i) => {
+                          const email = `test${i + 1}@asambleas.online`
+                          return (
+                            <tr key={email} className="hover:bg-amber-100/30 dark:hover:bg-amber-900/20">
+                              <td className="px-3 py-2 text-amber-800 dark:text-amber-200">{i + 1}</td>
+                              <td className="px-3 py-2 font-mono text-amber-900 dark:text-amber-100">{email}</td>
+                              <td className="px-3 py-2 text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-amber-700 dark:text-amber-300 hover:bg-amber-200/50 dark:hover:bg-amber-800/50"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(email)
+                                    toast.success('Correo copiado')
+                                  }}
+                                  title="Copiar correo"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </Button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-4 space-y-2 text-sm text-amber-800 dark:text-amber-200">
+                    <p><strong>Pasos para el administrador:</strong></p>
+                    <ol className="list-decimal list-inside space-y-1 text-xs">
+                      <li>Comparte el <strong>enlace de votación</strong> (más abajo) por WhatsApp, correo o como prefieras.</li>
+                      <li>Cada persona ingresa en ese enlace e introduce su <strong>correo</strong> o <strong>teléfono</strong> (el que está en la ficha de su unidad).</li>
+                      <li>Si alguien no puede entrar, revisa en Unidades que su email o teléfono esté bien cargado.</li>
+                    </ol>
+                    <Link
+                      href="/dashboard/unidades"
+                      className="inline-flex items-center gap-1.5 mt-2 text-xs font-medium text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 underline"
+                    >
+                      <Building2 className="w-4 h-4" />
+                      Ir a Unidades para ver o editar contactos
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
 
