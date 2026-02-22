@@ -13,6 +13,9 @@ import { useToast } from '@/components/providers/ToastProvider'
 
 const STORAGE_EMAIL_KEY = (codigo: string) => `votar_email_${codigo}`
 
+/** Umbral por defecto según Ley 675: mayoría simple (>50%) — 51% para aprobación */
+const UMBRAL_APROBACION_DEFECTO = 51
+
 function mensajeErrorAmigable(msg: string): string {
   const m = msg.toLowerCase()
   if (m.includes('no se encontraron unidades') || m.includes('length === 0')) return 'Este correo o teléfono no está asociado a ninguna unidad en esta asamblea. Revisa el dato o contacta al administrador.'
@@ -1195,22 +1198,25 @@ export default function VotacionPublicaPage() {
                               </p>
                             </div>
                           </div>
-                          {pregunta.umbral_aprobacion != null && pregunta.umbral_aprobacion > 0 && (
-                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                              <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                                Umbral de aprobación: {pregunta.umbral_aprobacion}%
-                              </p>
-                              {stats.resultados && stats.resultados.length > 0 && (() => {
-                                const maxPct = Math.max(...stats.resultados.map(r => r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0))
-                                const aprobado = maxPct >= pregunta.umbral_aprobacion!
-                                return (
-                                  <p className={`text-xs ${aprobado ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                                    {aprobado ? '✓ Aprobado' : '○ Pendiente'} (máx. {maxPct.toFixed(1)}%)
-                                  </p>
-                                )
-                              })()}
-                            </div>
-                          )}
+                          {/* Siempre hay umbral: el definido o el por defecto de la norma (mayoría simple 51%) */}
+                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                              Umbral de aprobación: {(pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO)}%
+                              {pregunta.umbral_aprobacion == null && (
+                                <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">(mayoría simple)</span>
+                              )}
+                            </p>
+                            {stats.resultados && stats.resultados.length > 0 && (() => {
+                              const umbralEfectivo = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
+                              const maxPct = Math.max(...stats.resultados.map(r => r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0))
+                              const aprobado = maxPct >= umbralEfectivo
+                              return (
+                                <p className={`text-xs ${aprobado ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                  {aprobado ? '✓ Aprobado' : '○ Pendiente'} (máx. {maxPct.toFixed(1)}%)
+                                </p>
+                              )
+                            })()}
+                          </div>
                           {stats.porcentaje_participacion !== undefined && (
                             <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                               <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -1261,15 +1267,13 @@ export default function VotacionPublicaPage() {
                       </div>
                       {participaciones.map(({ pregunta, stats, index }) => {
                         const pct = stats.porcentaje_participacion ?? stats.total_coeficiente ?? 0
-                        const umbral = pregunta.umbral_aprobacion ?? null
+                        const umbral = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
                         return (
                           <div key={pregunta.id}>
                             <div className="flex justify-between text-xs mb-1">
                               <span className="text-gray-600 dark:text-gray-400 truncate max-w-[70%]">
                                 Pregunta {index}
-                                {umbral != null && (
-                                  <span className="ml-1 text-slate-500 dark:text-slate-400">(umbral {umbral}%)</span>
-                                )}
+                                <span className="ml-1 text-slate-500 dark:text-slate-400">(umbral {umbral}%)</span>
                               </span>
                               <span className="font-medium text-gray-800 dark:text-gray-200 shrink-0 ml-2">
                                 {pct.toFixed(1)}%
@@ -1609,25 +1613,27 @@ export default function VotacionPublicaPage() {
                                   })}
                                 </div>
 
-                                {/* Umbral de aprobación y estado */}
-                                {pregunta.umbral_aprobacion != null && pregunta.umbral_aprobacion > 0 && (
-                                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                                    {(() => {
-                                      const maxPct = Math.max(...stats.resultados.map((r: any) => parseFloat(r.porcentaje_coeficiente_total || r.porcentaje_coeficiente || 0)))
-                                      const aprobado = maxPct >= pregunta.umbral_aprobacion!
-                                      return (
-                                        <div className="flex justify-between items-center text-sm">
-                                          <span className="text-gray-600 dark:text-gray-400">
-                                            Umbral de aprobación: {pregunta.umbral_aprobacion}%
-                                          </span>
-                                          <span className={`font-semibold ${aprobado ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                                            {aprobado ? '✓ Aprobado' : '○ No aprobado'} (máx. {maxPct.toFixed(1)}%)
-                                          </span>
-                                        </div>
-                                      )
-                                    })()}
-                                  </div>
-                                )}
+                                {/* Siempre hay umbral: el definido o el por defecto (mayoría simple 51%) */}
+                                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                  {(() => {
+                                    const umbralEfectivo = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
+                                    const maxPct = Math.max(...stats.resultados.map((r: any) => parseFloat(r.porcentaje_coeficiente_total || r.porcentaje_coeficiente || 0)))
+                                    const aprobado = maxPct >= umbralEfectivo
+                                    return (
+                                      <div className="flex justify-between items-center text-sm">
+                                        <span className="text-gray-600 dark:text-gray-400">
+                                          Umbral de aprobación: {umbralEfectivo}%
+                                          {pregunta.umbral_aprobacion == null && (
+                                            <span className="text-gray-500 dark:text-gray-400 ml-1">(mayoría simple)</span>
+                                          )}
+                                        </span>
+                                        <span className={`font-semibold ${aprobado ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                          {aprobado ? '✓ Aprobado' : '○ No aprobado'} (máx. {maxPct.toFixed(1)}%)
+                                        </span>
+                                      </div>
+                                    )
+                                  })()}
+                                </div>
                                 {/* Participación Total */}
                                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                                   <div className="flex justify-between items-center text-sm">
