@@ -1163,107 +1163,6 @@ export default function VotacionPublicaPage() {
                           )
                         })}
                       </div>
-
-                      {/* Estadísticas: participación general + cada opción con % y si pasó umbral */}
-                      {stats && stats.total_votos !== undefined && (
-                        <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center">
-                              <BarChart3 className="w-4 h-4 mr-2" />
-                              Avance de la votación
-                            </h4>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              Actualización cada 10s
-                            </div>
-                          </div>
-                          {/* Participación general */}
-                          <div className="mb-4">
-                            <div className="flex justify-between text-xs mb-1">
-                              <span className="text-gray-600 dark:text-gray-400">Participación general</span>
-                              <span className="font-medium text-gray-800 dark:text-gray-200">
-                                {(stats.porcentaje_participacion ?? 0).toFixed(1)}% ({stats.total_votos || 0} votos)
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div
-                                className="bg-indigo-500 h-2 rounded-full transition-all duration-500"
-                                style={{ width: `${Math.min(stats.porcentaje_participacion ?? 0, 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                          {/* Umbral e indicador de aprobación */}
-                          <div className="mb-3">
-                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                              Umbral de aprobación: {(pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO)}%
-                              {pregunta.umbral_aprobacion == null && (
-                                <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">(mayoría simple)</span>
-                              )}
-                            </p>
-                          </div>
-                          {/* Cada opción con barra y % (como en la sección de creación de preguntas) */}
-                          <div className="space-y-3">
-                            {(stats.resultados ?? []).map((r: { opcion_id?: string; opcion_texto?: string; color?: string; votos_cantidad?: number; porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }, ri: number) => {
-                              const pct = pctRelevante(r, pregunta.tipo_votacion)
-                              const umbralEfectivo = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
-                              const pasaUmbral = pct >= umbralEfectivo
-                              return (
-                                <div key={r.opcion_id ?? `opt-${index}-${ri}`}>
-                                  <div className="flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-2">
-                                      <div
-                                        className="w-3 h-3 rounded-full shrink-0"
-                                        style={{ backgroundColor: r.color || '#6366f1' }}
-                                      />
-                                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                        {r.opcion_texto ?? '—'}
-                                      </span>
-                                    </div>
-                                    <div className="text-right">
-                                      <span className={`text-sm font-bold ${pasaUmbral ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`}>
-                                        {pct.toFixed(1)}%
-                                      </span>
-                                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                                        ({r.votos_cantidad ?? 0} votos)
-                                      </span>
-                                      {pasaUmbral && (
-                                        <span className="ml-1 text-green-600 dark:text-green-400">✓</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden relative">
-                                    <div
-                                      className="h-2 rounded-full transition-all duration-500"
-                                      style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: r.color || '#6366f1' }}
-                                    />
-                                    {pct < umbralEfectivo && umbralEfectivo <= 100 && (
-                                      <div
-                                        className="absolute top-0 bottom-0 w-0.5 bg-amber-500"
-                                        style={{ left: `${umbralEfectivo}%` }}
-                                        title={`Umbral ${umbralEfectivo}%`}
-                                      />
-                                    )}
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                          {/* Resultado global: Aprobado / Pendiente */}
-                          {stats.resultados && stats.resultados.length > 0 && (() => {
-                            const umbralEfectivo = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
-                            const maxPct = Math.max(...stats.resultados.map((r: { porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }) =>
-                              pctRelevante(r, pregunta.tipo_votacion)))
-                            const aprobado = maxPct >= umbralEfectivo
-                            return (
-                              <div className={`mt-3 py-2 px-3 rounded-lg text-center text-sm font-semibold ${aprobado ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'}`}>
-                                {aprobado ? '✓ Aprobado' : '○ Pendiente'} — Mayoría necesaria ({umbralEfectivo}%). Máx. opción: {maxPct.toFixed(1)}%
-                              </div>
-                            )
-                          })()}
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-                            ℹ️ {pregunta.tipo_votacion === 'nominal' ? 'Porcentajes sobre total de unidades (un voto por unidad)' : 'Porcentajes sobre coeficiente total del conjunto (Ley 675)'}
-                          </p>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )
@@ -1320,8 +1219,8 @@ export default function VotacionPublicaPage() {
                       </div>
                       <div className="mb-3">
                         <div className="flex justify-between text-xs mb-1">
-                          <span className="text-gray-600 dark:text-gray-400">Participación</span>
-                          <span className="font-medium text-gray-800 dark:text-gray-200">{participacion.toFixed(1)}%</span>
+                          <span className="text-gray-600 dark:text-gray-400">Participación general</span>
+                          <span className="font-medium text-gray-800 dark:text-gray-200">{participacion.toFixed(1)}% ({stats.total_votos ?? 0} votos)</span>
                         </div>
                         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                           <div
@@ -1331,7 +1230,7 @@ export default function VotacionPublicaPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        {resultados.map((r: { opcion_id?: string; opcion_texto?: string; color?: string; porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }, ri: number) => {
+                        {resultados.map((r: { opcion_id?: string; opcion_texto?: string; color?: string; votos_cantidad?: number; porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }, ri: number) => {
                           const pct = pctRelevante(r, pregunta.tipo_votacion)
                           const pasaUmbral = pct >= umbral
                           return (
@@ -1344,7 +1243,7 @@ export default function VotacionPublicaPage() {
                                 <div className="flex justify-between text-xs mb-0.5">
                                   <span className="text-gray-700 dark:text-gray-300 truncate">{r.opcion_texto ?? '—'}</span>
                                   <span className={`font-medium shrink-0 ml-2 ${pasaUmbral ? 'text-green-600 dark:text-green-400' : ''}`}>
-                                    {pct.toFixed(1)}%{pasaUmbral ? ' ✓' : ''}
+                                    {pct.toFixed(1)}% ({r.votos_cantidad ?? 0} votos){pasaUmbral ? ' ✓' : ''}
                                   </span>
                                 </div>
                                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden relative">
@@ -1365,6 +1264,19 @@ export default function VotacionPublicaPage() {
                           )
                         })}
                       </div>
+                      {/* Resultado global: Aprobado / Pendiente */}
+                      {resultados.length > 0 && (() => {
+                        const maxPctLocal = Math.max(...resultados.map((r) => pctRelevante(r, pregunta.tipo_votacion)))
+                        const aprobado = maxPctLocal >= umbral
+                        return (
+                          <div className={`mt-3 py-2 px-3 rounded-lg text-center text-sm font-semibold ${aprobado ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'}`}>
+                            {aprobado ? '✓ Aprobado' : '○ Pendiente'} — Mayoría necesaria ({umbral}%). Máx. opción: {maxPctLocal.toFixed(1)}%
+                          </div>
+                        )
+                      })()}
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                        {pregunta.tipo_votacion === 'nominal' ? 'Porcentajes sobre total de unidades (un voto por unidad)' : 'Porcentajes sobre coeficiente total del conjunto (Ley 675)'}
+                      </p>
                     </div>
                   )
                 })}
