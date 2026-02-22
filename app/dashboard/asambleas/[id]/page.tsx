@@ -186,6 +186,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [reiniciandoDemo, setReiniciandoDemo] = useState(false)
   const [reabriendo, setReabriendo] = useState(false)
   const [sandboxToggleLoading, setSandboxToggleLoading] = useState(false)
+  const [accesoVotantesRealesExpandido, setAccesoVotantesRealesExpandido] = useState(false)
 
   // Registrar voto a nombre de un residente (admin)
   const [showRegistroVotoAdmin, setShowRegistroVotoAdmin] = useState(false)
@@ -1770,19 +1771,30 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   </div>
                 ) : (
                   <div className="p-4 space-y-2 text-sm text-amber-800 dark:text-amber-200">
-                    <p><strong>Pasos para el administrador:</strong></p>
-                    <ol className="list-decimal list-inside space-y-1 text-xs">
-                      <li>Comparte el <strong>enlace de votación</strong> (más abajo) por WhatsApp, correo o como prefieras.</li>
-                      <li>Cada persona ingresa en ese enlace e introduce su <strong>correo</strong> o <strong>teléfono</strong> (el que está en la ficha de su unidad).</li>
-                      <li>Si alguien no puede entrar, revisa en Unidades que su email o teléfono esté bien cargado.</li>
-                    </ol>
-                    <Link
-                      href="/dashboard/unidades"
-                      className="inline-flex items-center gap-1.5 mt-2 text-xs font-medium text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 underline"
+                    <button
+                      type="button"
+                      onClick={() => setAccesoVotantesRealesExpandido((v) => !v)}
+                      className="w-full flex items-center justify-between gap-2 text-left font-semibold text-amber-900 dark:text-amber-100 hover:bg-amber-100/30 dark:hover:bg-amber-900/20 rounded-lg px-2 py-1.5 -mx-2 -mt-1"
                     >
-                      <Building2 className="w-4 h-4" />
-                      Ir a Unidades para ver o editar contactos
-                    </Link>
+                      <span>Pasos para el administrador</span>
+                      {accesoVotantesRealesExpandido ? <ChevronUp className="w-4 h-4 shrink-0" /> : <ChevronDown className="w-4 h-4 shrink-0" />}
+                    </button>
+                    {accesoVotantesRealesExpandido && (
+                      <>
+                        <ol className="list-decimal list-inside space-y-1 text-xs">
+                          <li>Comparte el <strong>enlace de votación</strong> (más abajo) por WhatsApp, correo o como prefieras.</li>
+                          <li>Cada persona ingresa en ese enlace e introduce su <strong>correo</strong> o <strong>teléfono</strong> (el que está en la ficha de su unidad).</li>
+                          <li>Si alguien no puede entrar, revisa en Unidades que su email o teléfono esté bien cargado.</li>
+                        </ol>
+                        <Link
+                          href="/dashboard/unidades"
+                          className="inline-flex items-center gap-1.5 mt-2 text-xs font-medium text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 underline"
+                        >
+                          <Building2 className="w-4 h-4" />
+                          Ir a Unidades para ver o editar contactos
+                        </Link>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
