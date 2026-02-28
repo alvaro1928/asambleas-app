@@ -89,7 +89,7 @@ export default function ConfiguracionPage() {
     { id: 'conjunto', label: 'Datos del conjunto', icon: Building2, orden: 3 },
     { id: 'poderes-correo', label: 'Poderes y correo', icon: Users, orden: 4 },
     { id: 'pagos', label: 'Mis pagos', icon: Receipt, orden: 5 },
-    { id: 'uso-tokens', label: 'Uso de tokens', icon: Coins, orden: 6 },
+    { id: 'uso-tokens', label: 'Uso de tokens (créditos)', icon: Coins, orden: 6 },
   ].sort((a, b) => (a.orden as number) - (b.orden as number))
 
   useEffect(() => {
@@ -1022,7 +1022,7 @@ export default function ConfiguracionPage() {
                     <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
                       <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Fecha y hora</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Operación</th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Tokens</th>
+                      <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Tokens (créditos)</th>
                       <th className="text-right py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Saldo restante</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300">Detalle</th>
                     </tr>

@@ -18,17 +18,17 @@ export function GuiaTokensModal({ open, onOpenChange, colorPrincipalHex = COLOR_
         <DialogHeader className="p-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
           <DialogTitle className="flex items-center gap-2 text-xl text-slate-200">
             <HelpCircle className="w-6 h-6 text-violet-400" style={{ color: colorPrincipalHex }} />
-            Guía: tokens y funcionalidades
+            Guía: tokens (créditos) y funcionalidades
           </DialogTitle>
         </DialogHeader>
         <div className="p-6 grid md:grid-cols-2 gap-8">
           <div className="space-y-4">
             <h4 className="font-semibold text-slate-200 flex items-center gap-2">
               <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm" style={{ backgroundColor: `${colorPrincipalHex}30`, color: colorPrincipalHex }}>1</span>
-              ¿Qué son los tokens y cuándo se consumen?
+              ¿Qué son los tokens (créditos) y cuándo se consumen?
             </h4>
             <p className="text-sm text-slate-400">
-              Los tokens son créditos de tu billetera. El costo equivale al número de unidades de tu conjunto (1 token = 1 unidad). <strong className="text-slate-300">Solo se cobran una vez</strong> al realizar esta acción:
+              Los tokens (créditos) son créditos de tu billetera. El costo equivale al número de unidades de tu conjunto (1 token (crédito) = 1 unidad). <strong className="text-slate-300">Solo se cobran una vez</strong> al realizar esta acción:
             </p>
             <ul className="list-none space-y-2 text-sm text-slate-400">
               <li className="flex items-start gap-2">
@@ -37,10 +37,10 @@ export function GuiaTokensModal({ open, onOpenChange, colorPrincipalHex = COLOR_
               </li>
             </ul>
             <p className="text-sm text-slate-400">
-              <strong className="text-slate-300">No consumen tokens:</strong> entrar a la asamblea, crear preguntas, importar unidades, registrar votos a nombre de un residente ni generar/descargar el acta (una vez activada).
+              <strong className="text-slate-300">No consumen tokens (créditos):</strong> entrar a la asamblea, crear preguntas, importar unidades, registrar votos a nombre de un residente ni generar/descargar el acta (una vez activada).
             </p>
             <p className="text-xs text-slate-500">
-              Si tu saldo es menor al costo, no podrás activar la asamblea hasta que compres más tokens. La compra es desde 20 tokens en adelante por la pasarela de pagos.
+              Si tu saldo es menor al costo, no podrás activar la asamblea hasta que compres más tokens (créditos). La compra es desde 20 tokens (créditos) en adelante por la pasarela de pagos.
             </p>
           </div>
           <div className="space-y-4">
@@ -67,7 +67,7 @@ export function GuiaTokensModal({ open, onOpenChange, colorPrincipalHex = COLOR_
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>
-                <span><strong className="text-slate-300">Billetera de tokens</strong> — Comprar tokens desde 20 en adelante por pasarela de pagos; los nuevos gestores reciben un bono de bienvenida.</span>
+                <span><strong className="text-slate-300">Billetera de tokens (créditos)</strong> — Comprar tokens (créditos) desde 20 en adelante por pasarela de pagos; los nuevos gestores reciben un bono de bienvenida.</span>
               </li>
             </ul>
           </div>

@@ -447,7 +447,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           {saldoInsuficiente && (
             <div className="mb-4 rounded-3xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 flex items-center gap-3">
               <span className="text-amber-400 font-semibold">Saldo insuficiente para procesar esta asamblea.</span>
-              <span className="text-slate-300 text-sm">Billetera: {tokensDisponibles} tokens · Se requieren {totalUnidadesConjunto} para esta operación.</span>
+              <span className="text-slate-300 text-sm">Billetera: {tokensDisponibles} tokens (créditos) · Se requieren {totalUnidadesConjunto} para esta operación.</span>
             </div>
           )}
 

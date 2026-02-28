@@ -335,7 +335,7 @@ function AsambleasPageContent() {
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
               <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600 min-w-0">
                 <span className="text-xs font-medium text-slate-600 dark:text-slate-400 shrink-0">Billetera:</span>
-                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens</span>
+                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens (créditos)</span>
                 {costoOperacion > 0 && (
                   <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">(costo: {costoOperacion})</span>
                 )}
@@ -346,7 +346,7 @@ function AsambleasPageContent() {
                 size="sm"
                 className="border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 shrink-0"
                 onClick={() => setShowWelcomeDemoModal(true)}
-                title="Crear asamblea de demostración (entorno de pruebas) sin consumir tokens"
+                title="Crear asamblea de demostración (entorno de pruebas) sin consumir tokens (créditos)"
               >
                 <FlaskConical className="w-4 h-4 sm:mr-2 shrink-0" />
                 <span className="hidden sm:inline">Probar en entorno de pruebas</span>

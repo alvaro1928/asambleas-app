@@ -211,7 +211,7 @@ export default function NuevaAsambleaPage() {
           {!statusLoading && status && (
             <div className="flex items-center gap-2 rounded-3xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600 mt-3 sm:mt-0">
               <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
-              <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens</span>
+              <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens (créditos)</span>
               {costoOperacion > 0 && (
                 <span className="text-xs text-slate-500 dark:text-slate-400">(costo al activar: {costoOperacion})</span>
               )}
@@ -234,7 +234,7 @@ export default function NuevaAsambleaPage() {
                     No tienes permiso para este conjunto
                   </h2>
                   <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    Tu usuario no está asociado a este conjunto. <strong>No es un tema de tokens</strong> — primero debes pertenecer al conjunto para crear asambleas.
+                    Tu usuario no está asociado a este conjunto. <strong>No es un tema de tokens (créditos)</strong> — primero debes pertenecer al conjunto para crear asambleas.
                   </p>
                   <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                     Elige otro conjunto en el selector del dashboard o pide al administrador que te agregue a este.
@@ -286,7 +286,7 @@ export default function NuevaAsambleaPage() {
               <div className="flex items-center gap-2 rounded-3xl bg-amber-100 dark:bg-amber-900/30 px-4 py-3 border border-amber-200 dark:border-amber-800">
                 <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                 <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                  No hay suficientes tokens en tu billetera. Se descontan al activar votación, descargar acta o registrar votos manuales; compra más créditos.
+                  No hay suficientes tokens (créditos) en tu billetera. Se descontan al activar votación, descargar acta o registrar votos manuales; compra más créditos.
                 </p>
               </div>
               <ComprarTokensCTA

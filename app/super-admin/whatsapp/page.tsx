@@ -107,7 +107,7 @@ export default function SuperAdminWhatsAppPage() {
             <MessageCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
             <div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">WhatsApp (Meta API)</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Token, Phone Number ID, plantilla y tokens por mensaje</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Token, Phone Number ID, plantilla y tokens (créditos) por mensaje</p>
             </div>
           </div>
         </div>
@@ -168,7 +168,7 @@ export default function SuperAdminWhatsAppPage() {
             </div>
 
             <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tokens por mensaje WhatsApp</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tokens (créditos) por mensaje WhatsApp</label>
               <input
                 type="number"
                 min={1}
@@ -181,7 +181,7 @@ export default function SuperAdminWhatsAppPage() {
                 className="w-24 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 max-w-xl">
-                <strong>Meta cobra por mensaje tipo marketing</strong> aproximadamente USD 0,025 – 0,14 según el país (Colombia suele estar en el rango bajo). Cada envío masivo descuenta (mensajes enviados × este valor) tokens del gestor. Fija este número para que <strong>(tokens por mensaje × precio por token en COP)</strong> sea un poco mayor que el costo en COP de Meta, así no pierdes dinero.
+                <strong>Meta cobra por mensaje tipo marketing</strong> aproximadamente USD 0,025 – 0,14 según el país (Colombia suele estar en el rango bajo). Cada envío masivo descuenta (mensajes enviados × este valor) tokens (créditos) del gestor. Fija este número para que <strong>(tokens (créditos) por mensaje × precio por token (crédito) en COP)</strong> sea un poco mayor que el costo en COP de Meta, así no pierdes dinero.
               </p>
             </div>
 

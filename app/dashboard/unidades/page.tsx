@@ -272,7 +272,7 @@ function UnidadesPageContent() {
       const enviados = data.enviados ?? 0
       const total = data.total ?? 0
       const tokens = data.tokens_descontados ?? 0
-      toast.success(`WhatsApp: enviados ${enviados} de ${total} mensajes. Se descontaron ${tokens} tokens.`)
+      toast.success(`WhatsApp: enviados ${enviados} de ${total} mensajes. Se descontaron ${tokens} tokens (créditos).`)
       setShowWhatsAppModal(false)
       setSelectedUnidadIds(new Set())
     } catch (e) {
@@ -474,7 +474,7 @@ function UnidadesPageContent() {
                   variant="outline"
                   onClick={openWhatsAppModal}
                   className="border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 gap-2"
-                  title="Enviar enlace de votación por WhatsApp a las unidades seleccionadas (se descontarán tokens)"
+                  title="Enviar enlace de votación por WhatsApp a las unidades seleccionadas (se descontarán tokens (créditos))"
                 >
                   <MessageCircle className="w-4 h-4" />
                   <span className="hidden sm:inline">Notificar vía WhatsApp</span>
@@ -849,7 +849,7 @@ function UnidadesPageContent() {
                 const totalTokens = numMensajes * tokensPorMensajeWhatsapp
                 return (
                   <>
-                    Se enviará el enlace de votación por WhatsApp a {numMensajes} {numMensajes === 1 ? 'unidad' : 'unidades'} {selectedUnidadIds.size > 0 ? 'seleccionada(s)' : 'con teléfono del conjunto'}. Se descontarán <strong>{totalTokens} tokens</strong> de tu saldo ({numMensajes} mensaje{numMensajes !== 1 ? 's' : ''} × {tokensPorMensajeWhatsapp} {tokensPorMensajeWhatsapp === 1 ? 'token' : 'tokens'} por mensaje).
+                    Se enviará el enlace de votación por WhatsApp a {numMensajes} {numMensajes === 1 ? 'unidad' : 'unidades'} {selectedUnidadIds.size > 0 ? 'seleccionada(s)' : 'con teléfono del conjunto'}. Se descontarán <strong>{totalTokens} tokens (créditos)</strong> de tu saldo ({numMensajes} mensaje{numMensajes !== 1 ? 's' : ''} × {tokensPorMensajeWhatsapp} {tokensPorMensajeWhatsapp === 1 ? 'token (crédito)' : 'tokens (créditos)'} por mensaje).
                   </>
                 )
               })()}

@@ -82,7 +82,7 @@ export default function DashboardPage() {
       }
       const pago = params.get('pago')
       if (pago === 'ok') {
-        setSuccessMessage('Pago realizado. Tus tokens se acreditarán en unos segundos. Si no ves el saldo actualizado en 1 minuto, ve a Configuración → Mis pagos.')
+        setSuccessMessage('Pago realizado. Tus tokens (créditos) se acreditarán en unos segundos. Si no ves el saldo actualizado en 1 minuto, ve a Configuración → Mis pagos.')
         setTimeout(() => setSuccessMessage(''), 10000)
         window.history.replaceState({}, '', '/dashboard')
       }
@@ -387,7 +387,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2 min-w-0">
                     <Wallet className="w-4 h-4 shrink-0" style={{ color: colorPrincipalHex }} />
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-200">Billetera</span>
-                    <span className="text-sm font-bold truncate" style={{ color: colorPrincipalHex }}>{tokensDisponibles} tokens</span>
+                    <span className="text-sm font-bold truncate" style={{ color: colorPrincipalHex }}>{tokensDisponibles} tokens (créditos)</span>
                   </div>
                   {billeteraColapsada ? <ChevronDown className="w-4 h-4 shrink-0 text-slate-400" /> : <ChevronUp className="w-4 h-4 shrink-0 text-slate-400" />}
                 </button>
@@ -407,13 +407,13 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <p className="text-lg font-bold leading-tight" style={{ color: colorPrincipalHex }}>
-                        {tokensDisponibles} <span className="text-sm font-medium text-slate-300">tokens</span>
+                        {tokensDisponibles} <span className="text-sm font-medium text-slate-300">tokens (créditos)</span>
                       </p>
                     </div>
                     {costoOperacion > 0 && (
                       <div>
                         <p className="text-[10px] uppercase tracking-wider text-slate-400">Costo al activar asamblea</p>
-                        <p className="text-sm font-semibold text-slate-200">{costoOperacion} tokens</p>
+                        <p className="text-sm font-semibold text-slate-200">{costoOperacion} tokens (créditos)</p>
                       </div>
                     )}
                     {precioProCop != null && precioProCop > 0 && (
@@ -440,7 +440,7 @@ export default function DashboardPage() {
       <Dialog open={modalCompraOpen} onOpenChange={setModalCompraOpen}>
                 <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-sm">
                   <DialogHeader>
-                    <DialogTitle className="text-slate-100">Comprar tokens</DialogTitle>
+                    <DialogTitle className="text-slate-100">Comprar tokens (créditos)</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 pt-2">
                     <div className="flex gap-3">
@@ -467,11 +467,11 @@ export default function DashboardPage() {
                     </div>
                     {compraRapida ? (
                       <p className="text-sm text-slate-400">
-                        Cantidad: <strong className="text-slate-200">{Math.max(MIN_TOKENS_COMPRA, costoOperacion)}</strong> tokens (mín. {MIN_TOKENS_COMPRA}, según unidades de tu conjunto)
+                        Cantidad: <strong className="text-slate-200">{Math.max(MIN_TOKENS_COMPRA, costoOperacion)}</strong> tokens (créditos) (mín. {MIN_TOKENS_COMPRA}, según unidades de tu conjunto)
                       </p>
                     ) : (
                       <div>
-                        <label className="block text-sm text-slate-400 mb-1">Cantidad de tokens (mín. {MIN_TOKENS_COMPRA})</label>
+                        <label className="block text-sm text-slate-400 mb-1">Cantidad de tokens (créditos) (mín. {MIN_TOKENS_COMPRA})</label>
                         <input
                           type="number"
                           min={1}
@@ -488,7 +488,7 @@ export default function DashboardPage() {
                           className="w-full rounded-2xl border border-slate-600 bg-slate-800 px-3 py-2 text-white"
                         />
                         {cantidadManual > 0 && cantidadManual < MIN_TOKENS_COMPRA && (
-                          <p className="text-xs text-amber-400 mt-1">Mínimo {MIN_TOKENS_COMPRA} tokens para comprar</p>
+                          <p className="text-xs text-amber-400 mt-1">Mínimo {MIN_TOKENS_COMPRA} tokens (créditos) para comprar</p>
                         )}
                       </div>
                     )}
@@ -515,7 +515,7 @@ export default function DashboardPage() {
                         )}
                       </button>
                     ) : (
-                      <UiTooltip content="La pasarela de pagos no está configurada. Contacta al administrador para habilitar la compra de tokens.">
+                      <UiTooltip content="La pasarela de pagos no está configurada. Contacta al administrador para habilitar la compra de tokens (créditos).">
                         <span className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-3xl bg-slate-500/50 text-slate-300 text-sm font-semibold cursor-not-allowed">
                           <Plus className="w-4 h-4" />
                           Ir a pagar
@@ -571,7 +571,7 @@ export default function DashboardPage() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-3xl border border-white/20 text-slate-200 hover:text-white hover:bg-white/10 transition-colors text-sm"
             >
               <HelpCircle className="w-4 h-4 shrink-0" style={{ color: colorPrincipalHex }} />
-              Guía: tokens y funcionalidades
+              Guía: tokens (créditos) y funcionalidades
             </button>
           </div>
 
@@ -598,13 +598,13 @@ export default function DashboardPage() {
                 {selectedConjuntoId && (
                   <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
                     <span className="text-sm text-slate-400">
-                      Saldo: <strong className="text-slate-200">{tokensDisponibles} tokens</strong>
+                      Saldo: <strong className="text-slate-200">{tokensDisponibles} tokens (créditos)</strong>
                     </span>
                     <button
                       type="button"
                       onClick={() => setModalCompraOpen(true)}
                       className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-2xl border border-white/20 text-slate-200 hover:text-white hover:bg-white/10 transition-colors text-sm font-medium shrink-0"
-                      title="Abrir modal de compra de tokens"
+                      title="Abrir modal de compra de tokens (créditos)"
                     >
                       <Plus className="w-4 h-4 shrink-0" />
                       Cargar Créditos
@@ -687,7 +687,7 @@ export default function DashboardPage() {
                     <span>Importar Unidades</span>
                   </Link>
                 </UiTooltip>
-                <UiTooltip content="Ver y crear asambleas, preguntas y votaciones del conjunto. Los tokens solo se consumen al activar una asamblea.">
+                <UiTooltip content="Ver y crear asambleas, preguntas y votaciones del conjunto. Los tokens (créditos) solo se consumen al activar una asamblea.">
                   <Link
                     href="/dashboard/asambleas"
                     className="inline-flex items-center justify-center px-8 py-4 text-white font-semibold rounded-3xl shadow-lg hover:opacity-90 transition-all duration-200 space-x-2"
@@ -699,7 +699,7 @@ export default function DashboardPage() {
                     <span>Asambleas</span>
                   </Link>
                 </UiTooltip>
-                <UiTooltip content="Crear una asamblea de prueba con datos de ejemplo, sin consumir tokens">
+                <UiTooltip content="Crear una asamblea de prueba con datos de ejemplo, sin consumir tokens (créditos)">
                   <Link
                     href="/dashboard/asambleas?demo=1"
                     className="inline-flex items-center justify-center px-6 py-4 border-2 border-amber-400/80 text-amber-200 hover:bg-amber-400/20 font-semibold rounded-3xl transition-all duration-200 space-x-2"

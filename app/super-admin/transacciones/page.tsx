@@ -156,7 +156,7 @@ export default function SuperAdminTransaccionesPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data?.ok) {
-        toast.success(data?.message ?? 'Tokens acreditados correctamente.')
+        toast.success(data?.message ?? 'Tokens (créditos) acreditados correctamente.')
         setReprocesarTxId('')
         loadData()
       } else {
@@ -262,7 +262,7 @@ export default function SuperAdminTransaccionesPage() {
                   Reprocesando...
                 </>
               ) : (
-                'Reprocesar y acreditar tokens'
+                'Reprocesar y acreditar tokens (créditos)'
               )}
             </Button>
           </div>

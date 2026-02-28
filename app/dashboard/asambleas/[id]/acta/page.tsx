@@ -387,12 +387,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       })
       const data = await res.json().catch(() => ({}))
       if (res.status === 402) {
-        setGenerarError(data.error ?? `Saldo insuficiente: Necesitas ${costoOperacion} tokens y tienes ${tokensDisponibles}.`)
+        setGenerarError(data.error ?? `Saldo insuficiente: Necesitas ${costoOperacion} tokens (créditos) y tienes ${tokensDisponibles}.`)
         setGenerando(false)
         return
       }
       if (!res.ok) {
-        setGenerarError(data.error ?? 'Error al descontar tokens')
+        setGenerarError(data.error ?? 'Error al descontar tokens (créditos)')
         setGenerando(false)
         return
       }
@@ -444,8 +444,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             Saldo insuficiente para esta operación. La descarga del acta con auditoría requiere tener en tu billetera al menos tantos tokens como unidades tiene el conjunto (1 token = 1 unidad). Recarga tokens o compra más para acceder.
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-            Tu billetera: <strong>{tokensDisponibles} tokens</strong>
-            {costoOperacion > 0 && <> • Costo al activar asamblea: {costoOperacion} tokens</>}
+            Tu billetera: <strong>{tokensDisponibles} tokens (créditos)</strong>
+            {costoOperacion > 0 && <> • Costo al activar asamblea: {costoOperacion} tokens (créditos)</>}
           </p>
           <Link href={`/dashboard/asambleas/${params.id}`}>
             <Button variant="outline" className="mb-4">
@@ -471,7 +471,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             El cobro es <strong>solo al activar la asamblea</strong> (una vez). Si ya activaste, puedes generar el acta sin nuevo cobro. Una vez generada, podrás imprimir (Ctrl+P o botón) cuantas veces quieras.
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-            Tu saldo: <strong>{tokensDisponibles} tokens</strong>
+            Tu saldo: <strong>{tokensDisponibles} tokens (créditos)</strong>
           </p>
           {generarError && (
             <p className="text-sm text-amber-600 dark:text-amber-400 mb-4">{generarError}</p>
@@ -527,7 +527,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </Link>
           <div className="flex items-center gap-2 rounded-3xl bg-slate-100 px-3 py-2 border border-slate-200">
             <span className="text-xs font-medium text-slate-600">Billetera:</span>
-            <span className="text-sm font-bold text-indigo-600">{tokensDisponibles} tokens</span>
+            <span className="text-sm font-bold text-indigo-600">{tokensDisponibles} tokens (créditos)</span>
           </div>
           <p className="text-xs text-slate-500">
             Acta generada. Imprimir (Ctrl+P o botón) no consume más tokens.

@@ -606,7 +606,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           setSinTokensModalOpen(true)
           toast.error(
             data.error ||
-              `Saldo insuficiente: Necesitas ${costoOperacion} tokens para procesar ${costoOperacion} unidades.`
+              `Saldo insuficiente: Necesitas ${costoOperacion} tokens (créditos) para procesar ${costoOperacion} unidades.`
           )
           return
         }
@@ -1091,7 +1091,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           if (data.pago_realizado === true) setAsamblea((prev) => (prev ? { ...prev, pago_realizado: true } : null))
         } catch (e) {
           console.error('Descontar token:', e)
-          toast.error('Error al descontar tokens. Necesitas ' + costoOperacion + ' tokens para activar.')
+          toast.error('Error al descontar tokens (créditos). Necesitas ' + costoOperacion + ' tokens (créditos) para activar.')
           return
         }
       }
@@ -1183,7 +1183,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       setAsamblea((prev) =>
         prev ? { ...prev, estado: 'activa', activated_at: data.activated_at ?? new Date().toISOString() } : null
       )
-      setSuccessMessage(`Asamblea reabierta. Se descontaron ${data.costo_reapertura ?? costoReapertura} tokens (10% del costo de activación).`)
+      setSuccessMessage(`Asamblea reabierta. Se descontaron ${data.costo_reapertura ?? costoReapertura} tokens (créditos) (10% del costo de activación).`)
       setTimeout(() => setSuccessMessage(''), 5000)
       loadData()
     } catch (e: any) {
@@ -1393,7 +1393,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               {/* Billetera de tokens — visible en todas las páginas de administrador */}
               <div className="flex items-center gap-2 rounded-3xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
                 <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
-                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens</span>
+                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens (créditos)</span>
                 {costoOperacion > 0 && !asamblea.pago_realizado && (
                   <span className="text-xs text-slate-500 dark:text-slate-400">(costo asamblea: {costoOperacion})</span>
                 )}
@@ -1409,10 +1409,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 type="button"
                 onClick={() => setGuiaModalOpen(true)}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
-                title="Guía: tokens y funcionalidades"
+                title="Guía: tokens (créditos) y funcionalidades"
               >
                 <HelpCircle className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                <span className="hidden sm:inline">Guía tokens</span>
+                <span className="hidden sm:inline">Guía tokens (créditos)</span>
               </button>
               <button
                 type="button"
@@ -1429,7 +1429,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   <div className="flex flex-col gap-1">
                     {!asamblea.pago_realizado && costoOperacion > 0 && (
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Al activar se cobran {costoOperacion} tokens (una sola vez); después podrás generar el acta cuantas veces quieras. Saldo: {tokensDisponibles}.
+                        Al activar se cobran {costoOperacion} tokens (créditos) (una sola vez); después podrás generar el acta cuantas veces quieras. Saldo: {tokensDisponibles}.
                       </p>
                     )}
                     <Button
@@ -1446,11 +1446,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   onClick={() => setSinTokensModalOpen(true)}
                     variant="outline"
                     className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 shrink-0"
-                    title="Saldo insuficiente. Clic para comprar tokens"
+                    title="Saldo insuficiente. Clic para comprar tokens (créditos)"
                   >
                     <Lock className="w-4 h-4 sm:mr-2 shrink-0" />
-                    <span className="hidden sm:inline">Activar (saldo insuficiente — comprar tokens)</span>
-                    <span className="sm:hidden">Comprar tokens</span>
+                    <span className="hidden sm:inline">Activar (saldo insuficiente — comprar tokens (créditos))</span>
+                    <span className="sm:hidden">Comprar tokens (créditos)</span>
                   </Button>
                 )
               )}
@@ -1472,11 +1472,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   </div>
                 ) : asamblea.estado === 'borrador' ? (
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Activa la asamblea para habilitar la generación del acta (cobro único de {costoOperacion} tokens).
+                    Activa la asamblea para habilitar la generación del acta (cobro único de {costoOperacion} tokens (créditos)).
                   </p>
                 ) : (
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Para generar el acta primero activa la asamblea (se cobran {costoOperacion} tokens una sola vez). Saldo: {tokensDisponibles}.
+                    Para generar el acta primero activa la asamblea (se cobran {costoOperacion} tokens (créditos) una sola vez). Saldo: {tokensDisponibles}.
                   </p>
                 )
               )}
@@ -1497,7 +1497,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   variant="outline"
                   onClick={() => setShowModalConfirmarReabrir(true)}
                   className="border-green-300 dark:border-green-600 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 shrink-0"
-                  title="Reabrir la asamblea para permitir votaciones de nuevo (consume tokens)"
+                  title="Reabrir la asamblea para permitir votaciones de nuevo (consume tokens (créditos))"
                 >
                   <Play className="w-4 h-4 sm:mr-2 shrink-0" />
                   <span className="hidden sm:inline">Reabrir asamblea</span>
@@ -1655,7 +1655,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           <div className="mb-6 flex justify-end">
             <div className="flex flex-col gap-1 items-end">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Registrar votos por unidad no consume tokens. Los tokens solo se usan al activar la votación o generar el acta.
+                Registrar votos por unidad no consume tokens (créditos). Los tokens (créditos) solo se usan al activar la votación o generar el acta.
               </p>
               <Button
                 variant="outline"
@@ -1684,10 +1684,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2h-2m-4-1V7a2 2 0 012-2h2a2 2 0 012 2v1M11 14l2 2 4-4" />
                   </svg>
-                  Billetera de tokens
+                  Billetera de tokens (créditos)
                 </h2>
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300">
-                  {tokensDisponibles} tokens
+                  {tokensDisponibles} tokens (créditos)
                 </span>
                 {billeteraColapsada ? <ChevronDown className="w-5 h-5 text-gray-500" /> : <ChevronUp className="w-5 h-5 text-gray-500" />}
               </button>
@@ -1695,7 +1695,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 <div className="px-6 pb-6 pt-0 space-y-3 border-t border-gray-100 dark:border-gray-700">
                   {costoOperacion > 0 && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Costo al activar la asamblea (una vez): <strong>{costoOperacion} tokens</strong>. Luego puedes generar el acta sin nuevo cobro.
+                      Costo al activar la asamblea (una vez): <strong>{costoOperacion} tokens (créditos)</strong>. Luego puedes generar el acta sin nuevo cobro.
                     </p>
                   )}
                   <Button
@@ -1703,12 +1703,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     size="sm"
                     className={`w-full ${costoOperacion > 0 && tokensDisponibles < costoOperacion ? 'border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400' : ''}`}
                     onClick={() => setSinTokensModalOpen(true)}
-                    title="Comprar más tokens para tu billetera"
+                    title="Comprar más tokens (créditos) para tu billetera"
                   >
-                    Comprar tokens
+                    Comprar tokens (créditos)
                   </Button>
                   <p className="text-xs text-gray-500 dark:text-gray-400 pt-1 border-t border-gray-100 dark:border-gray-700 mt-3">
-                    <strong>Guía:</strong> Los tokens se cobran <strong>una sola vez al activar la asamblea</strong>; eso habilita generar el acta cuantas veces quieras.
+                    <strong>Guía:</strong> Los tokens (créditos) se cobran <strong>una sola vez al activar la asamblea</strong>; eso habilita generar el acta cuantas veces quieras.
                   </p>
                 </div>
               )}
@@ -1971,10 +1971,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 <Alert className="mb-6 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
                   <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   <AlertTitle className="text-amber-900 dark:text-amber-100">
-                    Límite por saldo de tokens
+                    Límite por saldo de tokens (créditos)
                   </AlertTitle>
                   <AlertDescription className="text-amber-800 dark:text-amber-200">
-                    Con tu saldo actual de tokens puedes tener hasta {planLimits.max_preguntas_por_asamblea} pregunta{planLimits.max_preguntas_por_asamblea !== 1 ? 's' : ''} por asamblea. Compra más créditos (tokens) para crear más preguntas.
+                    Con tu saldo actual de tokens (créditos) puedes tener hasta {planLimits.max_preguntas_por_asamblea} pregunta{planLimits.max_preguntas_por_asamblea !== 1 ? 's' : ''} por asamblea. Compra más créditos (tokens) para crear más preguntas.
                     {process.env.NEXT_PUBLIC_PLAN_PRO_URL && (
                       <a
                         href={process.env.NEXT_PUBLIC_PLAN_PRO_URL}
@@ -3075,7 +3075,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               ¿Reabrir asamblea?
             </DialogTitle>
             <DialogDescription>
-              Al reabrir la asamblea se permitirá de nuevo el acceso a la votación con el mismo enlace y código. Esta acción consumirá <strong>{costoReapertura} tokens</strong> (10% del costo de la primera activación). Tu saldo actual es <strong>{tokensDisponibles} tokens</strong>. ¿Deseas continuar?
+              Al reabrir la asamblea se permitirá de nuevo el acceso a la votación con el mismo enlace y código. Esta acción consumirá <strong>{costoReapertura} tokens (créditos)</strong> (10% del costo de la primera activación). Tu saldo actual es <strong>{tokensDisponibles} tokens (créditos)</strong>. ¿Deseas continuar?
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex gap-3">
@@ -3087,7 +3087,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               disabled={reabriendo || tokensDisponibles < costoReapertura}
               onClick={handleReabrirAsamblea}
             >
-              {reabriendo ? 'Reabriendo…' : `Sí, reabrir (${costoReapertura} tokens)`}
+              {reabriendo ? 'Reabriendo…' : `Sí, reabrir (${costoReapertura} tokens (créditos))`}
             </Button>
           </div>
         </DialogContent>
@@ -3097,16 +3097,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       <Dialog open={sinTokensModalOpen} onOpenChange={setSinTokensModalOpen}>
         <DialogContent className="max-w-lg rounded-3xl">
           <DialogHeader>
-            <DialogTitle className="text-amber-800 dark:text-amber-200">¡Ups! Te faltan tokens para iniciar esta asamblea</DialogTitle>
+            <DialogTitle className="text-amber-800 dark:text-amber-200">¡Ups! Te faltan tokens (créditos) para iniciar esta asamblea</DialogTitle>
             <DialogDescription>
-              Para activar esta asamblea necesitas <strong>{costoOperacion} tokens</strong>. Tu saldo actual es <strong>{tokensDisponibles}</strong>. Compra los tokens necesarios para activar la votación; después podrás generar el acta sin nuevo cobro.
+              Para activar esta asamblea necesitas <strong>{costoOperacion} tokens (créditos)</strong>. Tu saldo actual es <strong>{tokensDisponibles}</strong>. Compra los tokens (créditos) necesarios para activar la votación; después podrás generar el acta sin nuevo cobro.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex flex-col gap-4">
             {userId ? (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad de tokens (mín. {MIN_TOKENS_COMPRA})</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad de tokens (créditos) (mín. {MIN_TOKENS_COMPRA})</label>
                   <input
                     type="number"
                     min={1}
@@ -3123,7 +3123,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     className="w-full rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-gray-100"
                   />
                   {cantidadCompraSinTokens > 0 && cantidadCompraSinTokens < MIN_TOKENS_COMPRA && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Mínimo {MIN_TOKENS_COMPRA} tokens para comprar</p>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Mínimo {MIN_TOKENS_COMPRA} tokens (créditos) para comprar</p>
                   )}
                 </div>
                 <button
@@ -3157,12 +3157,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   }}
                   className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-3xl text-white text-base font-semibold hover:opacity-90 transition-opacity disabled:opacity-70 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
                 >
-                  {checkoutLoadingSinTokens ? 'Generando enlace...' : `Comprar ${Math.max(MIN_TOKENS_COMPRA, cantidadCompraSinTokens)} tokens ahora`}
+                  {checkoutLoadingSinTokens ? 'Generando enlace...' : `Comprar ${Math.max(MIN_TOKENS_COMPRA, cantidadCompraSinTokens)} tokens (créditos) ahora`}
                 </button>
               </>
             ) : (
               <span className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-3xl bg-slate-200 dark:bg-slate-700 text-slate-500 text-base font-semibold cursor-not-allowed">
-                Inicia sesión para comprar tokens.
+                Inicia sesión para comprar tokens (créditos).
               </span>
             )}
             <Button type="button" variant="outline" onClick={() => setSinTokensModalOpen(false)} className="w-full">

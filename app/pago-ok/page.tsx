@@ -39,10 +39,10 @@ export default function PagoOkPage() {
           Gracias por completar tu compra. Valoramos tu confianza.
         </p>
         <p className="text-slate-400">
-          Si tu pago fue <strong className="text-slate-300">aprobado</strong>, los tokens se acreditarán en unos segundos. Revisa tu saldo en el dashboard o en Configuración → Mis pagos.
+          Si tu pago fue <strong className="text-slate-300">aprobado</strong>, los tokens (créditos) se acreditarán en unos segundos. Revisa tu saldo en el dashboard o en Configuración → Mis pagos.
         </p>
         <p className="text-slate-400">
-          Si el pago fue <strong className="text-slate-300">rechazado o falló</strong>, no se acreditarán tokens. Puedes intentar de nuevo desde el dashboard.
+          Si el pago fue <strong className="text-slate-300">rechazado o falló</strong>, no se acreditarán tokens (créditos). Puedes intentar de nuevo desde el dashboard.
         </p>
         <p className="text-sm text-slate-500">
           Redirigiendo al dashboard en {countdown} segundos…
