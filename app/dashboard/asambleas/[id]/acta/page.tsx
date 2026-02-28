@@ -617,18 +617,16 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             <p className="text-sm text-amber-600 dark:text-amber-400">{printError}</p>
           )}
           <div className="flex flex-wrap gap-2 items-center">
-            {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) && (
-              <a
-                href="https://opentimestamps.org"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 border-emerald-600 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors"
-                title="Verificar certificado blockchain del acta"
-              >
-                <FileText className="w-4 h-4" />
-                Verificar en blockchain
-              </a>
-            )}
+            <a
+              href="https://opentimestamps.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${(asamblea?.acta_ots_proof_base64 || actaOtsBase64) ? 'border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50' : 'border-2 border-slate-400 text-slate-600 hover:bg-slate-100'}`}
+              title="Abrir opentimestamps.org para verificar el certificado .ots"
+            >
+              <FileText className="w-4 h-4" />
+              Verificar en OpenTimestamps
+            </a>
             <Button
               onClick={handleDescargarPdf}
               disabled={descargandoPdf}
@@ -680,6 +678,47 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </div>
         </header>
 
+        {/* ── CÓMO VERIFICAR EN OPENTIMESTAMPS (siempre visible) ── */}
+        <section className="mb-8 p-4 rounded-xl border-2 border-slate-200 bg-slate-50 print:break-inside-avoid">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-slate-600 mb-3 flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            Cómo verificar este acta en OpenTimestamps
+          </h2>
+          <p className="text-sm text-slate-700 mb-4">
+            En{' '}
+            <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-600 underline">
+              opentimestamps.org
+            </a>
+            {' '}puedes comprobar que el acta no fue modificada después del sellado en Bitcoin. Sigue estos pasos:
+          </p>
+          <ol className="list-decimal list-inside space-y-2 text-sm text-slate-700 mb-4">
+            <li>
+              <strong>Abre</strong>{' '}
+              <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-medium">
+                opentimestamps.org
+              </a>
+              {' '}(usa el botón &quot;Verificar en OpenTimestamps&quot; de la barra de arriba).
+            </li>
+            <li>
+              En la página verás la zona <strong>&quot;an .ots proof file to verify&quot;</strong>. <strong>Arrastra ahí el archivo .ots</strong>. Si esta asamblea tiene certificado blockchain, descarga el .ots con el botón verde &quot;Descargar certificado .ots&quot; que aparece más abajo en esta página.
+            </li>
+            <li>
+              Si OpenTimestamps te pide el <strong>documento original</strong>, arrastra el <strong>PDF del acta</strong> (el que descargaste con &quot;Descargar acta (PDF)&quot;).
+            </li>
+            <li>
+              Verás la <strong>fecha de sellado</strong> en la blockchain de Bitcoin y si la verificación es correcta.
+            </li>
+          </ol>
+          <a
+            href="https://opentimestamps.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700"
+          >
+            Abrir opentimestamps.org para verificar ↗
+          </a>
+        </section>
+
         {/* ── CERTIFICADO BLOCKCHAIN ── */}
         {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) && (
           <section
@@ -690,12 +729,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               ✅ Certificado blockchain — OpenTimestamps
             </h2>
             <p style={{ fontSize: '12px', color: '#1f2937', marginBottom: '10px', lineHeight: '1.6' }}>
-              Este acta fue sellada en la blockchain de Bitcoin mediante OpenTimestamps.
-              Para verificar la autenticidad: descarga el archivo <strong>.ots</strong> (desde el botón de la barra superior) y súbelo junto con este PDF en{' '}
-              <strong style={{ color: '#059669' }}>https://opentimestamps.org</strong>
-            </p>
-            <p style={{ fontSize: '11px', color: '#374151', borderTop: '1px solid #a7f3d0', paddingTop: '8px', marginTop: '4px' }}>
-              Verificación independiente: <strong>https://opentimestamps.org</strong> — sube el archivo .ots y el PDF del acta para confirmar la autenticidad ante cualquier tercero.
+              Este acta fue sellada en la blockchain de Bitcoin. Descarga el archivo <strong>.ots</strong> aquí abajo y verifica en opentimestamps.org siguiendo los pasos de la sección &quot;Cómo verificar&quot; de arriba.
             </p>
             {/* Botones solo en pantalla */}
             <div className="flex flex-wrap gap-3 mt-3 print:hidden">
