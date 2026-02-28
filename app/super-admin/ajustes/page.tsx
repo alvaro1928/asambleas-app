@@ -20,6 +20,7 @@ export default function SuperAdminAjustesPage() {
   const [precioPorTokenCop, setPrecioPorTokenCop] = useState<number | ''>(10000)
   const [bonoBienvenidaTokens, setBonoBienvenidaTokens] = useState<number | ''>(50)
   const [ctaWhatsappText, setCtaWhatsappText] = useState('Contactanos')
+  const [actaBlockchainOtsEnabled, setActaBlockchainOtsEnabled] = useState(false)
   const [savingSmtp, setSavingSmtp] = useState(false)
   const [smtpHost, setSmtpHost] = useState('')
   const [smtpPort, setSmtpPort] = useState<number | ''>(465)
@@ -62,6 +63,7 @@ export default function SuperAdminAjustesPage() {
       if (data.precio_por_token_cop != null) setPrecioPorTokenCop(data.precio_por_token_cop)
       if (data.bono_bienvenida_tokens != null) setBonoBienvenidaTokens(data.bono_bienvenida_tokens)
       setCtaWhatsappText(data.cta_whatsapp_text?.trim() || 'Contactanos')
+      setActaBlockchainOtsEnabled(data.acta_blockchain_ots_enabled === true)
       const smtpRes = await fetch('/api/super-admin/configuracion-smtp', { credentials: 'include' })
       if (smtpRes.ok) {
         const smtpData = await smtpRes.json()
@@ -92,6 +94,7 @@ export default function SuperAdminAjustesPage() {
           precio_por_token_cop: typeof precioPorTokenCop === 'number' ? precioPorTokenCop : (typeof precioPorTokenCop === 'string' && precioPorTokenCop !== '' ? parseInt(precioPorTokenCop, 10) : null),
           bono_bienvenida_tokens: typeof bonoBienvenidaTokens === 'number' ? bonoBienvenidaTokens : (typeof bonoBienvenidaTokens === 'string' && bonoBienvenidaTokens !== '' ? parseInt(bonoBienvenidaTokens, 10) : null),
           cta_whatsapp_text: ctaWhatsappText.trim() || 'Contactanos',
+          acta_blockchain_ots_enabled: actaBlockchainOtsEnabled,
         }),
       })
       if (!res.ok) {
@@ -266,6 +269,28 @@ export default function SuperAdminAjustesPage() {
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Guardar ajustes
             </Button>
+
+            <hr className="border-gray-200 dark:border-gray-700" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <Shield className="w-5 h-5 text-emerald-600" />
+              Certificación blockchain del acta
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Si está activado, al generar un acta se sellará con OpenTimestamps (Bitcoin). La prueba .ots se guarda y el usuario puede descargarla y verificar en opentimestamps.org. Es gratuito y abierto.
+            </p>
+            <div className="flex items-center gap-3 pt-2">
+              <input
+                type="checkbox"
+                id="actaBlockchainOts"
+                checked={actaBlockchainOtsEnabled}
+                onChange={(e) => setActaBlockchainOtsEnabled(e.target.checked)}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              <label htmlFor="actaBlockchainOts" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Activar certificación blockchain (OpenTimestamps) para las actas
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Guarda los ajustes con el botón &quot;Guardar ajustes&quot; de arriba.</p>
 
             <hr className="border-gray-200 dark:border-gray-700" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">

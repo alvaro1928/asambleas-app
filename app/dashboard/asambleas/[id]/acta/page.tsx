@@ -15,6 +15,7 @@ interface Asamblea {
   organization_id: string
   is_demo?: boolean
   sandbox_usar_unidades_reales?: boolean
+  acta_ots_proof_base64?: string | null
 }
 
 interface Conjunto {
@@ -138,6 +139,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         return
       }
       setAsamblea(asambleaData)
+      setActaOtsBase64((asambleaData as { acta_ots_proof_base64?: string | null }).acta_ots_proof_base64 ?? null)
       // Unidades a considerar en sandbox: demo o reales según sandbox_usar_unidades_reales (solo aplica si is_demo)
       const esDemoUnidades = (asambleaData as { is_demo?: boolean }).is_demo === true && !((asambleaData as { sandbox_usar_unidades_reales?: boolean }).sandbox_usar_unidades_reales === true)
       // Acceso gratuito al acta: si ya se pagó al activar, es demo, o la asamblea está activa/finalizada
@@ -363,6 +365,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [actaGenerada, setActaGenerada] = useState(false)
   const [generando, setGenerando] = useState(false)
   const [generarError, setGenerarError] = useState<string | null>(null)
+  const [actaOtsBase64, setActaOtsBase64] = useState<string | null>(null)
 
   useEffect(() => {
     if (params.id && typeof window !== 'undefined') {
@@ -401,6 +404,22 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       setActaGenerada(true)
       if (asamblea.estado === 'activa' && asamblea.is_demo !== true) {
         setAsamblea((prev) => (prev ? { ...prev, estado: 'finalizada' } : null))
+      }
+      // Certificación blockchain (OpenTimestamps) si está activada en Super Admin
+      try {
+        const certRes = await fetch('/api/dashboard/acta-certificar-blockchain', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ asamblea_id: asamblea.id }),
+        })
+        const certData = await certRes.json().catch(() => ({}))
+        if (certData.ok && certData.ots_base64) {
+          setActaOtsBase64(certData.ots_base64)
+          setAsamblea((prev) => (prev ? { ...prev, acta_ots_proof_base64: certData.ots_base64 } : null))
+        }
+      } catch {
+        // No bloquear si falla la certificación
       }
     } catch (e) {
       setGenerarError('Error al procesar. Intenta de nuevo.')
@@ -552,6 +571,36 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           <p className="text-sm text-gray-600 mt-1">{conjunto?.name}</p>
           <p className="text-sm text-gray-600 mt-1">{asamblea?.fecha && formatFecha(asamblea.fecha)}</p>
         </header>
+
+        {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) && (
+          <section className="mb-8 p-4 rounded-2xl border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 print:break-inside-avoid">
+            <h2 className="text-lg font-bold uppercase mb-2 text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Certificado blockchain (OpenTimestamps)
+            </h2>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+              Este acta fue sellada en la blockchain de Bitcoin mediante OpenTimestamps. Puedes descargar la prueba y verificar su autenticidad en opentimestamps.org.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <a
+                href={`data:application/octet-stream;base64,${asamblea?.acta_ots_proof_base64 || actaOtsBase64}`}
+                download={`acta-${asamblea?.nombre ?? 'asamblea'}-${params.id}.ots`}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+              >
+                <Download className="w-4 h-4" />
+                Descargar prueba .ots
+              </a>
+              <a
+                href="https://opentimestamps.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-emerald-600 text-emerald-700 dark:text-emerald-300 text-sm font-medium hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+              >
+                Verificar en opentimestamps.org
+              </a>
+            </div>
+          </section>
+        )}
 
         {quorum && (
           <section className="mb-8">
