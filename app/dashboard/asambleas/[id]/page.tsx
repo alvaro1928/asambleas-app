@@ -291,14 +291,18 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           .eq('id', params.id)
         if (!updateErr) {
           setAsamblea({ ...asambleaData, estado: 'finalizada' } as typeof asambleaData)
-          setSuccessMessage('La asamblea pasó automáticamente a finalizada (72 h). El acta definitiva está disponible y se iniciará la certificación blockchain.')
+          setSuccessMessage('La asamblea pasó automáticamente a finalizada (72 h). El acta definitiva está disponible.')
           setTimeout(() => setSuccessMessage(''), 7000)
-          // Certificar acta en blockchain (fire-and-forget)
+          // Certificar acta en blockchain (en segundo plano; el usuario puede ver el resultado en la página del acta)
           fetch('/api/dashboard/acta-certificar-blockchain', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({ asamblea_id: params.id }),
+          }).then(async (certRes) => {
+            const certData = await certRes.json().catch(() => ({}))
+            if (!certRes.ok) console.warn('Certificación blockchain (72h):', certData?.error)
+            else if (certData.skipped) console.info('Certificación blockchain desactivada en Ajustes.')
           }).catch(() => {})
         } else {
           setAsamblea(asambleaData)
@@ -1149,15 +1153,27 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       if (error) throw error
       setAsamblea({ ...asamblea, estado: 'finalizada' })
       setShowModalConfirmarFinalizar(false)
-      setSuccessMessage('Asamblea finalizada. El acta definitiva queda disponible para descarga y se iniciará la certificación blockchain.')
+      setSuccessMessage('Asamblea finalizada. El acta definitiva queda disponible para descarga.')
       setTimeout(() => setSuccessMessage(''), 7000)
-      // Certificar acta en blockchain (fire-and-forget; no bloquea UI)
-      fetch('/api/dashboard/acta-certificar-blockchain', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ asamblea_id: asamblea.id }),
-      }).catch(() => {})
+      // Certificar acta en blockchain y dar feedback al usuario
+      try {
+        const certRes = await fetch('/api/dashboard/acta-certificar-blockchain', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ asamblea_id: asamblea.id }),
+        })
+        const certData = await certRes.json().catch(() => ({}))
+        if (!certRes.ok) {
+          toast.error(certData?.error ?? 'Error al certificar el acta en blockchain. Revisa que la certificación esté activada en Ajustes.')
+        } else if (certData.skipped) {
+          toast.info('Para generar el certificado .ots, activa la certificación blockchain en Super Admin → Ajustes.')
+        } else {
+          toast.success('Certificado .ots generado. Descárgalo desde la página del acta.')
+        }
+      } catch (_) {
+        toast.error('No se pudo conectar con el servidor de certificación. Intenta descargar el certificado más tarde desde la página del acta.')
+      }
     } catch (e: any) {
       toast.error(e?.message ?? 'Error al finalizar')
     } finally {
@@ -1479,7 +1495,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     <Link href={`/dashboard/asambleas/${params.id}/acta`} className="shrink-0">
                       <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 w-full sm:w-auto">
                         <FileText className="w-4 h-4 sm:mr-2 shrink-0" />
-                        <span className="hidden sm:inline">{preguntas.some(p => p.estado === 'cerrada') ? 'Descargar acta (todas las preguntas y votos)' : 'Generar acta'}</span>
+                        <span className="hidden sm:inline">{preguntas.some(p => p.estado === 'cerrada') ? 'Descargar acta de la votación' : 'Generar acta'}</span>
                         <span className="sm:hidden">Acta</span>
                       </Button>
                     </Link>

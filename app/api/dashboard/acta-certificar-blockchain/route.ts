@@ -145,28 +145,50 @@ export async function POST(request: NextRequest) {
 
     const digest = crypto.createHash('sha256').update(canonical, 'utf8').digest()
 
-    // OpenTimestamps: sello con calendar público
-    const OpenTimestamps = require('opentimestamps')
-    const detached = OpenTimestamps.DetachedTimestampFile.fromHash(
-      new OpenTimestamps.Ops.OpSHA256(),
-      Array.from(digest)
-    )
+    // OpenTimestamps: sello con calendar público (puede fallar por red o calendario no disponible)
+    let otsBase64: string
+    try {
+      const OpenTimestamps = require('opentimestamps')
+      const detached = OpenTimestamps.DetachedTimestampFile.fromHash(
+        new OpenTimestamps.Ops.OpSHA256(),
+        Array.from(digest)
+      )
 
-    await OpenTimestamps.stamp([detached], {
-      calendars: [OTS_CALENDAR],
-      m: 1,
-    })
+      await OpenTimestamps.stamp([detached], {
+        calendars: [OTS_CALENDAR],
+        m: 1,
+      })
 
-    const otsBytes = detached.serializeToBytes()
-    const otsBase64 = Buffer.from(otsBytes).toString('base64')
+      const otsBytes = detached.serializeToBytes()
+      otsBase64 = Buffer.from(otsBytes).toString('base64')
+    } catch (otsErr) {
+      const msg = otsErr instanceof Error ? otsErr.message : String(otsErr)
+      console.error('acta-certificar-blockchain OpenTimestamps:', otsErr)
+      return NextResponse.json(
+        {
+          error:
+            'El servidor de OpenTimestamps no pudo sellar el acta. Suele ser por red o calendario temporalmente no disponible. Intenta finalizar de nuevo en unos minutos.',
+          detail: msg,
+        },
+        { status: 500 }
+      )
+    }
 
-    await admin
+    const { error: updateErr } = await admin
       .from('asambleas')
       .update({
         acta_ots_proof_base64: otsBase64,
         updated_at: new Date().toISOString(),
       })
       .eq('id', asamblea_id)
+
+    if (updateErr) {
+      console.error('acta-certificar-blockchain update:', updateErr)
+      return NextResponse.json(
+        { error: 'No se pudo guardar el certificado en la base de datos. ¿Ejecutaste la migración ADD-ACTA-BLOCKCHAIN-OTS.sql?' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({ ok: true, ots_base64: otsBase64 })
   } catch (e) {

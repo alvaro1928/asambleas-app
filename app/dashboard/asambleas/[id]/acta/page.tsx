@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Download, FileText, Printer, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useToast } from '@/components/providers/ToastProvider'
 
 interface Asamblea {
   id: string
@@ -369,7 +370,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [actaOtsBase64, setActaOtsBase64] = useState<string | null>(null)
   const [descargandoPdf, setDescargandoPdf] = useState(false)
   const [showVerificacionModal, setShowVerificacionModal] = useState(false)
+  const [certificando, setCertificando] = useState(false)
   const actaContentRef = useRef<HTMLElement>(null)
+  const toast = useToast()
 
   useEffect(() => {
     if (params.id && typeof window !== 'undefined') {
@@ -429,6 +432,34 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       setGenerarError('Error al procesar. Intenta de nuevo.')
     } finally {
       setGenerando(false)
+    }
+  }
+
+  /** Reintentar certificación blockchain (desde el modal cuando no hay .ots). */
+  const handleReintentarCertificacion = async () => {
+    if (!asamblea?.id || certificando) return
+    setCertificando(true)
+    try {
+      const certRes = await fetch('/api/dashboard/acta-certificar-blockchain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ asamblea_id: asamblea.id }),
+      })
+      const certData = await certRes.json().catch(() => ({}))
+      if (!certRes.ok) {
+        toast.error(certData?.error ?? 'Error al certificar. Revisa que la certificación esté activada en Ajustes.')
+      } else if (certData.skipped) {
+        toast.info('Activa la certificación blockchain en Super Admin → Ajustes para generar el .ots.')
+      } else if (certData.ots_base64) {
+        setActaOtsBase64(certData.ots_base64)
+        setAsamblea((prev) => (prev ? { ...prev, acta_ots_proof_base64: certData.ots_base64 } : null))
+        toast.success('Certificado .ots generado. Ya puedes descargarlo.')
+      }
+    } catch {
+      toast.error('No se pudo conectar con el servidor de certificación.')
+    } finally {
+      setCertificando(false)
     }
   }
 
@@ -1010,16 +1041,35 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               <div className="p-4 rounded-xl bg-amber-50 border border-amber-200">
                 <p className="text-sm font-semibold text-amber-900 mb-1">Esta asamblea no tiene certificado .ots</p>
                 <p className="text-xs text-amber-800 mb-3">
-                  El certificado se genera al cerrar la asamblea con &quot;Finalizar Asamblea&quot; si la certificación está activada en tu plataforma. Para las próximas asambleas, al finalizar aparecerá aquí el .ots para descargar.
+                  El certificado se genera al cerrar la asamblea con &quot;Finalizar Asamblea&quot; si la certificación está activada en tu plataforma. Si ya finalizaste y no aparece, activa la certificación en Ajustes y usa el botón de abajo para reintentar.
                 </p>
-                <a
-                  href="https://opentimestamps.org"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-amber-500 text-amber-800 text-sm font-medium hover:bg-amber-100"
-                >
-                  Conocer OpenTimestamps ↗
-                </a>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="border-amber-600 text-amber-800 hover:bg-amber-100"
+                    disabled={certificando}
+                    onClick={handleReintentarCertificacion}
+                  >
+                    {certificando ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Certificando…
+                      </>
+                    ) : (
+                      'Reintentar certificación'
+                    )}
+                  </Button>
+                  <a
+                    href="https://opentimestamps.org"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-amber-500 text-amber-800 text-sm font-medium hover:bg-amber-100"
+                  >
+                    Conocer OpenTimestamps ↗
+                  </a>
+                </div>
               </div>
             )}
             <div>
