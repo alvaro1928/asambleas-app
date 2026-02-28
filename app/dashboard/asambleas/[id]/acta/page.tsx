@@ -440,22 +440,41 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     if (!mainEl) return
     setDescargandoPdf(true)
 
-    // Forzar modo claro durante la generación del PDF para que el texto sea legible
+    // 1. Forzar modo claro para que el texto sea legible en el PDF
     const htmlEl = document.documentElement
     const hadDarkClass = htmlEl.classList.contains('dark')
     const prevColorScheme = htmlEl.style.colorScheme
     if (hadDarkClass) htmlEl.classList.remove('dark')
     htmlEl.style.colorScheme = 'light'
 
+    // 2. Quitar overflow en contenedores de tabla para que html2canvas capture el ancho completo
+    const overflowEls: { el: HTMLElement; prev: string }[] = []
+    mainEl.querySelectorAll<HTMLElement>('[class*="overflow"]').forEach((el) => {
+      overflowEls.push({ el, prev: el.style.overflow })
+      el.style.overflow = 'visible'
+    })
+    // Forzar ancho completo en tablas
+    const tableEls: { el: HTMLElement; prev: string }[] = []
+    mainEl.querySelectorAll<HTMLElement>('table').forEach((el) => {
+      tableEls.push({ el, prev: el.style.width })
+      el.style.width = '100%'
+    })
+
     try {
       const html2pdf = (await import('html2pdf.js')).default
       const nombreSeguro = (asamblea?.nombre ?? 'asamblea').replace(/[^a-zA-Z0-9\u00C0-\u024F\s.-]/g, '').trim().slice(0, 80) || 'acta'
       await html2pdf()
         .set({
-          margin: [10, 10, 10, 10],
+          margin: [12, 10, 12, 10],
           filename: `acta-${nombreSeguro}-${params.id}.pdf`.replace(/\s+/g, '_'),
           image: { type: 'jpeg', quality: 0.97 },
-          html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#ffffff',
+            windowWidth: mainEl.scrollWidth + 40,
+          },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         })
         .from(mainEl)
@@ -464,6 +483,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       console.error('Error al generar PDF:', e)
       setPrintError('No se pudo generar el PDF. Usa Imprimir y elige "Guardar como PDF".')
     } finally {
+      // Restaurar estilos originales
+      overflowEls.forEach(({ el, prev }) => { el.style.overflow = prev })
+      tableEls.forEach(({ el, prev }) => { el.style.width = prev })
       if (hadDarkClass) htmlEl.classList.add('dark')
       htmlEl.style.colorScheme = prevColorScheme
       setDescargandoPdf(false)
@@ -624,46 +646,63 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      <main ref={actaContentRef} className="max-w-4xl mx-auto px-6 py-10 print:py-6">
-        <header className="text-center border-b-2 border-gray-800 pb-6 mb-8">
-          <p className="text-base font-bold text-gray-800 mb-2">Votaciones de Asambleas Online</p>
-          <h1 className="text-2xl font-bold uppercase tracking-wide">Acta de votación</h1>
-          <p className="text-lg mt-2 font-semibold">{asamblea?.nombre}</p>
-          <p className="text-sm text-gray-600 mt-1">{conjunto?.name}</p>
-          <p className="text-sm text-gray-600 mt-1">{asamblea?.fecha && formatFecha(asamblea.fecha)}</p>
+      <main ref={actaContentRef} className="max-w-4xl mx-auto px-8 py-10 print:py-6 bg-white text-gray-900">
+
+        {/* ── ENCABEZADO ── */}
+        <header className="mb-8">
+          <div className="flex items-start justify-between border-b-4 border-gray-900 pb-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1">Votaciones de Asambleas Online</p>
+              <h1 className="text-3xl font-black uppercase tracking-tight text-gray-900">Acta de votación</h1>
+            </div>
+            <div className="text-right text-xs text-gray-500 mt-1">
+              <p>Generada: {new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              {isDemo && <p className="mt-1 text-red-600 font-semibold uppercase">Demo — sin validez legal</p>}
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
+            <div>
+              <span className="font-semibold text-gray-600">Asamblea:</span>{' '}
+              <span className="text-gray-900 font-medium">{asamblea?.nombre}</span>
+            </div>
+            <div>
+              <span className="font-semibold text-gray-600">Conjunto:</span>{' '}
+              <span className="text-gray-900">{conjunto?.name}</span>
+            </div>
+            <div>
+              <span className="font-semibold text-gray-600">Fecha:</span>{' '}
+              <span className="text-gray-900">{asamblea?.fecha && formatFecha(asamblea.fecha)}</span>
+            </div>
+            <div>
+              <span className="font-semibold text-gray-600">Estado:</span>{' '}
+              <span className="text-gray-900">{asamblea?.estado === 'finalizada' ? 'Finalizada' : asamblea?.estado}</span>
+            </div>
+          </div>
         </header>
 
+        {/* ── CERTIFICADO BLOCKCHAIN ── */}
         {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) && (
           <section
-            className="mb-8 p-4 rounded-2xl print:break-inside-avoid"
-            style={{ border: '2px solid #10b981', background: '#ecfdf5' }}
+            className="mb-8"
+            style={{ border: '2px solid #059669', borderRadius: '12px', padding: '16px', background: '#f0fdf4' }}
           >
-            <h2
-              className="text-lg font-bold uppercase mb-2 flex items-center gap-2"
-              style={{ color: '#065f46' }}
-            >
-              <FileText className="w-5 h-5" />
-              Certificado blockchain (OpenTimestamps)
+            <h2 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#065f46', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              ✅ Certificado blockchain — OpenTimestamps
             </h2>
-            <p className="text-sm mb-3" style={{ color: '#1f2937' }}>
+            <p style={{ fontSize: '12px', color: '#1f2937', marginBottom: '10px', lineHeight: '1.6' }}>
               Este acta fue sellada en la blockchain de Bitcoin mediante OpenTimestamps.
-              Descarga el certificado <strong>.ots</strong> y súbelo a{' '}
-              <a
-                href="https://opentimestamps.org"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: '#059669', fontWeight: 600, textDecoration: 'underline' }}
-              >
-                opentimestamps.org
-              </a>{' '}
-              junto con el PDF del acta para verificar su autenticidad.
+              Para verificar la autenticidad: descarga el archivo <strong>.ots</strong> (desde el botón de la barra superior) y súbelo junto con este PDF en{' '}
+              <strong style={{ color: '#059669' }}>https://opentimestamps.org</strong>
             </p>
-            <div className="flex flex-wrap gap-3 print:hidden">
+            <p style={{ fontSize: '11px', color: '#374151', borderTop: '1px solid #a7f3d0', paddingTop: '8px', marginTop: '4px' }}>
+              Verificación independiente: <strong>https://opentimestamps.org</strong> — sube el archivo .ots y el PDF del acta para confirmar la autenticidad ante cualquier tercero.
+            </p>
+            {/* Botones solo en pantalla */}
+            <div className="flex flex-wrap gap-3 mt-3 print:hidden">
               <a
                 href={`data:application/octet-stream;base64,${asamblea?.acta_ots_proof_base64 || actaOtsBase64}`}
                 download={`acta-${asamblea?.nombre ?? 'asamblea'}-${params.id}.ots`}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
-                style={{ background: '#059669', color: '#ffffff' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 16px', borderRadius: '8px', background: '#059669', color: '#fff', fontSize: '13px', fontWeight: 600, textDecoration: 'none' }}
               >
                 <Download className="w-4 h-4" />
                 Descargar certificado .ots
@@ -672,195 +711,217 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                 href="https://opentimestamps.org"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
-                style={{ border: '2px solid #059669', color: '#065f46', background: 'transparent' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 16px', borderRadius: '8px', border: '2px solid #059669', color: '#065f46', fontSize: '13px', fontWeight: 600, textDecoration: 'none', background: 'transparent' }}
               >
                 Verificar en opentimestamps.org ↗
               </a>
             </div>
-            {/* En impresión/PDF: solo mostrar la URL de verificación sin botones */}
-            <p className="hidden print:block text-xs mt-2" style={{ color: '#374151' }}>
-              Verificación: https://opentimestamps.org — sube el archivo .ots y el PDF del acta para confirmar la autenticidad.
-            </p>
           </section>
         )}
 
+        {/* ── QUÓRUM ── */}
         {quorum && (
           <section className="mb-8">
-            <h2 className="text-lg font-bold uppercase mb-2">Quórum y participación</h2>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <p><strong>Total de unidades:</strong> {quorum.total_unidades}</p>
-              <p><strong>Unidades que votaron:</strong> {quorum.unidades_votantes}</p>
-              <p><strong>Unidades que no votaron:</strong> {quorum.total_unidades - quorum.unidades_votantes}</p>
-              <p><strong>Coeficiente votante:</strong> {Math.min(100, Number(quorum.coeficiente_votante)).toFixed(2)}%</p>
-              <p><strong>Participación (coeficiente):</strong> {Math.min(100, Number(quorum.porcentaje_participacion_coeficiente)).toFixed(2)}%</p>
-              <p><strong>Quórum alcanzado:</strong> {quorum.quorum_alcanzado ? 'Sí' : 'No'}</p>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Comprobación: {quorum.unidades_votantes} + {quorum.total_unidades - quorum.unidades_votantes} = {quorum.total_unidades} unidades.
-            </p>
+            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-3 pb-1 border-b border-gray-200">Quórum y participación</h2>
+            <table className="w-full border-collapse text-sm">
+              <tbody>
+                <tr className="bg-gray-50">
+                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 w-1/2">Total de unidades del conjunto</td>
+                  <td className="border border-gray-200 px-3 py-2 text-gray-900">{quorum.total_unidades}</td>
+                </tr>
+                <tr>
+                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Unidades que votaron</td>
+                  <td className="border border-gray-200 px-3 py-2 text-gray-900">{quorum.unidades_votantes}</td>
+                </tr>
+                <tr className="bg-gray-50">
+                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Unidades que no votaron</td>
+                  <td className="border border-gray-200 px-3 py-2 text-gray-900">{quorum.total_unidades - quorum.unidades_votantes}</td>
+                </tr>
+                <tr>
+                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Participación por coeficiente</td>
+                  <td className="border border-gray-200 px-3 py-2 text-gray-900 font-semibold">{Math.min(100, Number(quorum.porcentaje_participacion_coeficiente)).toFixed(2)}%</td>
+                </tr>
+                <tr className="bg-gray-50">
+                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Coeficiente votante</td>
+                  <td className="border border-gray-200 px-3 py-2 text-gray-900">{Math.min(100, Number(quorum.coeficiente_votante)).toFixed(2)}%</td>
+                </tr>
+                <tr>
+                  <td className="border border-gray-200 px-3 py-2 font-bold text-gray-900">Quórum alcanzado</td>
+                  <td className={`border border-gray-200 px-3 py-2 font-bold ${quorum.quorum_alcanzado ? 'text-green-700' : 'text-red-700'}`}>
+                    {quorum.quorum_alcanzado ? '✓ Sí' : '✗ No'}
+                  </td>
+                </tr>
+                {totalPoderes > 0 && (
+                  <tr className="bg-gray-50">
+                    <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Poderes registrados</td>
+                    <td className="border border-gray-200 px-3 py-2 text-gray-900">{totalPoderes} unidades — coef. delegado {Math.min(100, coefPoderes).toFixed(2)}%</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </section>
         )}
 
-        {totalPoderes > 0 && (
-          <section className="mb-8">
-            <h2 className="text-lg font-bold uppercase mb-2">Poderes</h2>
-            <p className="text-sm">
-              Unidades con poder registrado: <strong>{totalPoderes}</strong>. Coeficiente delegado: <strong>{Math.min(100, coefPoderes).toFixed(2)}%</strong>.
-            </p>
-          </section>
-        )}
-
+        {/* ── RESULTADOS POR PREGUNTA ── */}
         <section>
-          <h2 className="text-lg font-bold uppercase mb-4">Resultados por pregunta</h2>
-          <div className="space-y-8">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4 pb-1 border-b border-gray-200">Resultados por pregunta</h2>
+          <div className="space-y-10">
             {preguntas.map((pregunta, idx) => {
               const stats = estadisticas[pregunta.id]
-              return (
-                <div key={pregunta.id} className="break-inside-avoid print:break-inside-auto">
-                  <h3 className="font-bold text-base mb-2">
-                    Pregunta {idx + 1}. {pregunta.texto_pregunta}
-                  </h3>
-                  {pregunta.descripcion && (
-                    <p className="text-sm text-gray-600 mb-2">{pregunta.descripcion}</p>
-                  )}
-                  <p className="text-xs text-gray-500 mb-2">
-                    Tipo: {pregunta.tipo_votacion}. Estado: Cerrada.
-                  </p>
-                  {stats && (() => {
-                    const votosFinales = votacionesFinalesPorPregunta[pregunta.id] || []
-                    const totalCoefVotantes = votosFinales.reduce((s, r) => s + r.coeficiente, 0)
-                    const resumenDesdeTabla = totalCoefVotantes > 0
-                      ? votosFinales.reduce((acc, r) => {
-                          const key = r.opcion_texto
-                          if (!acc[key]) acc[key] = { coef: 0, count: 0 }
-                          acc[key].coef += r.coeficiente
-                          acc[key].count += 1
-                          return acc
-                        }, {} as Record<string, { coef: number; count: number }>)
-                      : null
-                    const pctDeResultado = (r: any) =>
-                      pregunta.tipo_votacion === 'nominal'
-                        ? Number(r.porcentaje_nominal_total ?? r.porcentaje_votos_emitidos ?? 0)
-                        : Number(r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0)
-                    const items: { opcion_texto: string; pct: number; count: number }[] = resumenDesdeTabla && pregunta.tipo_votacion === 'coeficiente'
-                      ? Object.entries(resumenDesdeTabla).map(([opcion, { coef, count }]) => ({
-                          opcion_texto: opcion,
-                          pct: totalCoefVotantes > 0 ? (coef / totalCoefVotantes) * 100 : 0,
-                          count,
-                        }))
-                      : (stats.resultados || []).map((r: any) => ({
-                          opcion_texto: r.opcion_texto,
-                          pct: Math.min(100, pctDeResultado(r)),
-                          count: r.votos_cantidad ?? 0,
-                        }))
-                    const maxPct = pregunta.umbral_aprobacion != null && items.length > 0
-                      ? pregunta.tipo_votacion === 'coeficiente'
-                        ? (resumenDesdeTabla && totalCoefVotantes > 0
-                            ? Math.max(...Object.values(resumenDesdeTabla).map((x) => (x.coef / totalCoefVotantes) * 100))
-                            : Math.max(...items.map((i) => i.pct)))
-                        : Math.max(...items.map((i) => i.pct))
-                      : 0
-                    const opcionAfavor = items.find((i) => i.opcion_texto?.trim().toLowerCase().includes('a favor'))
-                    const pctAfavor = opcionAfavor?.pct ?? 0
-                    const aprobado = pregunta.umbral_aprobacion != null && pctAfavor >= pregunta.umbral_aprobacion
-                    return (
-                      <div className="ml-4 space-y-2">
-                        <p className="text-sm">
-                          Total votos: <strong>{stats.total_votos}</strong>. Coeficiente votante: <strong>{Math.min(100, Number(stats.total_coeficiente)).toFixed(2)}%</strong>.
-                        </p>
-                        <ul className="list-disc list-inside text-sm">
-                          {items.map((item, idx) => (
-                            <li key={idx}>
-                              {item.opcion_texto}: {item.pct.toFixed(2)}%
-                              {item.count > 0 && ` (${item.count} voto(s))`}
-                            </li>
-                          ))}
-                        </ul>
-                        {pregunta.umbral_aprobacion != null && items.length > 0 && (
-                          <p className={`text-sm font-semibold mt-2 ${aprobado ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
-                            Mayoría necesaria ({pregunta.umbral_aprobacion}%) — Resultado: {aprobado ? 'Aprobado' : 'No Aprobado'} ({items.map((i) => `${i.opcion_texto}: ${i.pct.toFixed(1)}%`).join(' | ')}).
-                          </p>
-                        )}
-                      </div>
-                    )
-                  })()}
+              const votosFinales = votacionesFinalesPorPregunta[pregunta.id] || []
+              const totalCoefVotantes = votosFinales.reduce((s, r) => s + r.coeficiente, 0)
+              const resumenDesdeTabla = totalCoefVotantes > 0
+                ? votosFinales.reduce((acc, r) => {
+                    const key = r.opcion_texto
+                    if (!acc[key]) acc[key] = { coef: 0, count: 0 }
+                    acc[key].coef += r.coeficiente
+                    acc[key].count += 1
+                    return acc
+                  }, {} as Record<string, { coef: number; count: number }>)
+                : null
+              const pctDeResultado = (r: any) =>
+                pregunta.tipo_votacion === 'nominal'
+                  ? Number(r.porcentaje_nominal_total ?? r.porcentaje_votos_emitidos ?? 0)
+                  : Number(r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0)
+              const items: { opcion_texto: string; pct: number; count: number }[] = stats
+                ? (resumenDesdeTabla && pregunta.tipo_votacion === 'coeficiente'
+                    ? Object.entries(resumenDesdeTabla).map(([opcion, { coef, count }]) => ({
+                        opcion_texto: opcion,
+                        pct: totalCoefVotantes > 0 ? (coef / totalCoefVotantes) * 100 : 0,
+                        count,
+                      }))
+                    : (stats.resultados || []).map((r: any) => ({
+                        opcion_texto: r.opcion_texto,
+                        pct: Math.min(100, pctDeResultado(r)),
+                        count: r.votos_cantidad ?? 0,
+                      })))
+                : []
+              const opcionAfavor = items.find((i) => i.opcion_texto?.trim().toLowerCase().includes('a favor'))
+              const pctAfavor = opcionAfavor?.pct ?? 0
+              const aprobado = pregunta.umbral_aprobacion != null && pctAfavor >= pregunta.umbral_aprobacion
 
-                  {/* Cuadro de votaciones finales: una fila por unidad con su voto final + totales */}
-                  {votacionesFinalesPorPregunta[pregunta.id] && votacionesFinalesPorPregunta[pregunta.id].length > 0 && (
-                    <div className="ml-4 mt-4 text-xs overflow-x-auto print:overflow-visible print:max-h-none">
-                      <p className="font-semibold text-gray-700 mb-1">Votación final por unidad (auditoría — voto final de cada unidad y totales):</p>
-                      <table className="min-w-full border border-gray-300 mt-1 print:break-inside-auto">
+              return (
+                <div key={pregunta.id}>
+                  {/* Título de pregunta */}
+                  <div className="flex items-start gap-3 mb-3">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-xs font-bold flex items-center justify-center">{idx + 1}</span>
+                    <div>
+                      <h3 className="font-bold text-base text-gray-900 leading-snug">{pregunta.texto_pregunta}</h3>
+                      {pregunta.descripcion && <p className="text-xs text-gray-500 mt-0.5">{pregunta.descripcion}</p>}
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Tipo de votación: <span className="capitalize">{pregunta.tipo_votacion}</span>
+                        {stats && <> · {stats.total_votos} voto{stats.total_votos !== 1 ? 's' : ''} · Coef. participante: {Math.min(100, Number(stats.total_coeficiente)).toFixed(2)}%</>}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Resultados resumen */}
+                  {items.length > 0 && (
+                    <div className="ml-10 mb-3">
+                      <table className="w-full border-collapse text-sm">
                         <thead>
-                          <tr className="bg-gray-100">
-                            <th className="border px-2 py-1 text-left">Unidad</th>
-                            <th className="border px-2 py-1 text-left">Propietario / Residente</th>
-                            <th className="border px-2 py-1 text-left">Voto final</th>
-                            <th className="border px-2 py-1 text-right">Coef. %</th>
+                          <tr style={{ background: '#f8fafc' }}>
+                            <th className="border border-gray-200 px-3 py-1.5 text-left font-semibold text-gray-700">Opción</th>
+                            <th className="border border-gray-200 px-3 py-1.5 text-right font-semibold text-gray-700 w-24">Votos</th>
+                            <th className="border border-gray-200 px-3 py-1.5 text-right font-semibold text-gray-700 w-24">%</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {votacionesFinalesPorPregunta[pregunta.id].map((row, i) => (
-                            <tr key={i}>
-                              <td className="border px-2 py-1">{row.torre}-{row.numero}</td>
-                              <td className="border px-2 py-1">{row.nombre_propietario ?? '—'}</td>
-                              <td className="border px-2 py-1">{row.opcion_texto}</td>
-                              <td className="border px-2 py-1 text-right">{row.coeficiente.toFixed(2)}%</td>
+                          {items.map((item, i) => (
+                            <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                              <td className="border border-gray-200 px-3 py-1.5 text-gray-900">{item.opcion_texto}</td>
+                              <td className="border border-gray-200 px-3 py-1.5 text-right text-gray-700">{item.count}</td>
+                              <td className="border border-gray-200 px-3 py-1.5 text-right font-semibold text-gray-900">{item.pct.toFixed(2)}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {pregunta.umbral_aprobacion != null && (
+                        <p
+                          className="text-sm font-bold mt-2 px-3 py-1.5 rounded"
+                          style={{ background: aprobado ? '#f0fdf4' : '#fff7ed', color: aprobado ? '#166534' : '#92400e', border: `1px solid ${aprobado ? '#bbf7d0' : '#fde68a'}` }}
+                        >
+                          {aprobado ? '✓ APROBADO' : '✗ NO APROBADO'} — Mayoría requerida: {pregunta.umbral_aprobacion}% · Obtenido: {pctAfavor.toFixed(2)}%
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Votación final por unidad */}
+                  {votosFinales.length > 0 && (
+                    <div className="ml-10 mt-3">
+                      <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Votación final por unidad</p>
+                      <table className="w-full border-collapse" style={{ fontSize: '11px' }}>
+                        <thead>
+                          <tr style={{ background: '#f1f5f9' }}>
+                            <th className="border border-gray-200 px-2 py-1 text-left font-semibold" style={{ width: '12%' }}>Unidad</th>
+                            <th className="border border-gray-200 px-2 py-1 text-left font-semibold" style={{ width: '40%' }}>Propietario / Residente</th>
+                            <th className="border border-gray-200 px-2 py-1 text-left font-semibold" style={{ width: '30%' }}>Voto final</th>
+                            <th className="border border-gray-200 px-2 py-1 text-right font-semibold" style={{ width: '18%' }}>Coef. %</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {votosFinales.map((row, i) => (
+                            <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                              <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.torre}-{row.numero}</td>
+                              <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.nombre_propietario ?? '—'}</td>
+                              <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.opcion_texto}</td>
+                              <td className="border border-gray-200 px-2 py-1 text-right">{row.coeficiente.toFixed(2)}%</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                       {(() => {
-                        const vf = votacionesFinalesPorPregunta[pregunta.id] || []
-                        const byOption = vf.length > 0 ? vf.reduce((acc, r) => { acc[r.opcion_texto] = (acc[r.opcion_texto] ?? 0) + 1; return acc }, {} as Record<string, number>) : null
-                        if (byOption) {
-                          return (
-                            <p className="mt-2 text-gray-600 font-medium text-xs">
-                              Totales: {Object.entries(byOption).map(([op, n]) => `${op}: ${n} unidad(es)`).join('; ')}.
-                            </p>
-                          )
-                        }
-                        if (stats?.resultados?.length) {
-                          return (
-                            <p className="mt-2 text-gray-600 font-medium text-xs">
-                              Totales: {stats.resultados.map((r: any) => `${r.opcion_texto}: ${r.votos_cantidad ?? 0} unidad(es)`).join('; ')}.
-                            </p>
-                          )
-                        }
-                        return null
+                        const byOption = votosFinales.reduce((acc, r) => { acc[r.opcion_texto] = (acc[r.opcion_texto] ?? 0) + 1; return acc }, {} as Record<string, number>)
+                        return (
+                          <p className="mt-1.5 text-xs text-gray-500">
+                            <span className="font-semibold">Totales:</span>{' '}
+                            {Object.entries(byOption).map(([op, n]) => `${op}: ${n} unidad(es)`).join(' | ')}
+                          </p>
+                        )
                       })()}
                     </div>
                   )}
 
+                  {/* Auditoría de transacciones */}
                   {auditoria[pregunta.id] && auditoria[pregunta.id].length > 0 && (
-                    <div className="ml-4 mt-3 overflow-x-auto print:overflow-visible print:max-h-none print-table-landscape print:ml-0">
-                      <p className="font-semibold text-gray-700 mb-1 text-xs print:mb-1">Detalle de auditoría — transacciones (cambios, quién votó, cuándo, dispositivo):</p>
-                      <table className="min-w-full border border-gray-300 text-[11px] print:break-inside-auto print:w-full">
+                    <div className="ml-10 mt-3">
+                      <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Auditoría de transacciones</p>
+                      <table className="w-full border-collapse" style={{ fontSize: '10px', tableLayout: 'fixed' }}>
                         <thead>
-                          <tr className="bg-gray-100">
-                            <th className="border px-2 py-1 text-left min-w-[200px] print:min-w-0">Votante (email / nombre)</th>
-                            <th className="border px-2 py-1 text-left min-w-[100px] print:min-w-0">Unidad</th>
-                            <th className="border px-2 py-1 text-left min-w-[100px] print:min-w-0">Opción</th>
-                            <th className="border px-2 py-1 text-left min-w-[180px] print:min-w-0">Acción</th>
-                            <th className="border px-2 py-1 text-left min-w-[150px] print:min-w-0">Fecha/hora</th>
-                            <th className="border px-2 py-1 text-left min-w-[120px] print:min-w-0">IP</th>
-                            <th className="border px-2 py-1 text-left min-w-[220px] print:min-w-0">Dispositivo</th>
+                          <tr style={{ background: '#f1f5f9' }}>
+                            <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '22%' }}>Votante</th>
+                            <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '9%' }}>Unidad</th>
+                            <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '14%' }}>Opción</th>
+                            <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '20%' }}>Acción</th>
+                            <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '18%' }}>Fecha/hora</th>
+                            <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '17%' }}>IP</th>
                           </tr>
                         </thead>
                         <tbody>
                           {auditoria[pregunta.id].map((row, i) => (
-                            <tr key={i}>
-                              <td className="border px-2 py-1 whitespace-nowrap print:whitespace-normal print:break-words">{row.votante_email} {row.votante_nombre ? `(${row.votante_nombre})` : ''}</td>
-                              <td className="border px-2 py-1 whitespace-nowrap">{row.unidad_torre}-{row.unidad_numero}{row.es_poder ? ' (poder)' : ''}</td>
-                              <td className="border px-2 py-1 whitespace-nowrap print:whitespace-normal print:break-words">{row.opcion_seleccionada}</td>
-                              <td className="border px-2 py-1 whitespace-nowrap print:whitespace-normal print:break-words">{row.accion}{row.opcion_anterior ? ` (antes: ${row.opcion_anterior})` : ''}</td>
-                              <td className="border px-2 py-1 whitespace-nowrap">{row.fecha_accion ? new Date(row.fecha_accion).toLocaleString('es-CO') : '-'}</td>
-                              <td className="border px-2 py-1 whitespace-nowrap">{row.ip_address || '-'}</td>
-                              <td className="border px-2 py-1 whitespace-nowrap print-wrap-dispositivo" title={row.user_agent || ''}>{row.user_agent || '-'}</td>
+                            <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                              <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}>
+                                {row.votante_email}{row.votante_nombre ? ` (${row.votante_nombre})` : ''}
+                              </td>
+                              <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-word' }}>
+                                {row.unidad_torre}-{row.unidad_numero}{row.es_poder ? ' *' : ''}
+                              </td>
+                              <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-word' }}>{row.opcion_seleccionada}</td>
+                              <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-word' }}>
+                                {row.accion}{row.opcion_anterior ? ` (antes: ${row.opcion_anterior})` : ''}
+                              </td>
+                              <td className="border border-gray-200 px-1.5 py-1">
+                                {row.fecha_accion ? new Date(row.fecha_accion).toLocaleString('es-CO') : '-'}
+                              </td>
+                              <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-all' }}>{row.ip_address || '-'}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
+                      {auditoria[pregunta.id].some((r) => r.es_poder) && (
+                        <p className="text-xs text-gray-400 mt-1">* Voto ejercido mediante poder notarial.</p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -869,80 +930,72 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </div>
         </section>
 
+        {/* ── UNIDADES QUE NO PARTICIPARON ── */}
         {unidadesNoParticipation.length > 0 && (
-          <section className="mt-10 break-inside-avoid">
-            <div className="print-table-landscape print:mt-0">
-              <h2 className="text-lg font-bold uppercase mb-2">Unidades que no votaron o no participaron</h2>
-              <p className="text-sm text-gray-600 mb-3">
-                Detalle de las <strong>{unidadesNoParticipation.length}</strong> unidad{unidadesNoParticipation.length !== 1 ? 'es' : ''} que no registraron voto en ninguna pregunta de esta asamblea.
-              </p>
-              <div className="overflow-x-auto print:overflow-visible print:max-h-none">
-                <table className="min-w-full border border-gray-300 text-sm print:break-inside-auto print:w-full">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border px-2 py-1.5 text-left font-semibold">Torre</th>
-                    <th className="border px-2 py-1.5 text-left font-semibold">Número</th>
-                    <th className="border px-2 py-1.5 text-left font-semibold">Propietario / Residente</th>
-                    <th className="border px-2 py-1.5 text-left font-semibold">Email</th>
-                    <th className="border px-2 py-1.5 text-left font-semibold">Teléfono</th>
-                    <th className="border px-2 py-1.5 text-right font-semibold">Coeficiente %</th>
+          <section className="mt-10">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-3 pb-1 border-b border-gray-200">
+              Unidades que no participaron ({unidadesNoParticipation.length})
+            </h2>
+            <p className="text-xs text-gray-500 mb-3">
+              Coeficiente total no participante: <strong>{Math.min(100, unidadesNoParticipation.reduce((s, u) => s + u.coeficiente, 0)).toFixed(2)}%</strong>
+              {quorum && <> · {unidadesNoParticipation.length} no votaron de {quorum.total_unidades} unidades</>}
+            </p>
+            <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
+              <thead>
+                <tr style={{ background: '#f1f5f9' }}>
+                  <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>Torre</th>
+                  <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>N.°</th>
+                  <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '30%' }}>Propietario / Residente</th>
+                  <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '29%' }}>Email</th>
+                  <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '14%' }}>Teléfono</th>
+                  <th className="border border-gray-200 px-2 py-1.5 text-right font-semibold" style={{ width: '9%' }}>Coef.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unidadesNoParticipation.map((u) => (
+                  <tr key={u.id}>
+                    <td className="border border-gray-200 px-2 py-1">{u.torre || '—'}</td>
+                    <td className="border border-gray-200 px-2 py-1">{u.numero || '—'}</td>
+                    <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{u.nombre_propietario || '—'}</td>
+                    <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-all' }}>{u.email_propietario?.trim() || 'No registrado'}</td>
+                    <td className="border border-gray-200 px-2 py-1">{u.telefono_propietario?.trim() || '—'}</td>
+                    <td className="border border-gray-200 px-2 py-1 text-right">{u.coeficiente.toFixed(2)}%</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {unidadesNoParticipation.map((u) => (
-                    <tr key={u.id}>
-                      <td className="border px-2 py-1.5">{u.torre || '—'}</td>
-                      <td className="border px-2 py-1.5">{u.numero || '—'}</td>
-                      <td className="border px-2 py-1.5">{u.nombre_propietario || '—'}</td>
-                      <td className="border px-2 py-1.5">{u.email_propietario?.trim() ? u.email_propietario : 'No registrado'}</td>
-                      <td className="border px-2 py-1.5">{u.telefono_propietario?.trim() ? u.telefono_propietario : 'No registrado'}</td>
-                      <td className="border px-2 py-1.5 text-right">{u.coeficiente.toFixed(2)}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-                </table>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Coeficiente total no participante: <strong>{Math.min(100, unidadesNoParticipation.reduce((s, u) => s + u.coeficiente, 0)).toFixed(2)}%</strong>.
-                {quorum && (
-                  <span className="ml-2">(Unidades: {unidadesNoParticipation.length} no votaron; {quorum.unidades_votantes} votaron; total {quorum.total_unidades})</span>
-                )}
-              </p>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </section>
         )}
 
-        <section className="mt-10 pt-6 border-t border-gray-300">
-          <p className="text-sm font-semibold text-gray-700 mb-1">Firma del Administrador</p>
-          <div className="h-16 border-b border-gray-400 mt-8 max-w-xs" aria-label="Espacio para firma del administrador" />
-          <p className="text-xs text-gray-500 mt-1">Nombre y firma de quien administra la asamblea</p>
-        </section>
-
-        <section className="mt-10 pt-6 border-t border-gray-300 break-inside-avoid">
-          <h2 className="text-lg font-bold uppercase mb-4">Firmas de la asamblea</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mt-6">
+        {/* ── FIRMAS ── */}
+        <section className="mt-12 pt-6 border-t-2 border-gray-900">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-6">Firmas y aprobación del acta</h2>
+          <div className="grid grid-cols-3 gap-8">
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-1">Presidente de la Asamblea</p>
-              <div className="h-14 border-b border-gray-400 mt-4" aria-label="Firma del Presidente" />
-              <p className="text-xs text-gray-500 mt-2">Nombre completo</p>
-              <div className="h-8 border-b border-gray-300 mt-1 max-w-xs" />
-              <p className="text-xs text-gray-500 mt-2">Número de documento</p>
-              <div className="h-8 border-b border-gray-300 mt-1 max-w-xs" />
+              <p className="text-xs font-semibold text-gray-700 mb-1">Administrador(a)</p>
+              <div className="h-14 border-b-2 border-gray-400 mt-6" />
+              <div className="h-7 border-b border-gray-300 mt-4" />
+              <p className="text-xs text-gray-400 mt-1">Nombre y CC</p>
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-1">Secretario de la Asamblea</p>
-              <div className="h-14 border-b border-gray-400 mt-4" aria-label="Firma del Secretario" />
-              <p className="text-xs text-gray-500 mt-2">Nombre completo</p>
-              <div className="h-8 border-b border-gray-300 mt-1 max-w-xs" />
-              <p className="text-xs text-gray-500 mt-2">Número de documento</p>
-              <div className="h-8 border-b border-gray-300 mt-1 max-w-xs" />
+              <p className="text-xs font-semibold text-gray-700 mb-1">Presidente de la Asamblea</p>
+              <div className="h-14 border-b-2 border-gray-400 mt-6" />
+              <div className="h-7 border-b border-gray-300 mt-4" />
+              <p className="text-xs text-gray-400 mt-1">Nombre y CC</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-700 mb-1">Secretario(a) de la Asamblea</p>
+              <div className="h-14 border-b-2 border-gray-400 mt-6" />
+              <div className="h-7 border-b border-gray-300 mt-4" />
+              <p className="text-xs text-gray-400 mt-1">Nombre y CC</p>
             </div>
           </div>
         </section>
 
-        <footer className="mt-8 pt-6 border-t border-gray-300 text-center text-sm text-gray-500 space-y-2">
-          <p>Este documento es fiel reflejo de las votaciones electrónicas registradas en la plataforma Votaciones de Asambleas Online.</p>
-          <p>Documento generado por Votaciones de Asambleas Online como soporte de las votaciones. {new Date().toLocaleString('es-CO')}.</p>
+        {/* ── PIE DE PÁGINA ── */}
+        <footer className="mt-10 pt-4 border-t border-gray-200 flex items-center justify-between text-xs text-gray-400">
+          <p>Este documento refleja las votaciones electrónicas registradas en la plataforma Votaciones de Asambleas Online.</p>
+          <p className="text-right whitespace-nowrap ml-4">{new Date().toLocaleString('es-CO')}</p>
         </footer>
       </main>
     </div>
