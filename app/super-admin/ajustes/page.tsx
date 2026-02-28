@@ -276,7 +276,10 @@ export default function SuperAdminAjustesPage() {
               Certificación blockchain del acta
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Si está activado, al generar un acta se sellará con OpenTimestamps (Bitcoin). La prueba .ots se guarda y el usuario puede descargarla y verificar en opentimestamps.org. Es gratuito y abierto.
+              Si está activado, cada vez que se <strong>cierre una asamblea</strong> (botón &quot;Finalizar Asamblea&quot; o cierre automático a las 72 h), el acta se sellará automáticamente en la blockchain de Bitcoin mediante OpenTimestamps. La prueba .ots se guarda en la asamblea; los gestores pueden descargarla desde la página del acta y verificar en opentimestamps.org. Es gratuito y tecnología abierta.
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Los usuarios no ven esta opción: solo deben cerrar la asamblea para que el acta quede definitiva y certificada (si está activada aquí).
             </p>
             <div className="flex items-center gap-3 pt-2">
               <input

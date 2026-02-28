@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Download, FileText, Printer, Loader2, ChevronDown, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Download, FileText, Printer, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 interface Asamblea {
   id: string
@@ -367,7 +368,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [generarError, setGenerarError] = useState<string | null>(null)
   const [actaOtsBase64, setActaOtsBase64] = useState<string | null>(null)
   const [descargandoPdf, setDescargandoPdf] = useState(false)
-  const [verificarOpenTimestampsAbierto, setVerificarOpenTimestampsAbierto] = useState(false)
+  const [showVerificacionModal, setShowVerificacionModal] = useState(false)
   const actaContentRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -618,16 +619,15 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             <p className="text-sm text-amber-600 dark:text-amber-400">{printError}</p>
           )}
           <div className="flex flex-wrap gap-2 items-center">
-            <a
-              href="https://opentimestamps.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${(asamblea?.acta_ots_proof_base64 || actaOtsBase64) ? 'border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50' : 'border-2 border-slate-400 text-slate-600 hover:bg-slate-100'}`}
-              title="Abrir opentimestamps.org para verificar el certificado .ots"
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowVerificacionModal(true)}
+              className={(asamblea?.acta_ots_proof_base64 || actaOtsBase64) ? 'border-emerald-600 text-emerald-700 hover:bg-emerald-50' : 'border-slate-400 text-slate-600 hover:bg-slate-100'}
             >
-              <FileText className="w-4 h-4" />
-              Verificar en OpenTimestamps
-            </a>
+              <FileText className="w-4 h-4 mr-2" />
+              Certificado y cómo verificar
+            </Button>
             <Button
               onClick={handleDescargarPdf}
               disabled={descargandoPdf}
@@ -679,108 +679,14 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </div>
         </header>
 
-        {/* ── CÓMO VERIFICAR EN OPENTIMESTAMPS (collapsible; en impresión/PDF siempre expandido) ── */}
-        <section className="mb-8 rounded-xl border-2 border-slate-200 bg-slate-50 print:break-inside-avoid overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setVerificarOpenTimestampsAbierto((v) => !v)}
-            className="w-full flex items-center gap-2 p-4 text-left print:pointer-events-none print:cursor-default"
-            aria-expanded={verificarOpenTimestampsAbierto}
-          >
-            {verificarOpenTimestampsAbierto ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
-            <span className="text-sm font-bold uppercase tracking-widest text-slate-600">Cómo verificar este acta en OpenTimestamps</span>
-          </button>
-          <div className={`px-4 pb-4 print:!block ${verificarOpenTimestampsAbierto ? 'block' : 'hidden'}`}>
-            <p className="text-sm text-slate-700 mb-4">
-              En{' '}
-              <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-600 underline">
-                opentimestamps.org
-              </a>
-              {' '}puedes comprobar que el acta no fue modificada después del sellado en Bitcoin. Sigue estos pasos:
-            </p>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-slate-700 mb-4">
-              <li>
-                <strong>Abre</strong>{' '}
-                <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-medium">
-                  opentimestamps.org
-                </a>
-                {' '}(usa el botón &quot;Verificar en OpenTimestamps&quot; de la barra de arriba).
-              </li>
-              <li>
-                En la página verás la zona <strong>&quot;an .ots proof file to verify&quot;</strong>. <strong>Arrastra ahí el archivo .ots</strong>. Si esta asamblea tiene certificado blockchain, descarga el .ots con el botón verde &quot;Descargar certificado .ots&quot; que aparece más abajo en esta página.
-              </li>
-              <li>
-                Si OpenTimestamps te pide el <strong>documento original</strong>, arrastra el <strong>PDF del acta</strong> (el que descargaste con &quot;Descargar acta (PDF)&quot;).
-              </li>
-              <li>
-                Verás la <strong>fecha de sellado</strong> en la blockchain de Bitcoin y si la verificación es correcta.
-              </li>
-            </ol>
-            <a
-              href="https://opentimestamps.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700"
-            >
-              Abrir opentimestamps.org para verificar ↗
+        {/* Dentro del acta (PDF): solo una línea de sellado cuando hay certificado */}
+        {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) && (
+          <p className="mb-6 text-sm text-gray-700 border-l-4 border-emerald-500 pl-3 py-1">
+            Este acta fue sellada en la blockchain de Bitcoin (OpenTimestamps). Verificación:{' '}
+            <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-700 underline">
+              https://opentimestamps.org
             </a>
-          </div>
-        </section>
-
-        {/* ── CERTIFICADO BLOCKCHAIN (siempre visible) ── */}
-        {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) ? (
-          <section
-            className="mb-8"
-            style={{ border: '2px solid #059669', borderRadius: '12px', padding: '16px', background: '#f0fdf4' }}
-          >
-            <h2 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#065f46', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              ✅ Certificado blockchain — OpenTimestamps
-            </h2>
-            <p style={{ fontSize: '12px', color: '#1f2937', marginBottom: '10px', lineHeight: '1.6' }}>
-              Este acta fue sellada en la blockchain de Bitcoin. Descarga el archivo <strong>.ots</strong> aquí abajo y verifica en opentimestamps.org siguiendo los pasos de la sección &quot;Cómo verificar&quot; de arriba.
-            </p>
-            <div className="flex flex-wrap gap-3 mt-3 print:hidden">
-              <a
-                href={`data:application/octet-stream;base64,${asamblea?.acta_ots_proof_base64 || actaOtsBase64}`}
-                download={`acta-${asamblea?.nombre ?? 'asamblea'}-${params.id}.ots`}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 16px', borderRadius: '8px', background: '#059669', color: '#fff', fontSize: '13px', fontWeight: 600, textDecoration: 'none' }}
-              >
-                <Download className="w-4 h-4" />
-                Descargar certificado .ots
-              </a>
-              <a
-                href="https://opentimestamps.org"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 16px', borderRadius: '8px', border: '2px solid #059669', color: '#065f46', fontSize: '13px', fontWeight: 600, textDecoration: 'none', background: 'transparent' }}
-              >
-                Verificar en opentimestamps.org ↗
-              </a>
-            </div>
-          </section>
-        ) : (
-          <section
-            className="mb-8 p-4 rounded-xl border-2 border-amber-200 bg-amber-50/80"
-          >
-            <h2 className="text-sm font-bold uppercase tracking-widest text-amber-800 mb-2 flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Certificado blockchain (.ots)
-            </h2>
-            <p className="text-sm text-amber-900 mb-2">
-              Esta asamblea <strong>no tiene certificado .ots</strong>. El botón &quot;Descargar certificado .ots&quot; solo aparece cuando el acta fue sellada en la blockchain al cerrar la asamblea (si la certificación está activada).
-            </p>
-            <p className="text-xs text-amber-800 mb-3">
-              Para las próximas asambleas: cierra la asamblea con &quot;Finalizar Asamblea&quot; y, si tu plataforma tiene la certificación activada, aquí aparecerá el certificado para descargar y verificar en opentimestamps.org.
-            </p>
-            <a
-              href="https://opentimestamps.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-amber-500 text-amber-800 text-sm font-medium hover:bg-amber-100"
-            >
-              Conocer OpenTimestamps ↗
-            </a>
-          </section>
+          </p>
         )}
 
         {/* ── QUÓRUM ── */}
@@ -1066,6 +972,68 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           <p className="text-right whitespace-nowrap ml-4">{new Date().toLocaleString('es-CO')}</p>
         </footer>
       </main>
+
+      {/* Modal: Certificado y cómo verificar (no forma parte del acta descargada) */}
+      <Dialog open={showVerificacionModal} onOpenChange={setShowVerificacionModal}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-emerald-600" />
+              Certificado blockchain y verificación OpenTimestamps
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 pt-2">
+            {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) ? (
+              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                <p className="text-sm font-semibold text-emerald-800 mb-2">Esta asamblea tiene certificado .ots</p>
+                <p className="text-sm text-gray-700 mb-3">Descarga el archivo .ots y verifica en opentimestamps.org con el PDF del acta.</p>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={`data:application/octet-stream;base64,${asamblea?.acta_ots_proof_base64 || actaOtsBase64}`}
+                    download={`acta-${asamblea?.nombre ?? 'asamblea'}-${params.id}.ots`}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700"
+                  >
+                    <Download className="w-4 h-4" />
+                    Descargar certificado .ots
+                  </a>
+                  <a
+                    href="https://opentimestamps.org"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50"
+                  >
+                    Abrir opentimestamps.org ↗
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200">
+                <p className="text-sm font-semibold text-amber-900 mb-1">Esta asamblea no tiene certificado .ots</p>
+                <p className="text-xs text-amber-800 mb-3">
+                  El certificado se genera al cerrar la asamblea con &quot;Finalizar Asamblea&quot; si la certificación está activada en tu plataforma. Para las próximas asambleas, al finalizar aparecerá aquí el .ots para descargar.
+                </p>
+                <a
+                  href="https://opentimestamps.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-amber-500 text-amber-800 text-sm font-medium hover:bg-amber-100"
+                >
+                  Conocer OpenTimestamps ↗
+                </a>
+              </div>
+            )}
+            <div>
+              <p className="text-sm font-semibold text-gray-800 mb-2">Cómo verificar en opentimestamps.org</p>
+              <ol className="list-decimal list-inside space-y-1.5 text-sm text-gray-600">
+                <li>Abre opentimestamps.org (enlace de arriba).</li>
+                <li>Arrastra el archivo .ots en la zona &quot;an .ots proof file to verify&quot;.</li>
+                <li>Si pide el documento original, arrastra el PDF del acta.</li>
+                <li>Verás la fecha de sellado en Bitcoin y el resultado de la verificación.</li>
+              </ol>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -70,7 +70,7 @@ export function GuiaTokensModal({ open, onOpenChange, colorPrincipalHex = COLOR_
                 <span>
                   <strong className="text-slate-300">Certificación blockchain</strong>{' '}
                   <span className="text-xs rounded-full px-1.5 py-0.5 font-medium" style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399' }}>Gratis</span>
-                  {' '}— Al <strong className="text-slate-300">cerrar la asamblea</strong>, el acta se sella automáticamente en la blockchain de Bitcoin mediante OpenTimestamps. Garantiza que nadie pueda alterar el contenido del acta después de la votación. Actívalo en <strong className="text-slate-300">Super Admin → Ajustes</strong>.
+                  {' '}— Si está activada, al <strong className="text-slate-300">cerrar la asamblea</strong> el acta se sella automáticamente en la blockchain de Bitcoin (OpenTimestamps). Así se garantiza que nadie pueda alterar el contenido del acta después de la votación. El certificado .ots se descarga desde la página del acta y se puede verificar en opentimestamps.org.
                 </span>
               </li>
               <li className="flex items-start gap-2">
@@ -80,15 +80,14 @@ export function GuiaTokensModal({ open, onOpenChange, colorPrincipalHex = COLOR_
             </ul>
           </div>
         </div>
-        {/* Callout blockchain */}
         <div className="mx-6 mb-6 p-4 rounded-2xl border flex items-start gap-3" style={{ borderColor: '#10b981', background: 'rgba(16,185,129,0.07)' }}>
           <Link2 className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#10b981' }} />
           <div>
             <p className="text-sm font-semibold text-slate-200 mb-0.5">
-              ¿Cómo activar la certificación blockchain?
+              Acta definitiva y certificación
             </p>
             <p className="text-xs text-slate-400">
-              Ve a <strong className="text-slate-300">Super Admin → Ajustes</strong> y activa &quot;Certificación blockchain (OpenTimestamps)&quot;. Desde ese momento, cada vez que <strong className="text-slate-300">cierres una asamblea</strong>, el acta quedará sellada en la blockchain de Bitcoin de forma gratuita. El certificado <strong className="text-slate-300">.ots</strong> se puede descargar desde la página del acta y verificar en{' '}
+              Para que el acta quede <strong className="text-slate-300">definitiva</strong> (y, si está activada, certificada en blockchain), debes <strong className="text-slate-300">cerrar la asamblea</strong> desde el botón &quot;Finalizar Asamblea&quot; en la asamblea correspondiente. A partir de ahí podrás descargar el acta y el certificado .ots desde la página del acta y verificar en{' '}
               <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#34d399' }}>opentimestamps.org</a>.
             </p>
           </div>
