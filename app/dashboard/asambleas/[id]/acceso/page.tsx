@@ -744,7 +744,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                           <VotacionBarChart
                             data={data}
                             umbral={umbral}
-                            tipoVotacion={preg.tipo_votacion}
+                            tipoVotacion={preg.tipo_votacion ?? 'coeficiente'}
                             variant="panel"
                             esMobile={esMobile}
                           />
@@ -825,7 +825,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     <VotacionBarChart
                       data={data}
                       umbral={umbral}
-                      tipoVotacion={preg.tipo_votacion}
+                      tipoVotacion={preg.tipo_votacion ?? 'coeficiente'}
                       variant="proyector"
                     />
                   </div>
