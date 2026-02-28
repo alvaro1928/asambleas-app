@@ -50,8 +50,8 @@ export default function Home() {
   const [subtitulo, setSubtitulo] = useState('Votaciones en tiempo real, actas y auditoría. Pensado para administradores y consejos de administración.')
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [colorPrincipalHex, setColorPrincipalHex] = useState<string>('#4f46e5')
-  const [precioPorTokenCop, setPrecioPorTokenCop] = useState<number | null>(null)
-  const [bonoBienvenidaTokens, setBonoBienvenidaTokens] = useState<number | null>(null)
+  const [precioPorUnidadCop, setPrecioPorUnidadCop] = useState<number | null>(null)
+  const [bonoBienvenida, setBonoBienvenida] = useState<number | null>(null)
   const [textoHeroPrecio, setTextoHeroPrecio] = useState<string | null>(null)
   const [textoAhorro, setTextoAhorro] = useState<string | null>(null)
   const [ctaWhatsappText, setCtaWhatsappText] = useState<string>('Contactanos')
@@ -75,8 +75,8 @@ export default function Home() {
         if (data?.subtitulo) setSubtitulo(data.subtitulo)
         if (data?.whatsapp_number) setWhatsappNumber(data.whatsapp_number)
         if (data?.color_principal_hex && /^#[0-9A-Fa-f]{6}$/.test(data.color_principal_hex)) setColorPrincipalHex(data.color_principal_hex)
-        if (data?.precio_por_token_cop != null) setPrecioPorTokenCop(Number(data.precio_por_token_cop))
-        if (data?.bono_bienvenida_tokens != null) setBonoBienvenidaTokens(Number(data.bono_bienvenida_tokens))
+        if (data?.precio_por_token_cop != null) setPrecioPorUnidadCop(Number(data.precio_por_token_cop))
+        if (data?.bono_bienvenida_tokens != null) setBonoBienvenida(Number(data.bono_bienvenida_tokens))
         if (data?.texto_hero_precio != null) setTextoHeroPrecio(data.texto_hero_precio)
         if (data?.texto_ahorro != null) setTextoAhorro(data.texto_ahorro)
         if (data?.cta_whatsapp_text) setCtaWhatsappText(data.cta_whatsapp_text)
@@ -124,14 +124,14 @@ export default function Home() {
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
               <Link href="/login">
                 <Button size="lg" className="rounded-3xl shadow-lg" style={{ backgroundColor: colorPrincipalHex }}>
-                  Empezar ahora{bonoBienvenidaTokens != null ? ` (${bonoBienvenidaTokens} tokens gratis)` : ' (tokens de bienvenida)'}
+                  Empezar ahora{bonoBienvenida != null ? ` (${bonoBienvenida} créditos de bienvenida)` : ''}
                 </Button>
               </Link>
             </div>
             <p className="mt-6 text-sm text-slate-400 max-w-xl">
               {textoHeroPrecio != null && textoHeroPrecio.trim() !== ''
                 ? textoHeroPrecio
-                : `Paga solo por lo que usas: ${precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop) : '—'} COP por unidad. Ahorra un 75% frente a servicios tradicionales (Costo promedio $600.000 vs ${precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop * 100) : '—'} con nosotros para 100 unidades).`}
+                : `Paga solo por lo que usas: ${precioPorUnidadCop != null ? formatPrecioCop(precioPorUnidadCop) : '—'} COP por unidad. Ahorra frente a servicios tradicionales (costo promedio $600.000 vs ${precioPorUnidadCop != null ? formatPrecioCop(precioPorUnidadCop * 100) : '—'} con nosotros para 100 unidades).`}
             </p>
           </div>
         </div>
@@ -195,35 +195,35 @@ export default function Home() {
       <section className="py-16 md:py-20 border-b border-slate-800 rounded-3xl mx-4 sm:mx-6 lg:mx-8" style={{ backgroundColor: '#0B0E14', borderColor: 'rgba(255,255,255,0.1)' }}>
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <p className="text-center text-xl md:text-2xl font-bold text-white mb-2">
-            Paga solo por lo que usas: {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop) : '—'} COP por unidad
+            Paga solo por lo que usas: {precioPorUnidadCop != null ? formatPrecioCop(precioPorUnidadCop) : '—'} COP por unidad
           </p>
           <p className="text-center text-slate-400 text-sm mb-8">
-            1 Token = 1 Unidad de vivienda · Precio controlado desde Super Admin
+            1 unidad de vivienda = 1 crédito · Precio por unidad desde tu panel
           </p>
 
           <div className="rounded-3xl border p-8 space-y-6" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0B0E14' }}>
             <div className="text-center">
               <p className="text-3xl md:text-4xl font-bold text-white">
-                {precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop) : '—'}
+                {precioPorUnidadCop != null ? formatPrecioCop(precioPorUnidadCop) : '—'}
               </p>
-              <p className="text-slate-400 mt-1">por token</p>
+              <p className="text-slate-400 mt-1">por unidad de vivienda</p>
             </div>
 
             <div className="rounded-2xl p-4 text-center" style={{ backgroundColor: `${colorPrincipalHex}20`, border: '1px solid rgba(255,255,255,0.08)' }}>
               <p className="text-slate-200 font-semibold">
-                Regístrate hoy y recibe {bonoBienvenidaTokens != null ? `${bonoBienvenidaTokens} tokens` : 'tokens'} gratis para tu primera asamblea
+                Regístrate hoy y recibe {bonoBienvenida != null ? `${bonoBienvenida} créditos` : 'créditos'} de bienvenida para tu primera asamblea
               </p>
             </div>
             <p className="text-center text-slate-400 text-sm">
               {textoAhorro != null && textoAhorro.trim() !== ''
                 ? textoAhorro
-                : `Ahorra un 75% frente a servicios tradicionales (Costo promedio $600.000 vs ${precioPorTokenCop != null ? formatPrecioCop(precioPorTokenCop * 100) : '—'} con nosotros para 100 unidades).`}
+                : `Ahorra frente a servicios tradicionales (costo promedio $600.000 vs ${precioPorUnidadCop != null ? formatPrecioCop(precioPorUnidadCop * 100) : '—'} con nosotros para 100 unidades).`}
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
               <Link href="/login" className="inline-flex justify-center">
                 <Button size="lg" className="rounded-3xl shadow-lg w-full sm:w-auto" style={{ backgroundColor: colorPrincipalHex }}>
-                  Empezar ahora{bonoBienvenidaTokens != null ? ` (${bonoBienvenidaTokens} tokens gratis)` : ' (tokens de bienvenida)'}
+                  Empezar ahora{bonoBienvenida != null ? ` (${bonoBienvenida} créditos de bienvenida)` : ''}
                 </Button>
               </Link>
               {whatsappNumber && (

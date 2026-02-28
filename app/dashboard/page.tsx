@@ -167,7 +167,7 @@ export default function DashboardPage() {
 
   const loadConfig = async () => {
     try {
-      const configRes = await fetch('/api/configuracion-global')
+      const configRes = await fetch('/api/configuracion-global', { cache: 'no-store' })
       const configData = (await configRes.json()) as { precio_por_token_cop?: number | null; color_principal_hex?: string | null; whatsapp_number?: string | null }
       if (configData?.precio_por_token_cop != null) setPrecioProCop(Number(configData.precio_por_token_cop))
       if (configData?.color_principal_hex && /^#[0-9A-Fa-f]{6}$/.test(configData.color_principal_hex)) setColorPrincipalHex(configData.color_principal_hex)

@@ -66,7 +66,7 @@ export default function NuevaAsambleaPage() {
         }
         return res.json()
       }),
-      fetch('/api/configuracion-global').then((r) => r.ok ? r.json() : null).catch(() => null),
+      fetch('/api/configuracion-global', { cache: 'no-store' }).then((r) => r.ok ? r.json() : null).catch(() => null),
       fetch('/api/planes').then((r) => r.json()).catch(() => ({ planes: [] })),
     ])
       .then(([data, configData, planesData]) => {

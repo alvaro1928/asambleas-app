@@ -36,7 +36,7 @@ export async function GET() {
       bono_bienvenida_tokens?: number | null
     } | null
     const precioToken = row?.precio_por_token_cop != null ? Number(row.precio_por_token_cop) : 1500
-    return NextResponse.json({
+    const res = NextResponse.json({
       titulo: row?.titulo ?? null,
       subtitulo: row?.subtitulo ?? null,
       whatsapp_number: row?.whatsapp_number ?? null,
@@ -44,6 +44,8 @@ export async function GET() {
       precio_por_token_cop: precioToken,
       bono_bienvenida_tokens: row?.bono_bienvenida_tokens != null ? Number(row.bono_bienvenida_tokens) : null,
     })
+    res.headers.set('Cache-Control', 'no-store, max-age=0')
+    return res
   } catch (e) {
     console.error('GET /api/configuracion-global:', e)
     return NextResponse.json({ error: 'Error al obtener configuración' }, { status: 500 })

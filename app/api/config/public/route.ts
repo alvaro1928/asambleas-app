@@ -41,7 +41,7 @@ export async function GET() {
 
     const precioPorTokenCop = row?.precio_por_token_cop != null ? Number(row.precio_por_token_cop) : 1500
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       titulo: row?.titulo ?? null,
       subtitulo: row?.subtitulo ?? null,
       whatsapp_number: row?.whatsapp_number ?? null,
@@ -52,6 +52,8 @@ export async function GET() {
       texto_ahorro: row?.texto_ahorro ?? null,
       cta_whatsapp_text: row?.cta_whatsapp_text?.trim() || 'Contactanos',
     })
+    res.headers.set('Cache-Control', 'no-store, max-age=0')
+    return res
   } catch (e) {
     console.error('GET /api/config/public:', e)
     return NextResponse.json({ error: 'Error al obtener configuración pública' }, { status: 500 })

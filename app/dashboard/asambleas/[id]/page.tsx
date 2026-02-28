@@ -313,7 +313,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       setPuedeOperar(puede)
       const limits = getEffectivePlanLimits(tokens, unidades)
       setPlanLimits(limits)
-      const configRes = await fetch('/api/configuracion-global')
+      const configRes = await fetch('/api/configuracion-global', { cache: 'no-store' })
       const configData = configRes.ok ? await configRes.json() : null
       if (configData?.precio_por_token_cop != null) setPrecioProCop(Number(configData.precio_por_token_cop))
       if (configData?.whatsapp_number != null && typeof configData.whatsapp_number === 'string') setWhatsappNumber(configData.whatsapp_number)
