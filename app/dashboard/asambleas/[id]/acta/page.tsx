@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -366,6 +366,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [generando, setGenerando] = useState(false)
   const [generarError, setGenerarError] = useState<string | null>(null)
   const [actaOtsBase64, setActaOtsBase64] = useState<string | null>(null)
+  const [descargandoPdf, setDescargandoPdf] = useState(false)
+  const actaContentRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     if (params.id && typeof window !== 'undefined') {
@@ -430,6 +432,32 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
   const handlePrint = () => {
     window.print()
+  }
+
+  /** Descarga el acta (incluyendo certificado blockchain si existe) como PDF. */
+  const handleDescargarPdf = async () => {
+    const mainEl = actaContentRef.current
+    if (!mainEl) return
+    setDescargandoPdf(true)
+    try {
+      const html2pdf = (await import('html2pdf.js')).default
+      const nombreSeguro = (asamblea?.nombre ?? 'asamblea').replace(/[^a-zA-Z0-9\u00C0-\u024F\s.-]/g, '').trim().slice(0, 80) || 'acta'
+      await html2pdf()
+        .set({
+          margin: [10, 10, 10, 10],
+          filename: `acta-${nombreSeguro}-${params.id}.pdf`.replace(/\s+/g, '_'),
+          image: { type: 'jpeg', quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        })
+        .from(mainEl)
+        .save()
+    } catch (e) {
+      console.error('Error al generar PDF:', e)
+      setPrintError('No se pudo generar el PDF. Usa Imprimir y elige "Guardar como PDF".')
+    } finally {
+      setDescargandoPdf(false)
+    }
   }
 
   const formatFecha = (fecha: string) => {
@@ -556,14 +584,25 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           {printError && (
             <p className="text-sm text-amber-600 dark:text-amber-400">{printError}</p>
           )}
-          <Button onClick={handlePrint} className="bg-indigo-600 hover:bg-indigo-700">
-            <Printer className="w-4 h-4 mr-2" />
-            Imprimir / Guardar como PDF
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={handleDescargarPdf}
+              disabled={descargandoPdf}
+              variant="outline"
+              className="border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+            >
+              {descargandoPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+              Descargar acta (PDF)
+            </Button>
+            <Button onClick={handlePrint} className="bg-indigo-600 hover:bg-indigo-700">
+              <Printer className="w-4 h-4 mr-2" />
+              Imprimir
+            </Button>
+          </div>
         </div>
       </div>
 
-      <main className="max-w-4xl mx-auto px-6 py-10 print:py-6">
+      <main ref={actaContentRef} className="max-w-4xl mx-auto px-6 py-10 print:py-6">
         <header className="text-center border-b-2 border-gray-800 pb-6 mb-8">
           <p className="text-base font-bold text-gray-800 mb-2">Votaciones de Asambleas Online</p>
           <h1 className="text-2xl font-bold uppercase tracking-wide">Acta de votación</h1>
@@ -579,7 +618,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               Certificado blockchain (OpenTimestamps)
             </h2>
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
-              Este acta fue sellada en la blockchain de Bitcoin mediante OpenTimestamps. Puedes descargar la prueba y verificar su autenticidad en opentimestamps.org.
+              Este acta fue sellada en la blockchain de Bitcoin mediante OpenTimestamps. Puedes descargar el acta completa en PDF (arriba, botón «Descargar acta (PDF)») o solo la prueba de certificación .ots para verificar en opentimestamps.org.
             </p>
             <div className="flex flex-wrap gap-3">
               <a
@@ -588,7 +627,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
               >
                 <Download className="w-4 h-4" />
-                Descargar prueba .ots
+                Descargar certificado .ots
               </a>
               <a
                 href="https://opentimestamps.org"
