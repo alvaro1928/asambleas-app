@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /auth/register
+Allow: /auth/restablecer
+Allow: /politica-privacidad
+Allow: /epbco
+Allow: /pago-ok
+Allow: /votar/
+
+Disallow: /dashboard/
+Disallow: /super-admin/
+Disallow: /api/
+
+Sitemap: https://asambleas.online/sitemap.xml

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/providers/ToastProvider'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('alvarocontreras35@gmail.com')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [useMagicLink, setUseMagicLink] = useState(false)

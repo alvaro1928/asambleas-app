@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useMemo, type ReactNode } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
 import {
   ArrowLeft,
@@ -24,18 +25,23 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { QRCodeSVG } from 'qrcode.react'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-  ReferenceLine
-} from 'recharts'
+import type { BarChartData } from '@/components/charts/VotacionBarChart'
+
+const QRCodeSVG = dynamic(
+  () => import('qrcode.react').then((m) => ({ default: m.QRCodeSVG })),
+  {
+    ssr: false,
+    loading: () => <div className="w-[180px] h-[180px] bg-gray-200 dark:bg-gray-700 animate-pulse rounded-xl" />,
+  }
+)
+
+const VotacionBarChart = dynamic(
+  () => import('@/components/charts/VotacionBarChart'),
+  {
+    ssr: false,
+    loading: () => <div className="w-full h-full bg-gray-800/40 animate-pulse rounded-xl" />,
+  }
+)
 
 interface Asamblea {
   id: string
@@ -555,10 +561,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     Conectados ahora (ping quórum)
                   </p>
                   <div className="relative mt-2">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
                     <input
                       type="search"
                       placeholder="Buscar..."
+                      aria-label="Buscar en sesión activa"
                       value={searchSesion}
                       onChange={(e) => setSearchSesion(e.target.value)}
                       className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
@@ -599,10 +606,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     Tienen registro en votos
                   </p>
                   <div className="relative mt-2">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
                     <input
                       type="search"
                       placeholder="Buscar..."
+                      aria-label="Buscar en ya votaron"
                       value={searchYaVotaron}
                       onChange={(e) => setSearchYaVotaron(e.target.value)}
                       className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
@@ -640,10 +648,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     Unidades que aún no han votado — para localizar y alcanzar quórum
                   </p>
                   <div className="relative mt-2">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
                     <input
                       type="search"
                       placeholder="Buscar..."
+                      aria-label="Buscar en pendientes"
                       value={searchFaltantes}
                       onChange={(e) => setSearchFaltantes(e.target.value)}
                       className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
@@ -712,7 +721,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   const pctRelevante = (r: ResultadoOpcion) =>
                     preg.tipo_votacion === 'nominal' ? (r.porcentaje_nominal_total ?? 0) : r.porcentaje_coeficiente_total
                   const maxLabelLen = esMobile ? 14 : 22
-                  const data = preg.resultados.map((r) => {
+                  const data: BarChartData[] = preg.resultados.map((r) => {
                     const pct = pctRelevante(r)
                     const texto = r.opcion_texto || ''
                     return {
@@ -725,9 +734,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     }
                   })
                   const umbral = preg.umbral_aprobacion ?? 51
-                  const margenes = esMobile ? { top: 8, right: 40, left: 50, bottom: 8 } : { top: 12, right: 90, left: 100, bottom: 12 }
-                  const yAxisWidth = esMobile ? 48 : 95
-                  const barLabelFontSize = esMobile ? 9 : 12
                   return (
                     <div key={preg.id} className="space-y-3 min-w-0">
                       <p className="text-base font-semibold text-slate-200 line-clamp-2">
@@ -735,62 +741,13 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       </p>
                       <div className="h-[320px] min-h-[240px] w-full overflow-x-auto overflow-y-hidden -mx-1 px-1">
                         <div className="h-full min-w-[260px] w-full">
-                          <ResponsiveContainer width="100%" height="100%" minWidth={280}>
-                            <BarChart
-                              layout="vertical"
-                              data={data}
-                              margin={margenes}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" stroke="#475569" opacity={0.3} />
-                              <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: esMobile ? 10 : 12, fill: '#94a3b8' }} />
-                              <YAxis type="category" dataKey="name" width={yAxisWidth} tick={{ fontSize: esMobile ? 11 : 13, fill: '#94a3b8' }} />
-                            <Tooltip
-                              formatter={(value: number | undefined, _name?: string, props?: unknown) => {
-                                const payload = (props as { payload?: { votosCantidad?: number } })?.payload
-                                const votos = payload?.votosCantidad ?? 0
-                                const labelTipo = preg.tipo_votacion === 'nominal' ? 'Porcentaje (unidades)' : 'Coeficiente'
-                                return [`${value ?? 0}% (${votos} ${votos !== 1 ? 'votos' : 'voto'})`, labelTipo]
-                              }}
-                              labelFormatter={(_: ReactNode, payload: readonly { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName ?? ''}
-                              contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                            />
-                            <ReferenceLine
-                              x={umbral}
-                              stroke={data.some((d) => d.aprueba) ? '#10b981' : '#f59e0b'}
-                              strokeWidth={2}
-                              strokeDasharray="4 2"
-                              label={{ value: `Mayoría necesaria (${umbral}%)`, position: 'insideTopRight', fill: '#94a3b8', fontSize: 11 }}
-                            />
-                            <Bar
-                              dataKey="porcentaje"
-                              radius={[0, 6, 6, 0]}
-                              maxBarSize={esMobile ? 28 : 40}
-                              label={{
-                                position: 'right',
-                                formatter: (label: unknown, ...args: unknown[]) => {
-                                  const v = Number(label ?? 0)
-                                  const entryOrProps = args[0] as { payload?: { aprueba?: boolean; votosCantidad?: number }; votosCantidad?: number; aprueba?: boolean } | undefined
-                                  const payload = entryOrProps?.payload ?? entryOrProps
-                                  const votos = Math.max(0, Number(payload?.votosCantidad ?? 0))
-                                  const suf = votos !== 1 ? 'votos' : 'voto'
-                                  if (payload?.aprueba) return esMobile ? `${v}% ✓` : `${v}% (${votos} ${suf}) MAYORÍA ALCANZADA`
-                                  return esMobile ? `${v}%` : `${v}% (${votos} ${suf})`
-                                },
-                                fontSize: barLabelFontSize,
-                                fill: '#e2e8f0'
-                              }}
-                            >
-                              {data.map((entry, index) => (
-                                <Cell
-                                  key={entry.name + index}
-                                  fill={entry.aprueba ? '#10b981' : entry.color}
-                                  stroke={entry.aprueba ? '#059669' : undefined}
-                                  strokeWidth={entry.aprueba ? 2 : 0}
-                                />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
+                          <VotacionBarChart
+                            data={data}
+                            umbral={umbral}
+                            tipoVotacion={preg.tipo_votacion}
+                            variant="panel"
+                            esMobile={esMobile}
+                          />
                         </div>
                       </div>
                       {data.some((d) => d.aprueba) && (
@@ -847,7 +804,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             {preguntasConResultados.map((preg) => {
               const pctRelevante = (r: ResultadoOpcion) =>
                 preg.tipo_votacion === 'nominal' ? (r.porcentaje_nominal_total ?? 0) : r.porcentaje_coeficiente_total
-              const data = preg.resultados.map((r) => {
+              const data: BarChartData[] = preg.resultados.map((r) => {
                 const pct = pctRelevante(r)
                 return {
                   name: r.opcion_texto.length > 28 ? r.opcion_texto.slice(0, 26) + '…' : r.opcion_texto,
@@ -865,62 +822,12 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     {preg.texto_pregunta}
                   </p>
                   <div className="min-h-[50vh] h-[55vh] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        layout="vertical"
-                        data={data}
-                        margin={{ top: 16, right: 120, left: 140, bottom: 16 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#475569" opacity={0.3} />
-                        <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 18, fill: '#94a3b8' }} />
-                        <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 18, fill: '#94a3b8' }} />
-                        <Tooltip
-                          formatter={(value: number | undefined, _n?: string, props?: unknown) => {
-                            const payload = (props as { payload?: { votosCantidad?: number } })?.payload
-                            const votos = payload?.votosCantidad ?? 0
-                            const labelTipo = preg.tipo_votacion === 'nominal' ? 'Porcentaje (unidades)' : 'Coeficiente'
-                            return [`${value ?? 0}% (${votos} ${votos !== 1 ? 'votos' : 'voto'})`, labelTipo]
-                          }}
-                          labelFormatter={(_: ReactNode, payload: readonly { payload?: { fullName?: string } }[]) => payload?.[0]?.payload?.fullName ?? ''}
-                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                        />
-                        <ReferenceLine
-                          x={umbral}
-                          stroke={data.some((d) => d.aprueba) ? '#10b981' : '#f59e0b'}
-                          strokeWidth={2}
-                          strokeDasharray="4 2"
-                          label={{ value: `Mayoría necesaria (${umbral}%)`, position: 'insideTopRight', fill: '#94a3b8', fontSize: 14 }}
-                        />
-                        <Bar
-                          dataKey="porcentaje"
-                          radius={[0, 8, 8, 0]}
-                          maxBarSize={56}
-                          label={{
-                            position: 'right',
-                            formatter: (label: unknown, ...args: unknown[]) => {
-                              const v = Number(label ?? 0)
-                              const entryOrProps = args[0] as { payload?: { aprueba?: boolean; votosCantidad?: number }; votosCantidad?: number; aprueba?: boolean } | undefined
-                              const payload = entryOrProps?.payload ?? entryOrProps
-                              const votos = Math.max(0, Number(payload?.votosCantidad ?? 0))
-                              const suf = votos !== 1 ? 'votos' : 'voto'
-                              if (payload?.aprueba) return `${v}% (${votos} ${suf}) MAYORÍA ALCANZADA`
-                              return `${v}% (${votos} ${suf})`
-                            },
-                            fontSize: 18,
-                            fill: '#e2e8f0'
-                          }}
-                        >
-                          {data.map((entry, index) => (
-                            <Cell
-                              key={entry.name + index}
-                              fill={entry.aprueba ? '#10b981' : entry.color}
-                              stroke={entry.aprueba ? '#059669' : undefined}
-                              strokeWidth={entry.aprueba ? 2 : 0}
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <VotacionBarChart
+                      data={data}
+                      umbral={umbral}
+                      tipoVotacion={preg.tipo_votacion}
+                      variant="proyector"
+                    />
                   </div>
                   {data.some((d) => d.aprueba) && (
                     <div className="flex flex-wrap gap-2 mt-3">
