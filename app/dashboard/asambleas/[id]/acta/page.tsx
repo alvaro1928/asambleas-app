@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Download, FileText, Printer, Loader2 } from 'lucide-react'
+import { ArrowLeft, Download, FileText, Printer, Loader2, ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface Asamblea {
@@ -367,6 +367,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [generarError, setGenerarError] = useState<string | null>(null)
   const [actaOtsBase64, setActaOtsBase64] = useState<string | null>(null)
   const [descargandoPdf, setDescargandoPdf] = useState(false)
+  const [verificarOpenTimestampsAbierto, setVerificarOpenTimestampsAbierto] = useState(false)
   const actaContentRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -678,45 +679,52 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </div>
         </header>
 
-        {/* ── CÓMO VERIFICAR EN OPENTIMESTAMPS (siempre visible) ── */}
-        <section className="mb-8 p-4 rounded-xl border-2 border-slate-200 bg-slate-50 print:break-inside-avoid">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-slate-600 mb-3 flex items-center gap-2">
-            <FileText className="w-4 h-4" />
-            Cómo verificar este acta en OpenTimestamps
-          </h2>
-          <p className="text-sm text-slate-700 mb-4">
-            En{' '}
-            <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-600 underline">
-              opentimestamps.org
-            </a>
-            {' '}puedes comprobar que el acta no fue modificada después del sellado en Bitcoin. Sigue estos pasos:
-          </p>
-          <ol className="list-decimal list-inside space-y-2 text-sm text-slate-700 mb-4">
-            <li>
-              <strong>Abre</strong>{' '}
-              <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-medium">
+        {/* ── CÓMO VERIFICAR EN OPENTIMESTAMPS (collapsible; en impresión/PDF siempre expandido) ── */}
+        <section className="mb-8 rounded-xl border-2 border-slate-200 bg-slate-50 print:break-inside-avoid overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setVerificarOpenTimestampsAbierto((v) => !v)}
+            className="w-full flex items-center gap-2 p-4 text-left print:pointer-events-none print:cursor-default"
+            aria-expanded={verificarOpenTimestampsAbierto}
+          >
+            {verificarOpenTimestampsAbierto ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
+            <span className="text-sm font-bold uppercase tracking-widest text-slate-600">Cómo verificar este acta en OpenTimestamps</span>
+          </button>
+          <div className={`px-4 pb-4 print:!block ${verificarOpenTimestampsAbierto ? 'block' : 'hidden'}`}>
+            <p className="text-sm text-slate-700 mb-4">
+              En{' '}
+              <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-600 underline">
                 opentimestamps.org
               </a>
-              {' '}(usa el botón &quot;Verificar en OpenTimestamps&quot; de la barra de arriba).
-            </li>
-            <li>
-              En la página verás la zona <strong>&quot;an .ots proof file to verify&quot;</strong>. <strong>Arrastra ahí el archivo .ots</strong>. Si esta asamblea tiene certificado blockchain, descarga el .ots con el botón verde &quot;Descargar certificado .ots&quot; que aparece más abajo en esta página.
-            </li>
-            <li>
-              Si OpenTimestamps te pide el <strong>documento original</strong>, arrastra el <strong>PDF del acta</strong> (el que descargaste con &quot;Descargar acta (PDF)&quot;).
-            </li>
-            <li>
-              Verás la <strong>fecha de sellado</strong> en la blockchain de Bitcoin y si la verificación es correcta.
-            </li>
-          </ol>
-          <a
-            href="https://opentimestamps.org"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700"
-          >
-            Abrir opentimestamps.org para verificar ↗
-          </a>
+              {' '}puedes comprobar que el acta no fue modificada después del sellado en Bitcoin. Sigue estos pasos:
+            </p>
+            <ol className="list-decimal list-inside space-y-2 text-sm text-slate-700 mb-4">
+              <li>
+                <strong>Abre</strong>{' '}
+                <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-medium">
+                  opentimestamps.org
+                </a>
+                {' '}(usa el botón &quot;Verificar en OpenTimestamps&quot; de la barra de arriba).
+              </li>
+              <li>
+                En la página verás la zona <strong>&quot;an .ots proof file to verify&quot;</strong>. <strong>Arrastra ahí el archivo .ots</strong>. Si esta asamblea tiene certificado blockchain, descarga el .ots con el botón verde &quot;Descargar certificado .ots&quot; que aparece más abajo en esta página.
+              </li>
+              <li>
+                Si OpenTimestamps te pide el <strong>documento original</strong>, arrastra el <strong>PDF del acta</strong> (el que descargaste con &quot;Descargar acta (PDF)&quot;).
+              </li>
+              <li>
+                Verás la <strong>fecha de sellado</strong> en la blockchain de Bitcoin y si la verificación es correcta.
+              </li>
+            </ol>
+            <a
+              href="https://opentimestamps.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700"
+            >
+              Abrir opentimestamps.org para verificar ↗
+            </a>
+          </div>
         </section>
 
         {/* ── CERTIFICADO BLOCKCHAIN (siempre visible) ── */}
@@ -839,7 +847,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                 pregunta.tipo_votacion === 'nominal'
                   ? Number(r.porcentaje_nominal_total ?? r.porcentaje_votos_emitidos ?? 0)
                   : Number(r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0)
-              const items: { opcion_texto: string; pct: number; count: number }[] = stats
+              let items: { opcion_texto: string; pct: number; count: number }[] = stats
                 ? (resumenDesdeTabla && pregunta.tipo_votacion === 'coeficiente'
                     ? Object.entries(resumenDesdeTabla).map(([opcion, { coef, count }]) => ({
                         opcion_texto: opcion,
@@ -852,6 +860,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                         count: r.votos_cantidad ?? 0,
                       })))
                 : []
+              if (items.length === 0 && pregunta.opciones?.length) {
+                items = pregunta.opciones.map((o) => ({ opcion_texto: o.texto_opcion, pct: 0, count: 0 }))
+              }
               const opcionAfavor = items.find((i) => i.opcion_texto?.trim().toLowerCase().includes('a favor'))
               const pctAfavor = opcionAfavor?.pct ?? 0
               const aprobado = pregunta.umbral_aprobacion != null && pctAfavor >= pregunta.umbral_aprobacion
@@ -871,115 +882,116 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     </div>
                   </div>
 
-                  {/* Resultados resumen */}
-                  {items.length > 0 && (
-                    <div className="ml-10 mb-3">
-                      <table className="w-full border-collapse text-sm">
-                        <thead>
-                          <tr style={{ background: '#f8fafc' }}>
-                            <th className="border border-gray-200 px-3 py-1.5 text-left font-semibold text-gray-700">Opción</th>
-                            <th className="border border-gray-200 px-3 py-1.5 text-right font-semibold text-gray-700 w-24">Votos</th>
-                            <th className="border border-gray-200 px-3 py-1.5 text-right font-semibold text-gray-700 w-24">%</th>
+                  {/* Resultados resumen (siempre visible para auditoría) */}
+                  <div className="ml-10 mb-3">
+                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Resultados de la pregunta</p>
+                    <table className="w-full border-collapse text-sm">
+                      <thead>
+                        <tr style={{ background: '#f8fafc' }}>
+                          <th className="border border-gray-200 px-3 py-1.5 text-left font-semibold text-gray-700">Opción</th>
+                          <th className="border border-gray-200 px-3 py-1.5 text-right font-semibold text-gray-700 w-24">Votos</th>
+                          <th className="border border-gray-200 px-3 py-1.5 text-right font-semibold text-gray-700 w-24">%</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.length > 0 ? items.map((item, i) => (
+                          <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                            <td className="border border-gray-200 px-3 py-1.5 text-gray-900">{item.opcion_texto}</td>
+                            <td className="border border-gray-200 px-3 py-1.5 text-right text-gray-700">{item.count}</td>
+                            <td className="border border-gray-200 px-3 py-1.5 text-right font-semibold text-gray-900">{item.pct.toFixed(2)}%</td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {items.map((item, i) => (
-                            <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                              <td className="border border-gray-200 px-3 py-1.5 text-gray-900">{item.opcion_texto}</td>
-                              <td className="border border-gray-200 px-3 py-1.5 text-right text-gray-700">{item.count}</td>
-                              <td className="border border-gray-200 px-3 py-1.5 text-right font-semibold text-gray-900">{item.pct.toFixed(2)}%</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {pregunta.umbral_aprobacion != null && (
-                        <p
-                          className="text-sm font-bold mt-2 px-3 py-1.5 rounded"
-                          style={{ background: aprobado ? '#f0fdf4' : '#fff7ed', color: aprobado ? '#166534' : '#92400e', border: `1px solid ${aprobado ? '#bbf7d0' : '#fde68a'}` }}
-                        >
-                          {aprobado ? '✓ APROBADO' : '✗ NO APROBADO'} — Mayoría requerida: {pregunta.umbral_aprobacion}% · Obtenido: {pctAfavor.toFixed(2)}%
+                        )) : (
+                          <tr><td colSpan={3} className="border border-gray-200 px-3 py-2 text-gray-500 text-center">Sin opciones o sin votos registrados</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                    {pregunta.umbral_aprobacion != null && items.length > 0 && (
+                      <p
+                        className="text-sm font-bold mt-2 px-3 py-1.5 rounded"
+                        style={{ background: aprobado ? '#f0fdf4' : '#fff7ed', color: aprobado ? '#166534' : '#92400e', border: `1px solid ${aprobado ? '#bbf7d0' : '#fde68a'}` }}
+                      >
+                        {aprobado ? '✓ APROBADO' : '✗ NO APROBADO'} — Mayoría requerida: {pregunta.umbral_aprobacion}% · Obtenido: {pctAfavor.toFixed(2)}%
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Votación final por unidad (siempre visible para auditoría) */}
+                  <div className="ml-10 mt-3">
+                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Votación final por unidad</p>
+                    <table className="w-full border-collapse" style={{ fontSize: '11px' }}>
+                      <thead>
+                        <tr style={{ background: '#f1f5f9' }}>
+                          <th className="border border-gray-200 px-2 py-1 text-left font-semibold" style={{ width: '12%' }}>Unidad</th>
+                          <th className="border border-gray-200 px-2 py-1 text-left font-semibold" style={{ width: '40%' }}>Propietario / Residente</th>
+                          <th className="border border-gray-200 px-2 py-1 text-left font-semibold" style={{ width: '30%' }}>Voto final</th>
+                          <th className="border border-gray-200 px-2 py-1 text-right font-semibold" style={{ width: '18%' }}>Coef. %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {votosFinales.length > 0 ? votosFinales.map((row, i) => (
+                          <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                            <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.torre}-{row.numero}</td>
+                            <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.nombre_propietario ?? '—'}</td>
+                            <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.opcion_texto}</td>
+                            <td className="border border-gray-200 px-2 py-1 text-right">{row.coeficiente.toFixed(2)}%</td>
+                          </tr>
+                        )) : (
+                          <tr><td colSpan={4} className="border border-gray-200 px-2 py-2 text-gray-500 text-center text-xs">Ningún voto registrado en esta pregunta</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                    {votosFinales.length > 0 && (() => {
+                      const byOption = votosFinales.reduce((acc, r) => { acc[r.opcion_texto] = (acc[r.opcion_texto] ?? 0) + 1; return acc }, {} as Record<string, number>)
+                      return (
+                        <p className="mt-1.5 text-xs text-gray-500">
+                          <span className="font-semibold">Totales:</span>{' '}
+                          {Object.entries(byOption).map(([op, n]) => `${op}: ${n} unidad(es)`).join(' | ')}
                         </p>
-                      )}
-                    </div>
-                  )}
+                      )
+                    })()}
+                  </div>
 
-                  {/* Votación final por unidad */}
-                  {votosFinales.length > 0 && (
-                    <div className="ml-10 mt-3">
-                      <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Votación final por unidad</p>
-                      <table className="w-full border-collapse" style={{ fontSize: '11px' }}>
-                        <thead>
-                          <tr style={{ background: '#f1f5f9' }}>
-                            <th className="border border-gray-200 px-2 py-1 text-left font-semibold" style={{ width: '12%' }}>Unidad</th>
-                            <th className="border border-gray-200 px-2 py-1 text-left font-semibold" style={{ width: '40%' }}>Propietario / Residente</th>
-                            <th className="border border-gray-200 px-2 py-1 text-left font-semibold" style={{ width: '30%' }}>Voto final</th>
-                            <th className="border border-gray-200 px-2 py-1 text-right font-semibold" style={{ width: '18%' }}>Coef. %</th>
+                  {/* Auditoría de transacciones (siempre visible para auditoría) */}
+                  <div className="ml-10 mt-3">
+                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Auditoría de transacciones (cambios de voto, quién votó, cuándo)</p>
+                    <table className="w-full border-collapse" style={{ fontSize: '10px', tableLayout: 'fixed' }}>
+                      <thead>
+                        <tr style={{ background: '#f1f5f9' }}>
+                          <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '22%' }}>Votante</th>
+                          <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '9%' }}>Unidad</th>
+                          <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '14%' }}>Opción</th>
+                          <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '20%' }}>Acción</th>
+                          <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '18%' }}>Fecha/hora</th>
+                          <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '17%' }}>IP</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {auditoria[pregunta.id] && auditoria[pregunta.id].length > 0 ? auditoria[pregunta.id].map((row, i) => (
+                          <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                            <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}>
+                              {row.votante_email}{row.votante_nombre ? ` (${row.votante_nombre})` : ''}
+                            </td>
+                            <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-word' }}>
+                              {row.unidad_torre}-{row.unidad_numero}{row.es_poder ? ' *' : ''}
+                            </td>
+                            <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-word' }}>{row.opcion_seleccionada}</td>
+                            <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-word' }}>
+                              {row.accion}{row.opcion_anterior ? ` (antes: ${row.opcion_anterior})` : ''}
+                            </td>
+                            <td className="border border-gray-200 px-1.5 py-1">
+                              {row.fecha_accion ? new Date(row.fecha_accion).toLocaleString('es-CO') : '-'}
+                            </td>
+                            <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-all' }}>{row.ip_address || '-'}</td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {votosFinales.map((row, i) => (
-                            <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                              <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.torre}-{row.numero}</td>
-                              <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.nombre_propietario ?? '—'}</td>
-                              <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.opcion_texto}</td>
-                              <td className="border border-gray-200 px-2 py-1 text-right">{row.coeficiente.toFixed(2)}%</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {(() => {
-                        const byOption = votosFinales.reduce((acc, r) => { acc[r.opcion_texto] = (acc[r.opcion_texto] ?? 0) + 1; return acc }, {} as Record<string, number>)
-                        return (
-                          <p className="mt-1.5 text-xs text-gray-500">
-                            <span className="font-semibold">Totales:</span>{' '}
-                            {Object.entries(byOption).map(([op, n]) => `${op}: ${n} unidad(es)`).join(' | ')}
-                          </p>
-                        )
-                      })()}
-                    </div>
-                  )}
-
-                  {/* Auditoría de transacciones */}
-                  {auditoria[pregunta.id] && auditoria[pregunta.id].length > 0 && (
-                    <div className="ml-10 mt-3">
-                      <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Auditoría de transacciones</p>
-                      <table className="w-full border-collapse" style={{ fontSize: '10px', tableLayout: 'fixed' }}>
-                        <thead>
-                          <tr style={{ background: '#f1f5f9' }}>
-                            <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '22%' }}>Votante</th>
-                            <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '9%' }}>Unidad</th>
-                            <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '14%' }}>Opción</th>
-                            <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '20%' }}>Acción</th>
-                            <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '18%' }}>Fecha/hora</th>
-                            <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '17%' }}>IP</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {auditoria[pregunta.id].map((row, i) => (
-                            <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                              <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}>
-                                {row.votante_email}{row.votante_nombre ? ` (${row.votante_nombre})` : ''}
-                              </td>
-                              <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-word' }}>
-                                {row.unidad_torre}-{row.unidad_numero}{row.es_poder ? ' *' : ''}
-                              </td>
-                              <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-word' }}>{row.opcion_seleccionada}</td>
-                              <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-word' }}>
-                                {row.accion}{row.opcion_anterior ? ` (antes: ${row.opcion_anterior})` : ''}
-                              </td>
-                              <td className="border border-gray-200 px-1.5 py-1">
-                                {row.fecha_accion ? new Date(row.fecha_accion).toLocaleString('es-CO') : '-'}
-                              </td>
-                              <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-all' }}>{row.ip_address || '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {auditoria[pregunta.id].some((r) => r.es_poder) && (
-                        <p className="text-xs text-gray-400 mt-1">* Voto ejercido mediante poder notarial.</p>
-                      )}
-                    </div>
-                  )}
+                        )) : (
+                          <tr><td colSpan={6} className="border border-gray-200 px-1.5 py-2 text-gray-500 text-center text-xs">No hay transacciones de auditoría para esta pregunta</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                    {auditoria[pregunta.id]?.some((r) => r.es_poder) && (
+                      <p className="text-xs text-gray-400 mt-1">* Voto ejercido mediante poder notarial.</p>
+                    )}
+                  </div>
                 </div>
               )
             })}
