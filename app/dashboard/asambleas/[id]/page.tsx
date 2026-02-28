@@ -291,8 +291,15 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           .eq('id', params.id)
         if (!updateErr) {
           setAsamblea({ ...asambleaData, estado: 'finalizada' } as typeof asambleaData)
-          setSuccessMessage('La asamblea pasó automáticamente a finalizada (ventana de gracia de 72 h).')
-          setTimeout(() => setSuccessMessage(''), 5000)
+          setSuccessMessage('La asamblea pasó automáticamente a finalizada (72 h). El acta definitiva está disponible y se iniciará la certificación blockchain.')
+          setTimeout(() => setSuccessMessage(''), 7000)
+          // Certificar acta en blockchain (fire-and-forget)
+          fetch('/api/dashboard/acta-certificar-blockchain', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ asamblea_id: params.id }),
+          }).catch(() => {})
         } else {
           setAsamblea(asambleaData)
         }
@@ -1142,8 +1149,15 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       if (error) throw error
       setAsamblea({ ...asamblea, estado: 'finalizada' })
       setShowModalConfirmarFinalizar(false)
-      setSuccessMessage('Asamblea finalizada. La estructura es ahora de solo lectura.')
-      setTimeout(() => setSuccessMessage(''), 5000)
+      setSuccessMessage('Asamblea finalizada. El acta definitiva queda disponible para descarga y se iniciará la certificación blockchain.')
+      setTimeout(() => setSuccessMessage(''), 7000)
+      // Certificar acta en blockchain (fire-and-forget; no bloquea UI)
+      fetch('/api/dashboard/acta-certificar-blockchain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ asamblea_id: asamblea.id }),
+      }).catch(() => {})
     } catch (e: any) {
       toast.error(e?.message ?? 'Error al finalizar')
     } finally {
@@ -3021,8 +3035,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               ¿Finalizar asamblea?
             </DialogTitle>
             <DialogDescription>
-              ¿Estás seguro de finalizar? Esto archivará los resultados permanentemente y generará el acta definitiva. La estructura (preguntas y unidades) quedará en <strong>solo lectura</strong> y no podrás editarla de nuevo.
+              ¿Estás seguro de finalizar? La estructura (preguntas y unidades) quedará en <strong>solo lectura</strong> y los resultados se archivarán permanentemente.
             </DialogDescription>
+            <p className="text-sm text-muted-foreground mt-2">
+              Al cerrar la asamblea el acta queda <strong>definitiva</strong> y podrás descargarla cuantas veces quieras. Si tienes activa la <strong>certificación blockchain (OpenTimestamps)</strong>, el acta se sellará automáticamente en la blockchain de Bitcoin al finalizar.
+            </p>
+            <p className="text-xs text-muted-foreground/60 mt-1">
+              Para reabrir la asamblea después tendrás un costo del 10% de los tokens originales.
+            </p>
           </DialogHeader>
           <div className="mt-4 flex gap-3">
             <Button variant="outline" onClick={() => setShowModalConfirmarFinalizar(false)} className="flex-1">

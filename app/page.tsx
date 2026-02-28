@@ -10,6 +10,7 @@ import {
   Users,
   Zap,
   MessageCircle,
+  Link2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -166,7 +167,7 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 text-center">
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 text-center flex-wrap">
             <div className="flex items-center gap-2 text-slate-300">
               <FileText className="w-5 h-5 text-emerald-400 shrink-0" />
               <span className="text-sm">Actas y trazabilidad lista al cerrar la votación</span>
@@ -174,6 +175,35 @@ export default function Home() {
             <div className="flex items-center gap-2 text-slate-300">
               <Shield className="w-5 h-5 text-purple-400 shrink-0" />
               <span className="text-sm">Datos aislados por conjunto y acceso seguro</span>
+            </div>
+            <div className="flex items-center gap-2 text-slate-300">
+              <Link2 className="w-5 h-5 text-amber-400 shrink-0" />
+              <span className="text-sm">Acta certificada en blockchain de Bitcoin (OpenTimestamps)</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Blockchain */}
+      <section className="py-14 border-b border-slate-800" style={{ backgroundColor: '#0B0E14' }}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="rounded-3xl border p-8 flex flex-col md:flex-row items-center gap-8" style={{ borderColor: '#10b981', background: 'rgba(16,185,129,0.06)' }}>
+            <div className="flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.15)' }}>
+              <Link2 className="w-8 h-8" style={{ color: '#10b981' }} />
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <div className="flex flex-wrap items-center gap-2 justify-center md:justify-start mb-2">
+                <h3 className="text-lg font-bold text-white">Acta certificada en blockchain de Bitcoin</h3>
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(16,185,129,0.2)', color: '#34d399' }}>Gratis · Sin costo adicional</span>
+              </div>
+              <p className="text-sm text-slate-400 max-w-2xl">
+                Al cerrar la asamblea, el acta se sella automáticamente en la blockchain de Bitcoin mediante{' '}
+                <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#34d399' }}>OpenTimestamps</a>
+                {' '}(tecnología abierta y gratuita). Esto garantiza que el contenido del acta no pueda ser alterado después de la votación: cualquier persona puede verificar la autenticidad de forma independiente.
+              </p>
+              <p className="text-xs text-slate-500 mt-2">
+                Descarga el certificado <strong className="text-slate-400">.ots</strong> desde la página del acta y verifica en opentimestamps.org junto con el PDF.
+              </p>
             </div>
           </div>
         </div>
