@@ -9,16 +9,45 @@ const GA_MEASUREMENT_ID = "G-LNT6X43H6Z";
 
 const inter = Inter({ subsets: ["latin"] });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL
+  ? (process.env.NEXT_PUBLIC_SITE_URL.startsWith("http")
+    ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")
+    : `https://${process.env.NEXT_PUBLIC_SITE_URL}`)
+  : "https://asambleas.online";
+
+const DEFAULT_TITLE = "Votaciones de Asambleas Online | Plataforma Legal Ley 675";
+const DEFAULT_DESCRIPTION =
+  "La plataforma líder en Colombia para votaciones de asambleas virtuales. Quórum en tiempo real, actas automáticas y notificaciones por WhatsApp.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "Simulador de Votaciones | Asambleas Virtuales",
+    default: DEFAULT_TITLE,
     template: "%s | Asambleas Online",
   },
-  description: "Plataforma líder en votaciones online para asambleas de propiedad horizontal. Simulador de votaciones, actas, quórum en tiempo real y cumplimiento Ley 675.",
-  keywords: ["asambleas virtuales", "votaciones online", "propiedad horizontal", "Ley 675", "actas de asamblea", "quórum"],
+  description: DEFAULT_DESCRIPTION,
+  keywords: ["asambleas virtuales", "votaciones online", "propiedad horizontal", "Ley 675", "actas de asamblea", "quórum", "Colombia"],
   openGraph: {
     type: "website",
     locale: "es_CO",
+    url: SITE_URL,
+    siteName: "Asambleas Online",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [
+      {
+        url: "/logo.png",
+        width: 512,
+        height: 512,
+        alt: "Asambleas Online - Votaciones Ley 675",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: ["/logo.png"],
   },
   icons: {
     icon: "/logo.png",
