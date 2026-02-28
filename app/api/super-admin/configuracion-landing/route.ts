@@ -50,7 +50,7 @@ export async function GET() {
 
     const { data, error } = await admin
       .from('configuracion_global')
-      .select('id, key, titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens, texto_hero_precio, texto_ahorro, cta_whatsapp_text')
+      .select('id, key, titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens, texto_hero_precio, texto_ahorro, cta_whatsapp_text, acta_blockchain_ots_enabled')
       .eq('key', 'landing')
       .maybeSingle()
 
@@ -71,6 +71,7 @@ export async function GET() {
       texto_hero_precio?: string | null
       texto_ahorro?: string | null
       cta_whatsapp_text?: string | null
+      acta_blockchain_ots_enabled?: boolean | null
     } | null
 
     return NextResponse.json({
@@ -85,6 +86,7 @@ export async function GET() {
       texto_hero_precio: row?.texto_hero_precio ?? '',
       texto_ahorro: row?.texto_ahorro ?? '',
       cta_whatsapp_text: row?.cta_whatsapp_text?.trim() || 'Contactanos',
+      acta_blockchain_ots_enabled: row?.acta_blockchain_ots_enabled === true,
     })
   } catch (e) {
     console.error('super-admin configuracion-landing GET:', e)
@@ -127,7 +129,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens, texto_hero_precio, texto_ahorro, cta_whatsapp_text } = body as {
+    const { titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens, texto_hero_precio, texto_ahorro, cta_whatsapp_text, acta_blockchain_ots_enabled } = body as {
       titulo?: string
       subtitulo?: string
       whatsapp_number?: string
@@ -137,6 +139,7 @@ export async function PATCH(request: NextRequest) {
       texto_hero_precio?: string
       texto_ahorro?: string
       cta_whatsapp_text?: string
+      acta_blockchain_ots_enabled?: boolean
     }
 
     const admin = createClient(
@@ -145,7 +148,7 @@ export async function PATCH(request: NextRequest) {
       { auth: { persistSession: false } }
     )
 
-    const updates: Record<string, string | number | null> = {}
+    const updates: Record<string, string | number | boolean | null> = {}
     if (titulo !== undefined) updates.titulo = typeof titulo === 'string' ? titulo : null
     if (subtitulo !== undefined) updates.subtitulo = typeof subtitulo === 'string' ? subtitulo : null
     if (whatsapp_number !== undefined) updates.whatsapp_number = typeof whatsapp_number === 'string' ? whatsapp_number : null
@@ -155,6 +158,7 @@ export async function PATCH(request: NextRequest) {
     if (texto_hero_precio !== undefined) updates.texto_hero_precio = typeof texto_hero_precio === 'string' ? texto_hero_precio : null
     if (texto_ahorro !== undefined) updates.texto_ahorro = typeof texto_ahorro === 'string' ? texto_ahorro : null
     if (cta_whatsapp_text !== undefined) updates.cta_whatsapp_text = typeof cta_whatsapp_text === 'string' ? (cta_whatsapp_text.trim() || 'Contactanos') : null
+    if (acta_blockchain_ots_enabled !== undefined) updates.acta_blockchain_ots_enabled = acta_blockchain_ots_enabled === true
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'Falta al menos un campo para actualizar' }, { status: 400 })
@@ -182,6 +186,7 @@ export async function PATCH(request: NextRequest) {
           texto_hero_precio: updates.texto_hero_precio ?? null,
           texto_ahorro: updates.texto_ahorro ?? null,
           cta_whatsapp_text: updates.cta_whatsapp_text ?? 'Contactanos',
+          acta_blockchain_ots_enabled: updates.acta_blockchain_ots_enabled ?? false,
         })
         .select()
         .single()
