@@ -719,8 +719,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </a>
         </section>
 
-        {/* ── CERTIFICADO BLOCKCHAIN ── */}
-        {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) && (
+        {/* ── CERTIFICADO BLOCKCHAIN (siempre visible) ── */}
+        {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) ? (
           <section
             className="mb-8"
             style={{ border: '2px solid #059669', borderRadius: '12px', padding: '16px', background: '#f0fdf4' }}
@@ -731,7 +731,6 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             <p style={{ fontSize: '12px', color: '#1f2937', marginBottom: '10px', lineHeight: '1.6' }}>
               Este acta fue sellada en la blockchain de Bitcoin. Descarga el archivo <strong>.ots</strong> aquí abajo y verifica en opentimestamps.org siguiendo los pasos de la sección &quot;Cómo verificar&quot; de arriba.
             </p>
-            {/* Botones solo en pantalla */}
             <div className="flex flex-wrap gap-3 mt-3 print:hidden">
               <a
                 href={`data:application/octet-stream;base64,${asamblea?.acta_ots_proof_base64 || actaOtsBase64}`}
@@ -750,6 +749,29 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                 Verificar en opentimestamps.org ↗
               </a>
             </div>
+          </section>
+        ) : (
+          <section
+            className="mb-8 p-4 rounded-xl border-2 border-amber-200 bg-amber-50/80"
+          >
+            <h2 className="text-sm font-bold uppercase tracking-widest text-amber-800 mb-2 flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Certificado blockchain (.ots)
+            </h2>
+            <p className="text-sm text-amber-900 mb-2">
+              Esta asamblea <strong>no tiene certificado .ots</strong>. El botón &quot;Descargar certificado .ots&quot; solo aparece cuando el acta fue sellada en la blockchain al cerrar la asamblea (si la certificación está activada).
+            </p>
+            <p className="text-xs text-amber-800 mb-3">
+              Para las próximas asambleas: cierra la asamblea con &quot;Finalizar Asamblea&quot; y, si tu plataforma tiene la certificación activada, aquí aparecerá el certificado para descargar y verificar en opentimestamps.org.
+            </p>
+            <a
+              href="https://opentimestamps.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-amber-500 text-amber-800 text-sm font-medium hover:bg-amber-100"
+            >
+              Conocer OpenTimestamps ↗
+            </a>
           </section>
         )}
 
