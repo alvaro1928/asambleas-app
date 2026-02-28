@@ -29,15 +29,6 @@ function useRedirectOAuthCode() {
   }, [])
 }
 
-function formatPrecioCop(cop: number): string {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(cop)
-}
-
 function buildWhatsAppUrl(whatsappNumber: string, nombreConjunto: string) {
   const text = nombreConjunto.trim() ? `Hola, contacto desde la web (${nombreConjunto}).` : 'Hola, tengo una consulta.'
   return `https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`
@@ -50,10 +41,6 @@ export default function Home() {
   const [subtitulo, setSubtitulo] = useState('Votaciones en tiempo real, actas y auditoría. Pensado para administradores y consejos de administración.')
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [colorPrincipalHex, setColorPrincipalHex] = useState<string>('#4f46e5')
-  const [precioPorUnidadCop, setPrecioPorUnidadCop] = useState<number | null>(null)
-  const [bonoBienvenida, setBonoBienvenida] = useState<number | null>(null)
-  const [textoHeroPrecio, setTextoHeroPrecio] = useState<string | null>(null)
-  const [textoAhorro, setTextoAhorro] = useState<string | null>(null)
   const [ctaWhatsappText, setCtaWhatsappText] = useState<string>('Contactanos')
   const [logoError, setLogoError] = useState(false)
 
@@ -65,20 +52,12 @@ export default function Home() {
         subtitulo?: string | null
         whatsapp_number?: string | null
         color_principal_hex?: string | null
-        precio_por_token_cop?: number | null
-        bono_bienvenida_tokens?: number | null
-        texto_hero_precio?: string | null
-        texto_ahorro?: string | null
         cta_whatsapp_text?: string | null
       } | null) => {
         if (data?.titulo) setTitulo(data.titulo)
         if (data?.subtitulo) setSubtitulo(data.subtitulo)
         if (data?.whatsapp_number) setWhatsappNumber(data.whatsapp_number)
         if (data?.color_principal_hex && /^#[0-9A-Fa-f]{6}$/.test(data.color_principal_hex)) setColorPrincipalHex(data.color_principal_hex)
-        if (data?.precio_por_token_cop != null) setPrecioPorUnidadCop(Number(data.precio_por_token_cop))
-        if (data?.bono_bienvenida_tokens != null) setBonoBienvenida(Number(data.bono_bienvenida_tokens))
-        if (data?.texto_hero_precio != null) setTextoHeroPrecio(data.texto_hero_precio)
-        if (data?.texto_ahorro != null) setTextoAhorro(data.texto_ahorro)
         if (data?.cta_whatsapp_text) setCtaWhatsappText(data.cta_whatsapp_text)
       })
       .catch(() => {})
@@ -124,14 +103,12 @@ export default function Home() {
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
               <Link href="/login">
                 <Button size="lg" className="rounded-3xl shadow-lg" style={{ backgroundColor: colorPrincipalHex }}>
-                  Empezar ahora{bonoBienvenida != null ? ` (${bonoBienvenida} créditos de bienvenida)` : ''}
+                  Empezar ahora
                 </Button>
               </Link>
             </div>
             <p className="mt-6 text-sm text-slate-400 max-w-xl">
-              {textoHeroPrecio != null && textoHeroPrecio.trim() !== ''
-                ? textoHeroPrecio
-                : `Paga solo por lo que usas: ${precioPorUnidadCop != null ? formatPrecioCop(precioPorUnidadCop) : '—'} COP por unidad. Ahorra frente a servicios tradicionales (costo promedio $600.000 vs ${precioPorUnidadCop != null ? formatPrecioCop(precioPorUnidadCop * 100) : '—'} con nosotros para 100 unidades).`}
+              Crea tu conjunto, carga las unidades, convoca la asamblea y comparte el enlace. Los copropietarios votan en línea y obtienes el acta al instante.
             </p>
           </div>
         </div>
@@ -156,103 +133,90 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Features breves */}
+      {/* Cómo funciona (información funcional) */}
       <section className="py-14 border-b border-slate-800" style={{ backgroundColor: '#0B0E14' }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl font-bold text-white text-center mb-10">Cómo funciona</h2>
           <div className="grid md:grid-cols-3 gap-8">
+            <div className="flex flex-col items-center text-center rounded-3xl bg-slate-800/50 border p-6 shadow-lg" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 opacity-80" style={{ backgroundColor: `${colorPrincipalHex}30` }}>
+                <Building2 className="w-6 h-6" style={{ color: colorPrincipalHex }} />
+              </div>
+              <h3 className="font-semibold text-white">1. Crea tu conjunto</h3>
+              <p className="text-sm text-slate-400 mt-1">
+                Registra tu edificio o conjunto. Luego carga las unidades (apartamentos, locales) con coeficientes y datos de contacto.
+              </p>
+            </div>
+            <div className="flex flex-col items-center text-center rounded-3xl bg-slate-800/50 border p-6 shadow-lg" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 opacity-80" style={{ backgroundColor: `${colorPrincipalHex}30` }}>
+                <FileText className="w-6 h-6" style={{ color: colorPrincipalHex }} />
+              </div>
+              <h3 className="font-semibold text-white">2. Convoca la asamblea</h3>
+              <p className="text-sm text-slate-400 mt-1">
+                Crea la asamblea, añade las preguntas a votar y activa la votación. Obtendrás un enlace y un código para compartir.
+              </p>
+            </div>
             <div className="flex flex-col items-center text-center rounded-3xl bg-slate-800/50 border p-6 shadow-lg" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 opacity-80" style={{ backgroundColor: `${colorPrincipalHex}30` }}>
                 <Users className="w-6 h-6" style={{ color: colorPrincipalHex }} />
               </div>
-              <h3 className="font-semibold text-white">Quórum en tiempo real</h3>
+              <h3 className="font-semibold text-white">3. Los copropietarios votan</h3>
               <p className="text-sm text-slate-400 mt-1">
-                Registro de asistencia y participación por coeficiente (Ley 675).
+                Cada propietario entra con su correo o teléfono, elige sus opciones y vota. Quórum y resultados en tiempo real (Ley 675).
               </p>
             </div>
-            <div className="flex flex-col items-center text-center rounded-3xl bg-slate-800/50 border p-6 shadow-lg" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center mb-4">
-                <FileText className="w-6 h-6 text-emerald-400" />
-              </div>
-              <h3 className="font-semibold text-white">Actas y auditoría</h3>
-              <p className="text-sm text-slate-400 mt-1">
-                Generación de actas y trazabilidad de votos para cumplimiento normativo.
-              </p>
+          </div>
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 text-center">
+            <div className="flex items-center gap-2 text-slate-300">
+              <FileText className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span className="text-sm">Actas y trazabilidad lista al cerrar la votación</span>
             </div>
-            <div className="flex flex-col items-center text-center rounded-3xl bg-slate-800/50 border p-6 shadow-lg" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-              <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center mb-4">
-                <Shield className="w-6 h-6 text-purple-400" />
-              </div>
-              <h3 className="font-semibold text-white">Seguro y multi-conjunto</h3>
-              <p className="text-sm text-slate-400 mt-1">
-                Datos aislados por conjunto y autenticación robusta.
-              </p>
+            <div className="flex items-center gap-2 text-slate-300">
+              <Shield className="w-5 h-5 text-purple-400 shrink-0" />
+              <span className="text-sm">Datos aislados por conjunto y acceso seguro</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Precios: variable global desde configuracion_global vía /api/config/public */}
-      <section className="py-16 md:py-20 border-b border-slate-800 rounded-3xl mx-4 sm:mx-6 lg:mx-8" style={{ backgroundColor: '#0B0E14', borderColor: 'rgba(255,255,255,0.1)' }}>
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-xl md:text-2xl font-bold text-white mb-2">
-            Paga solo por lo que usas: {precioPorUnidadCop != null ? formatPrecioCop(precioPorUnidadCop) : '—'} COP por unidad
+      {/* Contacto / CTA */}
+      <section className="py-14 border-b border-slate-800" style={{ backgroundColor: '#0B0E14' }}>
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="text-slate-400 mb-6">
+            ¿Dudas? Escríbenos y te ayudamos a configurar tu primera asamblea.
           </p>
-          <p className="text-center text-slate-400 text-sm mb-8">
-            1 unidad de vivienda = 1 crédito · Precio por unidad desde tu panel
-          </p>
-
-          <div className="rounded-3xl border p-8 space-y-6" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0B0E14' }}>
-            <div className="text-center">
-              <p className="text-3xl md:text-4xl font-bold text-white">
-                {precioPorUnidadCop != null ? formatPrecioCop(precioPorUnidadCop) : '—'}
-              </p>
-              <p className="text-slate-400 mt-1">por unidad de vivienda</p>
-            </div>
-
-            <div className="rounded-2xl p-4 text-center" style={{ backgroundColor: `${colorPrincipalHex}20`, border: '1px solid rgba(255,255,255,0.08)' }}>
-              <p className="text-slate-200 font-semibold">
-                Regístrate hoy y recibe {bonoBienvenida != null ? `${bonoBienvenida} créditos` : 'créditos'} de bienvenida para tu primera asamblea
-              </p>
-            </div>
-            <p className="text-center text-slate-400 text-sm">
-              {textoAhorro != null && textoAhorro.trim() !== ''
-                ? textoAhorro
-                : `Ahorra frente a servicios tradicionales (costo promedio $600.000 vs ${precioPorUnidadCop != null ? formatPrecioCop(precioPorUnidadCop * 100) : '—'} con nosotros para 100 unidades).`}
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-              <Link href="/login" className="inline-flex justify-center">
-                <Button size="lg" className="rounded-3xl shadow-lg w-full sm:w-auto" style={{ backgroundColor: colorPrincipalHex }}>
-                  Empezar ahora{bonoBienvenida != null ? ` (${bonoBienvenida} créditos de bienvenida)` : ''}
-                </Button>
-              </Link>
-              {whatsappNumber && (
-                <a
-                  href={buildWhatsAppUrl(whatsappNumber, nombreConjunto)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex justify-center"
-                >
-                  <Button variant="outline" size="lg" className="rounded-3xl border-white/20 text-slate-200 hover:bg-white/10 gap-2 w-full sm:w-auto">
-                    <MessageCircle className="w-5 h-5" />
-                    {ctaWhatsappText}
-                  </Button>
-                </a>
-              )}
-            </div>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link href="/login">
+              <Button size="lg" className="rounded-3xl shadow-lg w-full sm:w-auto" style={{ backgroundColor: colorPrincipalHex }}>
+                Empezar ahora
+              </Button>
+            </Link>
             {whatsappNumber && (
-              <div className="pt-2 text-center">
-                <Label htmlFor="nombre-conjunto-landing" className="text-xs text-slate-400">Nombre de tu conjunto (opcional)</Label>
-                <Input
-                  id="nombre-conjunto-landing"
-                  placeholder="Ej. Conjunto Los Robles"
-                  value={nombreConjunto}
-                  onChange={(e) => setNombreConjunto(e.target.value)}
-                  className="mt-1 rounded-3xl text-sm bg-slate-800/80 border-white/20 text-white placeholder:text-slate-500 max-w-xs mx-auto block"
-                />
-              </div>
+              <a
+                href={buildWhatsAppUrl(whatsappNumber, nombreConjunto)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex justify-center"
+              >
+                <Button variant="outline" size="lg" className="rounded-3xl border-white/20 text-slate-200 hover:bg-white/10 gap-2 w-full sm:w-auto">
+                  <MessageCircle className="w-5 h-5" />
+                  {ctaWhatsappText}
+                </Button>
+              </a>
             )}
           </div>
+          {whatsappNumber && (
+            <div className="pt-6">
+              <Label htmlFor="nombre-conjunto-landing" className="text-xs text-slate-400">Nombre de tu conjunto (opcional)</Label>
+              <Input
+                id="nombre-conjunto-landing"
+                placeholder="Ej. Conjunto Los Robles"
+                value={nombreConjunto}
+                onChange={(e) => setNombreConjunto(e.target.value)}
+                className="mt-1 rounded-3xl text-sm bg-slate-800/80 border-white/20 text-white placeholder:text-slate-500 max-w-xs mx-auto block"
+              />
+            </div>
+          )}
         </div>
       </section>
 
