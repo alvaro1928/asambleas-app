@@ -9,12 +9,24 @@ function getBaseUrl(): string {
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
   return 'https://asambleas.online'
 }
-const baseUrl = getBaseUrl()
+
+/** Rutas públicas (acceso sin sesión): landing, login, registro, legal, contacto, pago-ok. */
+const PUBLIC_PATHS = [
+  { path: '', changeFrequency: 'weekly' as const, priority: 1 },
+  { path: '/login', changeFrequency: 'monthly' as const, priority: 0.9 },
+  { path: '/auth/register', changeFrequency: 'monthly' as const, priority: 0.7 },
+  { path: '/auth/restablecer', changeFrequency: 'monthly' as const, priority: 0.5 },
+  { path: '/politica-privacidad', changeFrequency: 'yearly' as const, priority: 0.4 },
+  { path: '/epbco', changeFrequency: 'yearly' as const, priority: 0.4 },
+  { path: '/pago-ok', changeFrequency: 'monthly' as const, priority: 0.5 },
+]
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [
-    { url: baseUrl, lastModified: new Date(), changeFrequency: 'weekly', priority: 1 },
-    { url: `${baseUrl}/login`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${baseUrl}/dashboard`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.9 },
-  ]
+  const baseUrl = getBaseUrl()
+  return PUBLIC_PATHS.map(({ path, changeFrequency, priority }) => ({
+    url: `${baseUrl}${path}`,
+    lastModified: new Date(),
+    changeFrequency,
+    priority,
+  }))
 }
