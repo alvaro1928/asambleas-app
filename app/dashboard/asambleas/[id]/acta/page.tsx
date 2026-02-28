@@ -439,6 +439,14 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     const mainEl = actaContentRef.current
     if (!mainEl) return
     setDescargandoPdf(true)
+
+    // Forzar modo claro durante la generación del PDF para que el texto sea legible
+    const htmlEl = document.documentElement
+    const hadDarkClass = htmlEl.classList.contains('dark')
+    const prevColorScheme = htmlEl.style.colorScheme
+    if (hadDarkClass) htmlEl.classList.remove('dark')
+    htmlEl.style.colorScheme = 'light'
+
     try {
       const html2pdf = (await import('html2pdf.js')).default
       const nombreSeguro = (asamblea?.nombre ?? 'asamblea').replace(/[^a-zA-Z0-9\u00C0-\u024F\s.-]/g, '').trim().slice(0, 80) || 'acta'
@@ -446,8 +454,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         .set({
           margin: [10, 10, 10, 10],
           filename: `acta-${nombreSeguro}-${params.id}.pdf`.replace(/\s+/g, '_'),
-          image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
+          image: { type: 'jpeg', quality: 0.97 },
+          html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         })
         .from(mainEl)
@@ -456,6 +464,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       console.error('Error al generar PDF:', e)
       setPrintError('No se pudo generar el PDF. Usa Imprimir y elige "Guardar como PDF".')
     } finally {
+      if (hadDarkClass) htmlEl.classList.add('dark')
+      htmlEl.style.colorScheme = prevColorScheme
       setDescargandoPdf(false)
     }
   }
@@ -584,7 +594,19 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           {printError && (
             <p className="text-sm text-amber-600 dark:text-amber-400">{printError}</p>
           )}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) && (
+              <a
+                href="https://opentimestamps.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 border-emerald-600 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors"
+                title="Verificar certificado blockchain del acta"
+              >
+                <FileText className="w-4 h-4" />
+                Verificar en blockchain
+              </a>
+            )}
             <Button
               onClick={handleDescargarPdf}
               disabled={descargandoPdf}
@@ -612,19 +634,36 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         </header>
 
         {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) && (
-          <section className="mb-8 p-4 rounded-2xl border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 print:break-inside-avoid">
-            <h2 className="text-lg font-bold uppercase mb-2 text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+          <section
+            className="mb-8 p-4 rounded-2xl print:break-inside-avoid"
+            style={{ border: '2px solid #10b981', background: '#ecfdf5' }}
+          >
+            <h2
+              className="text-lg font-bold uppercase mb-2 flex items-center gap-2"
+              style={{ color: '#065f46' }}
+            >
               <FileText className="w-5 h-5" />
               Certificado blockchain (OpenTimestamps)
             </h2>
-            <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
-              Este acta fue sellada en la blockchain de Bitcoin mediante OpenTimestamps. Puedes descargar el acta completa en PDF (arriba, botón «Descargar acta (PDF)») o solo la prueba de certificación .ots para verificar en opentimestamps.org.
+            <p className="text-sm mb-3" style={{ color: '#1f2937' }}>
+              Este acta fue sellada en la blockchain de Bitcoin mediante OpenTimestamps.
+              Descarga el certificado <strong>.ots</strong> y súbelo a{' '}
+              <a
+                href="https://opentimestamps.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: '#059669', fontWeight: 600, textDecoration: 'underline' }}
+              >
+                opentimestamps.org
+              </a>{' '}
+              junto con el PDF del acta para verificar su autenticidad.
             </p>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 print:hidden">
               <a
                 href={`data:application/octet-stream;base64,${asamblea?.acta_ots_proof_base64 || actaOtsBase64}`}
                 download={`acta-${asamblea?.nombre ?? 'asamblea'}-${params.id}.ots`}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
+                style={{ background: '#059669', color: '#ffffff' }}
               >
                 <Download className="w-4 h-4" />
                 Descargar certificado .ots
@@ -633,11 +672,16 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                 href="https://opentimestamps.org"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-emerald-600 text-emerald-700 dark:text-emerald-300 text-sm font-medium hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
+                style={{ border: '2px solid #059669', color: '#065f46', background: 'transparent' }}
               >
-                Verificar en opentimestamps.org
+                Verificar en opentimestamps.org ↗
               </a>
             </div>
+            {/* En impresión/PDF: solo mostrar la URL de verificación sin botones */}
+            <p className="hidden print:block text-xs mt-2" style={{ color: '#374151' }}>
+              Verificación: https://opentimestamps.org — sube el archivo .ots y el PDF del acta para confirmar la autenticidad.
+            </p>
           </section>
         )}
 
