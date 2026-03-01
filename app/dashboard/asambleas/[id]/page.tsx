@@ -32,7 +32,8 @@ import {
   ChevronDown,
   ChevronUp,
   MessageCircle,
-  Mail
+  Mail,
+  UserCheck
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -69,6 +70,8 @@ interface Asamblea {
   sandbox_usar_unidades_reales?: boolean
   /** Timestamp de activación; ventana de gracia 3 días para ajustes */
   activated_at?: string | null
+  /** Cuando true, aparece popup de verificación en la página de votación */
+  verificacion_asistencia_activa?: boolean
 }
 
 interface Pregunta {
@@ -140,6 +143,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [loadingStats, setLoadingStats] = useState(false)
   interface VerifStats { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
   const [statsVerificacion, setStatsVerificacion] = useState<VerifStats | null>(null)
+  const [togglingVerif, setTogglingVerif] = useState(false)
 
   // Dialog de eliminar pregunta
   const [deletingPregunta, setDeletingPregunta] = useState<Pregunta | null>(null)
@@ -1265,6 +1269,50 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
+  const cargarStatsVerificacion = async () => {
+    if (!asamblea?.id) return
+    const { data } = await supabase.rpc('calcular_verificacion_quorum', { p_asamblea_id: asamblea.id })
+    if (data?.length) {
+      const v = data[0]
+      setStatsVerificacion({
+        total_verificados: Number(v.total_verificados) || 0,
+        coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+        porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+        quorum_alcanzado: !!v.quorum_alcanzado,
+      })
+    } else {
+      setStatsVerificacion(null)
+    }
+  }
+
+  const handleToggleVerificacion = async () => {
+    if (!asamblea || togglingVerif) return
+    setTogglingVerif(true)
+    try {
+      const nuevoValor = !asamblea.verificacion_asistencia_activa
+      const { error } = await supabase
+        .from('asambleas')
+        .update({ verificacion_asistencia_activa: nuevoValor })
+        .eq('id', asamblea.id)
+      if (!error) {
+        setAsamblea({ ...asamblea, verificacion_asistencia_activa: nuevoValor })
+        if (!nuevoValor) {
+          // Al desactivar: resetear todas las verificaciones para que vuelvan a confirmar
+          await supabase
+            .from('quorum_asamblea')
+            .update({ verifico_asistencia: false, hora_verificacion: null })
+            .eq('asamblea_id', asamblea.id)
+            .eq('verifico_asistencia', true)
+          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+        } else {
+          await cargarStatsVerificacion()
+        }
+      }
+    } finally {
+      setTogglingVerif(false)
+    }
+  }
+
   const handleReiniciarSimulacion = async () => {
     if (!asamblea?.is_demo) return
     setReiniciandoDemo(true)
@@ -1942,6 +1990,50 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         </Button>
                       </Link>
                       <div className="col-span-2" />
+                    </div>
+
+                    {/* Verificación de quórum: activar/desactivar y registrar asistencia */}
+                    <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Verificación de quórum</p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          onClick={handleToggleVerificacion}
+                          disabled={togglingVerif}
+                          size="sm"
+                          className={
+                            asamblea.verificacion_asistencia_activa
+                              ? 'bg-green-600 hover:bg-green-700 text-white'
+                              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                          }
+                        >
+                          {togglingVerif ? (
+                            <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block mr-1.5" />
+                          ) : (
+                            <UserCheck className="w-4 h-4 mr-1.5" />
+                          )}
+                          {asamblea.verificacion_asistencia_activa ? 'Desactivar verificación' : 'Activar verificación'}
+                        </Button>
+                        <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="inline-flex" title="Registrar asistencia manual de unidades">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                          >
+                            <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                            Registrar asistencia
+                          </Button>
+                        </Link>
+                      </div>
+                      {statsVerificacion && (statsVerificacion.total_verificados > 0 || asamblea.verificacion_asistencia_activa) && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          Asistencia verificada: {statsVerificacion.porcentaje_verificado.toFixed(1)}% ({statsVerificacion.total_verificados} unidades)
+                          {statsVerificacion.quorum_alcanzado && (
+                            <span className="ml-1.5 text-green-600 dark:text-green-400 font-medium">· Quórum alcanzado (Ley 675)</span>
+                          )}
+                        </p>
+                      )}
                     </div>
                     
                     <Button

@@ -1089,7 +1089,7 @@ export default function VotacionPublicaPage() {
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-900 dark:to-gray-800">
         {/* Popup de Verificación de Quórum */}
         <Dialog open={verificacionActiva && !yaVerifico} onOpenChange={() => {}}>
-          <DialogContent className="max-w-sm rounded-2xl">
+          <DialogContent className="max-w-sm rounded-2xl" showCloseButton={false}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />

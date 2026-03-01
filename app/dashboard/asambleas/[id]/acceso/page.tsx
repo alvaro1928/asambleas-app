@@ -54,6 +54,7 @@ interface Asamblea {
   organization_id?: string
   is_demo?: boolean
   sandbox_usar_unidades_reales?: boolean
+  verificacion_asistencia_activa?: boolean
 }
 
 interface Asistente {
@@ -117,6 +118,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [asistentes, setAsistentes] = useState<Asistente[]>([])
   const [yaVotaron, setYaVotaron] = useState<UnidadFila[]>([])
   const [faltantes, setFaltantes] = useState<UnidadFila[]>([])
+  /** Cuando verificacion_asistencia_activa: listas para paneles "Ya verificaron" / "Faltan por verificar" */
+  const [verificadosAsistencia, setVerificadosAsistencia] = useState<UnidadFila[]>([])
+  const [faltanVerificar, setFaltanVerificar] = useState<UnidadFila[]>([])
+  const [searchVerificados, setSearchVerificados] = useState('')
+  const [searchFaltanVerificar, setSearchFaltanVerificar] = useState('')
   const [loading, setLoading] = useState(true)
   const [recargando, setRecargando] = useState(false)
   const [urlPublica, setUrlPublica] = useState('')
@@ -430,6 +436,38 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         coeficiente: Number(u.coeficiente) || 0
       }))
       setFaltantes(faltantesList)
+
+      // Si la verificación de quórum está activa, cargar paneles "Ya verificaron" / "Faltan por verificar"
+      if (asamblea?.verificacion_asistencia_activa && orgId) {
+        const { data: qaData } = await supabase
+          .from('quorum_asamblea')
+          .select('unidad_id')
+          .eq('asamblea_id', params.id)
+          .eq('verifico_asistencia', true)
+        const idsVerificados = new Set((qaData || []).map((r: { unidad_id: string }) => r.unidad_id).filter(Boolean))
+        const soloDemo = asamblea?.is_demo === true && !(asamblea?.sandbox_usar_unidades_reales === true)
+        let qUnidades = supabase
+          .from('unidades')
+          .select('id, torre, numero, nombre_propietario, email_propietario, coeficiente')
+          .eq('organization_id', orgId)
+        qUnidades = soloDemo ? qUnidades.eq('is_demo', true) : qUnidades.or('is_demo.eq.false,is_demo.is.null')
+        const { data: todasUnidadesVerif } = await qUnidades
+        const lista = (todasUnidadesVerif || []).map((u: any) => ({
+          id: u.id,
+          torre: u.torre || 'S/T',
+          numero: u.numero || 'S/N',
+          nombre_propietario: u.nombre_propietario || 'S/N',
+          email_propietario: u.email_propietario || '',
+          coeficiente: Number(u.coeficiente) || 0
+        }))
+        const verificados = lista.filter((u) => idsVerificados.has(u.id))
+        const faltan = lista.filter((u) => !idsVerificados.has(u.id))
+        setVerificadosAsistencia(verificados)
+        setFaltanVerificar(faltan)
+      } else {
+        setVerificadosAsistencia([])
+        setFaltanVerificar([])
+      }
     } catch (error) {
       console.error('Error cargando avance:', error)
     }
@@ -462,7 +500,26 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       if (!error) {
         setVerificacionActiva(nuevoValor)
         if (!nuevoValor) {
-          // Al desactivar limpiar stats para mostrar 0 cuando se reactive
+          // Al desactivar: resetear todas las verificaciones de asistencia
+          // para que todos deban volver a confirmar cuando se reactive
+          await supabase
+            .from('quorum_asamblea')
+            .update({ verifico_asistencia: false, hora_verificacion: null })
+            .eq('asamblea_id', params.id)
+            .eq('verifico_asistencia', true)
+          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+        } else {
+          // Al activar: refrescar stats por si ya había verificados previos
+          const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', { p_asamblea_id: params.id })
+          if (verData?.length) {
+            const v = verData[0]
+            setStatsVerificacion({
+              total_verificados: Number(v.total_verificados) || 0,
+              coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+              porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+              quorum_alcanzado: !!v.quorum_alcanzado,
+            })
+          }
         }
       }
     } finally {
@@ -622,6 +679,26 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         filtro(u.email_propietario, searchFaltantes)
     )
   }, [faltantes, searchFaltantes])
+
+  const verificadosFiltrados = useMemo(() => {
+    if (!searchVerificados.trim()) return verificadosAsistencia
+    return verificadosAsistencia.filter(
+      (u) =>
+        filtro(`${u.torre} ${u.numero}`, searchVerificados) ||
+        filtro(u.nombre_propietario, searchVerificados) ||
+        filtro(u.email_propietario, searchVerificados)
+    )
+  }, [verificadosAsistencia, searchVerificados])
+
+  const faltanVerificarFiltrados = useMemo(() => {
+    if (!searchFaltanVerificar.trim()) return faltanVerificar
+    return faltanVerificar.filter(
+      (u) =>
+        filtro(`${u.torre} ${u.numero}`, searchFaltanVerificar) ||
+        filtro(u.nombre_propietario, searchFaltanVerificar) ||
+        filtro(u.email_propietario, searchFaltanVerificar)
+    )
+  }, [faltanVerificar, searchFaltanVerificar])
 
   if (loading && !asamblea) {
     return (
@@ -904,146 +981,237 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
             </div>
 
-          {/* Triple panel: Sesión Activa | Ya Votaron | Pendientes (Faltantes) */}
+          {/* Paneles: con verificación de quórum activa → 2 paneles (Ya verificaron | Faltan por verificar); si no → 3 paneles (Sesión Activa | Ya Votaron | Pendientes) */}
           <div className="lg:col-span-2">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100vh-12rem)] min-h-[480px]">
-              {/* Sesión Activa: unidades con ping de quórum activo */}
-              <Card className="flex flex-col overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
-                <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-green-50 dark:bg-green-900/20">
-                  <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="text-sm flex items-center gap-1.5">
-                      <Radio className="w-4 h-4 text-green-600" />
-                      Sesión Activa
+            {verificacionActiva ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[calc(100vh-12rem)] min-h-[480px]">
+                {/* Ya verificaron asistencia */}
+                <Card className="flex flex-col overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                  <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-emerald-50 dark:bg-emerald-900/20">
+                    <CardTitle className="text-sm flex items-center gap-1.5 text-emerald-800 dark:text-emerald-200">
+                      <UserCheck className="w-4 h-4 text-emerald-600" />
+                      Ya verificaron asistencia
                     </CardTitle>
-                    <span className="text-xs font-bold text-green-700 dark:text-green-400 bg-green-200 dark:bg-green-800/50 px-2 py-0.5 rounded-full">
-                      EN VIVO
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Conectados ahora (ping quórum)
-                  </p>
-                  <div className="relative mt-2">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
-                    <input
-                      type="search"
-                      placeholder="Buscar..."
-                      aria-label="Buscar en sesión activa"
-                      value={searchSesion}
-                      onChange={(e) => setSearchSesion(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                  <div className="flex-1 overflow-y-auto overscroll-contain">
-                    {asistentesFiltrados.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-gray-500">
-                        <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                        Esperando el primer ingreso...
-                      </div>
-                    ) : (
-                      <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {asistentesFiltrados.map((a) => (
-                          <li key={a.id} className="px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                            <div className="font-medium text-gray-900 dark:text-white">{a.torre} - {a.numero}</div>
-                            <div className="text-gray-600 dark:text-gray-400 truncate">{a.nombre_propietario}</div>
-                            <div className="text-xs text-gray-500 truncate">{a.email_propietario}</div>
-                            <div className="text-xs font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">{a.coeficiente.toFixed(2)}%</div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Unidades que confirmaron asistencia en el popup
+                    </p>
+                    <div className="relative mt-2">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
+                      <input
+                        type="search"
+                        placeholder="Buscar..."
+                        aria-label="Buscar en ya verificaron"
+                        value={searchVerificados}
+                        onChange={(e) => setSearchVerificados(e.target.value)}
+                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
+                      />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
+                    <div className="flex-1 overflow-y-auto overscroll-contain">
+                      {verificadosFiltrados.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">Nadie ha verificado asistencia aún.</div>
+                      ) : (
+                        <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                          {verificadosFiltrados.map((u) => (
+                            <li key={u.id} className="px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                              <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
+                              <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
+                              <div className="text-xs text-gray-500 truncate">{u.email_propietario}</div>
+                              <div className="text-xs font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">{u.coeficiente.toFixed(2)}%</div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
 
-              {/* Ya Votaron: unidades con registro en tabla votos para la pregunta actual */}
-              <Card className="flex flex-col overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
-                <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0">
-                  <CardTitle className="text-sm flex items-center gap-1.5 text-slate-200">
-                    <UserCheck className="w-4 h-4 text-emerald-500" />
-                    Ya Votaron
-                  </CardTitle>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Tienen registro en votos
-                  </p>
-                  <div className="relative mt-2">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
-                    <input
-                      type="search"
-                      placeholder="Buscar..."
-                      aria-label="Buscar en ya votaron"
-                      value={searchYaVotaron}
-                      onChange={(e) => setSearchYaVotaron(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                  <div className="flex-1 overflow-y-auto overscroll-contain">
-                    {yaVotaronFiltrados.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-gray-500">Ninguna unidad ha votado aún.</div>
-                    ) : (
-                      <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {yaVotaronFiltrados.map((u) => (
-                          <li key={u.id} className="px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                            <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
-                            <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
-                            <div className="text-xs text-gray-500 truncate">{u.email_propietario}</div>
-                            <div className="text-xs font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">{u.coeficiente.toFixed(2)}%</div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                {/* Faltan por verificar */}
+                <Card className="flex flex-col overflow-hidden rounded-3xl border border-amber-500/50 border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                  <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-amber-50 dark:bg-amber-900/20">
+                    <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
+                      <UserX className="w-4 h-4" />
+                      Faltan por verificar
+                    </CardTitle>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Unidades que aún no han confirmado asistencia — para alcanzar quórum
+                    </p>
+                    <div className="relative mt-2">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
+                      <input
+                        type="search"
+                        placeholder="Buscar..."
+                        aria-label="Buscar en faltan por verificar"
+                        value={searchFaltanVerificar}
+                        onChange={(e) => setSearchFaltanVerificar(e.target.value)}
+                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
+                      />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
+                    <div className="flex-1 overflow-y-auto overscroll-contain">
+                      {faltanVerificarFiltrados.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500 flex items-center gap-2 justify-center">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                          {faltanVerificar.length === 0 ? 'Todas las unidades ya verificaron.' : 'Ninguna unidad coincide con la búsqueda.'}
+                        </div>
+                      ) : (
+                        <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                          {faltanVerificarFiltrados.map((u) => (
+                            <li key={u.id} className="px-4 py-2 text-sm hover:bg-amber-50/50 dark:hover:bg-amber-900/10">
+                              <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
+                              <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
+                              <div className="text-xs text-gray-500 truncate">{u.email_propietario}</div>
+                              <div className="text-xs font-mono text-amber-600 dark:text-amber-400 mt-0.5">{u.coeficiente.toFixed(2)}%</div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100vh-12rem)] min-h-[480px]">
+                {/* Sesión Activa: unidades con ping de quórum activo */}
+                <Card className="flex flex-col overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                  <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-green-50 dark:bg-green-900/20">
+                    <div className="flex items-center justify-between gap-2">
+                      <CardTitle className="text-sm flex items-center gap-1.5">
+                        <Radio className="w-4 h-4 text-green-600" />
+                        Sesión Activa
+                      </CardTitle>
+                      <span className="text-xs font-bold text-green-700 dark:text-green-400 bg-green-200 dark:bg-green-800/50 px-2 py-0.5 rounded-full">
+                        EN VIVO
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Conectados ahora (ping quórum)
+                    </p>
+                    <div className="relative mt-2">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
+                      <input
+                        type="search"
+                        placeholder="Buscar..."
+                        aria-label="Buscar en sesión activa"
+                        value={searchSesion}
+                        onChange={(e) => setSearchSesion(e.target.value)}
+                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
+                      />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
+                    <div className="flex-1 overflow-y-auto overscroll-contain">
+                      {asistentesFiltrados.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                          Esperando el primer ingreso...
+                        </div>
+                      ) : (
+                        <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                          {asistentesFiltrados.map((a) => (
+                            <li key={a.id} className="px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                              <div className="font-medium text-gray-900 dark:text-white">{a.torre} - {a.numero}</div>
+                              <div className="text-gray-600 dark:text-gray-400 truncate">{a.nombre_propietario}</div>
+                              <div className="text-xs text-gray-500 truncate">{a.email_propietario}</div>
+                              <div className="text-xs font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">{a.coeficiente.toFixed(2)}%</div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
 
-              {/* Pendientes (Faltantes): todas las unidades que no han votado (con o sin sesión), para localizar y alcanzar quórum */}
-              <Card className="flex flex-col overflow-hidden rounded-3xl border border-amber-500/50 border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
-                <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-amber-50 dark:bg-amber-900/20">
-                  <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
-                    <UserX className="w-4 h-4" />
-                    Pendientes (Faltantes)
-                  </CardTitle>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Unidades que aún no han votado — para localizar y alcanzar quórum
-                  </p>
-                  <div className="relative mt-2">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
-                    <input
-                      type="search"
-                      placeholder="Buscar..."
-                      aria-label="Buscar en pendientes"
-                      value={searchFaltantes}
-                      onChange={(e) => setSearchFaltantes(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                  <div className="flex-1 overflow-y-auto overscroll-contain">
-                    {faltantesFiltrados.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-gray-500 flex items-center gap-2 justify-center">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                        {faltantes.length === 0 ? 'Todas las unidades ya votaron.' : 'Ninguna unidad coincide con la búsqueda.'}
-                      </div>
-                    ) : (
-                      <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {faltantesFiltrados.map((u) => (
-                          <li key={u.id} className="px-4 py-2 text-sm hover:bg-amber-50/50 dark:hover:bg-amber-900/10">
-                            <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
-                            <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
-                            <div className="text-xs text-gray-500 truncate">{u.email_propietario}</div>
-                            <div className="text-xs font-mono text-amber-600 dark:text-amber-400 mt-0.5">{u.coeficiente.toFixed(2)}%</div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                {/* Ya Votaron */}
+                <Card className="flex flex-col overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                  <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0">
+                    <CardTitle className="text-sm flex items-center gap-1.5 text-slate-200">
+                      <UserCheck className="w-4 h-4 text-emerald-500" />
+                      Ya Votaron
+                    </CardTitle>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Tienen registro en votos
+                    </p>
+                    <div className="relative mt-2">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
+                      <input
+                        type="search"
+                        placeholder="Buscar..."
+                        aria-label="Buscar en ya votaron"
+                        value={searchYaVotaron}
+                        onChange={(e) => setSearchYaVotaron(e.target.value)}
+                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
+                      />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
+                    <div className="flex-1 overflow-y-auto overscroll-contain">
+                      {yaVotaronFiltrados.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">Ninguna unidad ha votado aún.</div>
+                      ) : (
+                        <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                          {yaVotaronFiltrados.map((u) => (
+                            <li key={u.id} className="px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                              <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
+                              <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
+                              <div className="text-xs text-gray-500 truncate">{u.email_propietario}</div>
+                              <div className="text-xs font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">{u.coeficiente.toFixed(2)}%</div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Pendientes (Faltantes) */}
+                <Card className="flex flex-col overflow-hidden rounded-3xl border border-amber-500/50 border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                  <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-amber-50 dark:bg-amber-900/20">
+                    <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
+                      <UserX className="w-4 h-4" />
+                      Pendientes (Faltantes)
+                    </CardTitle>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Unidades que aún no han votado — para localizar y alcanzar quórum
+                    </p>
+                    <div className="relative mt-2">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
+                      <input
+                        type="search"
+                        placeholder="Buscar..."
+                        aria-label="Buscar en pendientes"
+                        value={searchFaltantes}
+                        onChange={(e) => setSearchFaltantes(e.target.value)}
+                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
+                      />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
+                    <div className="flex-1 overflow-y-auto overscroll-contain">
+                      {faltantesFiltrados.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500 flex items-center gap-2 justify-center">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                          {faltantes.length === 0 ? 'Todas las unidades ya votaron.' : 'Ninguna unidad coincide con la búsqueda.'}
+                        </div>
+                      ) : (
+                        <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                          {faltantesFiltrados.map((u) => (
+                            <li key={u.id} className="px-4 py-2 text-sm hover:bg-amber-50/50 dark:hover:bg-amber-900/10">
+                              <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
+                              <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
+                              <div className="text-xs text-gray-500 truncate">{u.email_propietario}</div>
+                              <div className="text-xs font-mono text-amber-600 dark:text-amber-400 mt-0.5">{u.coeficiente.toFixed(2)}%</div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </div>
 
           {/* Gráfica: ancho completo en fila inferior */}

@@ -30,7 +30,8 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 **Asamblea de pruebas (sandbox)**
 - **Acceso:** En el Dashboard principal (botón "Probar en sandbox" junto a "Asambleas") o en la cabecera del listado de asambleas (`/dashboard/asambleas`). También con la URL `/dashboard/asambleas?demo=1` (se abre el modal automáticamente).
 - **Qué hace:** Crea una asamblea de demostración con datos de ejemplo (10 unidades, 2 preguntas, votación ya activada). **No consume tokens.** Permite explorar el Centro de Control, el enlace de votación y el acta sin compromiso.
-- **Restricciones:** En asambleas y unidades marcadas como demo no se pueden editar ni eliminar preguntas/unidades; el acta lleva la marca "BORRADOR DE PRUEBA — SIN VALIDEZ LEGAL". En reportes globales se excluyen las asambleas demo.
+- **Modos:** En la página de la asamblea demo puedes elegir **Unidades de demostración (10)** (cuentas test1@…test10@asambleas.online) o **Unidades reales del conjunto**. En sandbox está habilitada la **gestión de unidades**: el enlace "Gestionar unidades del conjunto" lleva a `/dashboard/unidades` para editar unidades reales (útil cuando pruebas con unidades reales).
+- **Restricciones:** En asambleas y unidades marcadas como demo no se pueden editar ni eliminar las unidades de demostración; el acta lleva la marca "DEMO - SIN VALIDEZ LEGAL". En reportes globales se excluyen las asambleas demo. La verificación de quórum y el acceso delegado funcionan igual en sandbox.
 
 **Asambleas**
 - **Listado de asambleas** (`/dashboard/asambleas`).
@@ -39,12 +40,15 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
   - Agregar, editar y eliminar **preguntas** y **opciones** (tipos: coeficiente o nominal; estados: pendiente, abierta, cerrada).
   - Umbral de aprobación por pregunta.
   - Activar/desactivar **votación pública** (genera código de acceso y URL).
+  - En la sección **Acceso Público**, botones de **Verificación de quórum**: **Activar/Desactivar verificación** y **Registrar asistencia** (enlace a la página de acceso para el modal de registro manual); se muestra el resumen de asistencia verificada y si se alcanzó quórum (Ley 675).
   - Ver **quórum** (unidades que votaron, coeficiente, porcentaje nominal/coeficiente).
   - Ver estadísticas por pregunta (votos por opción, porcentajes).
   - **Registrar voto a nombre de un residente** (admin): selección de unidad, email y votos por pregunta abierta.
   - Copiar código y enlace; enlace a pantalla de acceso/QR.
 - **Control de acceso y QR** (`/dashboard/asambleas/[id]/acceso`):
   - Código QR y URL para que los votantes entren a `/votar/[codigo]`.
+  - **Verificación de quórum (asistencia):** botón **Activar verificación**; al activarlo, en la página de votación aparece un popup para que cada votante confirme "Verifico asistencia". Botón **Registrar asistencia** para marcar manualmente una o varias unidades como presentes. Al desactivar la verificación se resetean todas las confirmaciones (al reactivar, todos deben verificar de nuevo). Cuando la verificación está activa, los paneles de la página de acceso muestran **Ya verificaron asistencia** y **Faltan por verificar** (en lugar de Sesión Activa / Ya Votaron / Pendientes).
+  - **Acceso de asistente delegado:** el administrador puede **Generar enlace** para dar a una persona de confianza; ese enlace (`/asistir/[codigo]?t=token`) permite registrar asistencia y votos en nombre de unidades. Todas las acciones quedan registradas como "registrado por asistente delegado". Se puede revocar el token en cualquier momento.
   - **Registro de ingresos en tiempo real** (sesiones activas con actividad reciente).
   - **Avance de votaciones**: quórum (unidades que ya votaron) y progreso por pregunta abierta; se actualiza cada 10 s.
 - **Envío de correo:** Botón "Enviar enlace por correo" envía por **SMTP** desde el servidor (sin Outlook). Configurable en Super Admin → Ajustes o por variables. Plantilla adicional en Configuración → Poderes y correo.
@@ -202,14 +206,15 @@ app/
 | `Breadcrumbs` | Navegación tipo "Dashboard > Asambleas > [Nombre]". |
 | `StepIndicator` | Pasos en votación (Email → Unidades → Votar). |
 | `LoadingSpinner` | Spinner de carga reutilizable. |
-| UI (`button`, `card`, `dialog`, `input`, `label`, `select`, `table`, `alert`, `tooltip`) | Componentes base con variantes (primary, destructive, outline, etc.). |
+| UI (`button`, `card`, `dialog`, `input`, `label`, `select`, `table`, `alert`, `tooltip`) | Componentes base con variantes (primary, destructive, outline, etc.). Todos los modales (`Dialog`/`DialogContent`) incluyen botón de cierre (X) por defecto; se puede ocultar con `showCloseButton={false}`. |
 
 ### 2.6 Base de datos (Supabase)
 
 - **Auth**: usuarios, Magic Link, OAuth Google.
 - **Tablas principales**: `organizations`, `profiles`, `unidades`, `asambleas`, `preguntas`, `opciones_pregunta`, `poderes`, `votos`, `quorum_asamblea`, `planes`, `pagos_log`, etc.
 - **RLS**: políticas por `organization_id`; rol super admin con acceso total (script `ROL-SUPER-ADMIN.sql`).
-- **RPCs**: `validar_codigo_acceso`, `validar_votante_asamblea`, `registrar_voto_con_trazabilidad`, `calcular_quorum_asamblea`, `calcular_estadisticas_pregunta`, `activar_votacion_publica`, `desactivar_votacion_publica`, etc.
+- **RPCs**: `validar_codigo_acceso`, `validar_votante_asamblea`, `registrar_voto_con_trazabilidad`, `calcular_quorum_asamblea`, `calcular_estadisticas_pregunta`, `calcular_verificacion_quorum`, `calcular_verificacion_quorum_snapshot`, `calcular_verificacion_por_preguntas`, `activar_votacion_publica`, `desactivar_votacion_publica`, etc.
+- **APIs de verificación y delegado**: `POST /api/verificar-asistencia` (votante confirma asistencia), `POST /api/registrar-asistencia-manual` (admin marca unidades), `POST|DELETE /api/delegado/configurar` (generar/revocar token), `POST /api/delegado/validar` (validar enlace delegado), `POST /api/delegado/registrar-asistencia`, `POST /api/delegado/registrar-voto`. Página pública de asistente: `/asistir/[codigo]?t=token`.
 
 ### 2.7 Variables de entorno (resumen)
 

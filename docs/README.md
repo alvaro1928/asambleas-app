@@ -23,7 +23,7 @@
 | [guias/GUIA-CODIGOS-ACCESO-VOTACION.md](guias/GUIA-CODIGOS-ACCESO-VOTACION.md) | Códigos de acceso para votación. |
 | [guias/GUIA-IMPORTACION-UNIDADES.md](guias/GUIA-IMPORTACION-UNIDADES.md) | Importación masiva de unidades (Excel/CSV). |
 | [guias/GUIA-MODULO-PODERES.md](guias/GUIA-MODULO-PODERES.md) | Módulo de poderes (apoderados por unidad). |
-| [guias/GUIA-ESTADISTICAS-QUORUM-PODERES.md](guias/GUIA-ESTADISTICAS-QUORUM-PODERES.md) | Estadísticas, quórum y poderes. |
+| [guias/GUIA-ESTADISTICAS-QUORUM-PODERES.md](guias/GUIA-ESTADISTICAS-QUORUM-PODERES.md) | Estadísticas, quórum, poderes, **verificación de asistencia** (activar/desactivar, paneles Ya verificaron / Faltan por verificar) y **acceso delegado** (enlace para asistente). |
 | [guias/FUNCIONALIDADES-Y-CAPACIDAD.md](guias/FUNCIONALIDADES-Y-CAPACIDAD.md) | Listado de funcionalidades y validación de capacidad (500+ usuarios). |
 | [guias/GUIA-TOKENS-Y-FUNCIONALIDADES.md](guias/GUIA-TOKENS-Y-FUNCIONALIDADES.md) | Tokens por gestor, cobro al activar asamblea, asamblea de pruebas (sandbox) y compra. |
 

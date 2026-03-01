@@ -33,11 +33,13 @@ async function getSession(cookieStore: Awaited<ReturnType<typeof cookies>>) {
   return supabase.auth.getSession()
 }
 
-async function verificarPermiso(adminClient: ReturnType<typeof createClient>, userId: string, asambleaId: string) {
-  const [{ data: profile }, { data: asamblea }] = await Promise.all([
+async function verificarPermiso(adminClient: Awaited<ReturnType<typeof getAdminClient>>, userId: string, asambleaId: string) {
+  const [profileRes, asambleaRes] = await Promise.all([
     adminClient.from('profiles').select('organization_id').eq('id', userId).single(),
     adminClient.from('asambleas').select('id, organization_id').eq('id', asambleaId).single(),
   ])
+  const profile = profileRes.data as { organization_id?: string } | null
+  const asamblea = asambleaRes.data as { id: string; organization_id: string } | null
   if (!asamblea) return { error: 'Asamblea no encontrada', status: 404 }
   if (profile?.organization_id && asamblea.organization_id !== profile.organization_id) {
     return { error: 'Sin permiso para esta asamblea', status: 403 }

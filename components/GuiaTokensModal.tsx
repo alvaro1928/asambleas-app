@@ -59,7 +59,7 @@ export function GuiaTokensModal({ open, onOpenChange, colorPrincipalHex = COLOR_
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>
-                <span><strong className="text-slate-300">Votaciones en línea</strong> — Enviar enlace a copropietarios para que voten desde el celular o PC; ver en tiempo real quién ha votado y resultados por coeficiente.</span>
+                <span><strong className="text-slate-300">Votaciones en línea</strong> — Enviar enlace a copropietarios para que voten desde el celular o PC; ver en tiempo real quién ha votado y resultados por coeficiente. <strong className="text-slate-300">Verificación de quórum</strong>: activar asistencia (popup {'"'}Verifico asistencia{'"'}), registrar asistencia manual y paneles Ya verificaron / Faltan por verificar. <strong className="text-slate-300">Acceso delegado</strong>: enlace seguro para un asistente que registre asistencia y votos en tu nombre.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>

@@ -30,6 +30,20 @@ Estructura lista para:
 - Validación y seguimiento de poderes
 - Estados: Activo, Revocado, Usado
 
+### ✅ 4. Verificación de quórum (asistencia)
+
+- **Activar/Desactivar verificación:** En Control de acceso (`/dashboard/asambleas/[id]/acceso`) y en Acceso Público de la asamblea. Al activar, en la página de votación aparece un popup para que cada votante confirme "Verifico asistencia".
+- **Registrar asistencia manual:** El administrador puede marcar una o varias unidades como presentes (modal con lista y búsqueda). Se actualiza el porcentaje de asistencia verificada y el indicador de quórum (Ley 675 >50%).
+- **Paneles según estado:** Con verificación activa, la página de acceso muestra dos paneles: **Ya verificaron asistencia** y **Faltan por verificar**. Al desactivar la verificación, vuelven los paneles habituales: Sesión Activa, Ya Votaron, Pendientes.
+- **Reseteo:** Si el admin desactiva y vuelve a activar la verificación, todas las confirmaciones se borran; los votantes deben verificar de nuevo.
+- **Acta:** La verificación de asistencia se refleja en el acta (global y por pregunta, según el momento de la votación). Scripts: `ADD-VERIFICACION-ASISTENCIA.sql`, `ADD-VERIFICACION-POR-PREGUNTA.sql`, `FIX-VERIFICACION-QUORUM-SANDBOX.sql`.
+
+### ✅ 5. Acceso de asistente delegado
+
+- **Enlace seguro:** El administrador puede generar un enlace (`/asistir/[codigo]?t=token`) para una persona de confianza. Ese enlace permite registrar asistencia y votos en nombre de unidades sin iniciar sesión.
+- **Registro:** Todas las acciones quedan registradas como "registrado por asistente delegado". Se puede revocar el token en cualquier momento desde Control de acceso.
+- **APIs:** `POST|DELETE /api/delegado/configurar`, `POST /api/delegado/validar`, `POST /api/delegado/registrar-asistencia`, `POST /api/delegado/registrar-voto`. Columna `asambleas.token_delegado` (script `ADD-TOKEN-DELEGADO.sql`).
+
 ---
 
 ## 🗄️ Estructura de Base de Datos
