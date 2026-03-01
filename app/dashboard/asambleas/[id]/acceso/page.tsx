@@ -270,6 +270,16 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
   const loadAvanceVotaciones = async () => {
     try {
+      // Refrescar asamblea para no depender del closure (interval/refrescar usan datos actuales)
+      const { data: asambleaFresh } = await supabase
+        .from('asambleas')
+        .select('organization_id, verificacion_asistencia_activa, verificacion_pregunta_id, is_demo, sandbox_usar_unidades_reales')
+        .eq('id', params.id)
+        .single()
+
+      const orgId = asambleaFresh?.organization_id ?? asamblea?.organization_id
+      if (!orgId) return
+
       const { data: rpcData, error: rpcError } = await supabase.rpc('calcular_quorum_asamblea', {
         p_asamblea_id: params.id
       })
@@ -357,9 +367,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         setStatsVerificacion(null)
       }
 
-      const orgId = asamblea?.organization_id
-      if (!orgId) return
-
       const { data: votosData } = await supabase
         .from('votos')
         .select('unidad_id')
@@ -382,7 +389,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         })))
       } else setYaVotaron([])
 
-      const soloUnidadesDemo = asamblea?.is_demo === true && !(asamblea?.sandbox_usar_unidades_reales === true)
+      const soloUnidadesDemo = asambleaFresh?.is_demo === true && !(asambleaFresh?.sandbox_usar_unidades_reales === true)
       let queryUnidades = supabase
         .from('unidades')
         .select('id, torre, numero, nombre_propietario, email_propietario, coeficiente')
@@ -402,14 +409,29 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       setFaltantes(faltantesList)
 
       // Si la verificación de quórum está activa, cargar paneles "Ya verificaron" / "Faltan por verificar"
-      if (asamblea?.verificacion_asistencia_activa && orgId) {
-        const { data: qaData } = await supabase
-          .from('quorum_asamblea')
-          .select('unidad_id')
+      if (asambleaFresh?.verificacion_asistencia_activa && orgId) {
+        const preguntaId = (asambleaFresh as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null
+        let idsVerificados = new Set<string>()
+        const { data: qaData, error: qaError } = await supabase
+          .from('verificacion_asistencia_registro')
+          .select('quorum_asamblea(unidad_id)')
           .eq('asamblea_id', params.id)
-          .eq('verifico_asistencia', true)
-        const idsVerificados = new Set((qaData || []).map((r: { unidad_id: string }) => r.unidad_id).filter(Boolean))
-        const soloDemo = asamblea?.is_demo === true && !(asamblea?.sandbox_usar_unidades_reales === true)
+          .is('pregunta_id', preguntaId)
+        if (!qaError && qaData?.length !== undefined) {
+          idsVerificados = new Set(
+            (qaData || [])
+              .map((r: { quorum_asamblea?: { unidad_id?: string } | null }) => r.quorum_asamblea?.unidad_id)
+              .filter(Boolean) as string[]
+          )
+        } else {
+          const { data: fallback } = await supabase
+            .from('quorum_asamblea')
+            .select('unidad_id')
+            .eq('asamblea_id', params.id)
+            .eq('verifico_asistencia', true)
+          idsVerificados = new Set((fallback || []).map((r: { unidad_id: string }) => r.unidad_id).filter(Boolean))
+        }
+        const soloDemo = asambleaFresh?.is_demo === true && !(asambleaFresh?.sandbox_usar_unidades_reales === true)
         let qUnidades = supabase
           .from('unidades')
           .select('id, torre, numero, nombre_propietario, email_propietario, coeficiente')
@@ -505,23 +527,41 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     setSeleccionadas(new Set())
     setBusquedaAsistencia('')
     try {
-      const soloDemo = asamblea?.is_demo === true && !(asamblea?.sandbox_usar_unidades_reales === true)
+      const { data: asambleaModal } = await supabase
+        .from('asambleas')
+        .select('organization_id, is_demo, sandbox_usar_unidades_reales, verificacion_pregunta_id')
+        .eq('id', params.id)
+        .single()
+      const orgIdModal = asambleaModal?.organization_id ?? asamblea.organization_id
+      const soloDemo = asambleaModal?.is_demo === true && !(asambleaModal?.sandbox_usar_unidades_reales === true)
       let q = supabase
         .from('unidades')
         .select('id, torre, numero, nombre_propietario, email_propietario, coeficiente')
-        .eq('organization_id', asamblea.organization_id)
+        .eq('organization_id', orgIdModal)
         .order('torre', { ascending: true })
         .order('numero', { ascending: true })
       q = soloDemo ? q.eq('is_demo', true) : q.or('is_demo.eq.false,is_demo.is.null')
       const { data: todas } = await q
 
-      const { data: verificadas } = await supabase
-        .from('quorum_asamblea')
-        .select('unidad_id')
+      const preguntaIdModal = (asambleaModal as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id ?? null
+      let verificadasSet = new Set<string>()
+      const { data: verificadas, error: verErr } = await supabase
+        .from('verificacion_asistencia_registro')
+        .select('quorum_asamblea(unidad_id)')
         .eq('asamblea_id', params.id)
-        .eq('verifico_asistencia', true)
-
-      const verificadasSet = new Set((verificadas || []).map((v: any) => v.unidad_id))
+        .is('pregunta_id', preguntaIdModal)
+      if (!verErr && verificadas) {
+        verificadasSet = new Set(
+          (verificadas || []).map((v: { quorum_asamblea?: { unidad_id?: string } | null }) => v.quorum_asamblea?.unidad_id).filter(Boolean) as string[]
+        )
+      } else {
+        const { data: fallback } = await supabase
+          .from('quorum_asamblea')
+          .select('unidad_id')
+          .eq('asamblea_id', params.id)
+          .eq('verifico_asistencia', true)
+        verificadasSet = new Set((fallback || []).map((v: { unidad_id: string }) => v.unidad_id).filter(Boolean))
+      }
 
       setUnidadesParaAsistencia(
         (todas || []).map((u: any) => ({
