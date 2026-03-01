@@ -498,7 +498,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       const nombreSeguro = (asamblea?.nombre ?? 'asamblea').replace(/[^a-zA-Z0-9\u00C0-\u024F\s.-]/g, '').trim().slice(0, 80) || 'acta'
       const filename = `acta-${nombreSeguro}-${params.id}.pdf`.replace(/\s+/g, '_')
       const opts = {
-        margin: [12, 10, 12, 10],
+        margin: [12, 10, 12, 10] as [number, number, number, number],
         filename,
         image: { type: 'jpeg' as const, quality: 0.82 },
         html2canvas: {
