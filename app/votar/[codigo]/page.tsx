@@ -126,6 +126,7 @@ export default function VotacionPublicaPage() {
 
   // --- Verificación de Quórum ---
   const [verificacionActiva, setVerificacionActiva] = useState(false)
+  const verificacionActivaRef = useRef(false)
   const [yaVerifico, setYaVerifico] = useState(false)
   const [verificando, setVerificando] = useState(false)
   interface StatsVerif { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
@@ -720,7 +721,13 @@ export default function VotacionPublicaPage() {
         .single()
 
       if (aData) {
-        setVerificacionActiva(!!(aData as any).verificacion_asistencia_activa)
+        const activa = !!(aData as any).verificacion_asistencia_activa
+        const prevActiva = verificacionActivaRef.current
+        setVerificacionActiva(activa)
+        // Al reabrir la verificación (inactiva → activa), forzar mostrar popup de nuevo
+        if (activa && !prevActiva) setYaVerifico(false)
+        verificacionActivaRef.current = activa
+
         const preguntaId = (aData as any).verificacion_pregunta_id ?? null
 
         const [vRes, yaRes] = await Promise.all([
@@ -747,13 +754,18 @@ export default function VotacionPublicaPage() {
             quorum_alcanzado: !!v.quorum_alcanzado,
           })
         }
-        // ya_verifico_asistencia retorna un booleano (Supabase puede devolverlo como valor directo o en array)
+        // Mientras la verificación está activa no cerramos el popup con el valor del servidor
+        // (evita que se cierre solo al refrescar o por verificación anterior); solo se cierra al clic o al desactivar
         const yaVerificoVal = yaRes.data
         const yaVerificoB = Array.isArray(yaVerificoVal)
           ? (yaVerificoVal as unknown[])[0] === true
           : yaVerificoVal === true
         if (emailVotante) {
-          setYaVerifico(!!yaVerificoB)
+          if (!activa) {
+            setYaVerifico(!!yaVerificoB)
+          } else {
+            setYaVerifico((prev) => (yaVerificoB === false ? false : prev))
+          }
         }
       }
     } catch {
