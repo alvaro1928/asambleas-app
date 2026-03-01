@@ -755,12 +755,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
   const faltanVerificarFiltrados = useMemo(() => {
     if (!searchFaltanVerificar.trim()) return faltanVerificar
-    return faltanVerificar.filter(
-      (u) =>
-        filtro(`${u.torre} ${u.numero}`, searchFaltanVerificar) ||
-        filtro(u.nombre_propietario, searchFaltanVerificar) ||
-        filtro(u.email_propietario, searchFaltanVerificar)
-    )
+    return faltanVerificar.filter((u) => matchUnidadAsistencia(u, searchFaltanVerificar))
   }, [faltanVerificar, searchFaltanVerificar])
 
   if (loading && !asamblea) {

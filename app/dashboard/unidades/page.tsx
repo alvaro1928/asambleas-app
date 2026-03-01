@@ -188,16 +188,23 @@ function UnidadesPageContent() {
   const filterUnidades = () => {
     let filtered = [...unidades]
 
-    // Filtrar por búsqueda
+    // Filtrar por búsqueda: torre+unidad (ej. "10 301", "10-301", "10301"), número, torre, propietario, email
     if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        u =>
-          u.numero.toLowerCase().includes(term) ||
+      const term = searchTerm.toLowerCase().trim()
+      const termSinSeparadores = term.replace(/[\s\-]/g, '')
+      filtered = filtered.filter((u) => {
+        const torre = String(u.torre ?? '').toLowerCase()
+        const numero = String(u.numero ?? '').toLowerCase()
+        const torreNumero = torre + numero
+        return (
+          numero.includes(term) ||
+          torre.includes(term) ||
+          (termSinSeparadores.length > 0 && torreNumero.includes(termSinSeparadores)) ||
           u.nombre_propietario?.toLowerCase().includes(term) ||
-          u.torre?.toLowerCase().includes(term) ||
-          u.email?.toLowerCase().includes(term)
-      )
+          u.email?.toLowerCase().includes(term) ||
+          u.email_propietario?.toLowerCase().includes(term)
+        )
+      })
     }
 
     // Filtrar por torre
@@ -541,7 +548,7 @@ function UnidadesPageContent() {
                     <Input
                       id="search"
                       type="text"
-                      placeholder="Buscar por número, torre o propietario..."
+                      placeholder="Buscar por torre+unidad (ej. 1304, 10-301), propietario o email..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10"
