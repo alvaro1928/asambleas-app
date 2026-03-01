@@ -740,7 +740,12 @@ export default function VotacionPublicaPage() {
         })
       }
       // Si la BD confirma que ya verificó, setear estado local para no mostrar popup
-      if (emailData && (emailData as any[]).length > 0) setYaVerifico(true)
+      if (emailData && (emailData as any[]).length > 0) {
+        setYaVerifico(true)
+      } else if (emailVotante) {
+        // Admin desactivó la verificación: en BD ya no hay verifico_asistencia true; resetear para que el popup vuelva al reactivar
+        setYaVerifico(false)
+      }
     } catch {
       // ignorar errores silenciosos de polling
     }
@@ -763,9 +768,11 @@ export default function VotacionPublicaPage() {
             await cargarHistorial(nuevasUnidades)
           }
         }
-        await refrescarVerificacion(asamblea.asamblea_id, email.trim())
       } catch {
         // Ignorar errores de red o validación en background
+      } finally {
+        // Siempre actualizar verificación (verificacionActiva, yaVerifico) aunque falle el bloque anterior
+        await refrescarVerificacion(asamblea.asamblea_id, email.trim())
       }
     }, 5000)
 
