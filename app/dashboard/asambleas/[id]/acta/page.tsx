@@ -707,10 +707,10 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      <main ref={actaContentRef} className="max-w-4xl mx-auto px-8 py-10 print:py-6 bg-white text-gray-900">
+      <main ref={actaContentRef} className="max-w-4xl mx-auto px-8 py-10 print:py-6 bg-white text-gray-900 print:[&_section]:break-inside-avoid print:[&_table]:break-inside-avoid">
 
         {/* ── ENCABEZADO ── */}
-        <header className="mb-8">
+        <header className="mb-8 break-inside-avoid">
           <div className="flex items-start justify-between border-b-4 border-gray-900 pb-5">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1">Votaciones de Asambleas Online</p>
@@ -753,7 +753,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
         {/* ── QUÓRUM ── */}
         {quorum && (
-          <section className="mb-8">
+          <section className="mb-8 break-inside-avoid">
             <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-3 pb-1 border-b border-gray-200">Quórum y participación</h2>
             <table className="w-full border-collapse text-sm">
               <tbody>
@@ -836,7 +836,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               const aprobado = pregunta.umbral_aprobacion != null && pctAfavor >= pregunta.umbral_aprobacion
 
               return (
-                <div key={pregunta.id}>
+                <div key={pregunta.id} className="break-inside-avoid">
                   {/* Título de pregunta */}
                   <div className="flex items-start gap-3 mb-3">
                     <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-xs font-bold flex items-center justify-center">{idx + 1}</span>
@@ -968,7 +968,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
         {/* ── UNIDADES QUE NO PARTICIPARON ── */}
         {unidadesNoParticipation.length > 0 && (
-          <section className="mt-10">
+          <section className="mt-10 break-inside-avoid">
             <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-3 pb-1 border-b border-gray-200">
               Unidades que no participaron ({unidadesNoParticipation.length})
             </h2>
@@ -1004,7 +1004,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         )}
 
         {/* ── FIRMAS ── */}
-        <section className="mt-12 pt-6 border-t-2 border-gray-900">
+        <section className="mt-12 pt-6 border-t-2 border-gray-900 break-inside-avoid">
           <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-6">Firmas y aprobación del acta</h2>
           <div className="grid grid-cols-3 gap-8">
             <div>
@@ -1012,25 +1012,31 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               <div className="h-14 border-b-2 border-gray-400 mt-6" />
               <div className="h-7 border-b border-gray-300 mt-4" />
               <p className="text-xs text-gray-400 mt-1">Nombre y CC</p>
+              <p className="text-xs text-gray-400 mt-2">Fecha</p>
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-700 mb-1">Presidente de la Asamblea</p>
               <div className="h-14 border-b-2 border-gray-400 mt-6" />
               <div className="h-7 border-b border-gray-300 mt-4" />
               <p className="text-xs text-gray-400 mt-1">Nombre y CC</p>
+              <p className="text-xs text-gray-400 mt-2">Fecha</p>
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-700 mb-1">Secretario(a) de la Asamblea</p>
               <div className="h-14 border-b-2 border-gray-400 mt-6" />
               <div className="h-7 border-b border-gray-300 mt-4" />
               <p className="text-xs text-gray-400 mt-1">Nombre y CC</p>
+              <p className="text-xs text-gray-400 mt-2">Fecha</p>
             </div>
           </div>
         </section>
 
         {/* ── PIE DE PÁGINA ── */}
-        <footer className="mt-10 pt-4 border-t border-gray-200 flex items-center justify-between text-xs text-gray-400">
-          <p>Este documento refleja las votaciones electrónicas registradas en la plataforma Votaciones de Asambleas Online.</p>
+        <footer className="mt-10 pt-4 border-t border-gray-200 flex items-center justify-between text-xs text-gray-400 break-inside-avoid">
+          <p>
+            Este documento refleja las votaciones electrónicas registradas en la plataforma Votaciones de Asambleas Online.
+            {asamblea?.id && <span className="block mt-1 text-gray-400">Ref. {asamblea.id.slice(0, 8)}…</span>}
+          </p>
           <p className="text-right whitespace-nowrap ml-4">{new Date().toLocaleString('es-CO')}</p>
         </footer>
       </main>
