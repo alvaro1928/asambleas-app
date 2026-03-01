@@ -693,25 +693,21 @@ export default function VotacionPublicaPage() {
   // Función auxiliar: refresca flag de verificación + stats de quórum verificado
   const refrescarVerificacion = async (asambleaId: string, emailVotante?: string) => {
     try {
-      const queries: Promise<any>[] = [
-        supabase.from('asambleas').select('verificacion_asistencia_activa').eq('id', asambleaId).single(),
-        supabase.rpc('calcular_verificacion_quorum', { p_asamblea_id: asambleaId }),
-      ]
-      // Si tenemos el email del votante, verificar si ya registró asistencia (persiste entre recargas)
-      if (emailVotante) {
-        queries.push(
-          supabase
+      const emailQuery = emailVotante
+        ? supabase
             .from('quorum_asamblea')
             .select('verifico_asistencia')
             .eq('asamblea_id', asambleaId)
             .ilike('email_propietario', emailVotante.trim().toLowerCase())
             .eq('verifico_asistencia', true)
             .limit(1)
-        )
-      }
+        : Promise.resolve({ data: null, error: null })
 
-      const results = await Promise.all(queries)
-      const [{ data: aData }, { data: vData }, yaVerificoDB] = results
+      const [{ data: aData }, { data: vData }, { data: emailData }] = await Promise.all([
+        supabase.from('asambleas').select('verificacion_asistencia_activa').eq('id', asambleaId).single(),
+        supabase.rpc('calcular_verificacion_quorum', { p_asamblea_id: asambleaId }),
+        emailQuery,
+      ])
 
       if (aData) setVerificacionActiva(!!(aData as any).verificacion_asistencia_activa)
       if (vData?.length) {
@@ -724,7 +720,7 @@ export default function VotacionPublicaPage() {
         })
       }
       // Si la BD confirma que ya verificó, setear estado local para no mostrar popup
-      if (yaVerificoDB?.data?.length) setYaVerifico(true)
+      if (emailData && (emailData as any[]).length > 0) setYaVerifico(true)
     } catch {
       // ignorar errores silenciosos de polling
     }
