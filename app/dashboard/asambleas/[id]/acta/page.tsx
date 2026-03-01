@@ -1275,7 +1275,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
       {/* Modal: Certificado y cómo verificar (no forma parte del acta descargada) */}
       <Dialog open={showVerificacionModal} onOpenChange={setShowVerificacionModal}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl relative">
+        <DialogContent showCloseButton={false} className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl relative">
           <button
             type="button"
             onClick={() => setShowVerificacionModal(false)}

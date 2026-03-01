@@ -1287,7 +1287,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       {/* Modal: gráfica de avance en grande (pop-up) */}
       <Dialog open={graficaMaximizada} onOpenChange={setGraficaMaximizada}>
-        <DialogContent className="max-w-6xl w-[95vw] max-h-[95vh] overflow-y-auto p-8 rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: '#0B0E14' }}>
+        <DialogContent showCloseButton={false} className="max-w-6xl w-[95vw] max-h-[95vh] overflow-y-auto p-8 rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: '#0B0E14' }}>
           <DialogHeader className="flex flex-row items-center justify-between gap-4 pr-10">
             <DialogTitle className="flex items-center gap-2 text-xl text-slate-100">
               <Vote className="w-6 h-6 text-emerald-500" />
@@ -1363,7 +1363,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       {/* Modal: Registro manual de asistencia */}
       <Dialog open={showModalAsistencia} onOpenChange={(v) => { if (!guardandoAsistencia) { setShowModalAsistencia(v); if (!v) setMensajeAsistencia(null) } }}>
-        <DialogContent className="max-w-2xl w-[95vw] h-[85vh] sm:h-auto sm:max-h-[90vh] flex flex-col p-0 rounded-3xl border border-[rgba(255,255,255,0.15)] overflow-hidden" style={{ backgroundColor: '#0B0E14' }}>
+        <DialogContent showCloseButton={false} className="max-w-2xl w-[95vw] h-[85vh] sm:h-auto sm:max-h-[90vh] flex flex-col p-0 rounded-3xl border border-[rgba(255,255,255,0.15)] overflow-hidden" style={{ backgroundColor: '#0B0E14' }}>
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-[rgba(255,255,255,0.08)] flex-shrink-0">
             <div className="flex items-center justify-between pr-8">
               <DialogTitle className="flex items-center gap-2 text-lg text-slate-100">
