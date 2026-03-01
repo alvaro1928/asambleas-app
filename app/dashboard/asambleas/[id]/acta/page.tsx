@@ -331,7 +331,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       // Solo unidades del mismo tipo (demo o reales según asamblea/sandbox_usar_unidades_reales)
       const { data: todasUnidades } = await supabase
         .from('unidades')
-        .select('id, torre, numero, nombre_propietario, email_propietario, telefono_propietario, coeficiente, is_demo')
+        .select('id, torre, numero, nombre_propietario, email_propietario, telefono_propietario, email, telefono, coeficiente, is_demo')
         .eq('organization_id', asambleaData.organization_id)
         .eq('is_demo', esDemoUnidades)
       const filtrarDemoEnNombre = !esDemoUnidades
@@ -349,8 +349,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           torre: u.torre ?? '',
           numero: u.numero ?? '',
           nombre_propietario: u.nombre_propietario ?? null,
-          email_propietario: u.email_propietario ?? null,
-          telefono_propietario: u.telefono_propietario ?? null,
+          email_propietario: (u.email_propietario ?? u.email ?? '').trim() || null,
+          telefono_propietario: (u.telefono_propietario ?? u.telefono ?? '').trim() || null,
           coeficiente: Number(u.coeficiente) || 0,
         }))
       setUnidadesNoParticipation(noParticiparon)
@@ -993,8 +993,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     <td className="border border-gray-200 px-2 py-1">{u.torre || '—'}</td>
                     <td className="border border-gray-200 px-2 py-1">{u.numero || '—'}</td>
                     <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{u.nombre_propietario || '—'}</td>
-                    <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-all' }}>{u.email_propietario?.trim() || 'No registrado'}</td>
-                    <td className="border border-gray-200 px-2 py-1">{u.telefono_propietario?.trim() || '—'}</td>
+                    <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-all' }}>{(u.email_propietario ?? '').trim() || 'No registrado'}</td>
+                    <td className="border border-gray-200 px-2 py-1">{(u.telefono_propietario ?? '').trim() || '—'}</td>
                     <td className="border border-gray-200 px-2 py-1 text-right">{u.coeficiente.toFixed(2)}%</td>
                   </tr>
                 ))}
