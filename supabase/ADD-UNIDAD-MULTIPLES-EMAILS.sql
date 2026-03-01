@@ -238,24 +238,48 @@ $$;
 COMMENT ON FUNCTION calcular_verificacion_quorum_desglose(UUID, UUID) IS
   'Desglose verificación: total, directos (propietario, incl. múltiples correos por unidad) y por poder.';
 
--- 5. RPC para la API verificar-asistencia: devuelve los quorum_asamblea.id donde este email puede verificar (por email_propietario o por correo de la unidad)
+-- 5. RPC para la API verificar-asistencia: devuelve los quorum_asamblea.id donde este identificador (correo o teléfono) puede verificar
+-- Requiere que exista normalizar_telefono (VALIDAR-VOTANTE-EMAIL-O-TELEFONO-UNIFICADO.sql)
 CREATE OR REPLACE FUNCTION quorum_ids_para_verificar_asistencia(
   p_asamblea_id UUID,
-  p_email       TEXT
+  p_email       TEXT  -- correo o teléfono con el que entró el votante
 )
 RETURNS TABLE (quorum_id UUID)
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 AS $$
-  SELECT qa.id
-  FROM quorum_asamblea qa
-  JOIN unidades u ON u.id = qa.unidad_id
-  WHERE qa.asamblea_id = p_asamblea_id
-    AND (
-      LOWER(TRIM(qa.email_propietario)) = LOWER(TRIM(p_email))
-      OR unidad_email_coincide(COALESCE(u.email_propietario, u.email, ''), p_email)
-    );
+DECLARE
+  v_es_email BOOLEAN := (LOWER(TRIM(p_email)) LIKE '%@%');
+  v_tel_norm TEXT := normalizar_telefono(p_email);
+BEGIN
+  IF v_es_email THEN
+    -- Por correo: igualdad en quorum o alguno de los correos de la unidad
+    RETURN QUERY
+    SELECT qa.id
+    FROM quorum_asamblea qa
+    JOIN unidades u ON u.id = qa.unidad_id
+    WHERE qa.asamblea_id = p_asamblea_id
+      AND (
+        LOWER(TRIM(qa.email_propietario)) = LOWER(TRIM(p_email))
+        OR unidad_email_coincide(COALESCE(u.email_propietario, u.email, ''), p_email)
+      );
+  ELSE
+    -- Por teléfono: normalizar y comparar con lo guardado en quorum o con teléfono(s) de la unidad
+    IF v_tel_norm IS NULL OR v_tel_norm = '' THEN
+      RETURN;
+    END IF;
+    RETURN QUERY
+    SELECT qa.id
+    FROM quorum_asamblea qa
+    JOIN unidades u ON u.id = qa.unidad_id
+    WHERE qa.asamblea_id = p_asamblea_id
+      AND (
+        normalizar_telefono(COALESCE(TRIM(qa.email_propietario), '')) = v_tel_norm
+        OR normalizar_telefono(COALESCE(u.telefono, u.telefono_propietario, '')) = v_tel_norm
+      );
+  END IF;
+END;
 $$;
 
 COMMENT ON FUNCTION quorum_ids_para_verificar_asistencia(UUID, TEXT) IS
-  'Ids de quorum_asamblea donde el email puede registrar verificación de asistencia (incl. múltiples correos por unidad).';
+  'Ids de quorum_asamblea donde el identificador (correo o teléfono) puede registrar verificación de asistencia.';
