@@ -138,6 +138,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [estadisticas, setEstadisticas] = useState<{ [key: string]: EstadisticaOpcion[] }>({})
   const [quorum, setQuorum] = useState<QuorumData | null>(null)
   const [loadingStats, setLoadingStats] = useState(false)
+  interface VerifStats { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
+  const [statsVerificacion, setStatsVerificacion] = useState<VerifStats | null>(null)
 
   // Dialog de eliminar pregunta
   const [deletingPregunta, setDeletingPregunta] = useState<Pregunta | null>(null)
@@ -443,8 +445,23 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       if (!rpcError && rpcData && rpcData.length > 0) {
         setQuorum(rpcData[0])
-        return
       }
+
+      // Cargar stats de verificación de quórum
+      const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
+        p_asamblea_id: params.id
+      })
+      if (verData?.length) {
+        const v = verData[0] as VerifStats
+        setStatsVerificacion({
+          total_verificados: Number(v.total_verificados) || 0,
+          coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+          porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+          quorum_alcanzado: !!v.quorum_alcanzado,
+        })
+      }
+
+      if (!rpcError && rpcData && rpcData.length > 0) return
 
       // Si falla la función RPC (no existe aún), calcular manualmente con mismo criterio que el RPC
       const isDemoAsam = asambleaOverride?.is_demo ?? asamblea?.is_demo
@@ -2286,6 +2303,32 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                                   </div>
                                 )
                               })()}
+                              {/* Chip de quórum verificado */}
+                              {statsVerificacion && (
+                                <div className={`mt-3 flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${
+                                  statsVerificacion.quorum_alcanzado
+                                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                                    : statsVerificacion.porcentaje_verificado >= 30
+                                    ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                                    : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                                }`}>
+                                  <span className={`font-medium flex items-center gap-1 ${
+                                    statsVerificacion.quorum_alcanzado ? 'text-green-700 dark:text-green-400' :
+                                    statsVerificacion.porcentaje_verificado >= 30 ? 'text-amber-700 dark:text-amber-400' :
+                                    'text-gray-600 dark:text-gray-400'
+                                  }`}>
+                                    ✓ Quórum verificado: {statsVerificacion.porcentaje_verificado.toFixed(1)}%
+                                    ({statsVerificacion.total_verificados} unidades)
+                                  </span>
+                                  <span className={`px-1.5 py-0.5 rounded-full font-semibold ${
+                                    statsVerificacion.quorum_alcanzado
+                                      ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                                      : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                  }`}>
+                                    {statsVerificacion.quorum_alcanzado ? '✓ Ley 675 >50%' : '✗ Sin quórum'}
+                                  </span>
+                                </div>
+                              )}
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
                                 {pregunta.tipo_votacion === 'coeficiente'
                                   ? '📊 Votación ponderada por coeficiente (Ley 675)'

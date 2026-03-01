@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle, UserCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -123,6 +123,15 @@ export default function VotacionPublicaPage() {
   const [consentimientoAceptado, setConsentimientoAceptado] = useState(false)
   const [guardandoConsentimiento, setGuardandoConsentimiento] = useState(false)
   const [avanceColapsado, setAvanceColapsado] = useState(false)
+
+  // --- Verificación de Quórum ---
+  const [verificacionActiva, setVerificacionActiva] = useState(false)
+  const [yaVerifico, setYaVerifico] = useState(false)
+  const [verificando, setVerificando] = useState(false)
+  interface StatsVerif { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
+  const [statsVerificacion, setStatsVerificacion] = useState<StatsVerif | null>(null)
+  // --- Tabs ---
+  const [tabActivo, setTabActivo] = useState<'votacion' | 'avance' | 'misdatos'>('votacion')
 
   // Para marcar salida al cerrar/abandonar la página (solo sesiones activas en el registro)
   const salidaRef = useRef<{ asamblea_id: string; email: string } | null>(null)
@@ -681,9 +690,34 @@ export default function VotacionPublicaPage() {
     }
   }
 
+  // Función auxiliar: refresca flag de verificación + stats de quórum verificado
+  const refrescarVerificacion = async (asambleaId: string) => {
+    try {
+      const [{ data: aData }, { data: vData }] = await Promise.all([
+        supabase.from('asambleas').select('verificacion_asistencia_activa').eq('id', asambleaId).single(),
+        supabase.rpc('calcular_verificacion_quorum', { p_asamblea_id: asambleaId })
+      ])
+      if (aData) setVerificacionActiva(!!(aData as any).verificacion_asistencia_activa)
+      if (vData?.length) {
+        const v = vData[0] as StatsVerif
+        setStatsVerificacion({
+          total_verificados: Number(v.total_verificados) || 0,
+          coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+          porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+          quorum_alcanzado: !!v.quorum_alcanzado,
+        })
+      }
+    } catch {
+      // ignorar errores silenciosos
+    }
+  }
+
   // Polling: re-fetch unidades/poderes y listado de preguntas cada 10 s (para que al agregar un poder o cerrar/abrir pregunta el votante vea el cambio sin refrescar)
   useEffect(() => {
     if (step !== 'votar' || !asamblea || !email.trim()) return
+
+    // Carga inicial de verificación
+    refrescarVerificacion(asamblea.asamblea_id)
 
     const timeout = setTimeout(() => {
       const interval = setInterval(async () => {
@@ -693,6 +727,8 @@ export default function VotacionPublicaPage() {
             await cargarPreguntas(nuevasUnidades)
             await cargarHistorial(nuevasUnidades)
           }
+          // Actualizar estado de verificación de quórum
+          await refrescarVerificacion(asamblea.asamblea_id)
         } catch {
           // Ignorar errores de red o validación en background
         }
@@ -703,6 +739,38 @@ export default function VotacionPublicaPage() {
     return () => clearTimeout(timeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when step or asamblea changes
   }, [step, asamblea?.asamblea_id, email])
+
+  // Cargar historial al cambiar al tab de avance
+  useEffect(() => {
+    if (tabActivo === 'avance' && step === 'votar' && unidades.length > 0 && preguntasCerradas.length === 0) {
+      cargarHistorial(unidades)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabActivo])
+
+  const handleVerificarAsistencia = async () => {
+    if (!asamblea || verificando) return
+    setVerificando(true)
+    try {
+      const res = await fetch('/api/verificar-asistencia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: asamblea.asamblea_id, email: email.trim() }),
+      })
+      if (res.ok) {
+        setYaVerifico(true)
+        toast.success('¡Asistencia verificada! Tu presencia quedó registrada.')
+        await refrescarVerificacion(asamblea.asamblea_id)
+      } else {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data?.error || 'No se pudo registrar la verificación.')
+      }
+    } catch {
+      toast.error('Error de conexión al verificar asistencia.')
+    } finally {
+      setVerificando(false)
+    }
+  }
 
   const formatFecha = (fecha: string) => {
     const date = new Date(fecha + 'T00:00:00')
@@ -979,30 +1047,158 @@ export default function VotacionPublicaPage() {
         unidades.every((u) => votosActuales.some((v) => v.pregunta_id === p.id && v.unidad_id === u.id))
       )
 
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-900 dark:to-gray-800 p-4">
-        <div className="max-w-4xl mx-auto py-8">
-          <StepIndicator pasoActual="votar" />
-          {/* Pantalla de éxito cuando terminó de votar en todas las unidades */}
-          {todasVotadas && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mb-6 border-2 border-emerald-300 dark:border-emerald-700 text-center">
-              <div className="mx-auto w-20 h-20 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center mb-4">
-                <CheckCircle2 className="w-12 h-12 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Gracias, tu participación quedó registrada
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400 mb-2">
-                Has votado con todas tus unidades en las preguntas abiertas.
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Desplázate hacia abajo para ver el historial de votaciones cerradas.
-              </p>
-            </div>
-          )}
+    const pctColor = (pct: number) =>
+      pct > 50 ? 'text-green-600 dark:text-green-400' :
+      pct >= 30 ? 'text-amber-600 dark:text-amber-400' :
+      'text-red-600 dark:text-red-400'
 
-          {/* Cuadro de votación arriba: que se vea rápido en cel y web */}
-          <div className="space-y-6">
+    const pctBg = (pct: number) =>
+      pct > 50 ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' :
+      pct >= 30 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' :
+      'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+
+    const QuorumChip = ({ pct, total, small }: { pct: number; total: number; small?: boolean }) => (
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${pctBg(pct)}`}>
+        <UserCheck className={`${small ? 'w-3 h-3' : 'w-3.5 h-3.5'} shrink-0 ${pctColor(pct)}`} />
+        <span className={pctColor(pct)}>{pct.toFixed(1)}%</span>
+        {!small && <span className="text-gray-500 dark:text-gray-400">({total} verif.)</span>}
+      </span>
+    )
+
+    const TABS = [
+      { id: 'votacion' as const, label: 'Votación', short: 'Votar' },
+      { id: 'avance' as const, label: 'Avance', short: 'Avance' },
+      { id: 'misdatos' as const, label: 'Mis datos', short: 'Mis datos' },
+    ]
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-900 dark:to-gray-800">
+        {/* Popup de Verificación de Quórum */}
+        <Dialog open={verificacionActiva && !yaVerifico} onOpenChange={() => {}}>
+          <DialogContent className="max-w-sm rounded-2xl" onPointerDownOutside={(e) => e.preventDefault()}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                Verificación de Asistencia
+              </DialogTitle>
+              <DialogDescription>
+                El administrador solicita confirmar que estás presente en esta asamblea. Al confirmar, quedará registro oficial de tu asistencia en el acta.
+              </DialogDescription>
+            </DialogHeader>
+            {statsVerificacion && statsVerificacion.total_verificados > 0 && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-xs">
+                <UserCheck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <span className="text-indigo-700 dark:text-indigo-300">
+                  {statsVerificacion.total_verificados} unidades ya confirmaron ({statsVerificacion.porcentaje_verificado.toFixed(1)}%)
+                </span>
+              </div>
+            )}
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setYaVerifico(true)}
+                disabled={verificando}
+              >
+                Más tarde
+              </Button>
+              <Button
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+                onClick={handleVerificarAsistencia}
+                disabled={verificando}
+              >
+                {verificando ? (
+                  <span className="flex items-center gap-2">
+                    <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    Registrando...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <UserCheck className="w-4 h-4" />
+                    Verifiqué Asistencia
+                  </span>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Header fijo con indicador de quórum */}
+        <div className="sticky top-0 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-b border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="max-w-2xl mx-auto px-4 py-2">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{asamblea?.nombre_conjunto}</p>
+                <h1 className="text-sm font-bold text-gray-900 dark:text-white truncate">{asamblea?.nombre}</h1>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {statsVerificacion && (
+                  <QuorumChip pct={statsVerificacion.porcentaje_verificado} total={statsVerificacion.total_verificados} />
+                )}
+                {yaVerifico && !statsVerificacion && (
+                  <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <UserCheck className="w-3.5 h-3.5" /> Verificado
+                  </span>
+                )}
+              </div>
+            </div>
+            {/* Tabs */}
+            <div className="flex w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setTabActivo(tab.id)}
+                  className={`flex-1 py-2 text-xs sm:text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                    tabActivo === tab.id
+                      ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.short}</span>
+                  {tab.id === 'votacion' && preguntas.length > 0 && (
+                    <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[9px] font-bold">{preguntas.length}</span>
+                  )}
+                  {tab.id === 'avance' && todasVotadas && (
+                    <span className="ml-1 text-green-500">✓</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-2xl mx-auto px-4 py-4 pb-10">
+          <StepIndicator pasoActual="votar" />
+
+          {/* ── TAB 1: VOTACIÓN ── */}
+          {tabActivo === 'votacion' && (
+            <div className="space-y-4">
+              {/* Banner de éxito cuando terminó de votar */}
+              {todasVotadas && (
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border-2 border-emerald-300 dark:border-emerald-700 text-center">
+                  <div className="mx-auto w-16 h-16 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center mb-3">
+                    <CheckCircle2 className="w-9 h-9 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                    ¡Gracias! Tu participación quedó registrada
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Has votado con todas tus unidades en las preguntas abiertas.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setTabActivo('avance')}
+                    className="mt-3 text-xs text-indigo-600 dark:text-indigo-400 underline underline-offset-2"
+                  >
+                    Ver avance de la votación →
+                  </button>
+                </div>
+              )}
+
+          {/* Tarjetas de votación */}
+          <div className="space-y-4">
             {preguntas.length === 0 ? (
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700 text-center">
                 <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -1021,10 +1217,10 @@ export default function VotacionPublicaPage() {
                 return (
                   <div key={pregunta.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                     {/* Header de la Pregunta */}
-                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
+                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 sm:p-6">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
                             <span className="bg-white/20 text-white px-3 py-1 rounded-full text-xs font-bold">
                               Pregunta {index + 1}
                             </span>
@@ -1032,8 +1228,14 @@ export default function VotacionPublicaPage() {
                               <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>
                               ABIERTA
                             </span>
+                            {statsVerificacion && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/15 border border-white/25 text-white text-xs font-medium">
+                                <UserCheck className="w-3 h-3 shrink-0" />
+                                {statsVerificacion.porcentaje_verificado.toFixed(1)}%
+                              </span>
+                            )}
                           </div>
-                          <h3 className="text-xl font-bold text-white mb-2">
+                          <h3 className="text-lg sm:text-xl font-bold text-white mb-1 break-words">
                             {pregunta.texto_pregunta}
                           </h3>
                           {pregunta.descripcion && (
@@ -1168,268 +1370,334 @@ export default function VotacionPublicaPage() {
             )}
           </div>
 
-          {/* Avance de la votación: participación + cada opción con % y si pasó umbral (colapsable) */}
-          {preguntas.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-6 border border-gray-200 dark:border-gray-700">
-              <button
-                type="button"
-                onClick={() => setAvanceColapsado((v) => !v)}
-                className="w-full flex items-center justify-between text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg"
-                aria-expanded={!avanceColapsado}
-              >
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center">
-                  <BarChart3 className="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" />
-                  Avance de la votación
-                </h3>
-                {avanceColapsado ? (
-                  <ChevronDown className="w-5 h-5 text-gray-500 dark:text-gray-400 shrink-0" />
-                ) : (
-                  <ChevronUp className="w-5 h-5 text-gray-500 dark:text-gray-400 shrink-0" />
-                )}
-              </button>
-              {!avanceColapsado && (
-                <>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 mt-2">
-                Umbral de aprobación: {UMBRAL_APROBACION_DEFECTO}% (mayoría simple). Se actualiza cada 10 s.
-              </p>
-              <div className="space-y-6">
-                {preguntas.map((pregunta, index) => {
-                  const stats = estadisticas[pregunta.id]
-                  if (!stats) return null
-                  const tipoVot = stats.tipo_votacion ?? pregunta.tipo_votacion ?? 'coeficiente'
-                  const participacion = stats.porcentaje_participacion ?? 0
-                  const umbral = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
-                  const resultados = stats.resultados ?? []
-                  const maxPct = resultados.length > 0
-                    ? Math.max(...resultados.map((r: { porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }) =>
-                        pctRelevante(r, tipoVot)))
-                    : 0
-                  const algunaAprobada = maxPct >= umbral
-
-                  return (
-                    <div key={pregunta.id} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-900/50">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-gray-900 dark:text-white truncate max-w-[75%]">
-                          Pregunta {index + 1}: {pregunta.texto_pregunta}
-                        </h4>
-                        <span className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${algunaAprobada ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'}`}>
-                          {algunaAprobada ? '✓ Aprobada' : '○ Pendiente'}
-                        </span>
-                      </div>
-                      <div className="mb-3">
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-gray-600 dark:text-gray-400">Participación general</span>
-                          <span className="font-medium text-gray-800 dark:text-gray-200">{participacion.toFixed(2)}% ({stats.total_votos ?? 0} votos)</span>
-                        </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                          <div
-                            className="bg-indigo-500 h-2 rounded-full transition-all duration-500"
-                            style={{ width: `${Math.min(participacion, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        {resultados.map((r: { opcion_id?: string; opcion_texto?: string; color?: string; votos_cantidad?: number; porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }, ri: number) => {
-                          const pct = pctRelevante(r, tipoVot)
-                          const pasaUmbral = pct >= umbral
-                          return (
-                            <div key={r.opcion_id ?? `opt-${index}-${ri}`} className="flex items-center gap-2">
-                              <div
-                                className="w-2 h-2 rounded-full shrink-0"
-                                style={{ backgroundColor: r.color || '#6366f1' }}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex justify-between text-xs mb-0.5">
-                                  <span className="text-gray-700 dark:text-gray-300 truncate">{r.opcion_texto ?? '—'}</span>
-                                  <span className={`font-medium shrink-0 ml-2 ${pasaUmbral ? 'text-green-600 dark:text-green-400' : ''}`}>
-                                    {pct.toFixed(2)}% ({r.votos_cantidad ?? 0} votos){pasaUmbral ? ' ✓' : ''}
-                                  </span>
-                                </div>
-                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden relative">
-                                  <div
-                                    className="h-full rounded-full transition-all duration-500"
-                                    style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: r.color || '#6366f1' }}
-                                  />
-                                  {pct < umbral && umbral <= 100 && (
-                                    <div
-                                      className="absolute top-0 bottom-0 w-0.5 bg-amber-500"
-                                      style={{ left: `${umbral}%` }}
-                                      title={`Umbral ${umbral}%`}
-                                    />
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      {/* Resultado global: Aprobado / Pendiente */}
-                      {resultados.length > 0 && (() => {
-                        const maxPctLocal = Math.max(...resultados.map((r) => pctRelevante(r, tipoVot)))
-                        const aprobado = maxPctLocal >= umbral
-                        return (
-                          <div className={`mt-3 py-2 px-3 rounded-lg text-center text-sm font-semibold ${aprobado ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'}`}>
-                            {aprobado ? '✓ Aprobado' : '○ Pendiente'} — Mayoría necesaria ({umbral}%). Máx. opción: {maxPctLocal.toFixed(2)}%
-                          </div>
-                        )
-                      })()}
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                        {tipoVot === 'nominal' ? 'Porcentajes sobre total de unidades (un voto por unidad)' : 'Porcentajes sobre coeficiente total del conjunto (Ley 675)'}
-                      </p>
-                    </div>
-                  )
-                })}
-              </div>
-                </>
-              )}
             </div>
           )}
 
-          {/* Bienvenida y unidades (abajo para que el voto se vea primero en cel y web) */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mb-6 border border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div className="flex items-center justify-center sm:justify-start">
-                <div className="w-16 h-16 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-8 h-8 text-white" />
-                </div>
-                <div className="ml-4">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                    ¡Bienvenido!
-                  </h1>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
-                    {email}
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  marcarSalidaQuorum()
-                  setStep('email')
-                }}
-                className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shrink-0"
-                title="Salir y volver a ingresar con otro correo"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Salir de la votación
-              </Button>
-            </div>
-
-            {/* Resumen de Unidades */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
-              <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                <Users className="w-5 h-5 mr-2 text-green-600 dark:text-green-400" />
-                Estás votando por:
-              </h3>
-
-              {/* Unidades Propias */}
-              {unidadesPropias.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    🏠 Tus unidades:
-                  </p>
-                  <div className="space-y-2">
-                    {unidadesPropias.map((unidad) => (
-                      <div key={unidad.id} className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold text-gray-900 dark:text-white">
-                            {unidad.torre} - {unidad.numero}
-                          </span>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            Coeficiente: {unidad.coeficiente.toFixed(6)}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Poderes */}
-              {unidadesPoderes.length > 0 && (
-                <div>
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    📝 Poderes otorgados:
-                  </p>
-                  <div className="space-y-2">
-                    {unidadesPoderes.map((unidad) => (
-                      <div key={unidad.id} className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-800">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-semibold text-gray-900 dark:text-white">
-                            {unidad.torre} - {unidad.numero}
-                          </span>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            Coeficiente: {unidad.coeficiente.toFixed(6)}%
-                          </span>
-                        </div>
-                        {unidad.nombre_otorgante && (
-                          <p className="text-xs text-purple-600 dark:text-purple-400">
-                            Poder de: {unidad.nombre_otorgante}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Total */}
-              <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-800">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-gray-900 dark:text-white">
-                    TOTAL:
+          {/* ── TAB 2: AVANCE ── */}
+          {tabActivo === 'avance' && (
+            <div className="space-y-4">
+              {/* Chip de quórum verificado global */}
+              {statsVerificacion && (
+                <div className={`flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl border text-sm ${
+                  statsVerificacion.quorum_alcanzado
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                    : statsVerificacion.porcentaje_verificado >= 30
+                    ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                    : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                }`}>
+                  <UserCheck className={`w-4 h-4 shrink-0 ${pctColor(statsVerificacion.porcentaje_verificado)}`} />
+                  <span className="font-medium text-gray-800 dark:text-gray-200">
+                    Quórum verificado: <span className={`font-bold ${pctColor(statsVerificacion.porcentaje_verificado)}`}>{statsVerificacion.porcentaje_verificado.toFixed(1)}%</span>
                   </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    ({statsVerificacion.total_verificados} unidades · coef. {statsVerificacion.coeficiente_verificado.toFixed(4)}%)
+                  </span>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    statsVerificacion.quorum_alcanzado
+                      ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                      : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                  }`}>
+                    {statsVerificacion.quorum_alcanzado ? '✓ Quórum Ley 675 Art. 45' : '✗ Sin quórum (>50%)'}
+                  </span>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Umbral de aprobación: {UMBRAL_APROBACION_DEFECTO}% (mayoría simple). Se actualiza automáticamente.
+              </p>
+
+              {/* Preguntas abiertas */}
+              {preguntas.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block"></span>
+                    Preguntas abiertas
+                  </h3>
+                  {preguntas.map((pregunta, index) => {
+                    const stats = estadisticas[pregunta.id]
+                    if (!stats) return null
+                    const tipoVot = stats.tipo_votacion ?? pregunta.tipo_votacion ?? 'coeficiente'
+                    const participacion = stats.porcentaje_participacion ?? 0
+                    const umbral = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
+                    const resultados = stats.resultados ?? []
+                    const maxPct = resultados.length > 0
+                      ? Math.max(...resultados.map((r: { porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }) =>
+                          pctRelevante(r, tipoVot)))
+                      : 0
+                    const algunaAprobada = maxPct >= umbral
+                    return (
+                      <div key={pregunta.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                        <div className="px-4 py-3 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-800 flex flex-wrap items-center justify-between gap-2">
+                          <h4 className="font-semibold text-gray-900 dark:text-white text-sm truncate max-w-[65%]">
+                            P{index + 1}: {pregunta.texto_pregunta}
+                          </h4>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {statsVerificacion && (
+                              <QuorumChip pct={statsVerificacion.porcentaje_verificado} total={statsVerificacion.total_verificados} small />
+                            )}
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${algunaAprobada ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'}`}>
+                              {algunaAprobada ? '✓ Aprobada' : '○ Pendiente'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="p-4 space-y-3">
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-gray-600 dark:text-gray-400">Participación</span>
+                              <span className="font-medium text-gray-800 dark:text-gray-200">{participacion.toFixed(2)}% ({stats.total_votos ?? 0} votos)</span>
+                            </div>
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                              <div className="bg-indigo-500 h-2 rounded-full transition-all duration-500" style={{ width: `${Math.min(participacion, 100)}%` }} />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            {resultados.map((r: { opcion_id?: string; opcion_texto?: string; color?: string; votos_cantidad?: number; porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }, ri: number) => {
+                              const pct = pctRelevante(r, tipoVot)
+                              const pasaUmbral = pct >= umbral
+                              return (
+                                <div key={r.opcion_id ?? `opt-${index}-${ri}`} className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: r.color || '#6366f1' }} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between text-xs mb-0.5">
+                                      <span className="text-gray-700 dark:text-gray-300 truncate">{r.opcion_texto ?? '—'}</span>
+                                      <span className={`font-medium shrink-0 ml-2 ${pasaUmbral ? 'text-green-600 dark:text-green-400' : ''}`}>
+                                        {pct.toFixed(2)}% ({r.votos_cantidad ?? 0}){pasaUmbral ? ' ✓' : ''}
+                                      </span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden relative">
+                                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: r.color || '#6366f1' }} />
+                                      {pct < umbral && umbral <= 100 && (
+                                        <div className="absolute top-0 bottom-0 w-0.5 bg-amber-500" style={{ left: `${umbral}%` }} title={`Umbral ${umbral}%`} />
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          {resultados.length > 0 && (() => {
+                            const maxLocal = Math.max(...resultados.map((r) => pctRelevante(r, tipoVot)))
+                            const aprobado = maxLocal >= umbral
+                            return (
+                              <div className={`py-1.5 px-3 rounded-lg text-center text-xs font-semibold ${aprobado ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'}`}>
+                                {aprobado ? '✓ Aprobado' : '○ Pendiente'} — máx. opción: {maxLocal.toFixed(2)}% (necesita ≥{umbral}%)
+                              </div>
+                            )
+                          })()}
+                          <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                            {tipoVot === 'nominal' ? 'Porcentajes sobre total de unidades (nominal)' : 'Porcentajes sobre coeficiente total del conjunto (Ley 675)'}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Preguntas cerradas (historial) */}
+              <div className="space-y-4 mt-2">
+                {preguntasCerradas.length === 0 && preguntas.length === 0 && (
+                  <div className="text-center py-10">
+                    <Clock className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">El administrador abrirá las preguntas cuando inicie la votación.</p>
+                  </div>
+                )}
+                {preguntasCerradas.length > 0 && (
+                  <>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide flex items-center gap-1.5 mt-2">
+                      <History className="w-4 h-4 text-purple-500" />
+                      Historial (cerradas)
+                    </h3>
+                    {preguntasCerradas.map((pregunta, index) => {
+                      const stats = estadisticasCerradas[pregunta.id]
+                      const misVotos = votosHistorico.filter(v => v.pregunta_id === pregunta.id)
+                      return (
+                        <div key={pregunta.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                          <div className="px-4 py-3 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 flex flex-wrap items-center justify-between gap-2">
+                            <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate max-w-[70%]">
+                              P{index + 1}: {pregunta.texto_pregunta}
+                            </h4>
+                            <span className="text-xs font-bold bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full shrink-0">CERRADA</span>
+                          </div>
+                          <div className="p-4 space-y-3">
+                            {misVotos.length > 0 && (
+                              <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                                <p className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> Tus votos:
+                                </p>
+                                {misVotos.map((voto) => {
+                                  const unidad = unidades.find(u => u.id === voto.unidad_id)
+                                  return (
+                                    <div key={`${voto.pregunta_id}-${voto.unidad_id}`} className="flex justify-between text-xs">
+                                      <span className="text-gray-600 dark:text-gray-400">{unidad?.torre} - {unidad?.numero}:</span>
+                                      <span className="font-semibold text-green-700 dark:text-green-400">{voto.opcion_texto}</span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                            {stats && stats.resultados && stats.resultados.length > 0 && (() => {
+                              const tipoVotCerrada = stats.tipo_votacion ?? pregunta.tipo_votacion ?? 'coeficiente'
+                              return (
+                                <div className="space-y-2">
+                                  {stats.resultados.map((resultado: any) => {
+                                    const porcentaje = pctRelevante(resultado, tipoVotCerrada)
+                                    return (
+                                      <div key={resultado.opcion_id}>
+                                        <div className="flex items-center justify-between mb-0.5">
+                                          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{resultado.opcion_texto}</span>
+                                          <span className="text-xs font-bold text-gray-900 dark:text-white">{porcentaje.toFixed(2)}%</span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                                          <div className="h-full transition-all duration-500 rounded-full" style={{ width: `${Math.min(porcentaje, 100)}%`, backgroundColor: resultado.color || '#6366f1' }} />
+                                        </div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{resultado.votos_cantidad || 0} voto{(resultado.votos_cantidad || 0) !== 1 ? 's' : ''}</p>
+                                      </div>
+                                    )
+                                  })}
+                                  <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    {(() => {
+                                      const tipoVotCerrada2 = stats.tipo_votacion ?? pregunta.tipo_votacion ?? 'coeficiente'
+                                      const umbralEfectivo = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
+                                      const maxPct = Math.max(...stats.resultados.map((r: any) => pctRelevante(r, tipoVotCerrada2)))
+                                      const aprobado = maxPct >= umbralEfectivo
+                                      return (
+                                        <div className="flex justify-between items-center text-xs">
+                                          <span className="text-gray-500 dark:text-gray-400">Umbral: {umbralEfectivo}%</span>
+                                          <span className={`font-semibold ${aprobado ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                            {aprobado ? '✓ Aprobado' : '○ No aprobado'} · líder: {maxPct.toFixed(2)}%
+                                          </span>
+                                        </div>
+                                      )
+                                    })()}
+                                  </div>
+                                </div>
+                              )
+                            })()}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB 3: MIS DATOS ── */}
+          {tabActivo === 'misdatos' && (
+            <div className="space-y-4">
+              {/* Header usuario */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-gray-900 dark:text-white text-sm">¡Bienvenido!</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{email}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { marcarSalidaQuorum(); setStep('email') }}
+                    className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shrink-0 text-xs"
+                  >
+                    <LogOut className="w-3.5 h-3.5 mr-1.5" />
+                    Salir
+                  </Button>
+                </div>
+              </div>
+
+              {/* Unidades */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+                <h3 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center text-sm">
+                  <Users className="w-4 h-4 mr-2 text-green-600 dark:text-green-400" />
+                  Estás votando por:
+                </h3>
+                {unidadesPropias.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">🏠 Tus unidades:</p>
+                    <div className="space-y-1.5">
+                      {unidadesPropias.map((unidad) => (
+                        <div key={unidad.id} className="bg-white dark:bg-gray-800 rounded-lg p-2.5 border border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                          <span className="font-semibold text-gray-900 dark:text-white text-sm">{unidad.torre} - {unidad.numero}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">Coef. {unidad.coeficiente.toFixed(4)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {unidadesPoderes.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">📝 Poderes:</p>
+                    <div className="space-y-1.5">
+                      {unidadesPoderes.map((unidad) => (
+                        <div key={unidad.id} className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2.5 border border-purple-200 dark:border-purple-800">
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-gray-900 dark:text-white text-sm">{unidad.torre} - {unidad.numero}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Coef. {unidad.coeficiente.toFixed(4)}%</span>
+                          </div>
+                          {unidad.nombre_otorgante && <p className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">Poder de: {unidad.nombre_otorgante}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="pt-3 border-t border-green-200 dark:border-green-800 flex justify-between items-center">
+                  <span className="font-bold text-gray-900 dark:text-white text-sm">TOTAL:</span>
                   <div className="text-right">
-                    <p className="font-bold text-gray-900 dark:text-white">
-                      {unidades.length} unidad{unidades.length !== 1 ? 'es' : ''}
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {totalCoeficiente.toFixed(6)}% del coeficiente total
-                    </p>
+                    <p className="font-bold text-gray-900 dark:text-white text-sm">{unidades.length} unidad{unidades.length !== 1 ? 'es' : ''}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{totalCoeficiente.toFixed(6)}% coeficiente</p>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Botones de Acción */}
-            <div className="mt-6 flex flex-wrap gap-3 justify-center">
-              <Button
-                onClick={refrescarDatos}
-                disabled={recargando}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                title="Recargar preguntas y poderes asignados"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
-                {recargando ? 'Actualizando...' : 'Actualizar Todo (Preguntas y Poderes)'}
-              </Button>
-              <Button
-                onClick={() => {
-                  setMostrarHistorial(!mostrarHistorial)
-                  if (!mostrarHistorial && preguntasCerradas.length === 0) {
-                    cargarHistorial(unidades)
-                  }
-                }}
-                variant="outline"
-                className="border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                title="Ver el historial de votos que has emitido"
-              >
-                <History className="w-4 h-4 mr-2" />
-                {mostrarHistorial ? 'Ocultar' : 'Ver'} Historial
-              </Button>
-              <Button
-                onClick={() => setShowModalCertificado(true)}
-                disabled={descargandoCertificado}
-                variant="outline"
-                className="border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                title="Descargar un acta con el registro de tus votos (transparencia)"
-              >
-                <FileDown className={`w-4 h-4 mr-2 ${descargandoCertificado ? 'animate-pulse' : ''}`} />
-                {descargandoCertificado ? 'Generando...' : 'Certificado de mis votos'}
-              </Button>
-            </div>
-          </div>
+              {/* Estado de verificación */}
+              {yaVerifico && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-xs text-green-700 dark:text-green-400">
+                  <UserCheck className="w-4 h-4 shrink-0" />
+                  Has verificado tu asistencia en esta asamblea.
+                </div>
+              )}
+              {!yaVerifico && verificacionActiva && (
+                <button
+                  type="button"
+                  onClick={handleVerificarAsistencia}
+                  disabled={verificando}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+                >
+                  {verificando ? <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> : <UserCheck className="w-4 h-4" />}
+                  Verificar mi asistencia ahora
+                </button>
+              )}
 
-          {/* Modal: mensaje antes de generar certificado */}
+              {/* Acciones */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Button
+                  onClick={refrescarDatos}
+                  disabled={recargando}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-sm"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
+                  {recargando ? 'Actualizando...' : 'Actualizar'}
+                </Button>
+                <Button
+                  onClick={() => setShowModalCertificado(true)}
+                  disabled={descargandoCertificado}
+                  variant="outline"
+                  className="w-full border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-sm"
+                >
+                  <FileDown className={`w-4 h-4 mr-2 ${descargandoCertificado ? 'animate-pulse' : ''}`} />
+                  Certificado de mis votos
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Modal: mensaje antes de generar certificado (compartido entre tabs) */}
           <Dialog open={showModalCertificado} onOpenChange={setShowModalCertificado}>
             <DialogContent className="max-w-md rounded-2xl">
               <DialogHeader>
@@ -1490,9 +1758,8 @@ export default function VotacionPublicaPage() {
               </div>
             </DialogContent>
           </Dialog>
-
-          {/* Historial de Votaciones Cerradas */}
-          {mostrarHistorial && (
+          {/* El historial ahora está en Tab 2 (Avance). Se carga automáticamente al entrar. */}
+          {false && mostrarHistorial && (
             <div className="mt-8">
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700 mb-6">
                 <div className="flex items-center justify-between mb-6">
