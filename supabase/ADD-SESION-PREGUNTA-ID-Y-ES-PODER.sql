@@ -62,7 +62,9 @@ END;
 $$;
 
 -- 3. Unidades verificadas en sesión actual con es_poder (para listas "Ya verificaron" con etiqueta Poder)
---    Reemplaza unidad_ids_verificados_sesion_actual para devolver también es_poder; callers que solo usan unidad_id siguen funcionando.
+--    Cambia el tipo de retorno (añade es_poder); hay que hacer DROP antes porque PostgreSQL no permite cambiar return type con CREATE OR REPLACE.
+DROP FUNCTION IF EXISTS unidad_ids_verificados_sesion_actual(UUID, UUID);
+
 CREATE OR REPLACE FUNCTION unidad_ids_verificados_sesion_actual(
   p_asamblea_id UUID,
   p_pregunta_id UUID DEFAULT NULL
