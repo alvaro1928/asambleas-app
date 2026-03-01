@@ -75,6 +75,8 @@ interface Asamblea {
   activated_at?: string | null
   /** Cuando true, aparece popup de verificación en la página de votación */
   verificacion_asistencia_activa?: boolean
+  /** Si hay pregunta abierta, verificación asociada a esa pregunta; si no, null (general) */
+  verificacion_pregunta_id?: string | null
   /** Token para enlace de asistente delegado (generar/revocar en Acceso Público) */
   token_delegado?: string | null
 }
@@ -481,9 +483,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         setQuorum(rpcData[0])
       }
 
-      // Cargar stats de verificación de quórum
+      // Stats de verificación para el contexto actual: pregunta abierta (si hay una) o general
+      const preguntaAbiertaId = preguntas.find((p) => p.estado === 'abierta')?.id ?? null
       const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
-        p_asamblea_id: params.id
+        p_asamblea_id: params.id,
+        p_pregunta_id: preguntaAbiertaId
       })
       if (verData?.length) {
         const v = verData[0] as VerifStats
@@ -1301,7 +1305,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const cargarStatsVerificacion = async () => {
     if (!asamblea?.id) return
-    const { data } = await supabase.rpc('calcular_verificacion_quorum', { p_asamblea_id: asamblea.id })
+    const preguntaAbiertaId = preguntas.find((p) => p.estado === 'abierta')?.id ?? null
+    const { data } = await supabase.rpc('calcular_verificacion_quorum', {
+      p_asamblea_id: asamblea.id,
+      p_pregunta_id: preguntaAbiertaId
+    })
     if (data?.length) {
       const v = data[0]
       setStatsVerificacion({
@@ -1320,23 +1328,22 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     setTogglingVerif(true)
     try {
       const nuevoValor = !asamblea.verificacion_asistencia_activa
+      const preguntaAbiertaId = preguntas.find((p) => p.estado === 'abierta')?.id ?? null
+      const payload: { verificacion_asistencia_activa: boolean; verificacion_pregunta_id?: string | null } = {
+        verificacion_asistencia_activa: nuevoValor
+      }
+      if (nuevoValor) {
+        payload.verificacion_pregunta_id = preguntaAbiertaId
+      } else {
+        payload.verificacion_pregunta_id = null
+      }
       const { error } = await supabase
         .from('asambleas')
-        .update({ verificacion_asistencia_activa: nuevoValor })
+        .update(payload)
         .eq('id', asamblea.id)
       if (!error) {
-        setAsamblea({ ...asamblea, verificacion_asistencia_activa: nuevoValor })
-        if (!nuevoValor) {
-          // Al desactivar: resetear todas las verificaciones para que vuelvan a confirmar
-          await supabase
-            .from('quorum_asamblea')
-            .update({ verifico_asistencia: false, hora_verificacion: null })
-            .eq('asamblea_id', asamblea.id)
-            .eq('verifico_asistencia', true)
-          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
-        } else {
-          await cargarStatsVerificacion()
-        }
+        setAsamblea({ ...asamblea, ...payload })
+        await cargarStatsVerificacion()
       }
     } finally {
       setTogglingVerif(false)

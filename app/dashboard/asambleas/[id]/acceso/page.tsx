@@ -204,7 +204,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       const { data, error } = await supabase
         .from('asambleas')
-        .select('id, nombre, codigo_acceso, estado, organization_id, is_demo, sandbox_usar_unidades_reales, verificacion_asistencia_activa')
+        .select('id, nombre, codigo_acceso, estado, organization_id, is_demo, sandbox_usar_unidades_reales, verificacion_asistencia_activa, verificacion_pregunta_id')
         .eq('id', params.id)
         .eq('organization_id', selectedConjuntoId)
         .single()
@@ -339,9 +339,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       setPreguntasAvance(avances)
       setPreguntasConResultados(conResultados)
 
-      // Cargar stats de verificación de quórum
+      // Stats de verificación para el contexto actual (pregunta abierta si hay, o general)
+      const preguntaAbiertaId = (preguntasData && preguntasData.length > 0) ? preguntasData[0].id : null
       const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
-        p_asamblea_id: params.id
+        p_asamblea_id: params.id,
+        p_pregunta_id: preguntaAbiertaId
       })
       if (verData?.length) {
         const v = verData[0] as VerificacionStats
@@ -455,33 +457,40 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     setToggling(true)
     try {
       const nuevoValor = !verificacionActiva
+      const { data: openQuestion } = await supabase
+        .from('preguntas')
+        .select('id')
+        .eq('asamblea_id', params.id)
+        .eq('estado', 'abierta')
+        .limit(1)
+        .maybeSingle()
+      const preguntaAbiertaId = openQuestion?.id ?? null
+      const payload: { verificacion_asistencia_activa: boolean; verificacion_pregunta_id?: string | null } = {
+        verificacion_asistencia_activa: nuevoValor
+      }
+      if (nuevoValor) payload.verificacion_pregunta_id = preguntaAbiertaId
+      else payload.verificacion_pregunta_id = null
+
       const { error } = await supabase
         .from('asambleas')
-        .update({ verificacion_asistencia_activa: nuevoValor })
+        .update(payload)
         .eq('id', params.id)
       if (!error) {
         setVerificacionActiva(nuevoValor)
-        if (!nuevoValor) {
-          // Al desactivar: resetear todas las verificaciones de asistencia
-          // para que todos deban volver a confirmar cuando se reactive
-          await supabase
-            .from('quorum_asamblea')
-            .update({ verifico_asistencia: false, hora_verificacion: null })
-            .eq('asamblea_id', params.id)
-            .eq('verifico_asistencia', true)
-          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+        const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
+          p_asamblea_id: params.id,
+          p_pregunta_id: preguntaAbiertaId
+        })
+        if (verData?.length) {
+          const v = verData[0]
+          setStatsVerificacion({
+            total_verificados: Number(v.total_verificados) || 0,
+            coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+            porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+            quorum_alcanzado: !!v.quorum_alcanzado,
+          })
         } else {
-          // Al activar: refrescar stats por si ya había verificados previos
-          const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', { p_asamblea_id: params.id })
-          if (verData?.length) {
-            const v = verData[0]
-            setStatsVerificacion({
-              total_verificados: Number(v.total_verificados) || 0,
-              coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
-              porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
-              quorum_alcanzado: !!v.quorum_alcanzado,
-            })
-          }
+          setStatsVerificacion(null)
         }
       }
     } finally {

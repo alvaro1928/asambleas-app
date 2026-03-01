@@ -710,41 +710,51 @@ export default function VotacionPublicaPage() {
     return () => clearInterval(interval)
   }, [asamblea?.asamblea_id, step])
 
-  // Función auxiliar: refresca flag de verificación + stats de quórum verificado
+  // Función auxiliar: refresca flag de verificación + stats por contexto (pregunta abierta o general) + si este votante ya verificó en ese contexto
   const refrescarVerificacion = async (asambleaId: string, emailVotante?: string) => {
     try {
-      const emailQuery = emailVotante
-        ? supabase
-            .from('quorum_asamblea')
-            .select('verifico_asistencia')
-            .eq('asamblea_id', asambleaId)
-            .ilike('email_propietario', emailVotante.trim().toLowerCase())
-            .eq('verifico_asistencia', true)
-            .limit(1)
-        : Promise.resolve({ data: null, error: null })
+      const { data: aData } = await supabase
+        .from('asambleas')
+        .select('verificacion_asistencia_activa, verificacion_pregunta_id')
+        .eq('id', asambleaId)
+        .single()
 
-      const [{ data: aData }, { data: vData }, { data: emailData }] = await Promise.all([
-        supabase.from('asambleas').select('verificacion_asistencia_activa').eq('id', asambleaId).single(),
-        supabase.rpc('calcular_verificacion_quorum', { p_asamblea_id: asambleaId }),
-        emailQuery,
-      ])
+      if (aData) {
+        setVerificacionActiva(!!(aData as any).verificacion_asistencia_activa)
+        const preguntaId = (aData as any).verificacion_pregunta_id ?? null
 
-      if (aData) setVerificacionActiva(!!(aData as any).verificacion_asistencia_activa)
-      if (vData?.length) {
-        const v = vData[0] as StatsVerif
-        setStatsVerificacion({
-          total_verificados: Number(v.total_verificados) || 0,
-          coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
-          porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
-          quorum_alcanzado: !!v.quorum_alcanzado,
-        })
-      }
-      // Si la BD confirma que ya verificó, setear estado local para no mostrar popup
-      if (emailData && (emailData as any[]).length > 0) {
-        setYaVerifico(true)
-      } else if (emailVotante) {
-        // Admin desactivó la verificación: en BD ya no hay verifico_asistencia true; resetear para que el popup vuelva al reactivar
-        setYaVerifico(false)
+        const [vRes, yaRes] = await Promise.all([
+          supabase.rpc('calcular_verificacion_quorum', {
+            p_asamblea_id: asambleaId,
+            p_pregunta_id: preguntaId,
+          }),
+          emailVotante?.trim()
+            ? supabase.rpc('ya_verifico_asistencia', {
+                p_asamblea_id: asambleaId,
+                p_email: emailVotante.trim(),
+                p_pregunta_id: preguntaId,
+              })
+            : Promise.resolve({ data: null }),
+        ])
+
+        const vData = vRes.data
+        if (vData?.length) {
+          const v = vData[0] as StatsVerif
+          setStatsVerificacion({
+            total_verificados: Number(v.total_verificados) || 0,
+            coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+            porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+            quorum_alcanzado: !!v.quorum_alcanzado,
+          })
+        }
+        // ya_verifico_asistencia retorna un booleano (Supabase puede devolverlo como valor directo o en array)
+        const yaVerificoVal = yaRes.data
+        const yaVerificoB = Array.isArray(yaVerificoVal)
+          ? (yaVerificoVal as unknown[])[0] === true
+          : yaVerificoVal === true
+        if (emailVotante) {
+          setYaVerifico(!!yaVerificoB)
+        }
       }
     } catch {
       // ignorar errores silenciosos de polling
