@@ -155,6 +155,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [busquedaAsistencia, setBusquedaAsistencia] = useState('')
   const [guardandoAsistencia, setGuardandoAsistencia] = useState(false)
   const [cargandoUnidadesAsistencia, setCargandoUnidadesAsistencia] = useState(false)
+  const [mensajeAsistencia, setMensajeAsistencia] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
 
   useEffect(() => {
     loadAsamblea()
@@ -458,6 +459,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const guardarAsistenciaManual = async () => {
     if (seleccionadas.size === 0 || guardandoAsistencia) return
     setGuardandoAsistencia(true)
+    setMensajeAsistencia(null)
     try {
       const res = await fetch('/api/registrar-asistencia-manual', {
         method: 'POST',
@@ -466,14 +468,23 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       })
       const data = await res.json()
       if (data.ok) {
+        const n = data.registradas as number
         // Marcarlas como verificadas en la lista local
         setUnidadesParaAsistencia((prev) =>
           prev.map((u) => (seleccionadas.has(u.id) ? { ...u, ya_verifico: true } : u))
         )
         setSeleccionadas(new Set())
-        // Refrescar stats
+        setMensajeAsistencia({
+          tipo: 'ok',
+          texto: `✓ Asistencia registrada para ${n} unidad${n !== 1 ? 'es' : ''}.`,
+        })
+        // Refrescar stats globales
         await loadAvanceVotaciones()
+      } else {
+        setMensajeAsistencia({ tipo: 'error', texto: data.error || 'Error al guardar asistencia.' })
       }
+    } catch {
+      setMensajeAsistencia({ tipo: 'error', texto: 'Error de conexión. Intenta de nuevo.' })
     } finally {
       setGuardandoAsistencia(false)
     }
@@ -1077,8 +1088,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       </Dialog>
 
       {/* Modal: Registro manual de asistencia */}
-      <Dialog open={showModalAsistencia} onOpenChange={(v) => { if (!guardandoAsistencia) setShowModalAsistencia(v) }}>
-        <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] flex flex-col p-0 rounded-3xl border border-[rgba(255,255,255,0.15)] overflow-hidden" style={{ backgroundColor: '#0B0E14' }}>
+      <Dialog open={showModalAsistencia} onOpenChange={(v) => { if (!guardandoAsistencia) { setShowModalAsistencia(v); if (!v) setMensajeAsistencia(null) } }}>
+        <DialogContent className="max-w-2xl w-[95vw] h-[85vh] sm:h-auto sm:max-h-[90vh] flex flex-col p-0 rounded-3xl border border-[rgba(255,255,255,0.15)] overflow-hidden" style={{ backgroundColor: '#0B0E14' }}>
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-[rgba(255,255,255,0.08)] flex-shrink-0">
             <div className="flex items-center justify-between pr-8">
               <DialogTitle className="flex items-center gap-2 text-lg text-slate-100">
@@ -1201,7 +1212,17 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           </div>
 
           {/* Footer con botón guardar */}
-          <div className="px-6 py-4 border-t border-[rgba(255,255,255,0.08)] flex-shrink-0 flex items-center justify-between gap-3">
+          <div className="px-6 py-4 border-t border-[rgba(255,255,255,0.08)] flex-shrink-0 space-y-2">
+            {mensajeAsistencia && (
+              <p className={`text-xs font-medium px-3 py-2 rounded-xl ${
+                mensajeAsistencia.tipo === 'ok'
+                  ? 'bg-emerald-900/30 text-emerald-300 border border-emerald-700/30'
+                  : 'bg-red-900/30 text-red-300 border border-red-700/30'
+              }`}>
+                {mensajeAsistencia.texto}
+              </p>
+            )}
+            <div className="flex items-center justify-between gap-3">
             <span className="text-sm text-slate-400">
               {seleccionadas.size > 0
                 ? `${seleccionadas.size} unidad${seleccionadas.size !== 1 ? 'es' : ''} seleccionada${seleccionadas.size !== 1 ? 's' : ''}`
@@ -1230,6 +1251,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 )}
                 Guardar asistencia
               </Button>
+            </div>
             </div>
           </div>
         </DialogContent>

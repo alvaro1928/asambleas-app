@@ -691,12 +691,28 @@ export default function VotacionPublicaPage() {
   }
 
   // Función auxiliar: refresca flag de verificación + stats de quórum verificado
-  const refrescarVerificacion = async (asambleaId: string) => {
+  const refrescarVerificacion = async (asambleaId: string, emailVotante?: string) => {
     try {
-      const [{ data: aData }, { data: vData }] = await Promise.all([
+      const queries: Promise<any>[] = [
         supabase.from('asambleas').select('verificacion_asistencia_activa').eq('id', asambleaId).single(),
-        supabase.rpc('calcular_verificacion_quorum', { p_asamblea_id: asambleaId })
-      ])
+        supabase.rpc('calcular_verificacion_quorum', { p_asamblea_id: asambleaId }),
+      ]
+      // Si tenemos el email del votante, verificar si ya registró asistencia (persiste entre recargas)
+      if (emailVotante) {
+        queries.push(
+          supabase
+            .from('quorum_asamblea')
+            .select('verifico_asistencia')
+            .eq('asamblea_id', asambleaId)
+            .ilike('email_propietario', emailVotante.trim().toLowerCase())
+            .eq('verifico_asistencia', true)
+            .limit(1)
+        )
+      }
+
+      const results = await Promise.all(queries)
+      const [{ data: aData }, { data: vData }, yaVerificoDB] = results
+
       if (aData) setVerificacionActiva(!!(aData as any).verificacion_asistencia_activa)
       if (vData?.length) {
         const v = vData[0] as StatsVerif
@@ -707,8 +723,10 @@ export default function VotacionPublicaPage() {
           quorum_alcanzado: !!v.quorum_alcanzado,
         })
       }
+      // Si la BD confirma que ya verificó, setear estado local para no mostrar popup
+      if (yaVerificoDB?.data?.length) setYaVerifico(true)
     } catch {
-      // ignorar errores silenciosos
+      // ignorar errores silenciosos de polling
     }
   }
 
@@ -716,8 +734,8 @@ export default function VotacionPublicaPage() {
   useEffect(() => {
     if (step !== 'votar' || !asamblea || !email.trim()) return
 
-    // Carga inicial de verificación
-    refrescarVerificacion(asamblea.asamblea_id)
+    // Carga inicial de verificación — incluye email para detectar si ya verificó antes
+    refrescarVerificacion(asamblea.asamblea_id, email.trim())
 
     const timeout = setTimeout(() => {
       const interval = setInterval(async () => {
@@ -727,7 +745,7 @@ export default function VotacionPublicaPage() {
             await cargarPreguntas(nuevasUnidades)
             await cargarHistorial(nuevasUnidades)
           }
-          // Actualizar estado de verificación de quórum
+          // Actualizar estado de verificación de quórum (sin email en polling, ya tenemos yaVerifico)
           await refrescarVerificacion(asamblea.asamblea_id)
         } catch {
           // Ignorar errores de red o validación en background

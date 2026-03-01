@@ -9,9 +9,12 @@ import { NextRequest, NextResponse } from 'next/server'
  * directamente desde el Centro de Control.
  * Body: { asamblea_id: string, unidad_ids: string[] }
  *
- * Para cada unidad:
- *  - Si ya tiene fila en quorum_asamblea → actualiza verifico_asistencia = true
- *  - Si no tiene fila → inserta una nueva marcándola como presente_fisica = true y verificada
+ * Seguridad:
+ *  - Requiere sesión activa de admin (cookies).
+ *  - Verifica que la asamblea pertenece a la organización del admin.
+ *  - Verifica que cada unidad_id pertenece también a la misma organización
+ *    (evita que un admin registre asistencia en asambleas/unidades ajenas).
+ *  - Usa bulk upsert (un solo query) para eficiencia.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -36,8 +39,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const { asamblea_id, unidad_ids } = body as { asamblea_id?: string; unidad_ids?: string[] }
 
-    if (!asamblea_id || !Array.isArray(unidad_ids) || unidad_ids.length === 0) {
-      return NextResponse.json({ error: 'Faltan asamblea_id o unidad_ids' }, { status: 400 })
+    if (
+      !asamblea_id ||
+      typeof asamblea_id !== 'string' ||
+      !/^[0-9a-f-]{36}$/i.test(asamblea_id.trim()) ||
+      !Array.isArray(unidad_ids) ||
+      unidad_ids.length === 0 ||
+      unidad_ids.length > 500 // límite razonable por petición
+    ) {
+      return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
+    }
+
+    // Validar que todos los unidad_ids son UUIDs válidos
+    const validUUIDs = /^[0-9a-f-]{36}$/i
+    if (unidad_ids.some((id) => typeof id !== 'string' || !validUUIDs.test(id))) {
+      return NextResponse.json({ error: 'unidad_ids contiene valores inválidos' }, { status: 400 })
     }
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -51,75 +67,90 @@ export async function POST(request: NextRequest) {
       { auth: { persistSession: false } }
     )
 
-    // Verificar que la asamblea pertenece a la organización del usuario
+    // Obtener organización del admin
     const { data: profile } = await admin
       .from('profiles')
       .select('organization_id')
       .eq('id', session.user.id)
       .single()
 
+    // Obtener organización de la asamblea
     const { data: asamblea } = await admin
       .from('asambleas')
       .select('id, organization_id')
-      .eq('id', asamblea_id)
+      .eq('id', asamblea_id.trim())
       .single()
 
-    if (!asamblea || (profile?.organization_id && asamblea.organization_id !== profile.organization_id)) {
-      return NextResponse.json({ error: 'Asamblea no encontrada o sin permiso' }, { status: 403 })
+    if (!asamblea) {
+      return NextResponse.json({ error: 'Asamblea no encontrada' }, { status: 404 })
     }
 
-    // Obtener datos de las unidades (email, nombre) para el upsert
-    const { data: unidades } = await admin
+    // Un super admin (sin organization_id) puede actuar en cualquier asamblea;
+    // un admin normal solo puede actuar en su propia organización.
+    if (profile?.organization_id && asamblea.organization_id !== profile.organization_id) {
+      return NextResponse.json({ error: 'Sin permiso para esta asamblea' }, { status: 403 })
+    }
+
+    const orgId = asamblea.organization_id
+
+    // Obtener datos de las unidades Y validar que pertenecen a la misma organización.
+    // Esto previene que un admin registre unidades de otro conjunto.
+    const { data: unidades, error: unidadesErr } = await admin
       .from('unidades')
       .select('id, email_propietario, email, nombre_propietario')
       .in('id', unidad_ids)
+      .eq('organization_id', orgId)
+
+    if (unidadesErr) {
+      return NextResponse.json({ error: 'Error al verificar unidades' }, { status: 500 })
+    }
+
+    // Solo procesar las unidades que efectivamente pertenecen a la organización
+    const unidadesValidadas = unidades || []
+    if (unidadesValidadas.length === 0) {
+      return NextResponse.json({ error: 'Ninguna unidad válida para esta asamblea' }, { status: 400 })
+    }
 
     const now = new Date().toISOString()
-    let registradas = 0
-    let errores = 0
 
-    for (const unidad_id of unidad_ids) {
-      const unidad = (unidades || []).find((u: any) => u.id === unidad_id)
-      const emailProp = unidad?.email_propietario || unidad?.email || 'registro.manual@sistema'
-      const nombreProp = unidad?.nombre_propietario || null
+    // Bulk upsert — un solo query en lugar de N queries individuales
+    const rows = unidadesValidadas.map((u: any) => ({
+      asamblea_id: asamblea_id.trim(),
+      unidad_id: u.id,
+      email_propietario: u.email_propietario || u.email || 'registro.manual@sistema',
+      nombre_propietario: u.nombre_propietario || null,
+      presente_fisica: true,
+      presente_virtual: false,
+      verifico_asistencia: true,
+      hora_verificacion: now,
+      hora_llegada: now,
+      ultima_actividad: now,
+    }))
 
-      const { error } = await admin
+    const { error: upsertErr } = await admin
+      .from('quorum_asamblea')
+      .upsert(rows, { onConflict: 'asamblea_id,unidad_id', ignoreDuplicates: false })
+
+    if (upsertErr) {
+      // Fallback: intentar actualizar solo los campos de verificación
+      // para las filas que ya existen (el upsert pudo fallar por columnas opcionales)
+      const { error: updateErr } = await admin
         .from('quorum_asamblea')
-        .upsert(
-          {
-            asamblea_id,
-            unidad_id,
-            email_propietario: emailProp,
-            nombre_propietario: nombreProp,
-            presente_fisica: true,
-            presente_virtual: false,
-            verifico_asistencia: true,
-            hora_verificacion: now,
-            hora_llegada: now,
-            ultima_actividad: now,
-          },
-          {
-            onConflict: 'asamblea_id,unidad_id',
-            ignoreDuplicates: false,
-          }
-        )
+        .update({ verifico_asistencia: true, hora_verificacion: now })
+        .eq('asamblea_id', asamblea_id.trim())
+        .in('unidad_id', unidadesValidadas.map((u: any) => u.id))
 
-      if (error) {
-        // Si el upsert falla (ej. columna no existe aún), intentar solo update
-        const { error: updateErr } = await admin
-          .from('quorum_asamblea')
-          .update({ verifico_asistencia: true, hora_verificacion: now })
-          .eq('asamblea_id', asamblea_id)
-          .eq('unidad_id', unidad_id)
-
-        if (updateErr) errores++
-        else registradas++
-      } else {
-        registradas++
+      if (updateErr) {
+        console.error('registrar-asistencia-manual fallback update:', updateErr)
+        return NextResponse.json({ error: 'Error al guardar asistencia' }, { status: 500 })
       }
     }
 
-    return NextResponse.json({ ok: true, registradas, errores })
+    return NextResponse.json({
+      ok: true,
+      registradas: unidadesValidadas.length,
+      ignoradas: unidad_ids.length - unidadesValidadas.length,
+    })
   } catch (e) {
     console.error('registrar-asistencia-manual:', e)
     return NextResponse.json({ error: 'Error al registrar asistencia' }, { status: 500 })
