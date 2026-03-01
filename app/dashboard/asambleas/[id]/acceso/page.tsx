@@ -24,6 +24,8 @@ import {
   Link2,
   Link2Off,
   ShieldCheck,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -123,6 +125,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [faltanVerificar, setFaltanVerificar] = useState<UnidadFila[]>([])
   const [searchVerificados, setSearchVerificados] = useState('')
   const [searchFaltanVerificar, setSearchFaltanVerificar] = useState('')
+  const [openVerificacion, setOpenVerificacion] = useState(false)
+  const [openDelegado, setOpenDelegado] = useState(false)
+  const [openEnlace, setOpenEnlace] = useState(true)
   const [loading, setLoading] = useState(true)
   const [recargando, setRecargando] = useState(false)
   const [urlPublica, setUrlPublica] = useState('')
@@ -763,163 +768,112 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             </div>
           )}
 
-          {/* Verificación de Quórum: toggle + widget de stats */}
-          <div className="w-full mb-4 space-y-2">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-3xl border px-4 py-3"
-              style={{ backgroundColor: verificacionActiva ? 'rgba(21,128,61,0.15)' : 'rgba(15,23,42,0.6)', borderColor: verificacionActiva ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.1)' }}>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 shrink-0" style={{ color: verificacionActiva ? '#4ade80' : '#94a3b8' }} />
-                  Verificación de Quórum
-                </p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {verificacionActiva
-                    ? 'Activa — los votantes ven el popup de confirmación de asistencia'
-                    : 'Inactiva — al activar aparece un popup en la página de votación'}
-                </p>
+          {/* 1. Enlace de votación — collapsable (abierto por defecto) */}
+          <div className="w-full mb-3 rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+            <button type="button" onClick={() => setOpenEnlace((v) => !v)}
+              className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-white/5 transition-colors">
+              <div className="flex items-center gap-2 min-w-0">
+                <Link2 className="w-4 h-4 shrink-0 text-slate-400" />
+                <span className="text-sm font-semibold text-slate-200">Enlace de votación</span>
+                <span className="text-xs text-slate-500 truncate max-w-[12rem] sm:max-w-xs" title={urlPublica}>{urlPublica.replace(/^https?:\/\//, '').split('/')[0]}/…</span>
               </div>
-              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-                <Button
-                  type="button"
-                  onClick={toggleVerificacion}
-                  disabled={toggling}
-                  className={`rounded-3xl font-semibold flex items-center justify-center gap-2 py-2 px-5 text-sm ${
-                    verificacionActiva
-                      ? 'bg-green-600 hover:bg-green-700 text-white'
-                      : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                  }`}
-                >
-                  {toggling ? (
-                    <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent inline-block" />
-                  ) : (
-                    <UserCheck className="w-4 h-4" />
-                  )}
-                  {verificacionActiva ? 'Desactivar verificación' : 'Activar verificación'}
+              {openEnlace ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
+            </button>
+            {openEnlace && (
+              <div className="px-4 pb-4 pt-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 border-t border-white/10">
+                <label className="sr-only">Enlace de votación</label>
+                <input type="text" readOnly value={urlPublica} className="flex-1 min-w-0 px-4 py-3 text-base bg-white/5 border border-[rgba(255,255,255,0.1)] rounded-2xl text-slate-200 truncate font-sans" style={{ color: '#e2e8f0' }} aria-label="URL de votación" />
+                <Button onClick={copiarEnlace} className="shrink-0 rounded-2xl font-semibold bg-white text-slate-800 hover:bg-slate-100 border border-[rgba(255,255,255,0.1)] flex items-center justify-center gap-2 py-2.5 px-4" title="Copiar enlace al portapapeles">
+                  <Copy className="w-4 h-4" /> {copiado ? '¡Copiado!' : 'Copiar Enlace'}
                 </Button>
-                <Button
-                  type="button"
-                  onClick={abrirModalAsistencia}
-                  className="rounded-3xl font-semibold flex items-center justify-center gap-2 py-2 px-5 text-sm bg-slate-700 hover:bg-slate-600 text-white border border-slate-600"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Registrar asistencia
-                </Button>
-              </div>
-            </div>
-
-            {/* Widget de stats cuando está activa o hay verificados */}
-            {statsVerificacion && (statsVerificacion.total_verificados > 0 || verificacionActiva) && (
-              <div className="flex flex-wrap items-center gap-3 px-4 py-2 rounded-2xl border border-[rgba(255,255,255,0.07)]"
-                style={{ backgroundColor: 'rgba(15,23,42,0.5)' }}>
-                <span className="text-xs text-slate-400 font-medium uppercase tracking-wide">Asistencia verificada:</span>
-                <span className={`text-sm font-bold ${
-                  statsVerificacion.quorum_alcanzado ? 'text-green-400' :
-                  statsVerificacion.porcentaje_verificado >= 30 ? 'text-amber-400' : 'text-red-400'
-                }`}>
-                  {statsVerificacion.porcentaje_verificado.toFixed(1)}%
-                </span>
-                <span className="text-xs text-slate-400">
-                  ({statsVerificacion.total_verificados} unidades · coef. {statsVerificacion.coeficiente_verificado.toFixed(4)}%)
-                </span>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                  statsVerificacion.quorum_alcanzado
-                    ? 'bg-green-900/40 text-green-300 border border-green-700/40'
-                    : 'bg-red-900/40 text-red-300 border border-red-700/40'
-                }`}>
-                  {statsVerificacion.quorum_alcanzado ? '✓ Quórum alcanzado' : '✗ Sin quórum'} (Ley 675 &gt;50%)
-                </span>
               </div>
             )}
           </div>
 
-          {/* ── Enlace de asistente delegado ── */}
-          <div className="w-full mb-4">
-            <div
-              className="rounded-3xl border px-4 py-3 space-y-3"
-              style={{ backgroundColor: tokenDelegado ? 'rgba(99,102,241,0.08)' : 'rgba(15,23,42,0.6)', borderColor: tokenDelegado ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.1)' }}
+          {/* 2. Verificación de Quórum — collapsable */}
+          <div className="w-full mb-3 rounded-3xl border overflow-hidden" style={{ backgroundColor: verificacionActiva ? 'rgba(21,128,61,0.12)' : 'rgba(15,23,42,0.6)', borderColor: verificacionActiva ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.1)' }}>
+            <button
+              type="button"
+              onClick={() => setOpenVerificacion((v) => !v)}
+              className="w-full flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-left hover:bg-white/5 transition-colors"
             >
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: tokenDelegado ? '#818cf8' : '#94a3b8' }} />
-                    Acceso de asistente delegado
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {tokenDelegado
-                      ? 'Activo — copia el enlace y dáselo a tu asistente de confianza'
-                      : 'Permite que otra persona registre asistencia y votos en tu nombre'}
-                  </p>
+              <div className="flex items-center gap-2 min-w-0">
+                <UserCheck className="w-4 h-4 shrink-0" style={{ color: verificacionActiva ? '#4ade80' : '#94a3b8' }} />
+                <span className="text-sm font-semibold text-slate-200">Verificación de Quórum</span>
+                {statsVerificacion && (statsVerificacion.total_verificados > 0 || verificacionActiva) && (
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statsVerificacion.quorum_alcanzado ? 'bg-green-900/40 text-green-300' : 'bg-red-900/40 text-red-300'}`}>
+                    {statsVerificacion.porcentaje_verificado.toFixed(1)}% · {statsVerificacion.quorum_alcanzado ? 'Quórum' : 'Sin quórum'}
+                  </span>
+                )}
+              </div>
+              {openVerificacion ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
+            </button>
+            {openVerificacion && (
+              <div className="px-4 pb-4 pt-0 space-y-2 border-t border-white/10">
+                <p className="text-xs text-slate-400 pt-2">
+                  {verificacionActiva ? 'Activa — los votantes ven el popup de confirmación' : 'Inactiva — al activar aparece popup en la página de votación'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" onClick={toggleVerificacion} disabled={toggling}
+                    className={`rounded-2xl font-semibold text-sm py-2 px-4 ${verificacionActiva ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white`}>
+                    {toggling ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block" /> : <UserCheck className="w-4 h-4" />}
+                    <span className="ml-1.5">{verificacionActiva ? 'Desactivar' : 'Activar'}</span>
+                  </Button>
+                  <Button type="button" onClick={abrirModalAsistencia} className="rounded-2xl font-semibold text-sm py-2 px-4 bg-slate-700 hover:bg-slate-600 text-white">
+                    <CheckCircle2 className="w-4 h-4 mr-1.5" /> Registrar asistencia
+                  </Button>
                 </div>
-                <div className="flex gap-2 shrink-0">
+                {statsVerificacion && (statsVerificacion.total_verificados > 0 || verificacionActiva) && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
+                    <span className="text-slate-400">Asistencia:</span>
+                    <span className={`font-bold ${statsVerificacion.quorum_alcanzado ? 'text-green-400' : statsVerificacion.porcentaje_verificado >= 30 ? 'text-amber-400' : 'text-red-400'}`}>
+                      {statsVerificacion.porcentaje_verificado.toFixed(1)}%
+                    </span>
+                    <span className="text-slate-400">({statsVerificacion.total_verificados} un. · coef. {statsVerificacion.coeficiente_verificado.toFixed(4)}%)</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 3. Acceso de asistente delegado — collapsable */}
+          <div className="w-full mb-3 rounded-3xl border overflow-hidden" style={{ backgroundColor: tokenDelegado ? 'rgba(99,102,241,0.08)' : 'rgba(15,23,42,0.6)', borderColor: tokenDelegado ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.1)' }}>
+            <button type="button" onClick={() => setOpenDelegado((v) => !v)}
+              className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-white/5 transition-colors">
+              <div className="flex items-center gap-2 min-w-0">
+                <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: tokenDelegado ? '#818cf8' : '#94a3b8' }} />
+                <span className="text-sm font-semibold text-slate-200">Acceso de asistente delegado</span>
+                {tokenDelegado && <span className="text-xs font-medium text-indigo-300">Activo</span>}
+              </div>
+              {openDelegado ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
+            </button>
+            {openDelegado && (
+              <div className="px-4 pb-4 pt-0 space-y-3 border-t border-white/10">
+                <p className="text-xs text-slate-400 pt-2">
+                  {tokenDelegado ? 'Activo — copia el enlace y dáselo a tu asistente' : 'Permite que otra persona registre asistencia y votos en tu nombre'}
+                </p>
+                <div className="flex flex-wrap gap-2">
                   {tokenDelegado ? (
-                    <Button
-                      type="button"
-                      onClick={revocarToken}
-                      disabled={generandoToken}
-                      className="rounded-3xl text-sm font-semibold flex items-center gap-2 py-2 px-4 bg-red-700 hover:bg-red-800 text-white"
-                    >
-                      <Link2Off className="w-4 h-4" />
-                      Revocar acceso
+                    <Button type="button" onClick={revocarToken} disabled={generandoToken} className="rounded-2xl text-sm font-semibold py-2 px-4 bg-red-700 hover:bg-red-800 text-white">
+                      <Link2Off className="w-4 h-4 mr-1.5" /> Revocar acceso
                     </Button>
                   ) : (
-                    <Button
-                      type="button"
-                      onClick={generarToken}
-                      disabled={generandoToken}
-                      className="rounded-3xl text-sm font-semibold flex items-center gap-2 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white"
-                    >
-                      {generandoToken ? (
-                        <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                      ) : (
-                        <Link2 className="w-4 h-4" />
-                      )}
+                    <Button type="button" onClick={generarToken} disabled={generandoToken} className="rounded-2xl text-sm font-semibold py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white">
+                      {generandoToken ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block mr-1.5" /> : <Link2 className="w-4 h-4 mr-1.5" />}
                       Generar enlace
                     </Button>
                   )}
                 </div>
+                {tokenDelegado && urlDelegado && (
+                  <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                    <input type="text" readOnly value={urlDelegado} className="flex-1 min-w-0 px-3 py-2 text-xs bg-white/5 border border-[rgba(255,255,255,0.1)] rounded-2xl text-slate-300 truncate font-mono" aria-label="Enlace del asistente delegado" />
+                    <Button type="button" onClick={copiarEnlaceDelegado} className="shrink-0 rounded-2xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 py-2 px-4">
+                      <Copy className="w-4 h-4" /> {copiadoToken ? '¡Copiado!' : 'Copiar'}
+                    </Button>
+                  </div>
+                )}
               </div>
-
-              {tokenDelegado && urlDelegado && (
-                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                  <input
-                    type="text"
-                    readOnly
-                    value={urlDelegado}
-                    className="flex-1 min-w-0 px-3 py-2 text-xs bg-white/5 border border-[rgba(255,255,255,0.1)] rounded-2xl text-slate-300 truncate font-mono"
-                    aria-label="Enlace del asistente delegado"
-                  />
-                  <Button
-                    type="button"
-                    onClick={copiarEnlaceDelegado}
-                    className="shrink-0 rounded-2xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 py-2 px-4"
-                  >
-                    <Copy className="w-4 h-4" />
-                    {copiadoToken ? '¡Copiado!' : 'Copiar'}
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Link de votación: contenedor destacado parte superior central, fuente legible, Copiar Enlace con icono */}
-          <div className="w-full flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-3xl border border-[rgba(255,255,255,0.1)] px-4 py-4 mb-4" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
-            <label className="sr-only">Enlace de votación</label>
-            <input
-              type="text"
-              readOnly
-              value={urlPublica}
-              className="flex-1 min-w-0 px-4 py-3 text-base sm:text-lg bg-white/5 border border-[rgba(255,255,255,0.1)] rounded-3xl text-slate-200 truncate font-sans"
-              style={{ color: '#e2e8f0' }}
-              aria-label="URL de votación"
-            />
-            <Button
-              onClick={copiarEnlace}
-              className="shrink-0 rounded-3xl font-semibold bg-white text-slate-800 hover:bg-slate-100 border border-[rgba(255,255,255,0.1)] flex items-center justify-center gap-2 py-3 px-5"
-              title="Copiar enlace al portapapeles"
-            >
-              <Copy className="w-5 h-5" />
-              {copiado ? '¡Copiado!' : 'Copiar Enlace'}
-            </Button>
+            )}
           </div>
 
           {/* Pregunta por la que están votando — en grande debajo del enlace */}
