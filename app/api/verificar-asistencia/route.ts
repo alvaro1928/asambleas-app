@@ -30,8 +30,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
     }
 
-    const emailNorm = email.trim().toLowerCase()
-
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!serviceRoleKey) {
       return NextResponse.json({ error: 'Configuración interna incompleta' }, { status: 500 })
@@ -63,19 +61,19 @@ export async function POST(request: NextRequest) {
 
     const preguntaId = (asamblea as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null
 
-    // Obtener las filas del votante en quorum_asamblea (puede ser >1 si tiene varios poderes/unidades)
-    const { data: filas, error: fetchFilasErr } = await admin
-      .from('quorum_asamblea')
-      .select('id')
-      .eq('asamblea_id', asamblea_id.trim())
-      .ilike('email_propietario', emailNorm)
+    // Obtener los quorum_asamblea.id donde este email puede verificar (incl. múltiples correos por unidad)
+    const { data: idRows, error: fetchFilasErr } = await admin.rpc('quorum_ids_para_verificar_asistencia', {
+      p_asamblea_id: asamblea_id.trim(),
+      p_email: email.trim(),
+    })
 
     if (fetchFilasErr) {
       console.error('verificar-asistencia fetch filas:', fetchFilasErr)
       return NextResponse.json({ error: 'Error al buscar registro' }, { status: 500 })
     }
 
-    if (!filas || filas.length === 0) {
+    const filas = (idRows as { quorum_id: string }[] | null)?.map((r) => ({ id: r.quorum_id })) ?? []
+    if (filas.length === 0) {
       return NextResponse.json(
         { error: 'No se encontró tu registro en esta asamblea. Intenta salir y volver a entrar.' },
         { status: 404 }
@@ -84,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     // Registrar verificación por contexto (general o pregunta abierta) en verificacion_asistencia_registro
     let insertadas = 0
-    for (const row of filas as { id: string }[]) {
+    for (const row of filas) {
       const { error: upsertErr } = await admin
         .from('verificacion_asistencia_registro')
         .upsert(
@@ -104,7 +102,7 @@ export async function POST(request: NextRequest) {
 
     // Mantener quorum_asamblea.verifico_asistencia/hora para compatibilidad (cualquier verificación = presente)
     const now = new Date().toISOString()
-    const ids = (filas as { id: string }[]).map((f) => f.id)
+    const ids = filas.map((f) => f.id)
     await admin
       .from('quorum_asamblea')
       .update({ verifico_asistencia: true, hora_verificacion: now })
