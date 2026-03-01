@@ -20,7 +20,10 @@ import {
   UserX,
   Radio,
   Maximize2,
-  X
+  X,
+  Link2,
+  Link2Off,
+  ShieldCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -145,6 +148,57 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   }
   const [statsVerificacion, setStatsVerificacion] = useState<VerificacionStats | null>(null)
 
+  // Enlace delegado
+  const [tokenDelegado, setTokenDelegado] = useState<string | null | undefined>(undefined)
+  const [generandoToken, setGenerandoToken] = useState(false)
+  const [copiadoToken, setCopiadoToken] = useState(false)
+
+  const urlDelegado =
+    tokenDelegado && asamblea?.codigo_acceso
+      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/asistir/${asamblea.codigo_acceso}?t=${tokenDelegado}`
+      : ''
+
+  const generarToken = async () => {
+    if (generandoToken) return
+    setGenerandoToken(true)
+    try {
+      const res = await fetch('/api/delegado/configurar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: params.id }),
+      })
+      const data = await res.json()
+      if (data.ok) setTokenDelegado(data.token)
+    } finally {
+      setGenerandoToken(false)
+    }
+  }
+
+  const revocarToken = async () => {
+    if (generandoToken) return
+    setGenerandoToken(true)
+    try {
+      const res = await fetch('/api/delegado/configurar', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: params.id }),
+      })
+      const data = await res.json()
+      if (data.ok) setTokenDelegado(null)
+    } finally {
+      setGenerandoToken(false)
+    }
+  }
+
+  const copiarEnlaceDelegado = async () => {
+    if (!urlDelegado) return
+    try {
+      await navigator.clipboard.writeText(urlDelegado)
+      setCopiadoToken(true)
+      setTimeout(() => setCopiadoToken(false), 2000)
+    } catch { /* ignore */ }
+  }
+
   // Modal registro manual de asistencia
   interface UnidadConAsistencia extends UnidadFila {
     ya_verifico: boolean
@@ -181,7 +235,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       const { data, error } = await supabase
         .from('asambleas')
-        .select('id, nombre, codigo_acceso, estado, organization_id, is_demo, sandbox_usar_unidades_reales, verificacion_asistencia_activa')
+        .select('id, nombre, codigo_acceso, estado, organization_id, is_demo, sandbox_usar_unidades_reales, verificacion_asistencia_activa, token_delegado')
         .eq('id', params.id)
         .eq('organization_id', selectedConjuntoId)
         .single()
@@ -189,6 +243,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       if (error) throw error
       setAsamblea(data)
       setVerificacionActiva(!!(data as any).verificacion_asistencia_activa)
+      setTokenDelegado((data as any).token_delegado ?? null)
       const siteUrl = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL) ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '') : 'https://www.asamblea.online'
       setUrlPublica(`${siteUrl}/votar/${data.codigo_acceso}`)
       if (data.organization_id) {
@@ -687,6 +742,75 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </span>
               </div>
             )}
+          </div>
+
+          {/* ── Enlace de asistente delegado ── */}
+          <div className="w-full mb-4">
+            <div
+              className="rounded-3xl border px-4 py-3 space-y-3"
+              style={{ backgroundColor: tokenDelegado ? 'rgba(99,102,241,0.08)' : 'rgba(15,23,42,0.6)', borderColor: tokenDelegado ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.1)' }}
+            >
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: tokenDelegado ? '#818cf8' : '#94a3b8' }} />
+                    Acceso de asistente delegado
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {tokenDelegado
+                      ? 'Activo — copia el enlace y dáselo a tu asistente de confianza'
+                      : 'Permite que otra persona registre asistencia y votos en tu nombre'}
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  {tokenDelegado ? (
+                    <Button
+                      type="button"
+                      onClick={revocarToken}
+                      disabled={generandoToken}
+                      className="rounded-3xl text-sm font-semibold flex items-center gap-2 py-2 px-4 bg-red-700 hover:bg-red-800 text-white"
+                    >
+                      <Link2Off className="w-4 h-4" />
+                      Revocar acceso
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      onClick={generarToken}
+                      disabled={generandoToken}
+                      className="rounded-3xl text-sm font-semibold flex items-center gap-2 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      {generandoToken ? (
+                        <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                      ) : (
+                        <Link2 className="w-4 h-4" />
+                      )}
+                      Generar enlace
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {tokenDelegado && urlDelegado && (
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                  <input
+                    type="text"
+                    readOnly
+                    value={urlDelegado}
+                    className="flex-1 min-w-0 px-3 py-2 text-xs bg-white/5 border border-[rgba(255,255,255,0.1)] rounded-2xl text-slate-300 truncate font-mono"
+                    aria-label="Enlace del asistente delegado"
+                  />
+                  <Button
+                    type="button"
+                    onClick={copiarEnlaceDelegado}
+                    className="shrink-0 rounded-2xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 py-2 px-4"
+                  >
+                    <Copy className="w-4 h-4" />
+                    {copiadoToken ? '¡Copiado!' : 'Copiar'}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Link de votación: contenedor destacado parte superior central, fuente legible, Copiar Enlace con icono */}
