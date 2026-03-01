@@ -154,7 +154,15 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     porcentaje_verificado: number
     quorum_alcanzado: boolean
   }
+  interface VerificacionDesglose {
+    total_verificados: number
+    porcentaje_total: number
+    porcentaje_directo: number
+    porcentaje_poder: number
+    quorum_alcanzado: boolean
+  }
   const [statsVerificacion, setStatsVerificacion] = useState<VerificacionStats | null>(null)
+  const [statsDesglose, setStatsDesglose] = useState<VerificacionDesglose | null>(null)
 
   // Enlace delegado
   // Modal registro manual de asistencia
@@ -367,6 +375,33 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         setStatsVerificacion(null)
       }
 
+      try {
+        const { data: desgloseData } = await supabase.rpc('calcular_verificacion_quorum_desglose', {
+          p_asamblea_id: params.id,
+          p_pregunta_id: preguntaAbiertaId,
+        })
+        if (desgloseData?.length && desgloseData[0]) {
+          const d = desgloseData[0] as {
+            total_verificados?: number
+            porcentaje_total?: number
+            porcentaje_directo?: number
+            porcentaje_poder?: number
+            quorum_alcanzado?: boolean
+          }
+          setStatsDesglose({
+            total_verificados: Number(d.total_verificados) || 0,
+            porcentaje_total: Number(d.porcentaje_total) ?? 0,
+            porcentaje_directo: Number(d.porcentaje_directo) ?? 0,
+            porcentaje_poder: Number(d.porcentaje_poder) ?? 0,
+            quorum_alcanzado: !!d.quorum_alcanzado,
+          })
+        } else {
+          setStatsDesglose(null)
+        }
+      } catch {
+        setStatsDesglose(null)
+      }
+
       const { data: votosData } = await supabase
         .from('votos')
         .select('unidad_id')
@@ -419,9 +454,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           .is('pregunta_id', preguntaId)
         if (!qaError && qaData?.length !== undefined) {
           idsVerificados = new Set(
-            (qaData || [])
-              .map((r: { quorum_asamblea?: { unidad_id?: string } | null }) => r.quorum_asamblea?.unidad_id)
-              .filter(Boolean) as string[]
+            (qaData || []).map((r: { quorum_asamblea?: { unidad_id?: string } | { unidad_id?: string }[] | null }) => {
+              const qa = r.quorum_asamblea
+              const id = Array.isArray(qa) ? qa[0]?.unidad_id : qa?.unidad_id
+              return id
+            }).filter(Boolean) as string[]
           )
         } else {
           const { data: fallback } = await supabase
@@ -453,6 +490,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       } else {
         setVerificadosAsistencia([])
         setFaltanVerificar([])
+        setStatsDesglose(null)
       }
     } catch (error) {
       console.error('Error cargando avance:', error)
@@ -552,7 +590,10 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         .is('pregunta_id', preguntaIdModal)
       if (!verErr && verificadas) {
         verificadasSet = new Set(
-          (verificadas || []).map((v: { quorum_asamblea?: { unidad_id?: string } | null }) => v.quorum_asamblea?.unidad_id).filter(Boolean) as string[]
+          (verificadas || []).map((v: { quorum_asamblea?: { unidad_id?: string } | { unidad_id?: string }[] | null }) => {
+            const qa = v.quorum_asamblea
+            return Array.isArray(qa) ? qa[0]?.unidad_id : qa?.unidad_id
+          }).filter(Boolean) as string[]
         )
       } else {
         const { data: fallback } = await supabase
@@ -922,8 +963,17 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     <CardTitle className="text-sm flex items-center gap-1.5 text-emerald-800 dark:text-emerald-200">
                       <UserCheck className="w-4 h-4 text-emerald-600" />
                       Ya verificaron asistencia
+                      <span className="font-bold tabular-nums">({verificadosAsistencia.length})</span>
                     </CardTitle>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {statsDesglose && (
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1 font-medium">
+                        Quórum {statsDesglose.porcentaje_total.toFixed(1)}%
+                        {statsDesglose.porcentaje_directo > 0 && ` · ${statsDesglose.porcentaje_directo.toFixed(1)}% directos`}
+                        {statsDesglose.porcentaje_poder > 0 && ` · ${statsDesglose.porcentaje_poder.toFixed(1)}% por poder`}
+                        {statsDesglose.quorum_alcanzado && ' · ✓ Ley 675'}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       Unidades que confirmaron asistencia en el popup
                     </p>
                     <div className="relative mt-2">
@@ -964,6 +1014,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
                       <UserX className="w-4 h-4" />
                       Faltan por verificar
+                      <span className="font-bold tabular-nums">({faltanVerificar.length})</span>
                     </CardTitle>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       Unidades que aún no han confirmado asistencia — para alcanzar quórum
