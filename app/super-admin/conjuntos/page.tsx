@@ -4,8 +4,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Building2, Loader2, Search, ArrowLeft } from 'lucide-react'
+import { Building2, Loader2, Search, ArrowLeft, Trash2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useToast } from '@/components/providers/ToastProvider'
 
 interface ConjuntoRow {
@@ -21,6 +24,11 @@ export default function SuperAdminConjuntosPage() {
   const [searchConjunto, setSearchConjunto] = useState('')
   const [mostrandoConjuntos, setMostrandoConjuntos] = useState(50)
   const PASOS_PAGINACION = 50
+
+  const [conjuntoToDelete, setConjuntoToDelete] = useState<ConjuntoRow | null>(null)
+  const [confirmStep, setConfirmStep] = useState<1 | 2>(1)
+  const [confirmInput, setConfirmInput] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     setMostrandoConjuntos(PASOS_PAGINACION)
@@ -63,6 +71,39 @@ export default function SuperAdminConjuntosPage() {
   )
   const conjuntosVisibles = conjuntosFiltrados.slice(0, mostrandoConjuntos)
   const hayMas = conjuntosFiltrados.length > mostrandoConjuntos
+
+  const closeDeleteModal = () => {
+    setConjuntoToDelete(null)
+    setConfirmStep(1)
+    setConfirmInput('')
+  }
+
+  const handleConfirmDeleteConjunto = async () => {
+    if (!conjuntoToDelete) return
+    if (confirmStep === 1) {
+      setConfirmStep(2)
+      return
+    }
+    if (confirmInput.trim() !== conjuntoToDelete.name.trim()) return
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/super-admin/conjuntos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: conjuntoToDelete.id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data?.error || 'Error al eliminar el conjunto')
+        return
+      }
+      setConjuntos((prev) => prev.filter((c) => c.id !== conjuntoToDelete.id))
+      closeDeleteModal()
+      toast.success('Conjunto eliminado correctamente')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const exportarCSV = () => {
     const headers = ['Nombre']
@@ -127,12 +168,13 @@ export default function SuperAdminConjuntosPage() {
               <tr>
                 <th className="px-4 sm:px-6 py-3">Nombre</th>
                 <th className="px-4 sm:px-6 py-3 text-right">Tipo</th>
+                <th className="px-4 sm:px-6 py-3 text-right w-20">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {conjuntosVisibles.length === 0 ? (
                 <tr>
-                  <td colSpan={2} className="px-4 sm:px-6 py-12 text-center text-gray-500">
+                  <td colSpan={3} className="px-4 sm:px-6 py-12 text-center text-gray-500">
                     {conjuntos.length === 0
                       ? 'No hay conjuntos registrados.'
                       : 'Ningún conjunto coincide con el filtro.'}
@@ -148,6 +190,23 @@ export default function SuperAdminConjuntosPage() {
                       </div>
                     </td>
                     <td className="px-4 sm:px-6 py-3 sm:py-4 text-right text-gray-500 dark:text-gray-400 text-xs">Organización</td>
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setConjuntoToDelete(c)
+                          setConfirmStep(1)
+                          setConfirmInput('')
+                        }}
+                        title="Eliminar conjunto"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -162,6 +221,80 @@ export default function SuperAdminConjuntosPage() {
           </div>
         )}
       </div>
+
+      {/* Modal doble validación: eliminar conjunto (nombre exacto para confirmar) */}
+      <Dialog open={conjuntoToDelete !== null} onOpenChange={(open) => !open && closeDeleteModal()}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {confirmStep === 1 ? '¿Eliminar este conjunto?' : 'Confirmar eliminación'}
+            </DialogTitle>
+            <DialogDescription>
+              {conjuntoToDelete && confirmStep === 1 && (
+                <span>
+                  El conjunto <strong>«{conjuntoToDelete.name}»</strong> se eliminará de forma permanente, junto con todas sus asambleas, actas, preguntas, votos, poderes, unidades y datos asociados. Esta acción no se puede deshacer.
+                </span>
+              )}
+              {conjuntoToDelete && confirmStep === 2 && (
+                <span>
+                  Escribe el nombre del conjunto exactamente como aparece para confirmar:
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {confirmStep === 2 && conjuntoToDelete && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Nombre a escribir: <strong className="text-gray-900 dark:text-white">«{conjuntoToDelete.name}»</strong>
+              </p>
+              <Input
+                type="text"
+                value={confirmInput}
+                onChange={(e) => setConfirmInput(e.target.value)}
+                placeholder="Escribe el nombre aquí"
+                className="rounded-xl"
+                autoFocus
+              />
+            </div>
+          )}
+          {confirmStep === 1 && (
+            <Alert variant="destructive" className="my-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Advertencia</AlertTitle>
+              <AlertDescription>
+                Se eliminarán el conjunto, todas las asambleas, actas, preguntas, votos, poderes, unidades y registros asociados. Los usuarios quedarán desvinculados del conjunto. Esta acción no se puede deshacer.
+              </AlertDescription>
+            </Alert>
+          )}
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={closeDeleteModal}
+              disabled={deleting}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDeleteConjunto}
+              disabled={deleting || (confirmStep === 2 && confirmInput.trim() !== conjuntoToDelete?.name.trim())}
+              className="flex-1"
+            >
+              {deleting ? (
+                <>
+                  <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent inline-block mr-2" />
+                  Eliminando...
+                </>
+              ) : confirmStep === 1 ? (
+                'Continuar'
+              ) : (
+                'Confirmar eliminación'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
