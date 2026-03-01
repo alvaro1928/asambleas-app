@@ -46,6 +46,7 @@ interface Unidad {
   tipo: string
   nombre_propietario?: string
   email?: string
+  email_propietario?: string
   telefono?: string
   /** Unidad de demostración: no se puede editar ni eliminar */
   is_demo?: boolean
