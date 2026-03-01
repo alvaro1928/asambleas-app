@@ -1589,7 +1589,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         {/* Entorno de pruebas: elegir unidades de demo o reales (no afecta asambleas productivas) */}
         {isDemo && (
           <div className="mb-6 p-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
-            <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mb-3">Entorno de pruebas — Probar con:</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-medium text-amber-900 dark:text-amber-200">Entorno de pruebas — Probar con:</p>
+              <Link
+                href={`/dashboard/unidades?volver_asamblea=${asamblea?.id}&conjunto_id=${asamblea?.organization_id}`}
+                className="text-xs font-semibold text-amber-700 dark:text-amber-300 underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100 flex items-center gap-1"
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                Gestionar unidades del conjunto
+              </Link>
+            </div>
             <div className="flex flex-wrap gap-2">
               <Button
                 variant={soloUnidadesDemo ? 'default' : 'outline'}
@@ -1611,7 +1620,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               </Button>
             </div>
             <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
-              Las asambleas reales no se ven afectadas; solo esta simulación de pruebas usa el criterio elegido.
+              {soloUnidadesDemo
+                ? 'Usando 10 unidades demo (test1@…test10@asambleas.online). Para probar con tus propias unidades, selecciona "Unidades reales".'
+                : 'Usando las unidades reales del conjunto. Puedes editarlas desde "Gestionar unidades".'}
             </p>
           </div>
         )}
