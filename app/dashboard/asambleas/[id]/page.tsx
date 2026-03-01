@@ -231,6 +231,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [whatsappAdicionalEnvio, setWhatsappAdicionalEnvio] = useState('')
 
   const [billeteraColapsada, setBilleteraColapsada] = useState(true)
+  const [openQuorumPanel, setOpenQuorumPanel] = useState(true)
 
   // Edición de fecha y hora (solo borrador o activa; doble confirmación)
   const [showEditFechaModal, setShowEditFechaModal] = useState(false)
@@ -269,6 +270,17 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when preguntas length changes
   }, [params.id, preguntas.length])
+
+  // Cuando no hay preguntas o ninguna abierta y verificación activa: actualizar stats de asistencia cada 5s
+  const noHayPreguntasAbiertas = preguntas.length === 0 || preguntas.every((p) => p.estado !== 'abierta')
+  const soloVerificacionActiva = !!(asamblea?.verificacion_asistencia_activa && noHayPreguntasAbiertas)
+  useEffect(() => {
+    if (!soloVerificacionActiva || !asamblea?.id) return
+    cargarStatsVerificacion()
+    const interval = setInterval(cargarStatsVerificacion, 5000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- asamblea.id and soloVerificacionActiva
+  }, [asamblea?.id, asamblea?.verificacion_asistencia_activa, preguntas.length, noHayPreguntasAbiertas])
 
   const loadData = async () => {
     try {
@@ -1734,89 +1746,140 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           </div>
         )}
 
-        {/* Panel de Quórum */}
-        <div className="mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-6 border-2 border-indigo-200 dark:border-indigo-800">
-          {quorum ? (
+        {/* Panel de Quórum (colapsable; y Asistencia verificada cuando no hay preguntas abiertas y verificación activa) */}
+        <div className="mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border-2 border-indigo-200 dark:border-indigo-800 overflow-hidden">
+          {quorum || soloVerificacionActiva ? (
             <>
-              <div className="flex items-center justify-between mb-4">
+              <button
+                type="button"
+                onClick={() => setOpenQuorumPanel((v) => !v)}
+                className="w-full flex items-center justify-between gap-2 p-4 sm:p-6 text-left hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors"
+              >
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center">
-                  <Users className="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" />
+                  <Users className="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400 shrink-0" />
                   Quórum y Participación
                 </h3>
-                {quorum.quorum_alcanzado && (
-                  <span className="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full text-sm font-semibold flex items-center">
-                    <CheckCircle2 className="w-4 h-4 mr-1" />
-                    Quórum Alcanzado
-                  </span>
-                )}
-              </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Participación Nominal */}
-              <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Unidades Votantes</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {quorum.unidades_votantes}/{quorum.total_unidades}
-                </p>
-                <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className="bg-indigo-600 dark:bg-indigo-500 h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${quorum.porcentaje_participacion_nominal}%` }}
-                  />
+                <div className="flex items-center gap-2 shrink-0">
+                  {quorum?.quorum_alcanzado && (
+                    <span className="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full text-sm font-semibold flex items-center">
+                      <CheckCircle2 className="w-4 h-4 mr-1" />
+                      Quórum Alcanzado
+                    </span>
+                  )}
+                  {soloVerificacionActiva && statsVerificacion?.quorum_alcanzado && (
+                    <span className="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full text-sm font-semibold flex items-center">
+                      <CheckCircle2 className="w-4 h-4 mr-1" />
+                      Quórum por asistencia
+                    </span>
+                  )}
+                  {openQuorumPanel ? <ChevronUp className="w-5 h-5 text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-500" />}
                 </div>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  {quorum.porcentaje_participacion_nominal}% participación
-                </p>
-              </div>
+              </button>
 
-              {/* Participación por Coeficiente */}
-              <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Coeficiente Votante (Ley 675)</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {quorum.coeficiente_votante.toFixed(2)}%
-                </p>
-                <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full transition-all duration-500 ${
-                      quorum.quorum_alcanzado
-                        ? 'bg-green-600 dark:bg-green-500'
-                        : 'bg-orange-600 dark:bg-orange-500'
-                    }`}
-                    style={{ width: `${quorum.porcentaje_participacion_coeficiente}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  {quorum.porcentaje_participacion_coeficiente}% del total
-                </p>
-              </div>
+              {openQuorumPanel && (
+              <div className="px-4 sm:px-6 pb-6 pt-0">
+            <div className={`grid grid-cols-1 gap-4 ${quorum ? 'md:grid-cols-3' : ''} ${quorum && asamblea?.verificacion_asistencia_activa ? 'md:grid-cols-4' : ''} ${!quorum && soloVerificacionActiva ? 'md:grid-cols-1' : ''}`}>
+              {quorum && (
+                <>
+                  {/* Participación Nominal */}
+                  <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Unidades Votantes</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {quorum.unidades_votantes}/{quorum.total_unidades}
+                    </p>
+                    <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-indigo-600 dark:bg-indigo-500 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${quorum.porcentaje_participacion_nominal}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {quorum.porcentaje_participacion_nominal}% participación
+                    </p>
+                  </div>
 
-              {/* Unidades Pendientes */}
-              <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pendientes de Votar</p>
-                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                  {quorum.unidades_pendientes}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  Coeficiente pendiente: {quorum.coeficiente_pendiente.toFixed(2)}%
-                </p>
-                {!quorum.quorum_alcanzado && (
-                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
-                    ⚠️ Se requiere más del 50% para quórum
+                  {/* Participación por Coeficiente */}
+                  <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Coeficiente Votante (Ley 675)</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {quorum.coeficiente_votante.toFixed(2)}%
+                    </p>
+                    <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-500 ${
+                          quorum.quorum_alcanzado
+                            ? 'bg-green-600 dark:bg-green-500'
+                            : 'bg-orange-600 dark:bg-orange-500'
+                        }`}
+                        style={{ width: `${quorum.porcentaje_participacion_coeficiente}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {quorum.porcentaje_participacion_coeficiente}% del total
+                    </p>
+                  </div>
+
+                  {/* Unidades Pendientes */}
+                  <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pendientes de Votar</p>
+                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                      {quorum.unidades_pendientes}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      Coeficiente pendiente: {quorum.coeficiente_pendiente.toFixed(2)}%
+                    </p>
+                    {!quorum.quorum_alcanzado && (
+                      <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
+                        ⚠️ Se requiere más del 50% para quórum
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Asistencia verificada: 4.ª tarjeta cuando hay quorum + verificación, o única cuando solo verificación (sin preguntas abiertas) */}
+              {(asamblea?.verificacion_asistencia_activa && (soloVerificacionActiva || quorum)) && (
+                <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Asistencia verificada</p>
+                  <p className={`text-2xl font-bold ${statsVerificacion?.quorum_alcanzado ? 'text-green-600 dark:text-green-400' : (statsVerificacion && statsVerificacion.porcentaje_verificado >= 30 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white')}`}>
+                    {statsVerificacion ? `${statsVerificacion.porcentaje_verificado.toFixed(1)}%` : '—'}
                   </p>
-                )}
-              </div>
+                  <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-500 ${
+                        statsVerificacion?.quorum_alcanzado
+                          ? 'bg-green-600 dark:bg-green-500'
+                          : (statsVerificacion && statsVerificacion.porcentaje_verificado >= 30 ? 'bg-amber-600 dark:bg-amber-500' : 'bg-indigo-600 dark:bg-indigo-500')
+                      }`}
+                      style={{ width: `${statsVerificacion ? Math.min(100, statsVerificacion.porcentaje_verificado) : 0}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {statsVerificacion ? `${statsVerificacion.total_verificados} unidades · coef. ${statsVerificacion.coeficiente_verificado.toFixed(2)}%` : '0 unidades'}
+                  </p>
+                  {statsVerificacion && !statsVerificacion.quorum_alcanzado && (
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
+                      Se requiere más del 50% para quórum (Ley 675)
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
                 ⏱️ Datos actualizados en tiempo real cada 5 segundos
               </p>
+              </div>
+              )}
             </>
             ) : (
               <div className="text-center py-8">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-3"></div>
               <p className="text-gray-600 dark:text-gray-400">Cargando datos de participación...</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                {preguntas.length === 0 && 'Crea preguntas y ábrelas para ver el quórum'}
+                {preguntas.length === 0 && !asamblea?.verificacion_asistencia_activa && 'Crea preguntas y ábrelas para ver el quórum. Activa la verificación de asistencia para ver el avance sin preguntas.'}
+                {preguntas.length === 0 && asamblea?.verificacion_asistencia_activa && 'Cargando asistencia verificada...'}
+                {preguntas.length > 0 && 'Cargando quórum...'}
               </p>
             </div>
           )}
@@ -3538,7 +3601,34 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 Quórum y participación
               </h4>
               <p className="mt-1">
-                Muestra en tiempo real cuántas unidades han votado y el coeficiente acumulado (Ley 675). Necesitas al menos 50% del coeficiente para alcanzar quórum.
+                Panel colapsable que muestra en tiempo real cuántas unidades han votado y el coeficiente acumulado (Ley 675). Necesitas al menos 50% del coeficiente para alcanzar quórum. Si activas la verificación de asistencia, aparece además la tarjeta <strong>Asistencia verificada</strong>, también cuando no hay preguntas abiertas.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Share2 className="w-4 h-4 text-indigo-500" />
+                Acceso Público
+              </h4>
+              <p className="mt-1">
+                Secciones colapsables: <strong>Enlace de votación</strong> (copiar, Enviar a cada uno, Ver QR), <strong>Verificación de quórum</strong> (activar/desactivar y registrar asistencia manual), <strong>Acceso de asistente delegado</strong> (generar enlace para que otra persona registre asistencia y votos en tu nombre) y <strong>Desactivar votación</strong>. La página de Acceso tiene el mismo diseño colapsable.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-indigo-500" />
+                Verificación de asistencia
+              </h4>
+              <p className="mt-1">
+                Al activarla, los votantes ven un popup para confirmar &quot;Verifico asistencia&quot;. El avance se refleja en el panel Quórum (tarjeta Asistencia verificada). Puedes registrar asistencia manualmente por unidad desde Acceso Público o desde la página de Control de acceso.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-indigo-500" />
+                Acceso de asistente delegado
+              </h4>
+              <p className="mt-1">
+                Permite generar un enlace seguro para una persona de confianza que pueda registrar asistencia y votos en nombre de unidades. Se gestiona desde Acceso Público (generar o revocar enlace).
               </p>
             </div>
             <div>

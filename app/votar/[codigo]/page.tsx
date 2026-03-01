@@ -690,7 +690,7 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  // Cargar estado de verificación de quórum en cuanto tengamos asamblea (sin depender de preguntas ni step 'votar')
+  // Cargar estado de verificación de quórum en cuanto tengamos asamblea; polling cada 5 s para que al activar en admin el popup aparezca pronto
   useEffect(() => {
     if (!asamblea?.asamblea_id || step === 'validando' || step === 'error') return
     const fetchActiva = async () => {
@@ -706,7 +706,7 @@ export default function VotacionPublicaPage() {
       }
     }
     fetchActiva()
-    const interval = setInterval(fetchActiva, 10000)
+    const interval = setInterval(fetchActiva, 5000)
     return () => clearInterval(interval)
   }, [asamblea?.asamblea_id, step])
 
@@ -746,7 +746,7 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  // Polling: en consentimiento y votar, cargar yaVerifico + stats; en votar además re-fetch unidades/preguntas cada 10 s
+  // Polling: en consentimiento y votar, cargar yaVerifico + stats cada 5 s; en votar además re-fetch unidades/preguntas cada 10 s
   useEffect(() => {
     const enPantallaVotacion = step === 'consentimiento' || step === 'votar'
     if (!enPantallaVotacion || !asamblea || !email.trim()) return
@@ -754,26 +754,37 @@ export default function VotacionPublicaPage() {
     // Carga inicial de verificación (incluye email para saber si ya verificó)
     refrescarVerificacion(asamblea.asamblea_id, email.trim())
 
-    const timeout = setTimeout(() => {
-      const interval = setInterval(async () => {
-        try {
-          if (step === 'votar') {
-            const nuevasUnidades = await refrescarUnidades()
-            if (nuevasUnidades.length > 0) {
-              await cargarPreguntas(nuevasUnidades)
-              await cargarHistorial(nuevasUnidades)
-            }
+    const interval = setInterval(async () => {
+      try {
+        if (step === 'votar') {
+          const nuevasUnidades = await refrescarUnidades()
+          if (nuevasUnidades.length > 0) {
+            await cargarPreguntas(nuevasUnidades)
+            await cargarHistorial(nuevasUnidades)
           }
-          await refrescarVerificacion(asamblea.asamblea_id, email.trim())
-        } catch {
-          // Ignorar errores de red o validación en background
         }
-      }, 10000)
-      return () => clearInterval(interval)
+        await refrescarVerificacion(asamblea.asamblea_id, email.trim())
+      } catch {
+        // Ignorar errores de red o validación en background
+      }
     }, 5000)
 
-    return () => clearTimeout(timeout)
+    return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when step or asamblea changes
+  }, [step, asamblea?.asamblea_id, email])
+
+  // Al volver a la pestaña, refrescar verificación de inmediato para que el popup aparezca si el admin acaba de activarla
+  useEffect(() => {
+    const enPantallaVotacion = step === 'consentimiento' || step === 'votar'
+    if (!enPantallaVotacion || !asamblea || !email.trim()) return
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        refrescarVerificacion(asamblea.asamblea_id, email.trim())
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, asamblea?.asamblea_id, email])
 
   // Cargar historial al cambiar al tab de avance

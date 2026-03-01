@@ -460,9 +460,17 @@ function AsambleasPageContent() {
                   {/* Header con estado */}
                   <div className="flex items-start justify-between mb-4 gap-2">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                        {asamblea.nombre}
-                      </h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          {asamblea.nombre}
+                        </h3>
+                        {asamblea.is_demo === true && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-700" title="Asamblea de demostración: verificación, delegado, colapsables y quórum como en una asamblea real">
+                            <FlaskConical className="w-3 h-3 shrink-0" />
+                            Pruebas
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {tabArchivo === 'activas' && (
@@ -641,14 +649,31 @@ function AsambleasPageContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal bienvenida: asamblea de demostración cuando no hay asambleas */}
+      {/* Modal bienvenida: asamblea de demostración (sandbox) */}
       <Dialog open={showWelcomeDemoModal} onOpenChange={setShowWelcomeDemoModal}>
-        <DialogContent id="welcome-demo-modal" className="max-w-md rounded-2xl">
+        <DialogContent id="welcome-demo-modal" className="max-w-lg rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Bienvenido a Votaciones de Asambleas Online</DialogTitle>
-            <DialogDescription>
-              ¿Deseas explorar en un entorno de pruebas? Crearemos una asamblea de demostración con datos de ejemplo. No se consumen créditos y podrás practicar el Centro de Control, el enlace de votación y el acta.
-            </DialogDescription>
+            <DialogTitle className="flex items-center gap-2">
+              <FlaskConical className="w-5 h-5 text-amber-500" />
+              Entorno de pruebas (sandbox)
+            </DialogTitle>
+            <div className="space-y-3 text-sm text-gray-500 dark:text-gray-400">
+              <p>
+                Crea una asamblea de demostración con datos de ejemplo. <strong className="text-gray-700 dark:text-gray-300">No se consumen créditos (tokens)</strong> y podrás probar todas las funcionalidades antes de una asamblea real.
+              </p>
+              <p className="font-medium text-gray-700 dark:text-gray-300">Incluye las mismas funciones que una asamblea real:</p>
+              <ul className="list-disc list-inside space-y-1 pl-1 text-gray-600 dark:text-gray-400">
+                <li>Centro de Control y página de Acceso (enlace, QR, envío por WhatsApp)</li>
+                <li><strong>Verificación de asistencia</strong> (quórum por asistencia y por votación)</li>
+                <li><strong>Acceso de asistente delegado</strong> (generar enlace para que otra persona vote por ti)</li>
+                <li>Secciones <strong>colapsables</strong> en Acceso Público y en la página de Acceso</li>
+                <li>Panel <strong>Quórum y Participación</strong> con tarjeta de asistencia verificada (incluso sin preguntas abiertas)</li>
+                <li>Acta, gestión de poderes y reinicio de simulación</li>
+              </ul>
+              <p>
+                Puedes usar <em>unidades de demostración</em> (10 cuentas de prueba) o cambiar a <em>unidades reales</em> del conjunto desde la asamblea.
+              </p>
+            </div>
           </DialogHeader>
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <Button
@@ -656,7 +681,7 @@ function AsambleasPageContent() {
               onClick={() => setShowWelcomeDemoModal(false)}
               className="flex-1"
             >
-              Crear asamblea real
+              Ahora no
             </Button>
             <Button
               onClick={handleProbarDemo}
@@ -669,7 +694,7 @@ function AsambleasPageContent() {
                   Creando...
                 </>
               ) : (
-                'Probar ahora'
+                'Crear entorno de pruebas'
               )}
             </Button>
           </div>

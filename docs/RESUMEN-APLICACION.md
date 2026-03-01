@@ -28,8 +28,8 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - Métricas en dashboard: total unidades, suma coeficientes, censo, distribución por tipo.
 
 **Asamblea de pruebas (sandbox)**
-- **Acceso:** En el Dashboard principal (botón "Probar en sandbox" junto a "Asambleas") o en la cabecera del listado de asambleas (`/dashboard/asambleas`). También con la URL `/dashboard/asambleas?demo=1` (se abre el modal automáticamente).
-- **Qué hace:** Crea una asamblea de demostración con datos de ejemplo (10 unidades, 2 preguntas, votación ya activada). **No consume tokens.** Permite explorar el Centro de Control, el enlace de votación y el acta sin compromiso.
+- **Acceso:** En la cabecera del listado de asambleas (`/dashboard/asambleas`, botón "Probar en entorno de pruebas") o con la URL `/dashboard/asambleas?demo=1` (se abre el modal automáticamente).
+- **Qué hace:** Crea una asamblea de demostración con datos de ejemplo (10 unidades, 2 preguntas, votación ya activada). **No consume tokens.** Incluye las mismas funcionalidades y diseño que una asamblea real: verificación de asistencia, acceso de asistente delegado, secciones colapsables en Acceso Público y en la página de Acceso, y panel Quórum y Participación con tarjeta de asistencia verificada (incluso sin preguntas abiertas).
 - **Modos:** En la página de la asamblea demo puedes elegir **Unidades de demostración (10)** (cuentas test1@…test10@asambleas.online) o **Unidades reales del conjunto**. En sandbox está habilitada la **gestión de unidades**: el enlace "Gestionar unidades del conjunto" lleva a `/dashboard/unidades` para editar unidades reales (útil cuando pruebas con unidades reales).
 - **Restricciones:** En asambleas y unidades marcadas como demo no se pueden editar ni eliminar las unidades de demostración; el acta lleva la marca "DEMO - SIN VALIDEZ LEGAL". En reportes globales se excluyen las asambleas demo. La verificación de quórum y el acceso delegado funcionan igual en sandbox.
 

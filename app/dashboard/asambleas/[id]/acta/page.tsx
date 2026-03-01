@@ -108,6 +108,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [quorum, setQuorum] = useState<Quorum | null>(null)
   interface VerifStatsActa { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean; hora_verificacion?: string; hora_ultima_verificacion?: string }
   interface VerifPorPregunta { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean; corte_timestamp?: string }
+  /** Sesiones de verificación general (cada vez que se abrió/cerró): para listar múltiples en el acta */
+  interface SesionVerificacion { apertura_at: string; cierre_at: string | null; total_verificados: number | null; coeficiente_verificado: number | null; porcentaje_verificado: number | null; quorum_alcanzado: boolean | null }
+  const [sesionesVerificacion, setSesionesVerificacion] = useState<SesionVerificacion[]>([])
   const [verificacion, setVerificacion] = useState<VerifStatsActa | null>(null)
   const [verificacionPorPregunta, setVerificacionPorPregunta] = useState<Record<string, VerifPorPregunta>>({})
   const [totalPoderes, setTotalPoderes] = useState(0)
@@ -304,14 +307,28 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         setQuorum(quorumData[0] as Quorum)
       }
 
-      // Cargar stats de verificación de asistencia (global + primera/última hora)
+      // Cargar sesiones de verificación general (múltiples aperturas/cierres); si la tabla no existe aún, queda []
+      try {
+        const { data: sesionesData } = await supabase
+          .from('verificacion_asamblea_sesiones')
+          .select('apertura_at, cierre_at, total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
+          .eq('asamblea_id', params.id)
+          .order('apertura_at', { ascending: true })
+        if (sesionesData && sesionesData.length > 0) {
+          setSesionesVerificacion(sesionesData as SesionVerificacion[])
+        } else {
+          setSesionesVerificacion([])
+        }
+      } catch {
+        setSesionesVerificacion([])
+      }
+
       const [{ data: verData }, { data: verPorPregData }] = await Promise.all([
         supabase.rpc('calcular_verificacion_quorum', { p_asamblea_id: params.id }),
         supabase.rpc('calcular_verificacion_por_preguntas', { p_asamblea_id: params.id }),
       ])
       if (verData && verData[0]) {
         const v = verData[0] as VerifStatsActa
-        // Obtener la primera y última hora de verificación
         const { data: primeraHoraData } = await supabase
           .from('quorum_asamblea')
           .select('hora_verificacion')
@@ -333,9 +350,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
           porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
           quorum_alcanzado: !!v.quorum_alcanzado,
-          // hora_verificacion almacena la primera (para mostrar cuándo inició)
           hora_verificacion: (primeraHoraData && primeraHoraData[0])?.hora_verificacion ?? undefined,
-          // hora_ultima_verificacion almacena la más reciente
           hora_ultima_verificacion: (ultimaHoraData && ultimaHoraData[0])?.hora_verificacion ?? undefined,
         } as VerifStatsActa)
       }
@@ -809,45 +824,82 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         )}
 
         {/* ── REGISTRO DE VERIFICACIÓN DE QUÓRUM — ASAMBLEA EN GENERAL (visible aunque no haya preguntas/votos) ── */}
-        {verificacion && verificacion.total_verificados > 0 && !quorum && (
+        {(sesionesVerificacion.length > 0 || (verificacion && verificacion.total_verificados > 0)) && !quorum && (
           <section className="mb-8 break-inside-avoid">
             <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-1 pb-1 border-b border-gray-200">Registros de verificación de quórum</h2>
-            <p className="text-xs text-gray-500 mb-3">Verificación de asistencia asociada a la asamblea en general (inicial o sin preguntas abiertas).</p>
+            <p className="text-xs text-gray-500 mb-3">Verificación de asistencia asociada a la asamblea en general (inicial o sin preguntas abiertas). Cada vez que se abrió y cerró la verificación se registra una sesión con fecha y hora.</p>
             <h3 className="text-xs font-semibold text-gray-600 mb-2">Asamblea en general</h3>
-            <table className="w-full border-collapse text-sm">
-              <tbody>
-                <tr>
-                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50 w-1/2">Unidades que verificaron asistencia</td>
-                  <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">{verificacion.total_verificados}</td>
-                </tr>
-                <tr className="bg-gray-50">
-                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Coeficiente verificado</td>
-                  <td className="border border-gray-200 px-3 py-2 text-gray-900">{Math.min(100, verificacion.coeficiente_verificado).toFixed(4)}%</td>
-                </tr>
-                <tr>
-                  <td className="border border-gray-200 px-3 py-2 font-bold text-gray-900 bg-indigo-50">Quórum verificado (Ley 675 Art. 45 &gt;50%)</td>
-                  <td className={`border border-gray-200 px-3 py-2 font-bold bg-indigo-50 ${verificacion.quorum_alcanzado ? 'text-green-700' : 'text-red-700'}`}>
-                    {verificacion.quorum_alcanzado ? '✓ Sí' : '✗ No'} — {verificacion.porcentaje_verificado.toFixed(2)}%
-                  </td>
-                </tr>
-                {verificacion.hora_verificacion && (
-                  <tr className="bg-gray-50">
-                    <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Primera verificación</td>
-                    <td className="border border-gray-200 px-3 py-2 text-gray-900">
-                      {new Date(verificacion.hora_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
-                    </td>
-                  </tr>
-                )}
-                {verificacion.hora_ultima_verificacion && verificacion.hora_ultima_verificacion !== verificacion.hora_verificacion && (
+
+            {sesionesVerificacion.length > 0 ? (
+              <div className="space-y-4">
+                {sesionesVerificacion.map((sesion, idx) => (
+                  <table key={idx} className="w-full border-collapse text-sm mb-4">
+                    <tbody>
+                      <tr className="bg-indigo-50">
+                        <td colSpan={2} className="border border-gray-200 px-3 py-2 font-bold text-indigo-800">
+                          Sesión {idx + 1}: apertura {new Date(sesion.apertura_at).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                          {sesion.cierre_at && <> — cierre {new Date(sesion.cierre_at).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</>}
+                        </td>
+                      </tr>
+                      {sesion.cierre_at != null && (
+                        <>
+                          <tr>
+                            <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 w-1/2">Unidades que verificaron asistencia</td>
+                            <td className="border border-gray-200 px-3 py-2 text-gray-900">{sesion.total_verificados ?? '—'}</td>
+                          </tr>
+                          <tr className="bg-gray-50">
+                            <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Coeficiente verificado</td>
+                            <td className="border border-gray-200 px-3 py-2 text-gray-900">{sesion.porcentaje_verificado != null ? `${Number(sesion.porcentaje_verificado).toFixed(2)}%` : '—'}</td>
+                          </tr>
+                          <tr>
+                            <td className="border border-gray-200 px-3 py-2 font-bold text-gray-900 bg-indigo-50">Quórum verificado (Ley 675 Art. 45 &gt;50%)</td>
+                            <td className={`border border-gray-200 px-3 py-2 font-bold bg-indigo-50 ${sesion.quorum_alcanzado ? 'text-green-700' : 'text-red-700'}`}>
+                              {sesion.quorum_alcanzado != null ? (sesion.quorum_alcanzado ? '✓ Sí' : '✗ No') : '—'}
+                              {sesion.porcentaje_verificado != null && ` — ${Number(sesion.porcentaje_verificado).toFixed(2)}%`}
+                            </td>
+                          </tr>
+                        </>
+                      )}
+                    </tbody>
+                  </table>
+                ))}
+              </div>
+            ) : (
+              <table className="w-full border-collapse text-sm">
+                <tbody>
                   <tr>
-                    <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50">Última verificación</td>
-                    <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">
-                      {new Date(verificacion.hora_ultima_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50 w-1/2">Unidades que verificaron asistencia</td>
+                    <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">{verificacion!.total_verificados}</td>
+                  </tr>
+                  <tr className="bg-gray-50">
+                    <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Coeficiente verificado</td>
+                    <td className="border border-gray-200 px-3 py-2 text-gray-900">{Math.min(100, verificacion!.coeficiente_verificado).toFixed(4)}%</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-gray-200 px-3 py-2 font-bold text-gray-900 bg-indigo-50">Quórum verificado (Ley 675 Art. 45 &gt;50%)</td>
+                    <td className={`border border-gray-200 px-3 py-2 font-bold bg-indigo-50 ${verificacion!.quorum_alcanzado ? 'text-green-700' : 'text-red-700'}`}>
+                      {verificacion!.quorum_alcanzado ? '✓ Sí' : '✗ No'} — {verificacion!.porcentaje_verificado.toFixed(2)}%
                     </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                  {verificacion!.hora_verificacion && (
+                    <tr className="bg-gray-50">
+                      <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Primera verificación</td>
+                      <td className="border border-gray-200 px-3 py-2 text-gray-900">
+                        {new Date(verificacion!.hora_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </td>
+                    </tr>
+                  )}
+                  {verificacion!.hora_ultima_verificacion && verificacion!.hora_ultima_verificacion !== verificacion!.hora_verificacion && (
+                    <tr>
+                      <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50">Última verificación</td>
+                      <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">
+                        {new Date(verificacion!.hora_ultima_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </section>
         )}
 
@@ -889,41 +941,58 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     <td className="border border-gray-200 px-3 py-2 text-gray-900">{totalPoderes} unidades — coef. delegado {Math.min(100, coefPoderes).toFixed(2)}%</td>
                   </tr>
                 )}
-                {/* Registro de verificación de asistencia — asamblea en general */}
-                {verificacion && verificacion.total_verificados > 0 && (
+                {/* Registro de verificación de asistencia — asamblea en general (múltiples sesiones o uno legacy) */}
+                {(sesionesVerificacion.length > 0 || (verificacion && verificacion.total_verificados > 0)) && (
                   <>
                     <tr>
                       <td colSpan={2} className="border border-gray-200 px-3 py-2 text-xs font-bold uppercase text-indigo-700 bg-indigo-50">Verificación de asistencia (asamblea en general)</td>
                     </tr>
-                    <tr>
-                      <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50">Unidades que verificaron asistencia</td>
-                      <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">{verificacion.total_verificados}</td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Coeficiente verificado</td>
-                      <td className="border border-gray-200 px-3 py-2 text-gray-900">{Math.min(100, verificacion.coeficiente_verificado).toFixed(4)}%</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-gray-200 px-3 py-2 font-bold text-gray-900 bg-indigo-50">Quórum verificado (Ley 675 Art. 45 &gt;50%)</td>
-                      <td className={`border border-gray-200 px-3 py-2 font-bold bg-indigo-50 ${verificacion.quorum_alcanzado ? 'text-green-700' : 'text-red-700'}`}>
-                        {verificacion.quorum_alcanzado ? '✓ Sí' : '✗ No'} — {verificacion.porcentaje_verificado.toFixed(2)}%
-                      </td>
-                    </tr>
-                    {verificacion.hora_verificacion && (
-                      <tr className="bg-gray-50">
-                        <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Primera verificación de asistencia</td>
-                        <td className="border border-gray-200 px-3 py-2 text-gray-900">
-                          {new Date(verificacion.hora_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
-                        </td>
-                      </tr>
-                    )}
-                    {verificacion.hora_ultima_verificacion && verificacion.hora_ultima_verificacion !== verificacion.hora_verificacion && (
-                      <tr>
-                        <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50">Última verificación de asistencia</td>
-                        <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">
-                          {new Date(verificacion.hora_ultima_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
-                        </td>
-                      </tr>
+                    {sesionesVerificacion.length > 0 ? (
+                      sesionesVerificacion.map((sesion, idx) => (
+                        <tr key={idx}>
+                          <td colSpan={2} className="border border-gray-200 px-3 py-2 text-xs bg-indigo-50/50">
+                            <strong>Sesión {idx + 1}:</strong> apertura {new Date(sesion.apertura_at).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            {sesion.cierre_at && (
+                              <> — cierre {new Date(sesion.cierre_at).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                {sesion.total_verificados != null && <> · {sesion.total_verificados} un. · {sesion.porcentaje_verificado != null ? `${Number(sesion.porcentaje_verificado).toFixed(2)}%` : ''} {sesion.quorum_alcanzado ? '✓ Quórum' : '✗ Sin quórum'}</>}
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <>
+                        <tr>
+                          <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50">Unidades que verificaron asistencia</td>
+                          <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">{verificacion!.total_verificados}</td>
+                        </tr>
+                        <tr className="bg-gray-50">
+                          <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Coeficiente verificado</td>
+                          <td className="border border-gray-200 px-3 py-2 text-gray-900">{Math.min(100, verificacion!.coeficiente_verificado).toFixed(4)}%</td>
+                        </tr>
+                        <tr>
+                          <td className="border border-gray-200 px-3 py-2 font-bold text-gray-900 bg-indigo-50">Quórum verificado (Ley 675 Art. 45 &gt;50%)</td>
+                          <td className={`border border-gray-200 px-3 py-2 font-bold bg-indigo-50 ${verificacion!.quorum_alcanzado ? 'text-green-700' : 'text-red-700'}`}>
+                            {verificacion!.quorum_alcanzado ? '✓ Sí' : '✗ No'} — {verificacion!.porcentaje_verificado.toFixed(2)}%
+                          </td>
+                        </tr>
+                        {verificacion!.hora_verificacion && (
+                          <tr className="bg-gray-50">
+                            <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Primera verificación de asistencia</td>
+                            <td className="border border-gray-200 px-3 py-2 text-gray-900">
+                              {new Date(verificacion!.hora_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            </td>
+                          </tr>
+                        )}
+                        {verificacion!.hora_ultima_verificacion && verificacion!.hora_ultima_verificacion !== verificacion!.hora_verificacion && (
+                          <tr>
+                            <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50">Última verificación de asistencia</td>
+                            <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">
+                              {new Date(verificacion!.hora_ultima_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            </td>
+                          </tr>
+                        )}
+                      </>
                     )}
                   </>
                 )}
@@ -1060,7 +1129,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     })()}
                   </div>
 
-                  {/* Registro de verificación de quórum asociada a esta pregunta */}
+                  {/* Registro de verificación de quórum asociada a esta pregunta (preguntas abiertas) */}
                   {(() => {
                     const snap = verificacionPorPregunta[pregunta.id]
                     if (!snap || snap.total_verificados === 0) return null
@@ -1069,7 +1138,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       : null
                     return (
                       <div className="ml-10 mt-2 mb-1">
-                        <p className="text-xs font-semibold text-indigo-700 mb-0.5">Verificación de quórum (asociada a esta pregunta)</p>
+                        <p className="text-xs font-semibold text-indigo-700 mb-0.5">Registro de verificación de quórum (asociada a esta pregunta)</p>
                         <p className="text-xs text-gray-500 italic border-l-2 border-indigo-300 pl-2">
                           Al momento de esta votación{horaCorte ? ` (${horaCorte})` : ''},{' '}
                           el <strong>{snap.porcentaje_verificado.toFixed(2)}%</strong> del coeficiente de copropiedad
