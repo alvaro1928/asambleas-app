@@ -106,8 +106,10 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [preguntas, setPreguntas] = useState<(Pregunta & { opciones: Opcion[] })[]>([])
   const [estadisticas, setEstadisticas] = useState<Record<string, StatsPregunta>>({})
   const [quorum, setQuorum] = useState<Quorum | null>(null)
-  interface VerifStatsActa { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean; hora_verificacion?: string }
+  interface VerifStatsActa { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean; hora_verificacion?: string; hora_ultima_verificacion?: string }
+  interface VerifPorPregunta { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean; corte_timestamp?: string }
   const [verificacion, setVerificacion] = useState<VerifStatsActa | null>(null)
+  const [verificacionPorPregunta, setVerificacionPorPregunta] = useState<Record<string, VerifPorPregunta>>({})
   const [totalPoderes, setTotalPoderes] = useState(0)
   const [coefPoderes, setCoefPoderes] = useState(0)
   const [auditoria, setAuditoria] = useState<Record<string, AuditRow[]>>({})
@@ -302,28 +304,54 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         setQuorum(quorumData[0] as Quorum)
       }
 
-      // Cargar stats de verificación de asistencia
-      const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
-        p_asamblea_id: params.id,
-      })
+      // Cargar stats de verificación de asistencia (global + primera/última hora)
+      const [{ data: verData }, { data: verPorPregData }] = await Promise.all([
+        supabase.rpc('calcular_verificacion_quorum', { p_asamblea_id: params.id }),
+        supabase.rpc('calcular_verificacion_por_preguntas', { p_asamblea_id: params.id }),
+      ])
       if (verData && verData[0]) {
         const v = verData[0] as VerifStatsActa
-        // También obtener la hora de la última verificación
-        const { data: horaData } = await supabase
+        // Obtener la primera y última hora de verificación
+        const { data: primeraHoraData } = await supabase
           .from('quorum_asamblea')
           .select('hora_verificacion')
           .eq('asamblea_id', params.id)
           .eq('verifico_asistencia', true)
+          .not('hora_verificacion', 'is', null)
+          .order('hora_verificacion', { ascending: true })
+          .limit(1)
+        const { data: ultimaHoraData } = await supabase
+          .from('quorum_asamblea')
+          .select('hora_verificacion')
+          .eq('asamblea_id', params.id)
+          .eq('verifico_asistencia', true)
+          .not('hora_verificacion', 'is', null)
           .order('hora_verificacion', { ascending: false })
           .limit(1)
-          .single()
         setVerificacion({
           total_verificados: Number(v.total_verificados) || 0,
           coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
           porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
           quorum_alcanzado: !!v.quorum_alcanzado,
-          hora_verificacion: (horaData as any)?.hora_verificacion ?? undefined,
+          // hora_verificacion almacena la primera (para mostrar cuándo inició)
+          hora_verificacion: (primeraHoraData && primeraHoraData[0])?.hora_verificacion ?? undefined,
+          // hora_ultima_verificacion almacena la más reciente
+          hora_ultima_verificacion: (ultimaHoraData && ultimaHoraData[0])?.hora_verificacion ?? undefined,
+        } as VerifStatsActa)
+      }
+      // Cargar snapshot por pregunta
+      if (verPorPregData && verPorPregData.length > 0) {
+        const map: Record<string, VerifPorPregunta> = {}
+        ;(verPorPregData as any[]).forEach((row) => {
+          map[row.pregunta_id] = {
+            total_verificados: Number(row.total_verificados) || 0,
+            coeficiente_verificado: Number(row.coeficiente_verificado) || 0,
+            porcentaje_verificado: Number(row.porcentaje_verificado) || 0,
+            quorum_alcanzado: !!row.quorum_alcanzado,
+            corte_timestamp: row.corte_timestamp ?? undefined,
+          }
         })
+        setVerificacionPorPregunta(map)
       }
 
       const { data: poderesData } = await supabase
@@ -780,6 +808,47 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </p>
         )}
 
+        {/* ── VERIFICACIÓN INICIAL (visible aunque no haya preguntas/votos) ── */}
+        {verificacion && verificacion.total_verificados > 0 && !quorum && (
+          <section className="mb-8 break-inside-avoid">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-3 pb-1 border-b border-gray-200">Verificación de asistencia</h2>
+            <table className="w-full border-collapse text-sm">
+              <tbody>
+                <tr>
+                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50 w-1/2">Unidades que verificaron asistencia</td>
+                  <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">{verificacion.total_verificados}</td>
+                </tr>
+                <tr className="bg-gray-50">
+                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Coeficiente verificado</td>
+                  <td className="border border-gray-200 px-3 py-2 text-gray-900">{Math.min(100, verificacion.coeficiente_verificado).toFixed(4)}%</td>
+                </tr>
+                <tr>
+                  <td className="border border-gray-200 px-3 py-2 font-bold text-gray-900 bg-indigo-50">Quórum verificado (Ley 675 Art. 45 &gt;50%)</td>
+                  <td className={`border border-gray-200 px-3 py-2 font-bold bg-indigo-50 ${verificacion.quorum_alcanzado ? 'text-green-700' : 'text-red-700'}`}>
+                    {verificacion.quorum_alcanzado ? '✓ Sí' : '✗ No'} — {verificacion.porcentaje_verificado.toFixed(2)}%
+                  </td>
+                </tr>
+                {verificacion.hora_verificacion && (
+                  <tr className="bg-gray-50">
+                    <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Primera verificación</td>
+                    <td className="border border-gray-200 px-3 py-2 text-gray-900">
+                      {new Date(verificacion.hora_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </td>
+                  </tr>
+                )}
+                {verificacion.hora_ultima_verificacion && verificacion.hora_ultima_verificacion !== verificacion.hora_verificacion && (
+                  <tr>
+                    <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50">Última verificación</td>
+                    <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">
+                      {new Date(verificacion.hora_ultima_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </section>
+        )}
+
         {/* ── QUÓRUM ── */}
         {quorum && (
           <section className="mb-8 break-inside-avoid">
@@ -837,9 +906,17 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     </tr>
                     {verificacion.hora_verificacion && (
                       <tr className="bg-gray-50">
-                        <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Última verificación de asistencia</td>
+                        <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Primera verificación de asistencia</td>
                         <td className="border border-gray-200 px-3 py-2 text-gray-900">
-                          {new Date(verificacion.hora_verificacion).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(verificacion.hora_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        </td>
+                      </tr>
+                    )}
+                    {verificacion.hora_ultima_verificacion && verificacion.hora_ultima_verificacion !== verificacion.hora_verificacion && (
+                      <tr>
+                        <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50">Última verificación de asistencia</td>
+                        <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">
+                          {new Date(verificacion.hora_ultima_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                         </td>
                       </tr>
                     )}
@@ -975,19 +1052,26 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     })()}
                   </div>
 
-                  {/* Nota de quórum verificado por pregunta */}
-                  {verificacion && verificacion.total_verificados > 0 && (
-                    <div className="ml-10 mt-2 mb-1">
-                      <p className="text-xs text-gray-500 italic border-l-2 border-indigo-300 pl-2">
-                        Al momento de la votación de esta pregunta, el{' '}
-                        <strong>{verificacion.porcentaje_verificado.toFixed(2)}%</strong> del coeficiente de copropiedad
-                        ({verificacion.total_verificados} unidades) había verificado asistencia.{' '}
-                        {verificacion.quorum_alcanzado
-                          ? 'Quórum alcanzado según Ley 675 de 2001, Art. 45 (>50%).'
-                          : 'Quórum no alcanzado según Ley 675 de 2001, Art. 45 (se requiere >50%).'}
-                      </p>
-                    </div>
-                  )}
+                  {/* Nota de quórum verificado: snapshot al momento exacto de esta pregunta */}
+                  {(() => {
+                    const snap = verificacionPorPregunta[pregunta.id]
+                    if (!snap || snap.total_verificados === 0) return null
+                    const horaCorte = snap.corte_timestamp
+                      ? new Date(snap.corte_timestamp).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+                      : null
+                    return (
+                      <div className="ml-10 mt-2 mb-1">
+                        <p className="text-xs text-gray-500 italic border-l-2 border-indigo-300 pl-2">
+                          Al momento de esta votación{horaCorte ? ` (${horaCorte})` : ''},{' '}
+                          el <strong>{snap.porcentaje_verificado.toFixed(2)}%</strong> del coeficiente de copropiedad
+                          ({snap.total_verificados} unidades) había verificado asistencia.{' '}
+                          {snap.quorum_alcanzado
+                            ? 'Quórum alcanzado según Ley 675 de 2001, Art. 45 (>50%).'
+                            : 'Quórum no alcanzado según Ley 675 de 2001, Art. 45 (se requiere >50%).'}
+                        </p>
+                      </div>
+                    )
+                  })()}
 
                   {/* Auditoría de transacciones (siempre visible para auditoría) */}
                   <div className="ml-10 mt-3">
