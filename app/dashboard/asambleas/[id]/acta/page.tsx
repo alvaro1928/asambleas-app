@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Download, FileText, Printer, Loader2 } from 'lucide-react'
+import { ArrowLeft, Download, FileText, Loader2, Printer, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/providers/ToastProvider'
@@ -1037,9 +1037,17 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
       {/* Modal: Certificado y cómo verificar (no forma parte del acta descargada) */}
       <Dialog open={showVerificacionModal} onOpenChange={setShowVerificacionModal}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl relative">
+          <button
+            type="button"
+            onClick={() => setShowVerificacionModal(false)}
+            className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+            aria-label="Cerrar"
+          >
+            <X className="w-5 h-5" />
+          </button>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 pr-8">
               <FileText className="w-5 h-5 text-emerald-600" />
               Certificado blockchain y verificación OpenTimestamps
             </DialogTitle>
