@@ -357,11 +357,12 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       setPreguntasAvance(avances)
       setPreguntasConResultados(conResultados)
 
-      // Stats de verificación para el contexto actual (pregunta abierta si hay, o general)
+      // Stats de verificación para el contexto actual (solo sesión actual: al reactivar es nueva ronda)
       const preguntaAbiertaId = (preguntasData && preguntasData.length > 0) ? preguntasData[0].id : null
       const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
         p_asamblea_id: params.id,
-        p_pregunta_id: preguntaAbiertaId
+        p_pregunta_id: preguntaAbiertaId,
+        p_solo_sesion_actual: true
       })
       if (verData?.length) {
         const v = verData[0] as VerificacionStats
@@ -379,6 +380,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         const { data: desgloseData } = await supabase.rpc('calcular_verificacion_quorum_desglose', {
           p_asamblea_id: params.id,
           p_pregunta_id: preguntaAbiertaId,
+          p_solo_sesion_actual: true,
         })
         if (desgloseData?.length && desgloseData[0]) {
           const d = desgloseData[0] as {
@@ -443,30 +445,18 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       }))
       setFaltantes(faltantesList)
 
-      // Si la verificación de quórum está activa, cargar paneles "Ya verificaron" / "Faltan por verificar"
+      // Si la verificación de quórum está activa, cargar paneles "Ya verificaron" / "Faltan por verificar" (solo sesión actual)
       if (asambleaFresh?.verificacion_asistencia_activa && orgId) {
         const preguntaId = (asambleaFresh as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null
         let idsVerificados = new Set<string>()
-        const { data: qaData, error: qaError } = await supabase
-          .from('verificacion_asistencia_registro')
-          .select('quorum_asamblea(unidad_id)')
-          .eq('asamblea_id', params.id)
-          .is('pregunta_id', preguntaId)
-        if (!qaError && qaData?.length !== undefined) {
+        const { data: idsSesion, error: rpcError } = await supabase.rpc('unidad_ids_verificados_sesion_actual', {
+          p_asamblea_id: params.id,
+          p_pregunta_id: preguntaId,
+        })
+        if (!rpcError && idsSesion?.length !== undefined) {
           idsVerificados = new Set(
-            (qaData || []).map((r: { quorum_asamblea?: { unidad_id?: string } | { unidad_id?: string }[] | null }) => {
-              const qa = r.quorum_asamblea
-              const id = Array.isArray(qa) ? qa[0]?.unidad_id : qa?.unidad_id
-              return id
-            }).filter(Boolean) as string[]
+            (idsSesion as { unidad_id: string }[]).map((r) => r.unidad_id).filter(Boolean)
           )
-        } else {
-          const { data: fallback } = await supabase
-            .from('quorum_asamblea')
-            .select('unidad_id')
-            .eq('asamblea_id', params.id)
-            .eq('verifico_asistencia', true)
-          idsVerificados = new Set((fallback || []).map((r: { unidad_id: string }) => r.unidad_id).filter(Boolean))
         }
         const soloDemo = asambleaFresh?.is_demo === true && !(asambleaFresh?.sandbox_usar_unidades_reales === true)
         let qUnidades = supabase
@@ -539,7 +529,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         setVerificacionActiva(nuevoValor)
         const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
           p_asamblea_id: params.id,
-          p_pregunta_id: preguntaAbiertaId
+          p_pregunta_id: preguntaAbiertaId,
+          p_solo_sesion_actual: true,
         })
         if (verData?.length) {
           const v = verData[0]
