@@ -132,6 +132,9 @@ export async function POST(request: NextRequest) {
     const adminIp =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
       request.headers.get('x-real-ip') ||
+      request.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-client-ip') ||
+      request.headers.get('cf-connecting-ip') ||
       null
 
     const results: Array<{ pregunta_id: string; success: boolean; error?: string }> = []
