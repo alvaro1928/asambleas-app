@@ -33,7 +33,10 @@ import {
   ChevronUp,
   MessageCircle,
   Mail,
-  UserCheck
+  UserCheck,
+  ShieldCheck,
+  Link2,
+  Link2Off
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -72,6 +75,8 @@ interface Asamblea {
   activated_at?: string | null
   /** Cuando true, aparece popup de verificación en la página de votación */
   verificacion_asistencia_activa?: boolean
+  /** Token para enlace de asistente delegado (generar/revocar en Acceso Público) */
+  token_delegado?: string | null
 }
 
 interface Pregunta {
@@ -144,6 +149,19 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   interface VerifStats { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
   const [statsVerificacion, setStatsVerificacion] = useState<VerifStats | null>(null)
   const [togglingVerif, setTogglingVerif] = useState(false)
+
+  // Acceso Público: secciones colapsables
+  const [openEnlaceAcceso, setOpenEnlaceAcceso] = useState(true)
+  const [openVerifAcceso, setOpenVerifAcceso] = useState(false)
+  const [openDelegadoAcceso, setOpenDelegadoAcceso] = useState(false)
+  const [openDesactivarAcceso, setOpenDesactivarAcceso] = useState(false)
+  // Delegado (token enlace asistente)
+  const [generandoToken, setGenerandoToken] = useState(false)
+  const [copiadoToken, setCopiadoToken] = useState(false)
+  const urlDelegado =
+    asamblea?.token_delegado && asamblea?.codigo_acceso
+      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/asistir/${asamblea.codigo_acceso}?t=${asamblea.token_delegado}`
+      : ''
 
   // Dialog de eliminar pregunta
   const [deletingPregunta, setDeletingPregunta] = useState<Pregunta | null>(null)
@@ -1313,6 +1331,47 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
+  const generarTokenDelegado = async () => {
+    if (generandoToken || !asamblea) return
+    setGenerandoToken(true)
+    try {
+      const res = await fetch('/api/delegado/configurar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: asamblea.id }),
+      })
+      const data = await res.json()
+      if (data?.ok && data?.token) setAsamblea({ ...asamblea, token_delegado: data.token })
+    } finally {
+      setGenerandoToken(false)
+    }
+  }
+
+  const revocarTokenDelegado = async () => {
+    if (generandoToken || !asamblea) return
+    setGenerandoToken(true)
+    try {
+      const res = await fetch('/api/delegado/configurar', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: asamblea.id }),
+      })
+      const data = await res.json()
+      if (data?.ok) setAsamblea({ ...asamblea, token_delegado: null })
+    } finally {
+      setGenerandoToken(false)
+    }
+  }
+
+  const copiarEnlaceDelegado = async () => {
+    if (!urlDelegado) return
+    try {
+      await navigator.clipboard.writeText(urlDelegado)
+      setCopiadoToken(true)
+      setTimeout(() => setCopiadoToken(false), 2000)
+    } catch { /* ignore */ }
+  }
+
   const handleReiniciarSimulacion = async () => {
     if (!asamblea?.is_demo) return
     setReiniciandoDemo(true)
@@ -1941,112 +2000,135 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     <span className="inline-block px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">✓ Votación activa</span>
 
-                    {/* URL para Compartir */}
-                    <div>
-                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        Enlace de Votación
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={asamblea.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea.url_publica || '')}
-                          readOnly
-                          className="flex-1 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-xs text-gray-700 dark:text-gray-300"
-                        />
-                        <Button
-                          onClick={() => handleCopiarTexto(asamblea.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea.url_publica || ''), 'URL')}
-                          variant="outline"
-                          size="sm"
-                          title="Copiar el enlace de votación al portapapeles"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Botones de Acción */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        onClick={openModalEnviarEnlace}
-                        className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
-                        size="sm"
-                        title="Enviar el enlace por WhatsApp o correo a cada unidad por separado (no se ven entre sí)"
-                      >
-                        <MessageCircle className="w-4 h-4 mr-1" />
-                        Enviar a cada uno
-                      </Button>
-                      <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="w-full" title="Ver código QR para que los residentes escaneen y voten">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-                          title="Ver código QR para compartir"
-                        >
-                          <QrCode className="w-4 h-4 mr-1" />
-                          Ver QR
-                        </Button>
-                      </Link>
-                      <div className="col-span-2" />
-                    </div>
-
-                    {/* Verificación de quórum: activar/desactivar y registrar asistencia */}
-                    <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Verificación de quórum</p>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          onClick={handleToggleVerificacion}
-                          disabled={togglingVerif}
-                          size="sm"
-                          className={
-                            asamblea.verificacion_asistencia_activa
-                              ? 'bg-green-600 hover:bg-green-700 text-white'
-                              : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                          }
-                        >
-                          {togglingVerif ? (
-                            <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block mr-1.5" />
-                          ) : (
-                            <UserCheck className="w-4 h-4 mr-1.5" />
-                          )}
-                          {asamblea.verificacion_asistencia_activa ? 'Desactivar verificación' : 'Activar verificación'}
-                        </Button>
-                        <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="inline-flex" title="Registrar asistencia manual de unidades">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
-                          >
-                            <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                            Registrar asistencia
-                          </Button>
-                        </Link>
-                      </div>
-                      {statsVerificacion && (statsVerificacion.total_verificados > 0 || asamblea.verificacion_asistencia_activa) && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          Asistencia verificada: {statsVerificacion.porcentaje_verificado.toFixed(1)}% ({statsVerificacion.total_verificados} unidades)
-                          {statsVerificacion.quorum_alcanzado && (
-                            <span className="ml-1.5 text-green-600 dark:text-green-400 font-medium">· Quórum alcanzado (Ley 675)</span>
-                          )}
-                        </p>
+                    {/* 1. Enlace de votación — colapsable */}
+                    <div className="rounded-2xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-900/50">
+                      <button type="button" onClick={() => setOpenEnlaceAcceso((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                          <LinkIcon className="w-4 h-4 shrink-0" />
+                          Enlace de votación
+                        </span>
+                        {openEnlaceAcceso ? <ChevronUp className="w-4 h-4 text-gray-500 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />}
+                      </button>
+                      {openEnlaceAcceso && (
+                        <div className="px-3 pb-3 pt-0 border-t border-gray-200 dark:border-gray-600 space-y-2">
+                          <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                            <input type="text" value={asamblea.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea.url_publica || '')} readOnly className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-xs text-gray-700 dark:text-gray-300" />
+                            <Button onClick={() => handleCopiarTexto(asamblea.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea.url_publica || ''), 'URL')} variant="outline" size="sm" title="Copiar enlace" className="shrink-0">
+                              <Copy className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">Copiar</span>
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <Button onClick={openModalEnviarEnlace} size="sm" className="bg-green-600 hover:bg-green-700 text-white w-full">
+                              <MessageCircle className="w-4 h-4 mr-1" /> Enviar a cada uno
+                            </Button>
+                            <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="w-full" title="Ver QR">
+                              <Button variant="outline" size="sm" className="w-full border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400">
+                                <QrCode className="w-4 h-4 mr-1" /> Ver QR
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
                       )}
                     </div>
-                    
-                    <Button
-                      onClick={handleDesactivarVotacion}
-                      variant="outline"
-                      size="sm"
-                      className="w-full border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                    >
-                      <Lock className="w-4 h-4 mr-1" />
-                      Desactivar Votación
-                    </Button>
 
-                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                    {/* 2. Verificación de quórum — colapsable */}
+                    <div className="rounded-2xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-900/50">
+                      <button type="button" onClick={() => setOpenVerifAcceso((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                          <UserCheck className="w-4 h-4 shrink-0" />
+                          Verificación de quórum
+                          {statsVerificacion && (statsVerificacion.total_verificados > 0 || asamblea.verificacion_asistencia_activa) && (
+                            <span className={statsVerificacion.quorum_alcanzado ? 'text-green-600 dark:text-green-400' : 'text-gray-500'}>
+                              {statsVerificacion.porcentaje_verificado.toFixed(1)}% · {statsVerificacion.quorum_alcanzado ? 'Quórum' : 'Sin quórum'}
+                            </span>
+                          )}
+                        </span>
+                        {openVerifAcceso ? <ChevronUp className="w-4 h-4 text-gray-500 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />}
+                      </button>
+                      {openVerifAcceso && (
+                        <div className="px-3 pb-3 pt-0 border-t border-gray-200 dark:border-gray-600 space-y-2 pt-2">
+                          <div className="flex flex-wrap gap-2">
+                            <Button type="button" onClick={handleToggleVerificacion} disabled={togglingVerif} size="sm" className={asamblea.verificacion_asistencia_activa ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}>
+                              {togglingVerif ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block mr-1.5" /> : <UserCheck className="w-4 h-4 mr-1.5" />}
+                              {asamblea.verificacion_asistencia_activa ? 'Desactivar verificación' : 'Activar verificación'}
+                            </Button>
+                            <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="inline-flex">
+                              <Button type="button" variant="outline" size="sm" className="border-gray-300 dark:border-gray-600">
+                                <CheckCircle2 className="w-4 h-4 mr-1.5" /> Registrar asistencia
+                              </Button>
+                            </Link>
+                          </div>
+                          {statsVerificacion && (statsVerificacion.total_verificados > 0 || asamblea.verificacion_asistencia_activa) && (
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              Asistencia verificada: {statsVerificacion.porcentaje_verificado.toFixed(1)}% ({statsVerificacion.total_verificados} unidades)
+                              {statsVerificacion.quorum_alcanzado && <span className="ml-1.5 text-green-600 dark:text-green-400 font-medium">· Quórum alcanzado (Ley 675)</span>}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 3. Acceso de asistente delegado — colapsable */}
+                    <div className="rounded-2xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-900/50">
+                      <button type="button" onClick={() => setOpenDelegadoAcceso((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: asamblea.token_delegado ? '#818cf8' : undefined }} />
+                          Acceso de asistente delegado
+                          {asamblea.token_delegado && <span className="text-indigo-600 dark:text-indigo-400 text-xs">Activo</span>}
+                        </span>
+                        {openDelegadoAcceso ? <ChevronUp className="w-4 h-4 text-gray-500 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />}
+                      </button>
+                      {openDelegadoAcceso && (
+                        <div className="px-3 pb-3 pt-0 border-t border-gray-200 dark:border-gray-600 space-y-2 pt-2">
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {asamblea.token_delegado ? 'Activo — copia el enlace y dáselo a tu asistente' : 'Permite que otra persona registre asistencia y votos en tu nombre'}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {asamblea.token_delegado ? (
+                              <Button type="button" onClick={revocarTokenDelegado} disabled={generandoToken} size="sm" className="bg-red-600 hover:bg-red-700 text-white">
+                                <Link2Off className="w-4 h-4 mr-1.5" /> Revocar acceso
+                              </Button>
+                            ) : (
+                              <Button type="button" onClick={generarTokenDelegado} disabled={generandoToken} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                                {generandoToken ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block mr-1.5" /> : <Link2 className="w-4 h-4 mr-1.5" />}
+                                Generar enlace
+                              </Button>
+                            )}
+                          </div>
+                          {asamblea.token_delegado && urlDelegado && (
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <input type="text" readOnly value={urlDelegado} className="flex-1 min-w-0 px-3 py-2 text-xs bg-white dark:bg-gray-900 border rounded font-mono" aria-label="Enlace delegado" />
+                              <Button type="button" onClick={copiarEnlaceDelegado} size="sm" variant="outline" className="shrink-0">
+                                <Copy className="w-4 h-4 mr-1" /> {copiadoToken ? '¡Copiado!' : 'Copiar'}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 4. Desactivar votación — colapsable */}
+                    <div className="rounded-2xl border border-red-200 dark:border-red-900/50 overflow-hidden bg-red-50/50 dark:bg-red-900/10">
+                      <button type="button" onClick={() => setOpenDesactivarAcceso((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors">
+                        <span className="text-xs font-semibold text-red-700 dark:text-red-300 flex items-center gap-2">
+                          <Lock className="w-4 h-4 shrink-0" />
+                          Desactivar votación
+                        </span>
+                        {openDesactivarAcceso ? <ChevronUp className="w-4 h-4 text-red-500 shrink-0" /> : <ChevronDown className="w-4 h-4 text-red-500 shrink-0" />}
+                      </button>
+                      {openDesactivarAcceso && (
+                        <div className="px-3 pb-3 pt-0 border-t border-red-200 dark:border-red-900/50 pt-2">
+                          <Button onClick={handleDesactivarVotacion} variant="outline" size="sm" className="w-full border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                            <Lock className="w-4 h-4 mr-1" /> Desactivar votación
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center pt-1">
                       Comparte el enlace o el QR con los residentes para que puedan votar
                     </p>
                   </div>

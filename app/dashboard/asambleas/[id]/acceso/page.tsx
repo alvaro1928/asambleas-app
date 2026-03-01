@@ -22,8 +22,6 @@ import {
   Maximize2,
   X,
   Link2,
-  Link2Off,
-  ShieldCheck,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react'
@@ -126,7 +124,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [searchVerificados, setSearchVerificados] = useState('')
   const [searchFaltanVerificar, setSearchFaltanVerificar] = useState('')
   const [openVerificacion, setOpenVerificacion] = useState(false)
-  const [openDelegado, setOpenDelegado] = useState(false)
   const [openEnlace, setOpenEnlace] = useState(true)
   const [loading, setLoading] = useState(true)
   const [recargando, setRecargando] = useState(false)
@@ -160,56 +157,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [statsVerificacion, setStatsVerificacion] = useState<VerificacionStats | null>(null)
 
   // Enlace delegado
-  const [tokenDelegado, setTokenDelegado] = useState<string | null | undefined>(undefined)
-  const [generandoToken, setGenerandoToken] = useState(false)
-  const [copiadoToken, setCopiadoToken] = useState(false)
-
-  const urlDelegado =
-    tokenDelegado && asamblea?.codigo_acceso
-      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/asistir/${asamblea.codigo_acceso}?t=${tokenDelegado}`
-      : ''
-
-  const generarToken = async () => {
-    if (generandoToken) return
-    setGenerandoToken(true)
-    try {
-      const res = await fetch('/api/delegado/configurar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ asamblea_id: params.id }),
-      })
-      const data = await res.json()
-      if (data.ok) setTokenDelegado(data.token)
-    } finally {
-      setGenerandoToken(false)
-    }
-  }
-
-  const revocarToken = async () => {
-    if (generandoToken) return
-    setGenerandoToken(true)
-    try {
-      const res = await fetch('/api/delegado/configurar', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ asamblea_id: params.id }),
-      })
-      const data = await res.json()
-      if (data.ok) setTokenDelegado(null)
-    } finally {
-      setGenerandoToken(false)
-    }
-  }
-
-  const copiarEnlaceDelegado = async () => {
-    if (!urlDelegado) return
-    try {
-      await navigator.clipboard.writeText(urlDelegado)
-      setCopiadoToken(true)
-      setTimeout(() => setCopiadoToken(false), 2000)
-    } catch { /* ignore */ }
-  }
-
   // Modal registro manual de asistencia
   interface UnidadConAsistencia extends UnidadFila {
     ya_verifico: boolean
@@ -257,7 +204,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       const { data, error } = await supabase
         .from('asambleas')
-        .select('id, nombre, codigo_acceso, estado, organization_id, is_demo, sandbox_usar_unidades_reales, verificacion_asistencia_activa, token_delegado')
+        .select('id, nombre, codigo_acceso, estado, organization_id, is_demo, sandbox_usar_unidades_reales, verificacion_asistencia_activa')
         .eq('id', params.id)
         .eq('organization_id', selectedConjuntoId)
         .single()
@@ -265,7 +212,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       if (error) throw error
       setAsamblea(data)
       setVerificacionActiva(!!(data as any).verificacion_asistencia_activa)
-      setTokenDelegado((data as any).token_delegado ?? null)
       const siteUrl = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL) ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '') : 'https://www.asamblea.online'
       setUrlPublica(`${siteUrl}/votar/${data.codigo_acceso}`)
       if (data.organization_id) {
@@ -830,46 +776,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       {statsVerificacion.porcentaje_verificado.toFixed(1)}%
                     </span>
                     <span className="text-slate-400">({statsVerificacion.total_verificados} un. · coef. {statsVerificacion.coeficiente_verificado.toFixed(4)}%)</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 3. Acceso de asistente delegado — collapsable */}
-          <div className="w-full mb-3 rounded-3xl border overflow-hidden" style={{ backgroundColor: tokenDelegado ? 'rgba(99,102,241,0.08)' : 'rgba(15,23,42,0.6)', borderColor: tokenDelegado ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.1)' }}>
-            <button type="button" onClick={() => setOpenDelegado((v) => !v)}
-              className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-white/5 transition-colors">
-              <div className="flex items-center gap-2 min-w-0">
-                <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: tokenDelegado ? '#818cf8' : '#94a3b8' }} />
-                <span className="text-sm font-semibold text-slate-200">Acceso de asistente delegado</span>
-                {tokenDelegado && <span className="text-xs font-medium text-indigo-300">Activo</span>}
-              </div>
-              {openDelegado ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
-            </button>
-            {openDelegado && (
-              <div className="px-4 pb-4 pt-0 space-y-3 border-t border-white/10">
-                <p className="text-xs text-slate-400 pt-2">
-                  {tokenDelegado ? 'Activo — copia el enlace y dáselo a tu asistente' : 'Permite que otra persona registre asistencia y votos en tu nombre'}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {tokenDelegado ? (
-                    <Button type="button" onClick={revocarToken} disabled={generandoToken} className="rounded-2xl text-sm font-semibold py-2 px-4 bg-red-700 hover:bg-red-800 text-white">
-                      <Link2Off className="w-4 h-4 mr-1.5" /> Revocar acceso
-                    </Button>
-                  ) : (
-                    <Button type="button" onClick={generarToken} disabled={generandoToken} className="rounded-2xl text-sm font-semibold py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white">
-                      {generandoToken ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block mr-1.5" /> : <Link2 className="w-4 h-4 mr-1.5" />}
-                      Generar enlace
-                    </Button>
-                  )}
-                </div>
-                {tokenDelegado && urlDelegado && (
-                  <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                    <input type="text" readOnly value={urlDelegado} className="flex-1 min-w-0 px-3 py-2 text-xs bg-white/5 border border-[rgba(255,255,255,0.1)] rounded-2xl text-slate-300 truncate font-mono" aria-label="Enlace del asistente delegado" />
-                    <Button type="button" onClick={copiarEnlaceDelegado} className="shrink-0 rounded-2xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 py-2 px-4">
-                      <Copy className="w-4 h-4" /> {copiadoToken ? '¡Copiado!' : 'Copiar'}
-                    </Button>
                   </div>
                 )}
               </div>
