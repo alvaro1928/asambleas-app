@@ -223,11 +223,22 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     loadAvanceVotaciones()
 
     const interval = setInterval(() => {
+      loadAsamblea()
       loadAsistentes(true)
       loadAvanceVotaciones()
     }, 10000)
 
-    return () => clearInterval(interval)
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadAsamblea()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run on mount and when id changes; loaders are stable
   }, [params.id])
 

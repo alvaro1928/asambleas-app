@@ -808,10 +808,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </p>
         )}
 
-        {/* ── VERIFICACIÓN INICIAL (visible aunque no haya preguntas/votos) ── */}
+        {/* ── REGISTRO DE VERIFICACIÓN DE QUÓRUM — ASAMBLEA EN GENERAL (visible aunque no haya preguntas/votos) ── */}
         {verificacion && verificacion.total_verificados > 0 && !quorum && (
           <section className="mb-8 break-inside-avoid">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-3 pb-1 border-b border-gray-200">Verificación de asistencia</h2>
+            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-1 pb-1 border-b border-gray-200">Registros de verificación de quórum</h2>
+            <p className="text-xs text-gray-500 mb-3">Verificación de asistencia asociada a la asamblea en general (inicial o sin preguntas abiertas).</p>
+            <h3 className="text-xs font-semibold text-gray-600 mb-2">Asamblea en general</h3>
             <table className="w-full border-collapse text-sm">
               <tbody>
                 <tr>
@@ -887,9 +889,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     <td className="border border-gray-200 px-3 py-2 text-gray-900">{totalPoderes} unidades — coef. delegado {Math.min(100, coefPoderes).toFixed(2)}%</td>
                   </tr>
                 )}
-                {/* Filas de verificación de asistencia */}
+                {/* Registro de verificación de asistencia — asamblea en general */}
                 {verificacion && verificacion.total_verificados > 0 && (
                   <>
+                    <tr>
+                      <td colSpan={2} className="border border-gray-200 px-3 py-2 text-xs font-bold uppercase text-indigo-700 bg-indigo-50">Verificación de asistencia (asamblea en general)</td>
+                    </tr>
                     <tr>
                       <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50">Unidades que verificaron asistencia</td>
                       <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">{verificacion.total_verificados}</td>
@@ -930,6 +935,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         {/* ── RESULTADOS POR PREGUNTA ── */}
         <section>
           <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4 pb-1 border-b border-gray-200">Resultados por pregunta</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Para cada pregunta se indican los resultados de votación y el registro de verificación de quórum al momento de esa votación. Las verificaciones de la asamblea en general figuran en la sección anterior.
+          </p>
           <div className="space-y-10">
             {preguntas.map((pregunta, idx) => {
               const stats = estadisticas[pregunta.id]
@@ -1052,7 +1060,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     })()}
                   </div>
 
-                  {/* Nota de quórum verificado: snapshot al momento exacto de esta pregunta */}
+                  {/* Registro de verificación de quórum asociada a esta pregunta */}
                   {(() => {
                     const snap = verificacionPorPregunta[pregunta.id]
                     if (!snap || snap.total_verificados === 0) return null
@@ -1061,6 +1069,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       : null
                     return (
                       <div className="ml-10 mt-2 mb-1">
+                        <p className="text-xs font-semibold text-indigo-700 mb-0.5">Verificación de quórum (asociada a esta pregunta)</p>
                         <p className="text-xs text-gray-500 italic border-l-2 border-indigo-300 pl-2">
                           Al momento de esta votación{horaCorte ? ` (${horaCorte})` : ''},{' '}
                           el <strong>{snap.porcentaje_verificado.toFixed(2)}%</strong> del coeficiente de copropiedad

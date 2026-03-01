@@ -690,6 +690,26 @@ export default function VotacionPublicaPage() {
     }
   }
 
+  // Cargar estado de verificación de quórum en cuanto tengamos asamblea (sin depender de preguntas ni step 'votar')
+  useEffect(() => {
+    if (!asamblea?.asamblea_id || step === 'validando' || step === 'error') return
+    const fetchActiva = async () => {
+      try {
+        const { data } = await supabase
+          .from('asambleas')
+          .select('verificacion_asistencia_activa')
+          .eq('id', asamblea.asamblea_id)
+          .single()
+        if (data) setVerificacionActiva(!!(data as { verificacion_asistencia_activa?: boolean }).verificacion_asistencia_activa)
+      } catch {
+        // ignorar
+      }
+    }
+    fetchActiva()
+    const interval = setInterval(fetchActiva, 10000)
+    return () => clearInterval(interval)
+  }, [asamblea?.asamblea_id, step])
+
   // Función auxiliar: refresca flag de verificación + stats de quórum verificado
   const refrescarVerificacion = async (asambleaId: string, emailVotante?: string) => {
     try {
@@ -726,23 +746,25 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  // Polling: re-fetch unidades/poderes y listado de preguntas cada 10 s (para que al agregar un poder o cerrar/abrir pregunta el votante vea el cambio sin refrescar)
+  // Polling: en consentimiento y votar, cargar yaVerifico + stats; en votar además re-fetch unidades/preguntas cada 10 s
   useEffect(() => {
-    if (step !== 'votar' || !asamblea || !email.trim()) return
+    const enPantallaVotacion = step === 'consentimiento' || step === 'votar'
+    if (!enPantallaVotacion || !asamblea || !email.trim()) return
 
-    // Carga inicial de verificación — incluye email para detectar si ya verificó antes
+    // Carga inicial de verificación (incluye email para saber si ya verificó)
     refrescarVerificacion(asamblea.asamblea_id, email.trim())
 
     const timeout = setTimeout(() => {
       const interval = setInterval(async () => {
         try {
-          const nuevasUnidades = await refrescarUnidades()
-          if (nuevasUnidades.length > 0) {
-            await cargarPreguntas(nuevasUnidades)
-            await cargarHistorial(nuevasUnidades)
+          if (step === 'votar') {
+            const nuevasUnidades = await refrescarUnidades()
+            if (nuevasUnidades.length > 0) {
+              await cargarPreguntas(nuevasUnidades)
+              await cargarHistorial(nuevasUnidades)
+            }
           }
-          // Actualizar estado de verificación de quórum (sin email en polling, ya tenemos yaVerifico)
-          await refrescarVerificacion(asamblea.asamblea_id)
+          await refrescarVerificacion(asamblea.asamblea_id, email.trim())
         } catch {
           // Ignorar errores de red o validación en background
         }
@@ -932,6 +954,7 @@ export default function VotacionPublicaPage() {
   if (step === 'consentimiento') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-light to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 overflow-x-hidden">
+        {/* Sin aceptar el EULA no se puede verificar quórum: el popup de verificación solo aparece en step 'votar' */}
         <div className="max-w-md w-full min-w-0 bg-surface dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-border dark:border-gray-700">
           <StepIndicator pasoActual="consentimiento" />
           <div className="text-center mb-4 sm:mb-6">
@@ -1096,7 +1119,7 @@ export default function VotacionPublicaPage() {
                 Verificación de Asistencia
               </DialogTitle>
               <DialogDescription>
-                El administrador solicita confirmar que estás presente en esta asamblea. Al confirmar, quedará registro oficial de tu asistencia en el acta.
+                El administrador solicita confirmar que estás presente. La pantalla permanecerá bloqueada hasta que verifique su asistencia o el administrador cierre la verificación (una de las dos).
               </DialogDescription>
             </DialogHeader>
             {statsVerificacion && statsVerificacion.total_verificados > 0 && (
@@ -1107,17 +1130,9 @@ export default function VotacionPublicaPage() {
                 </span>
               </div>
             )}
-            <div className="flex gap-3 pt-2">
+            <div className="pt-2">
               <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setYaVerifico(true)}
-                disabled={verificando}
-              >
-                Más tarde
-              </Button>
-              <Button
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
                 onClick={handleVerificarAsistencia}
                 disabled={verificando}
               >
