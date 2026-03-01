@@ -96,6 +96,7 @@ interface VotoFinalUnidad {
   nombre_propietario: string | null
   opcion_texto: string
   coeficiente: number
+  es_poder?: boolean
 }
 
 export default function ActaPage({ params }: { params: { id: string } }) {
@@ -108,8 +109,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [quorum, setQuorum] = useState<Quorum | null>(null)
   interface VerifStatsActa { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean; hora_verificacion?: string; hora_ultima_verificacion?: string }
   interface VerifPorPregunta { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean; corte_timestamp?: string }
-  /** Sesiones de verificación general (cada vez que se abrió/cerró): para listar múltiples en el acta */
-  interface SesionVerificacion { apertura_at: string; cierre_at: string | null; total_verificados: number | null; coeficiente_verificado: number | null; porcentaje_verificado: number | null; quorum_alcanzado: boolean | null }
+  /** Sesiones de verificación (cada vez que se abrió/cerró). pregunta_id null = asamblea en general; no null = asociada a esa pregunta. */
+  interface SesionVerificacion { apertura_at: string; cierre_at: string | null; total_verificados: number | null; coeficiente_verificado: number | null; porcentaje_verificado: number | null; quorum_alcanzado: boolean | null; pregunta_id?: string | null }
   const [sesionesVerificacion, setSesionesVerificacion] = useState<SesionVerificacion[]>([])
   const [verificacion, setVerificacion] = useState<VerifStatsActa | null>(null)
   const [verificacionPorPregunta, setVerificacionPorPregunta] = useState<Record<string, VerifPorPregunta>>({})
@@ -260,20 +261,21 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       }
       setAuditoria(auditMap)
 
-      // Votaciones finales por pregunta: una fila por unidad con su opción elegida (último voto por unidad)
+      // Votaciones finales por pregunta: una fila por unidad con su opción elegida (último voto por unidad) y es_poder
       const votacionesFinalesMap: Record<string, VotoFinalUnidad[]> = {}
       for (const p of preguntasConOpciones) {
         const { data: votosPregunta } = await supabase
           .from('votos')
-          .select('unidad_id, opcion_id, created_at')
+          .select('unidad_id, opcion_id, created_at, es_poder')
           .eq('pregunta_id', p.id)
           .order('created_at', { ascending: false })
         // Quedarse con el último voto por unidad (created_at desc → primera aparición por unidad_id)
-        const porUnidad = new Map<string, { opcion_id: string }>()
+        const porUnidad = new Map<string, { opcion_id: string; es_poder: boolean }>()
         for (const v of votosPregunta || []) {
           const uid = (v as { unidad_id?: string }).unidad_id
           const oid = (v as { opcion_id?: string }).opcion_id
-          if (uid && oid && !porUnidad.has(uid)) porUnidad.set(uid, { opcion_id: oid })
+          const ep = !!(v as { es_poder?: boolean }).es_poder
+          if (uid && oid && !porUnidad.has(uid)) porUnidad.set(uid, { opcion_id: oid, es_poder: ep })
         }
         const unidadIds = Array.from(porUnidad.keys())
         if (unidadIds.length === 0) {
@@ -287,13 +289,15 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           .eq('is_demo', esDemoUnidades)
         const opcionesById = new Map(p.opciones.map((o) => [o.id, o.texto_opcion]))
         const lista: VotoFinalUnidad[] = (unidadesVotantes || []).map((u: any) => {
-          const opcionId = porUnidad.get(u.id)?.opcion_id
+          const entry = porUnidad.get(u.id)
+          const opcionId = entry?.opcion_id
           return {
             torre: u.torre ?? '',
             numero: u.numero ?? '',
             nombre_propietario: u.nombre_propietario ?? null,
             opcion_texto: opcionId ? (opcionesById.get(opcionId) ?? opcionId) : '—',
             coeficiente: Number(u.coeficiente) || 0,
+            es_poder: entry?.es_poder ?? false,
           }
         })
         lista.sort((a, b) => `${a.torre}-${a.numero}`.localeCompare(`${b.torre}-${b.numero}`))
@@ -308,11 +312,11 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         setQuorum(quorumData[0] as Quorum)
       }
 
-      // Cargar sesiones de verificación general (múltiples aperturas/cierres); si la tabla no existe aún, queda []
+      // Cargar sesiones de verificación (con pregunta_id: null = general, no null = por pregunta)
       try {
         const { data: sesionesData } = await supabase
           .from('verificacion_asamblea_sesiones')
-          .select('apertura_at, cierre_at, total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
+          .select('apertura_at, cierre_at, total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado, pregunta_id')
           .eq('asamblea_id', params.id)
           .order('apertura_at', { ascending: true })
         if (sesionesData && sesionesData.length > 0) {
@@ -823,16 +827,21 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </p>
         )}
 
-        {/* ── REGISTRO DE VERIFICACIÓN DE QUÓRUM — ASAMBLEA EN GENERAL (visible aunque no haya preguntas/votos) ── */}
-        {(sesionesVerificacion.length > 0 || (verificacion && verificacion.total_verificados > 0)) && !quorum && (
+        {/* ── REGISTRO DE VERIFICACIÓN DE QUÓRUM — ASAMBLEA EN GENERAL (solo sesiones con pregunta_id null) ── */}
+        {(() => {
+          const sesionesGenerales = sesionesVerificacion.filter((s) => s.pregunta_id == null)
+          return (sesionesGenerales.length > 0 || (verificacion && verificacion.total_verificados > 0)) && !quorum
+        })() && (
           <section className="mb-8 break-inside-avoid">
             <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-1 pb-1 border-b border-gray-200">Registros de verificación de quórum</h2>
             <p className="text-xs text-gray-500 mb-3">Verificación de asistencia asociada a la asamblea en general (inicial o sin preguntas abiertas). Cada vez que se abrió y cerró la verificación se registra una sesión con fecha y hora.</p>
             <h3 className="text-xs font-semibold text-gray-600 mb-2">Asamblea en general</h3>
 
-            {sesionesVerificacion.length > 0 ? (
+            {(() => {
+              const sesionesGenerales = sesionesVerificacion.filter((s) => s.pregunta_id == null)
+              return sesionesGenerales.length > 0 ? (
               <div className="space-y-4">
-                {sesionesVerificacion.map((sesion, idx) => (
+                {sesionesGenerales.map((sesion, idx) => (
                   <table key={idx} className="w-full border-collapse text-sm mb-4">
                     <tbody>
                       <tr className="bg-indigo-50">
@@ -899,7 +908,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                   )}
                 </tbody>
               </table>
-            )}
+            ); })()}
           </section>
         )}
 
@@ -941,14 +950,17 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     <td className="border border-gray-200 px-3 py-2 text-gray-900">{totalPoderes} unidades — coef. delegado {Math.min(100, coefPoderes).toFixed(2)}%</td>
                   </tr>
                 )}
-                {/* Registro de verificación de asistencia — asamblea en general (múltiples sesiones o uno legacy) */}
-                {(sesionesVerificacion.length > 0 || (verificacion && verificacion.total_verificados > 0)) && (
+                {/* Registro de verificación de asistencia — asamblea en general (solo sesiones con pregunta_id null) */}
+                {(() => {
+                  const sesionesGeneralesResumen = sesionesVerificacion.filter((s) => s.pregunta_id == null)
+                  return (sesionesGeneralesResumen.length > 0 || (verificacion && verificacion.total_verificados > 0))
+                })() && (
                   <>
                     <tr>
                       <td colSpan={2} className="border border-gray-200 px-3 py-2 text-xs font-bold uppercase text-indigo-700 bg-indigo-50">Verificación de asistencia (asamblea en general)</td>
                     </tr>
-                    {sesionesVerificacion.length > 0 ? (
-                      sesionesVerificacion.map((sesion, idx) => (
+                    {sesionesVerificacion.filter((s) => s.pregunta_id == null).length > 0 ? (
+                      sesionesVerificacion.filter((s) => s.pregunta_id == null).map((sesion, idx) => (
                         <tr key={idx}>
                           <td colSpan={2} className="border border-gray-200 px-3 py-2 text-xs bg-indigo-50/50">
                             <strong>Sesión {idx + 1}:</strong> apertura {new Date(sesion.apertura_at).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
@@ -1108,7 +1120,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       <tbody>
                         {votosFinales.length > 0 ? votosFinales.map((row, i) => (
                           <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                            <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.torre}-{row.numero}</td>
+                            <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.es_poder ? 'Poder ' : ''}{row.torre}-{row.numero}</td>
                             <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.nombre_propietario ?? '—'}</td>
                             <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.opcion_texto}</td>
                             <td className="border border-gray-200 px-2 py-1 text-right">{row.coeficiente.toFixed(2)}%</td>
@@ -1129,9 +1141,17 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     })()}
                   </div>
 
-                  {/* Registro de verificación de quórum asociada a esta pregunta (preguntas abiertas) */}
+                  {/* Registro de verificación de quórum asociada a esta pregunta: sesión cerrada con pregunta_id o fallback por corte */}
                   {(() => {
-                    const snap = verificacionPorPregunta[pregunta.id]
+                    const sesionPregunta = sesionesVerificacion.find((s) => s.pregunta_id === pregunta.id && s.cierre_at != null)
+                    const snap = sesionPregunta
+                      ? {
+                          total_verificados: sesionPregunta.total_verificados ?? 0,
+                          porcentaje_verificado: Number(sesionPregunta.porcentaje_verificado) ?? 0,
+                          quorum_alcanzado: !!sesionPregunta.quorum_alcanzado,
+                          corte_timestamp: sesionPregunta.cierre_at ?? undefined,
+                        }
+                      : verificacionPorPregunta[pregunta.id]
                     if (!snap || snap.total_verificados === 0) return null
                     const horaCorte = snap.corte_timestamp
                       ? new Date(snap.corte_timestamp).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
@@ -1140,8 +1160,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       <div className="ml-10 mt-2 mb-1">
                         <p className="text-xs font-semibold text-indigo-700 mb-0.5">Registro de verificación de quórum (asociada a esta pregunta)</p>
                         <p className="text-xs text-gray-500 italic border-l-2 border-indigo-300 pl-2">
-                          Al momento de esta votación{horaCorte ? ` (${horaCorte})` : ''},{' '}
-                          el <strong>{snap.porcentaje_verificado.toFixed(2)}%</strong> del coeficiente de copropiedad
+                          {sesionPregunta ? 'Al cerrar la verificación' : 'Al momento de esta votación'}
+                          {horaCorte ? ` (${horaCorte})` : ''},{' '}
+                          el <strong>{Number(snap.porcentaje_verificado).toFixed(2)}%</strong> del coeficiente de copropiedad
                           ({snap.total_verificados} unidades) había verificado asistencia.{' '}
                           {snap.quorum_alcanzado
                             ? 'Quórum alcanzado según Ley 675 de 2001, Art. 45 (>50%).'
@@ -1172,7 +1193,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                               {row.votante_email}{row.votante_nombre ? ` (${row.votante_nombre})` : ''}
                             </td>
                             <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-word' }}>
-                              {row.unidad_torre}-{row.unidad_numero}{row.es_poder ? ' *' : ''}
+                              {row.es_poder ? 'Poder ' : ''}{row.unidad_torre}-{row.unidad_numero}
                             </td>
                             <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-word' }}>{row.opcion_seleccionada}</td>
                             <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-word' }}>

@@ -734,6 +734,7 @@ export default function VotacionPublicaPage() {
           supabase.rpc('calcular_verificacion_quorum', {
             p_asamblea_id: asambleaId,
             p_pregunta_id: preguntaId,
+            p_solo_sesion_actual: activa,
           }),
           emailVotante?.trim()
             ? supabase.rpc('ya_verifico_asistencia', {

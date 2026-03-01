@@ -483,11 +483,13 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         setQuorum(rpcData[0])
       }
 
-      // Stats de verificación para el contexto actual: pregunta abierta (si hay una) o general
+      // Stats de verificación para el contexto actual: pregunta abierta (si hay una) o general; solo sesión actual cuando verificación activa
       const preguntaAbiertaId = preguntas.find((p) => p.estado === 'abierta')?.id ?? null
+      const verifActiva = !!(asamblea?.verificacion_asistencia_activa)
       const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
         p_asamblea_id: params.id,
-        p_pregunta_id: preguntaAbiertaId
+        p_pregunta_id: preguntaAbiertaId,
+        p_solo_sesion_actual: verifActiva,
       })
       if (verData?.length) {
         const v = verData[0] as VerifStats
@@ -1308,7 +1310,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     const preguntaAbiertaId = preguntas.find((p) => p.estado === 'abierta')?.id ?? null
     const { data } = await supabase.rpc('calcular_verificacion_quorum', {
       p_asamblea_id: asamblea.id,
-      p_pregunta_id: preguntaAbiertaId
+      p_pregunta_id: preguntaAbiertaId,
+      p_solo_sesion_actual: !!asamblea.verificacion_asistencia_activa,
     })
     if (data?.length) {
       const v = data[0]

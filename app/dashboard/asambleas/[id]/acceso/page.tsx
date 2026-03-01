@@ -74,6 +74,7 @@ interface UnidadFila {
   nombre_propietario: string
   email_propietario: string
   coeficiente: number
+  es_poder?: boolean
 }
 
 interface QuorumData {
@@ -406,10 +407,14 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       const { data: votosData } = await supabase
         .from('votos')
-        .select('unidad_id')
+        .select('unidad_id, es_poder')
         .in('pregunta_id', (preguntasData || []).map((x) => x.id))
 
       const unidadIdsVotaron = Array.from(new Set((votosData || []).map((v: any) => v.unidad_id).filter(Boolean)))
+      const esPoderPorUnidadVoto = new Map<string, boolean>()
+      ;(votosData || []).forEach((v: any) => {
+        if (v.unidad_id && v.es_poder === true) esPoderPorUnidadVoto.set(v.unidad_id, true)
+      })
 
       if (unidadIdsVotaron.length > 0) {
         const { data: unidadesVotaron } = await supabase
@@ -422,7 +427,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           numero: u.numero || 'S/N',
           nombre_propietario: u.nombre_propietario || 'S/N',
           email_propietario: u.email_propietario || '',
-          coeficiente: Number(u.coeficiente) || 0
+          coeficiente: Number(u.coeficiente) || 0,
+          es_poder: esPoderPorUnidadVoto.get(u.id) ?? false,
         })))
       } else setYaVotaron([])
 
@@ -445,18 +451,22 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       }))
       setFaltantes(faltantesList)
 
-      // Si la verificación de quórum está activa, cargar paneles "Ya verificaron" / "Faltan por verificar" (solo sesión actual)
+      // Si la verificación de quórum está activa, cargar paneles "Ya verificaron" / "Faltan por verificar" (solo sesión actual, con es_poder)
       if (asambleaFresh?.verificacion_asistencia_activa && orgId) {
         const preguntaId = (asambleaFresh as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null
-        let idsVerificados = new Set<string>()
+        const esPoderVerificados = new Map<string, boolean>()
         const { data: idsSesion, error: rpcError } = await supabase.rpc('unidad_ids_verificados_sesion_actual', {
           p_asamblea_id: params.id,
           p_pregunta_id: preguntaId,
         })
+        const idsVerificados = new Set<string>()
         if (!rpcError && idsSesion?.length !== undefined) {
-          idsVerificados = new Set(
-            (idsSesion as { unidad_id: string }[]).map((r) => r.unidad_id).filter(Boolean)
-          )
+          (idsSesion as { unidad_id: string; es_poder?: boolean }[]).forEach((r) => {
+            if (r.unidad_id) {
+              idsVerificados.add(r.unidad_id)
+              if (r.es_poder === true) esPoderVerificados.set(r.unidad_id, true)
+            }
+          })
         }
         const soloDemo = asambleaFresh?.is_demo === true && !(asambleaFresh?.sandbox_usar_unidades_reales === true)
         let qUnidades = supabase
@@ -471,7 +481,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           numero: u.numero || 'S/N',
           nombre_propietario: u.nombre_propietario || 'S/N',
           email_propietario: u.email_propietario || '',
-          coeficiente: Number(u.coeficiente) || 0
+          coeficiente: Number(u.coeficiente) || 0,
+          es_poder: esPoderVerificados.get(u.id) ?? false,
         }))
         const verificados = lista.filter((u) => idsVerificados.has(u.id))
         const faltan = lista.filter((u) => !idsVerificados.has(u.id))
@@ -982,7 +993,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                         <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                           {verificadosFiltrados.map((u) => (
                             <li key={u.id} className="px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                              <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
+                              <div className="font-medium text-gray-900 dark:text-white">{u.es_poder ? 'Poder · ' : ''}{u.torre} - {u.numero}</div>
                               <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
                               <div className="text-xs text-gray-500 truncate">{u.email_propietario}</div>
                               <div className="text-xs font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">{u.coeficiente.toFixed(2)}%</div>
@@ -1122,7 +1133,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                         <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                           {yaVotaronFiltrados.map((u) => (
                             <li key={u.id} className="px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                              <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
+                              <div className="font-medium text-gray-900 dark:text-white">{u.es_poder ? 'Poder · ' : ''}{u.torre} - {u.numero}</div>
                               <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
                               <div className="text-xs text-gray-500 truncate">{u.email_propietario}</div>
                               <div className="text-xs font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">{u.coeficiente.toFixed(2)}%</div>

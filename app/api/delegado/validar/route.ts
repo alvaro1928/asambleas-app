@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     const { data: asamblea } = await admin
       .from('asambleas')
-      .select('id, nombre, fecha, estado, organization_id, is_demo, sandbox_usar_unidades_reales, token_delegado, codigo_acceso')
+      .select('id, nombre, fecha, estado, organization_id, is_demo, sandbox_usar_unidades_reales, token_delegado, codigo_acceso, verificacion_pregunta_id')
       .eq('codigo_acceso', codigo_asamblea.trim().toUpperCase())
       .single()
 
@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
       nombre_conjunto: org?.name || '',
       is_demo: !!asamblea.is_demo,
       sandbox_usar_unidades_reales: !!asamblea.sandbox_usar_unidades_reales,
+      verificacion_pregunta_id: (asamblea as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null,
     })
   } catch (e) {
     console.error('delegado/validar:', e)

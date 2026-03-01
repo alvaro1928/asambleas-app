@@ -17,6 +17,7 @@ interface AsambleaInfo {
   nombre_conjunto: string
   is_demo: boolean
   sandbox_usar_unidades_reales: boolean
+  verificacion_pregunta_id?: string | null
 }
 
 interface Unidad {
@@ -27,6 +28,7 @@ interface Unidad {
   email_propietario: string
   coeficiente: number
   ya_verifico: boolean
+  es_poder?: boolean
 }
 
 interface Opcion {
@@ -48,6 +50,7 @@ interface Pregunta {
 interface VotoRegistrado {
   unidad_id: string
   pregunta_id: string
+  es_poder?: boolean
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -120,7 +123,7 @@ export default function AsistirPage() {
       })
   }, [codigo, token])
 
-  // ── Cargar unidades ──────────────────────────────────────────────────────
+  // ── Cargar unidades (ya_verifico según sesión actual; es_poder para etiqueta) ──────────────────────────────────────
   const cargarUnidades = useCallback(async () => {
     if (!asamblea) return
     setCargandoUnidades(true)
@@ -135,13 +138,19 @@ export default function AsistirPage() {
       q = soloDemo ? q.eq('is_demo', true) : q.or('is_demo.eq.false,is_demo.is.null')
       const { data: todas } = await q
 
-      const { data: verificadas } = await supabase
-        .from('quorum_asamblea')
-        .select('unidad_id')
-        .eq('asamblea_id', asamblea.asamblea_id)
-        .eq('verifico_asistencia', true)
-
-      const verificadasSet = new Set((verificadas || []).map((v: any) => v.unidad_id))
+      const preguntaId = asamblea.verificacion_pregunta_id ?? null
+      const { data: idsSesion } = await supabase.rpc('unidad_ids_verificados_sesion_actual', {
+        p_asamblea_id: asamblea.asamblea_id,
+        p_pregunta_id: preguntaId,
+      })
+      const verificadasSet = new Set<string>()
+      const esPoderVerificados = new Map<string, boolean>()
+      ;(idsSesion || []).forEach((r: { unidad_id?: string; es_poder?: boolean }) => {
+        if (r.unidad_id) {
+          verificadasSet.add(r.unidad_id)
+          if (r.es_poder === true) esPoderVerificados.set(r.unidad_id, true)
+        }
+      })
 
       setUnidades(
         (todas || []).map((u: any) => ({
@@ -152,6 +161,7 @@ export default function AsistirPage() {
           email_propietario: u.email_propietario || '',
           coeficiente: Number(u.coeficiente) || 0,
           ya_verifico: verificadasSet.has(u.id),
+          es_poder: esPoderVerificados.get(u.id) ?? false,
         }))
       )
     } finally {
@@ -195,15 +205,16 @@ export default function AsistirPage() {
       }))
       setPreguntas(nuevasPreguntas)
 
-      // Cargar votos ya registrados para esta asamblea
+      // Cargar votos ya registrados para esta asamblea (con es_poder para etiqueta "Poder")
       if (pregIds.length > 0) {
         const { data: votosData } = await supabase
           .from('votos')
-          .select('unidad_id, pregunta_id')
+          .select('unidad_id, pregunta_id, es_poder')
           .in('pregunta_id', pregIds)
         setVotosRegistrados((votosData || []).map((v: any) => ({
           unidad_id: v.unidad_id,
           pregunta_id: v.pregunta_id,
+          es_poder: !!v.es_poder,
         })))
       }
 
@@ -469,7 +480,7 @@ export default function AsistirPage() {
                           />
                           <div className="flex-1 min-w-0">
                             <span className="text-sm font-medium text-gray-900 dark:text-white">
-                              {u.torre !== 'S/T' ? `T${u.torre} · ` : ''}Apto {u.numero}
+                              {u.es_poder ? 'Poder · ' : ''}{u.torre !== 'S/T' ? `T${u.torre} · ` : ''}Apto {u.numero}
                             </span>
                             <span className="text-xs text-gray-500 ml-1.5 truncate">{u.nombre_propietario}</span>
                           </div>
@@ -639,7 +650,10 @@ export default function AsistirPage() {
                                 />
                                 <div className="flex-1 min-w-0">
                                   <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                    {u.torre !== 'S/T' ? `T${u.torre} · ` : ''}Apto {u.numero}
+                                    {(() => {
+                                      const votoReg = votosRegistrados.find((v) => v.unidad_id === u.id && v.pregunta_id === preguntaActiva)
+                                      return votoReg?.es_poder ? 'Poder · ' : ''
+                                    })()}{u.torre !== 'S/T' ? `T${u.torre} · ` : ''}Apto {u.numero}
                                   </span>
                                   <span className="text-xs text-gray-500 ml-1.5 truncate">{u.nombre_propietario}</span>
                                 </div>
