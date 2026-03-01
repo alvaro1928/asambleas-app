@@ -21,6 +21,7 @@ export default function SuperAdminAjustesPage() {
   const [bonoBienvenidaTokens, setBonoBienvenidaTokens] = useState<number | ''>(50)
   const [ctaWhatsappText, setCtaWhatsappText] = useState('Contactanos')
   const [actaBlockchainOtsEnabled, setActaBlockchainOtsEnabled] = useState(false)
+  const [savingBlockchain, setSavingBlockchain] = useState(false)
   const [savingSmtp, setSavingSmtp] = useState(false)
   const [smtpHost, setSmtpHost] = useState('')
   const [smtpPort, setSmtpPort] = useState<number | ''>(465)
@@ -108,6 +109,34 @@ export default function SuperAdminAjustesPage() {
       toast.error('Error al guardar')
     } finally {
       setSaving(false)
+    }
+  }
+
+  /** Guarda solo la certificación blockchain (al activar/desactivar el switch). */
+  const handleToggleBlockchain = async () => {
+    const newValue = !actaBlockchainOtsEnabled
+    setActaBlockchainOtsEnabled(newValue)
+    setSavingBlockchain(true)
+    try {
+      const res = await fetch('/api/super-admin/configuracion-landing', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ acta_blockchain_ots_enabled: newValue }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || 'Error al guardar')
+        setActaBlockchainOtsEnabled(!newValue)
+        return
+      }
+      toast.success(newValue ? 'Certificación blockchain activada.' : 'Certificación blockchain desactivada.')
+    } catch (e) {
+      console.error(e)
+      toast.error('Error al guardar')
+      setActaBlockchainOtsEnabled(!newValue)
+    } finally {
+      setSavingBlockchain(false)
     }
   }
 
@@ -281,19 +310,32 @@ export default function SuperAdminAjustesPage() {
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Los usuarios no ven esta opción: solo deben cerrar la asamblea para que el acta quede definitiva y certificada (si está activada aquí).
             </p>
-            <div className="flex items-center gap-3 pt-2">
-              <input
-                type="checkbox"
-                id="actaBlockchainOts"
-                checked={actaBlockchainOtsEnabled}
-                onChange={(e) => setActaBlockchainOtsEnabled(e.target.checked)}
-                className="rounded border-gray-300 dark:border-gray-600"
-              />
-              <label htmlFor="actaBlockchainOts" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Activar certificación blockchain (OpenTimestamps) para las actas
-              </label>
+            <div className="flex items-center justify-between rounded-2xl border border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-800/50 mt-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">Certificación blockchain (OpenTimestamps)</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  {actaBlockchainOtsEnabled ? 'Activa: al finalizar una asamblea se generará el certificado .ots.' : 'Desactivada: no se generará el certificado .ots al finalizar.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={actaBlockchainOtsEnabled}
+                disabled={savingBlockchain}
+                onClick={handleToggleBlockchain}
+                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${actaBlockchainOtsEnabled ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+              >
+                <span
+                  className={`pointer-events-none block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${actaBlockchainOtsEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+                />
+              </button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Guarda los ajustes con el botón &quot;Guardar ajustes&quot; de arriba.</p>
+            {savingBlockchain && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Guardando…
+              </p>
+            )}
 
             <hr className="border-gray-200 dark:border-gray-700" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
