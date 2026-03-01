@@ -119,7 +119,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [incluyeActaDetallada, setIncluyeActaDetallada] = useState(false)
   const [tokensDisponibles, setTokensDisponibles] = useState(0)
   const [costoOperacion, setCostoOperacion] = useState(0)
-  const [unidadesNoParticipation, setUnidadesNoParticipation] = useState<UnidadNoParticipo[]>([])
+  /** Por pregunta: unidades que no participaron (no votaron) en esa pregunta */
+  const [unidadesNoParticipationPorPregunta, setUnidadesNoParticipationPorPregunta] = useState<Record<string, UnidadNoParticipo[]>>({})
   /** Por pregunta: lista de votos finales (una fila por unidad con su opción elegida) para el cuadro de auditoría */
   const [votacionesFinalesPorPregunta, setVotacionesFinalesPorPregunta] = useState<Record<string, VotoFinalUnidad[]>>({})
 
@@ -391,17 +392,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       }
       setCoefPoderes(Math.min(100, coef))
 
-      // Unidades que no votaron / no participaron: todas las unidades del conjunto menos las que tienen al menos un voto en alguna pregunta
-      const preguntaIds = (preguntasConOpciones || []).map((p) => p.id)
-      let unidadIdsVotaron: string[] = []
-      if (preguntaIds.length > 0) {
-        const { data: votosData } = await supabase
-          .from('votos')
-          .select('unidad_id')
-          .in('pregunta_id', preguntaIds)
-        unidadIdsVotaron = Array.from(new Set((votosData || []).map((v: any) => v.unidad_id).filter(Boolean)))
-      }
-      // Solo unidades del mismo tipo (demo o reales según asamblea/sandbox_usar_unidades_reales)
+      // Por cada pregunta: unidades que no participaron (no votaron) en esa pregunta
       const { data: todasUnidades } = await supabase
         .from('unidades')
         .select('id, torre, numero, nombre_propietario, email_propietario, telefono_propietario, email, telefono, coeficiente, is_demo')
@@ -414,19 +405,28 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         const nombre = (u.nombre_propietario || '').toString()
         return !torre.toLowerCase().includes('demo') && !nombre.toLowerCase().includes('demo')
       })
-      const setVotaron = new Set(unidadIdsVotaron)
-      const noParticiparon = unidadesFiltradas
-        .filter((u: any) => !setVotaron.has(u.id))
-        .map((u: any) => ({
-          id: u.id,
-          torre: u.torre ?? '',
-          numero: u.numero ?? '',
-          nombre_propietario: u.nombre_propietario ?? null,
-          email_propietario: (u.email_propietario ?? u.email ?? '').trim() || null,
-          telefono_propietario: (u.telefono_propietario ?? u.telefono ?? '').trim() || null,
-          coeficiente: Number(u.coeficiente) || 0,
-        }))
-      setUnidadesNoParticipation(noParticiparon)
+      const baseUnidad = (u: any) => ({
+        id: u.id,
+        torre: u.torre ?? '',
+        numero: u.numero ?? '',
+        nombre_propietario: u.nombre_propietario ?? null,
+        email_propietario: (u.email_propietario ?? u.email ?? '').trim() || null,
+        telefono_propietario: (u.telefono_propietario ?? u.telefono ?? '').trim() || null,
+        coeficiente: Number(u.coeficiente) || 0,
+      })
+      const noParticiparonPorPregunta: Record<string, UnidadNoParticipo[]> = {}
+      for (const pregunta of preguntasConOpciones || []) {
+        const { data: votosPregunta } = await supabase
+          .from('votos')
+          .select('unidad_id')
+          .eq('pregunta_id', pregunta.id)
+        const unidadIdsVotaronPregunta = Array.from(new Set((votosPregunta || []).map((v: any) => v.unidad_id).filter(Boolean)))
+        const setVotaron = new Set(unidadIdsVotaronPregunta)
+        noParticiparonPorPregunta[pregunta.id] = unidadesFiltradas
+          .filter((u: any) => !setVotaron.has(u.id))
+          .map((u: any) => baseUnidad(u))
+      }
+      setUnidadesNoParticipationPorPregunta(noParticiparonPorPregunta)
     } catch (e) {
       console.error(e)
       router.push('/dashboard/asambleas')
@@ -1192,48 +1192,53 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       <p className="text-xs text-gray-400 mt-1">* Voto ejercido mediante poder notarial.</p>
                     )}
                   </div>
+
+                  {/* Unidades que no participaron en esta pregunta */}
+                  {(() => {
+                    const noParticiparonPregunta = unidadesNoParticipationPorPregunta[pregunta.id] ?? []
+                    if (noParticiparonPregunta.length === 0) return null
+                    const coefTotal = noParticiparonPregunta.reduce((s, u) => s + u.coeficiente, 0)
+                    return (
+                      <div className="ml-10 mt-3 break-inside-avoid">
+                        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">
+                          Unidades que no participaron en esta pregunta ({noParticiparonPregunta.length})
+                        </p>
+                        <p className="text-xs text-gray-500 mb-1.5">
+                          Coeficiente no participante: <strong>{Math.min(100, coefTotal).toFixed(2)}%</strong>
+                          {quorum && <> · {noParticiparonPregunta.length} de {quorum.total_unidades} unidades</>}
+                        </p>
+                        <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
+                          <thead>
+                            <tr style={{ background: '#f1f5f9' }}>
+                              <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>Torre</th>
+                              <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>N.°</th>
+                              <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '30%' }}>Propietario / Residente</th>
+                              <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '29%' }}>Email</th>
+                              <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '14%' }}>Teléfono</th>
+                              <th className="border border-gray-200 px-2 py-1.5 text-right font-semibold" style={{ width: '9%' }}>Coef.</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {noParticiparonPregunta.map((u) => (
+                              <tr key={u.id} style={{ background: 'inherit' }}>
+                                <td className="border border-gray-200 px-2 py-1">{u.torre || '—'}</td>
+                                <td className="border border-gray-200 px-2 py-1">{u.numero || '—'}</td>
+                                <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{u.nombre_propietario || '—'}</td>
+                                <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-all' }}>{(u.email_propietario ?? '').trim() || 'No registrado'}</td>
+                                <td className="border border-gray-200 px-2 py-1">{(u.telefono_propietario ?? '').trim() || '—'}</td>
+                                <td className="border border-gray-200 px-2 py-1 text-right">{u.coeficiente.toFixed(2)}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  })()}
                 </div>
               )
             })}
           </div>
         </section>
-
-        {/* ── UNIDADES QUE NO PARTICIPARON ── */}
-        {unidadesNoParticipation.length > 0 && (
-          <section className="mt-10 break-inside-avoid">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-3 pb-1 border-b border-gray-200">
-              Unidades que no participaron ({unidadesNoParticipation.length})
-            </h2>
-            <p className="text-xs text-gray-500 mb-3">
-              Coeficiente total no participante: <strong>{Math.min(100, unidadesNoParticipation.reduce((s, u) => s + u.coeficiente, 0)).toFixed(2)}%</strong>
-              {quorum && <> · {unidadesNoParticipation.length} no votaron de {quorum.total_unidades} unidades</>}
-            </p>
-            <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
-              <thead>
-                <tr style={{ background: '#f1f5f9' }}>
-                  <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>Torre</th>
-                  <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>N.°</th>
-                  <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '30%' }}>Propietario / Residente</th>
-                  <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '29%' }}>Email</th>
-                  <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '14%' }}>Teléfono</th>
-                  <th className="border border-gray-200 px-2 py-1.5 text-right font-semibold" style={{ width: '9%' }}>Coef.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {unidadesNoParticipation.map((u) => (
-                  <tr key={u.id}>
-                    <td className="border border-gray-200 px-2 py-1">{u.torre || '—'}</td>
-                    <td className="border border-gray-200 px-2 py-1">{u.numero || '—'}</td>
-                    <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{u.nombre_propietario || '—'}</td>
-                    <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-all' }}>{(u.email_propietario ?? '').trim() || 'No registrado'}</td>
-                    <td className="border border-gray-200 px-2 py-1">{(u.telefono_propietario ?? '').trim() || '—'}</td>
-                    <td className="border border-gray-200 px-2 py-1 text-right">{u.coeficiente.toFixed(2)}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        )}
 
         {/* ── FIRMAS ── */}
         <section className="mt-12 pt-6 border-t-2 border-gray-900 break-inside-avoid">
