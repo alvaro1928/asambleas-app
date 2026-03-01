@@ -74,10 +74,10 @@ export async function POST(request: NextRequest) {
       .eq('id', session.user.id)
       .single()
 
-    // Obtener organización de la asamblea
+    // Obtener organización y contexto de verificación de la asamblea
     const { data: asamblea } = await admin
       .from('asambleas')
-      .select('id, organization_id')
+      .select('id, organization_id, verificacion_pregunta_id')
       .eq('id', asamblea_id.trim())
       .single()
 
@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     const orgId = asamblea.organization_id
+    const preguntaId = (asamblea as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null
 
     // Obtener datos de las unidades Y validar que pertenecen a la misma organización.
     // Esto previene que un admin registre unidades de otro conjunto.
@@ -132,8 +133,6 @@ export async function POST(request: NextRequest) {
       .upsert(rows, { onConflict: 'asamblea_id,unidad_id', ignoreDuplicates: false })
 
     if (upsertErr) {
-      // Fallback: intentar actualizar solo los campos de verificación
-      // para las filas que ya existen (el upsert pudo fallar por columnas opcionales)
       const { error: updateErr } = await admin
         .from('quorum_asamblea')
         .update({ verifico_asistencia: true, hora_verificacion: now })
@@ -144,6 +143,25 @@ export async function POST(request: NextRequest) {
         console.error('registrar-asistencia-manual fallback update:', updateErr)
         return NextResponse.json({ error: 'Error al guardar asistencia' }, { status: 500 })
       }
+    }
+
+    const unidadIds = unidadesValidadas.map((u: any) => u.id)
+    const { data: quorumRows } = await admin
+      .from('quorum_asamblea')
+      .select('id')
+      .eq('asamblea_id', asamblea_id.trim())
+      .in('unidad_id', unidadIds)
+
+    if (quorumRows?.length) {
+      const registros = quorumRows.map((r: { id: string }) => ({
+        asamblea_id: asamblea_id.trim(),
+        quorum_asamblea_id: r.id,
+        pregunta_id: preguntaId,
+        creado_en: now,
+      }))
+      await admin
+        .from('verificacion_asistencia_registro')
+        .upsert(registros, { onConflict: 'quorum_asamblea_id,pregunta_id', ignoreDuplicates: false })
     }
 
     return NextResponse.json({

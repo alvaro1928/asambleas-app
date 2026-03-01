@@ -625,12 +625,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const toggleSeleccionarTodas = () => {
     const filtradas = unidadesParaAsistencia.filter((u) => {
       if (u.ya_verifico) return false
-      if (!busquedaAsistencia.trim()) return true
-      const q = busquedaAsistencia.toLowerCase()
-      return (
-        `${u.torre} ${u.numero}`.toLowerCase().includes(q) ||
-        u.nombre_propietario.toLowerCase().includes(q)
-      )
+      return matchUnidadAsistencia(u, busquedaAsistencia)
     })
     const idsVisibles = filtradas.map((u) => u.id)
     const todasSeleccionadas = idsVisibles.every((id) => seleccionadas.has(id))
@@ -653,6 +648,27 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     const q = query.trim().toLowerCase()
     if (!q) return true
     return texto.toLowerCase().includes(q)
+  }
+
+  /** Búsqueda tipo poderes: torre+apto (ej. "10 301", "10-301", "10301"), propietario o email */
+  const matchUnidadAsistencia = (
+    u: { torre?: string; numero?: string; nombre_propietario?: string; email_propietario?: string },
+    search: string
+  ) => {
+    if (!search.trim()) return true
+    const q = search.toLowerCase().replace(/[\s\-]/g, '')
+    const torre = String(u.torre ?? '').toLowerCase()
+    const numero = String(u.numero ?? '').toLowerCase()
+    const torreNumero = torre + numero
+    const nom = String(u.nombre_propietario ?? '').toLowerCase()
+    const em = String(u.email_propietario ?? '').toLowerCase()
+    return (
+      numero.includes(q) ||
+      torre.includes(q) ||
+      torreNumero.includes(q) ||
+      nom.includes(search.toLowerCase()) ||
+      em.includes(search.toLowerCase())
+    )
   }
 
   const asistentesFiltrados = useMemo(() => {
@@ -693,12 +709,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
   const verificadosFiltrados = useMemo(() => {
     if (!searchVerificados.trim()) return verificadosAsistencia
-    return verificadosAsistencia.filter(
-      (u) =>
-        filtro(`${u.torre} ${u.numero}`, searchVerificados) ||
-        filtro(u.nombre_propietario, searchVerificados) ||
-        filtro(u.email_propietario, searchVerificados)
-    )
+    return verificadosAsistencia.filter((u) => matchUnidadAsistencia(u, searchVerificados))
   }, [verificadosAsistencia, searchVerificados])
 
   const faltanVerificarFiltrados = useMemo(() => {
@@ -1332,7 +1343,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 type="text"
                 value={busquedaAsistencia}
                 onChange={(e) => setBusquedaAsistencia(e.target.value)}
-                placeholder="Buscar por torre, número o propietario..."
+                placeholder="Buscar por torre+apto (ej. 1304, 10-301), propietario o email..."
                 className="w-full pl-9 pr-4 py-2 rounded-2xl bg-white/5 border border-[rgba(255,255,255,0.1)] text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
             </div>
@@ -1346,9 +1357,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   {(() => {
                     const pendientes = unidadesParaAsistencia.filter((u) => {
                       if (u.ya_verifico) return false
-                      if (!busquedaAsistencia.trim()) return true
-                      const q = busquedaAsistencia.toLowerCase()
-                      return `${u.torre} ${u.numero}`.toLowerCase().includes(q) || u.nombre_propietario.toLowerCase().includes(q)
+                      return matchUnidadAsistencia(u, busquedaAsistencia)
                     })
                     return pendientes.length > 0 && pendientes.every((u) => seleccionadas.has(u.id))
                       ? 'Deseleccionar todas'
@@ -1374,14 +1383,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             ) : (
               <div className="space-y-1">
                 {unidadesParaAsistencia
-                  .filter((u) => {
-                    if (!busquedaAsistencia.trim()) return true
-                    const q = busquedaAsistencia.toLowerCase()
-                    return (
-                      `${u.torre} ${u.numero}`.toLowerCase().includes(q) ||
-                      u.nombre_propietario.toLowerCase().includes(q)
-                    )
-                  })
+                  .filter((u) => matchUnidadAsistencia(u, busquedaAsistencia))
                   .map((u) => {
                     const checked = u.ya_verifico || seleccionadas.has(u.id)
                     const disabled = u.ya_verifico
