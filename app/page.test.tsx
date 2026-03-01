@@ -22,10 +22,11 @@ describe('Home (landing)', () => {
     expect(screen.getByText(/Seguro y multi-conjunto/i)).toBeInTheDocument()
   })
 
-  it('muestra la prueba social 500+ usuarios', () => {
+  it('muestra valor: acta, quórum y blockchain', () => {
     render(<Home />)
-    expect(screen.getByText(/500\+ usuarios simultáneos/i)).toBeInTheDocument()
-    expect(screen.getByText(/latencia menor a 200 ms/i)).toBeInTheDocument()
+    expect(screen.getByText(/Acta de votación/i)).toBeInTheDocument()
+    expect(screen.getByText(/validación del quórum/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/blockchain/i).length).toBeGreaterThan(0)
   })
 
   it('muestra la tabla de precios', () => {

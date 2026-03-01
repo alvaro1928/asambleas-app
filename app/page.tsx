@@ -115,7 +115,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Prueba social */}
+      {/* Valor: acta, quórum, blockchain */}
       <section className="border-b border-slate-800" style={{ backgroundColor: '#0B0E14' }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-6">
           <div className="rounded-3xl text-white shadow-lg py-6 px-6" style={{ backgroundColor: colorPrincipalHex }}>
@@ -123,10 +123,10 @@ export default function Home() {
             <Zap className="w-10 h-10 shrink-0 text-indigo-200" />
             <div>
               <p className="text-lg font-semibold">
-                Sistema validado para 500+ usuarios simultáneos con latencia menor a 200 ms
+                Acta de votación, validación del quórum (Ley 675) y certificación en blockchain
               </p>
               <p className="text-indigo-100 text-sm mt-0.5">
-                Pruebas de carga realizadas en entorno real
+                Resultados auditables, quórum en tiempo real y acta lista al cerrar; opción de sellar en blockchain para mayor trazabilidad.
               </p>
             </div>
           </div>
