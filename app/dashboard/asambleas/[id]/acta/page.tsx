@@ -496,22 +496,53 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     try {
       const html2pdf = (await import('html2pdf.js')).default
       const nombreSeguro = (asamblea?.nombre ?? 'asamblea').replace(/[^a-zA-Z0-9\u00C0-\u024F\s.-]/g, '').trim().slice(0, 80) || 'acta'
-      await html2pdf()
-        .set({
-          margin: [12, 10, 12, 10],
-          filename: `acta-${nombreSeguro}-${params.id}.pdf`.replace(/\s+/g, '_'),
-          image: { type: 'jpeg', quality: 0.97 },
-          html2canvas: {
-            scale: 2,
-            useCORS: true,
-            logging: false,
-            backgroundColor: '#ffffff',
-            windowWidth: mainEl.scrollWidth + 40,
-          },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      const filename = `acta-${nombreSeguro}-${params.id}.pdf`.replace(/\s+/g, '_')
+      const opts = {
+        margin: [12, 10, 12, 10],
+        filename,
+        image: { type: 'jpeg' as const, quality: 0.82 },
+        html2canvas: {
+          scale: 1.25,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          windowWidth: mainEl.scrollWidth + 40,
+        },
+        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const, compress: true },
+      }
+      // Generar PDF como blob para calcular su hash y que el .ots corresponda al archivo que descarga el usuario
+      const blob = await html2pdf().set(opts).from(mainEl).toPdf().output('blob') as Blob
+      const pdfBytes = await blob.arrayBuffer()
+      const hashBuffer = await crypto.subtle.digest('SHA-256', pdfBytes)
+      const pdfSha256Hex = Array.from(new Uint8Array(hashBuffer))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('')
+      // Descargar el PDF
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+      // Certificar con el hash del PDF para que opentimestamps.org valide este mismo archivo
+      try {
+        const certRes = await fetch('/api/dashboard/acta-certificar-blockchain', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ asamblea_id: asamblea?.id, pdf_sha256_hex: pdfSha256Hex }),
         })
-        .from(mainEl)
-        .save()
+        const certData = await certRes.json().catch(() => ({}))
+        if (certRes.ok && certData.ots_base64) {
+          setActaOtsBase64(certData.ots_base64)
+          setAsamblea((prev) => (prev ? { ...prev, acta_ots_proof_base64: certData.ots_base64 } : null))
+          toast.success('Certificado .ots generado para este PDF. Descárgalo y verifica en opentimestamps.org con el mismo archivo.')
+        } else if (certRes.ok && certData.skipped) {
+          toast.info('Activa la certificación blockchain en Ajustes para generar el .ots que coincida con este PDF.')
+        }
+      } catch {
+        // No bloquear la descarga si falla la certificación
+      }
     } catch (e) {
       console.error('Error al generar PDF:', e)
       setPrintError('No se pudo generar el PDF. Usa Imprimir y elige "Guardar como PDF".')

@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { asamblea_id } = body as { asamblea_id?: string }
+    const { asamblea_id, pdf_sha256_hex } = body as { asamblea_id?: string; pdf_sha256_hex?: string }
     if (!asamblea_id) {
       return NextResponse.json({ error: 'Falta asamblea_id' }, { status: 400 })
     }
@@ -122,28 +122,35 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Contenido canónico (orden fijo para hash reproducible)
-    const canonical = JSON.stringify({
-      asamblea: {
-        id: asamblea.id,
-        nombre: asamblea.nombre ?? '',
-        fecha: asamblea.fecha ?? '',
-        estado: asamblea.estado ?? '',
-        organization_id: asamblea.organization_id ?? '',
-      },
-      organization_name: (org as { name?: string } | null)?.name ?? '',
-      quorum: quorum
-        ? {
-            total_unidades: (quorum as { total_unidades?: number }).total_unidades ?? 0,
-            unidades_votantes: (quorum as { unidades_votantes?: number }).unidades_votantes ?? 0,
-            coeficiente_votante: (quorum as { coeficiente_votante?: number }).coeficiente_votante ?? 0,
-            quorum_alcanzado: (quorum as { quorum_alcanzado?: boolean }).quorum_alcanzado ?? false,
-          }
-        : null,
-      preguntas: preguntasConResultados,
-    })
-
-    const digest = crypto.createHash('sha256').update(canonical, 'utf8').digest()
+    // Hash a sellar: si viene el hash del PDF (64 hex) lo usamos para que opentimestamps.org valide el PDF; si no, usamos contenido canónico (legacy).
+    let digest: Buffer
+    if (typeof pdf_sha256_hex === 'string' && /^[a-fA-F0-9]{64}$/.test(pdf_sha256_hex)) {
+      digest = Buffer.from(pdf_sha256_hex, 'hex')
+      if (digest.length !== 32) {
+        return NextResponse.json({ error: 'Hash del PDF inválido' }, { status: 400 })
+      }
+    } else {
+      const canonical = JSON.stringify({
+        asamblea: {
+          id: asamblea.id,
+          nombre: asamblea.nombre ?? '',
+          fecha: asamblea.fecha ?? '',
+          estado: asamblea.estado ?? '',
+          organization_id: asamblea.organization_id ?? '',
+        },
+        organization_name: (org as { name?: string } | null)?.name ?? '',
+        quorum: quorum
+          ? {
+              total_unidades: (quorum as { total_unidades?: number }).total_unidades ?? 0,
+              unidades_votantes: (quorum as { unidades_votantes?: number }).unidades_votantes ?? 0,
+              coeficiente_votante: (quorum as { coeficiente_votante?: number }).coeficiente_votante ?? 0,
+              quorum_alcanzado: (quorum as { quorum_alcanzado?: boolean }).quorum_alcanzado ?? false,
+            }
+          : null,
+        preguntas: preguntasConResultados,
+      })
+      digest = crypto.createHash('sha256').update(canonical, 'utf8').digest()
+    }
 
     // OpenTimestamps: sello con calendar público (puede fallar por red o calendario no disponible)
     let otsBase64: string
