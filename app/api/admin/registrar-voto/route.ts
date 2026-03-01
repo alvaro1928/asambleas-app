@@ -129,6 +129,10 @@ export async function POST(request: NextRequest) {
     const nombre = (votante_nombre || 'Residente').trim()
     const nombreAudit = nombre + ' (registrado por administrador)'
     const userAgent = '[Registrado por administrador]'
+    const adminIp =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      null
 
     const results: Array<{ pregunta_id: string; success: boolean; error?: string }> = []
 
@@ -141,7 +145,7 @@ export async function POST(request: NextRequest) {
         p_votante_nombre: nombreAudit,
         p_es_poder: false,
         p_poder_id: null,
-        p_ip_address: null,
+        p_ip_address: adminIp,
         p_user_agent: userAgent,
       })
 
