@@ -208,6 +208,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [showModalConfirmarFinalizar, setShowModalConfirmarFinalizar] = useState(false)
   const [showModalConfirmarReiniciarDemo, setShowModalConfirmarReiniciarDemo] = useState(false)
   const [showModalConfirmarReabrir, setShowModalConfirmarReabrir] = useState(false)
+  /** Modal aviso al reabrir quórum (activar verificación): qué pasa y qué queda en el acta */
+  const [showModalAvisoReabrirQuorum, setShowModalAvisoReabrirQuorum] = useState(false)
+  const [noVolverMostrarAvisoQuorum, setNoVolverMostrarAvisoQuorum] = useState(false)
   const [finalizando, setFinalizando] = useState(false)
   const [reiniciandoDemo, setReiniciandoDemo] = useState(false)
   const [reabriendo, setReabriendo] = useState(false)
@@ -1326,6 +1329,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
+  const AVISO_REABRIR_QUORUM_OMITIR_KEY = 'asambleas_quorum_reabrir_aviso_omitir'
+
   const handleToggleVerificacion = async () => {
     if (!asamblea || togglingVerif) return
     setTogglingVerif(true)
@@ -1351,6 +1356,27 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     } finally {
       setTogglingVerif(false)
     }
+  }
+
+  const onActivarVerificacionClick = () => {
+    if (asamblea?.verificacion_asistencia_activa) {
+      handleToggleVerificacion()
+      return
+    }
+    if (typeof window !== 'undefined' && window.localStorage.getItem(AVISO_REABRIR_QUORUM_OMITIR_KEY) === '1') {
+      handleToggleVerificacion()
+      return
+    }
+    setNoVolverMostrarAvisoQuorum(false)
+    setShowModalAvisoReabrirQuorum(true)
+  }
+
+  const confirmarAvisoReabrirQuorum = () => {
+    if (noVolverMostrarAvisoQuorum && typeof window !== 'undefined') {
+      window.localStorage.setItem(AVISO_REABRIR_QUORUM_OMITIR_KEY, '1')
+    }
+    setShowModalAvisoReabrirQuorum(false)
+    handleToggleVerificacion()
   }
 
   const generarTokenDelegado = async () => {
@@ -2124,7 +2150,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                       {openVerifAcceso && (
                         <div className="px-3 pb-3 pt-0 border-t border-gray-200 dark:border-gray-600 space-y-2 pt-2">
                           <div className="flex flex-wrap gap-2">
-                            <Button type="button" onClick={handleToggleVerificacion} disabled={togglingVerif} size="sm" className={asamblea.verificacion_asistencia_activa ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}>
+                            <Button type="button" onClick={onActivarVerificacionClick} disabled={togglingVerif} size="sm" className={asamblea.verificacion_asistencia_activa ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}>
                               {togglingVerif ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block mr-1.5" /> : <UserCheck className="w-4 h-4 mr-1.5" />}
                               {asamblea.verificacion_asistencia_activa ? 'Desactivar verificación' : 'Activar verificación'}
                             </Button>
@@ -3432,6 +3458,45 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               onClick={handleReabrirAsamblea}
             >
               {reabriendo ? 'Reabriendo…' : `Sí, reabrir (${costoReapertura} tokens (créditos))`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Aviso al reabrir quórum (activar verificación) — qué pasa y qué queda en el acta */}
+      <Dialog open={showModalAvisoReabrirQuorum} onOpenChange={setShowModalAvisoReabrirQuorum}>
+        <DialogContent className="max-w-lg rounded-3xl" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-indigo-800 dark:text-indigo-200">
+              <UserCheck className="w-5 h-5" />
+              Al reabrir la verificación de asistencia
+            </DialogTitle>
+            <DialogDescription>
+              Comienza una nueva sesión: el quórum vuelve a cero y las personas deberán validar su asistencia de nuevo.
+            </DialogDescription>
+            <div className="space-y-2 text-left text-sm text-gray-600 dark:text-gray-400 mt-2">
+              <p>
+                {preguntas.some((p) => p.estado === 'abierta')
+                  ? 'Al cerrar la verificación, el resultado quedará registrado en el acta asociado a la pregunta que esté abierta.'
+                  : 'Al cerrar la verificación, el resultado quedará registrado en el acta como "Asamblea en general" (para que el administrador sepa si puede continuar).'}
+              </p>
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300 mt-3">
+                <input
+                  type="checkbox"
+                  checked={noVolverMostrarAvisoQuorum}
+                  onChange={(e) => setNoVolverMostrarAvisoQuorum(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                No volver a mostrar este mensaje
+              </label>
+            </div>
+          </DialogHeader>
+          <div className="mt-4 flex gap-3">
+            <Button variant="outline" onClick={() => setShowModalAvisoReabrirQuorum(false)} className="flex-1">
+              Cancelar
+            </Button>
+            <Button onClick={confirmarAvisoReabrirQuorum} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">
+              Entendido, activar verificación
             </Button>
           </div>
         </DialogContent>

@@ -27,7 +27,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import type { BarChartData } from '@/components/charts/VotacionBarChart'
 
 const QRCodeSVG = dynamic(
@@ -149,6 +149,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [totalUnidadesConjunto, setTotalUnidadesConjunto] = useState<number>(0)
   const [verificacionActiva, setVerificacionActiva] = useState(false)
   const [toggling, setToggling] = useState(false)
+  const [showModalAvisoReabrirQuorum, setShowModalAvisoReabrirQuorum] = useState(false)
+  const [noVolverMostrarAvisoQuorum, setNoVolverMostrarAvisoQuorum] = useState(false)
   interface VerificacionStats {
     total_verificados: number
     coeficiente_verificado: number
@@ -513,6 +515,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     }
   }
 
+  const AVISO_REABRIR_QUORUM_OMITIR_KEY = 'asambleas_quorum_reabrir_aviso_omitir'
+
   const toggleVerificacion = async () => {
     if (toggling) return
     setToggling(true)
@@ -558,6 +562,27 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     } finally {
       setToggling(false)
     }
+  }
+
+  const onActivarVerificacionClick = () => {
+    if (verificacionActiva) {
+      toggleVerificacion()
+      return
+    }
+    if (typeof window !== 'undefined' && window.localStorage.getItem(AVISO_REABRIR_QUORUM_OMITIR_KEY) === '1') {
+      toggleVerificacion()
+      return
+    }
+    setNoVolverMostrarAvisoQuorum(false)
+    setShowModalAvisoReabrirQuorum(true)
+  }
+
+  const confirmarAvisoReabrirQuorum = () => {
+    if (noVolverMostrarAvisoQuorum && typeof window !== 'undefined') {
+      window.localStorage.setItem(AVISO_REABRIR_QUORUM_OMITIR_KEY, '1')
+    }
+    setShowModalAvisoReabrirQuorum(false)
+    toggleVerificacion()
   }
 
   const abrirModalAsistencia = async () => {
@@ -858,7 +883,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   {verificacionActiva ? 'Activa — los votantes ven el popup de confirmación' : 'Inactiva — al activar aparece popup en la página de votación'}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" onClick={toggleVerificacion} disabled={toggling}
+                  <Button type="button" onClick={onActivarVerificacionClick} disabled={toggling}
                     className={`rounded-2xl font-semibold text-sm py-2 px-4 ${verificacionActiva ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white`}>
                     {toggling ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block" /> : <UserCheck className="w-4 h-4" />}
                     <span className="ml-1.5">{verificacionActiva ? 'Desactivar' : 'Activar'}</span>
@@ -1283,6 +1308,43 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       </main>
 
       {/* Modal: gráfica de avance en grande (pop-up) */}
+      {/* Modal: Aviso al reabrir quórum (activar verificación) */}
+      <Dialog open={showModalAvisoReabrirQuorum} onOpenChange={setShowModalAvisoReabrirQuorum}>
+        <DialogContent className="max-w-lg rounded-3xl border border-[rgba(255,255,255,0.15)]" style={{ backgroundColor: '#0B0E14' }} showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-indigo-300">
+              <UserCheck className="w-5 h-5" />
+              Al reabrir la verificación de asistencia
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Comienza una nueva sesión: el quórum vuelve a cero y las personas deberán validar su asistencia de nuevo.
+            </DialogDescription>
+            <div className="space-y-2 text-left text-sm text-slate-400 mt-2">
+              <p>
+                Al cerrar la verificación, el resultado quedará registrado en el acta (asociado a la pregunta abierta, si la hay, o como asamblea en general).
+              </p>
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-400 mt-3">
+                <input
+                  type="checkbox"
+                  checked={noVolverMostrarAvisoQuorum}
+                  onChange={(e) => setNoVolverMostrarAvisoQuorum(e.target.checked)}
+                  className="rounded border-slate-500 bg-slate-800"
+                />
+                No volver a mostrar este mensaje
+              </label>
+            </div>
+          </DialogHeader>
+          <div className="mt-4 flex gap-3">
+            <Button variant="outline" onClick={() => setShowModalAvisoReabrirQuorum(false)} className="flex-1 border-slate-600 text-slate-300">
+              Cancelar
+            </Button>
+            <Button onClick={confirmarAvisoReabrirQuorum} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">
+              Entendido, activar verificación
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={graficaMaximizada} onOpenChange={setGraficaMaximizada}>
         <DialogContent showCloseButton={false} className="max-w-6xl w-[95vw] max-h-[95vh] overflow-y-auto p-8 rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: '#0B0E14' }}>
           <DialogHeader className="flex flex-row items-center justify-between gap-4 pr-10">
