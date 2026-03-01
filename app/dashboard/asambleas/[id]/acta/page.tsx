@@ -170,6 +170,10 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       setTokensDisponibles(Math.max(0, Number(statusData?.tokens_disponibles ?? 0)))
       setCostoOperacion(Math.max(0, Number(statusData?.costo_operacion ?? 0)))
 
+      const configRes = await fetch('/api/configuracion-global', { cache: 'no-store' })
+      const configData = configRes.ok ? await configRes.json() : null
+      setBlockchainCertEnabled(configData?.acta_blockchain_ots_enabled === true)
+
       const { data: preguntasData } = await supabase
         .from('preguntas')
         .select('id, texto_pregunta, descripcion, tipo_votacion, estado, orden, umbral_aprobacion, is_archived')
@@ -371,6 +375,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [descargandoPdf, setDescargandoPdf] = useState(false)
   const [showVerificacionModal, setShowVerificacionModal] = useState(false)
   const [certificando, setCertificando] = useState(false)
+  const [blockchainCertEnabled, setBlockchainCertEnabled] = useState(false)
   const actaContentRef = useRef<HTMLElement>(null)
   const toast = useToast()
 
@@ -448,9 +453,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       })
       const certData = await certRes.json().catch(() => ({}))
       if (!certRes.ok) {
-        toast.error(certData?.error ?? 'Error al certificar. Revisa que la certificación esté activada en Ajustes.')
-      } else if (certData.skipped) {
-        toast.info('Activa la certificación blockchain en Super Admin → Ajustes para generar el .ots.')
+        toast.error(certData?.error ?? 'Error al certificar.')
       } else if (certData.ots_base64) {
         setActaOtsBase64(certData.ots_base64)
         setAsamblea((prev) => (prev ? { ...prev, acta_ots_proof_base64: certData.ots_base64 } : null))
@@ -537,8 +540,6 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           setActaOtsBase64(certData.ots_base64)
           setAsamblea((prev) => (prev ? { ...prev, acta_ots_proof_base64: certData.ots_base64 } : null))
           toast.success('Certificado .ots generado para este PDF. Descárgalo y verifica en opentimestamps.org con el mismo archivo.')
-        } else if (certRes.ok && certData.skipped) {
-          toast.info('Activa la certificación blockchain en Ajustes para generar el .ots que coincida con este PDF.')
         }
       } catch {
         // No bloquear la descarga si falla la certificación
@@ -681,15 +682,17 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             <p className="text-sm text-amber-600 dark:text-amber-400">{printError}</p>
           )}
           <div className="flex flex-wrap gap-2 items-center">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowVerificacionModal(true)}
-              className={(asamblea?.acta_ots_proof_base64 || actaOtsBase64) ? 'border-emerald-600 text-emerald-700 hover:bg-emerald-50' : 'border-slate-400 text-slate-600 hover:bg-slate-100'}
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Certificado y cómo verificar
-            </Button>
+            {blockchainCertEnabled && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowVerificacionModal(true)}
+                className={(asamblea?.acta_ots_proof_base64 || actaOtsBase64) ? 'border-emerald-600 text-emerald-700 hover:bg-emerald-50' : 'border-slate-400 text-slate-600 hover:bg-slate-100'}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Certificado y cómo verificar
+              </Button>
+            )}
             <Button
               onClick={handleDescargarPdf}
               disabled={descargandoPdf}
