@@ -1179,7 +1179,7 @@ export default function VotacionPublicaPage() {
                 Verificación de Asistencia
               </DialogTitle>
               <DialogDescription>
-                El administrador solicita confirmar que estás presente. La pantalla permanecerá bloqueada hasta que verifique su asistencia o el administrador cierre la verificación (una de las dos).
+                El administrador solicita confirmar tu asistencia en esta ronda. Pulsa el botón para registrar que estás presente; tu confirmación quedará registrada en el acta. La pantalla permanecerá bloqueada hasta que verifiques o el administrador cierre la verificación.
               </DialogDescription>
             </DialogHeader>
             {statsVerificacion && statsVerificacion.total_verificados > 0 && (

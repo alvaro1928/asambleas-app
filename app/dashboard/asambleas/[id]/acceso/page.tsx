@@ -875,7 +875,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             {openVerificacion && (
               <div className="px-4 pb-4 pt-0 space-y-2 border-t border-white/10">
                 <p className="text-xs text-slate-400 pt-2">
-                  {verificacionActiva ? 'Activa — los votantes ven el popup de confirmación' : 'Inactiva — al activar aparece popup en la página de votación'}
+                  {verificacionActiva
+                    ? 'Activa — Los votantes ven el popup para confirmar asistencia. Sin preguntas abiertas = general; con preguntas abiertas = asociada a todas. Al desactivar, el resultado queda en el acta.'
+                    : 'Inactiva — Al activar, los votantes verán el popup en la página de votación. Cada vez que activas se inicia una nueva sesión (quórum a cero).'}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" onClick={onActivarVerificacionClick} disabled={toggling}
@@ -1331,7 +1333,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             </DialogDescription>
             <div className="space-y-2 text-left text-sm text-slate-400 mt-2">
               <p>
-                Al cerrar la verificación, el resultado quedará registrado en el acta (asociado a la pregunta abierta, si la hay, o como asamblea en general).
+                Al cerrar la verificación, el resultado quedará registrado en el acta: si hay pregunta(s) abierta(s), asociado a todas; si no hay ninguna abierta, como "Asamblea en general".
               </p>
               <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-400 mt-3">
                 <input
@@ -1466,7 +1468,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </Button>
             </div>
             <p className="text-sm text-slate-400 mt-1">
-              Selecciona las unidades cuya asistencia quieres registrar. Las que ya verificaron aparecen marcadas y no se pueden volver a seleccionar.
+              Selecciona las unidades cuya asistencia quieres registrar en esta sesión. Las que ya verificaron en la sesión actual aparecen como "Verificada" y no se pueden volver a seleccionar.
             </p>
           </DialogHeader>
 

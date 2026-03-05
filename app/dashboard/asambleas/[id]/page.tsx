@@ -3589,7 +3589,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             <div className="space-y-2 text-left text-sm text-gray-600 dark:text-gray-400 mt-2">
               <p>
                 {preguntas.some((p) => p.estado === 'abierta')
-                  ? 'Al cerrar la verificación, el resultado quedará registrado en el acta asociado a la pregunta que esté abierta.'
+                  ? 'Al cerrar la verificación, el resultado quedará registrado en el acta: asociado a la(s) pregunta(s) abierta(s) en ese momento (si hay varias abiertas, el mismo quórum figura para todas).'
                   : 'Al cerrar la verificación, el resultado quedará registrado en el acta como "Asamblea en general" (para que el administrador sepa si puede continuar).'}
               </p>
               <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300 mt-3">
@@ -3806,7 +3806,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 Verificación de asistencia
               </h4>
               <p className="mt-1">
-                Al activarla, los votantes ven un popup para confirmar &quot;Verifico asistencia&quot;. El avance se refleja en el panel Quórum (tarjeta Asistencia verificada). Puedes registrar asistencia manualmente por unidad desde Acceso Público o desde la página de Control de acceso.
+                Al activarla, los votantes ven un popup para confirmar asistencia. Sin preguntas abiertas = verificación <strong>general</strong>; con preguntas abiertas = asociada a todas. Al desactivar, el resultado queda en el acta. Al volver a activar comienza una <strong>nueva sesión</strong> (quórum a cero). Puedes registrar asistencia manualmente por unidad desde Acceso o la página de Control de acceso (solo cuenta la sesión actual).
               </p>
             </div>
             <div>

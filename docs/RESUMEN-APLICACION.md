@@ -41,23 +41,23 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
   - Umbral de aprobación por pregunta.
   - Activar/desactivar **votación pública** (genera código de acceso y URL).
   - En la sección **Acceso Público**, botones de **Verificación de quórum**: **Activar/Desactivar verificación** y **Registrar asistencia** (enlace a la página de acceso para el modal de registro manual); se muestra el resumen de asistencia verificada y si se alcanzó quórum (Ley 675).
-  - Ver **quórum** (unidades que votaron, coeficiente, porcentaje nominal/coeficiente).
+  - Ver **quórum** (unidades que votaron, coeficiente, porcentaje nominal/coeficiente) y **historial de validaciones de quórum (asamblea en general)** en el panel colapsable.
   - Ver estadísticas por pregunta (votos por opción, porcentajes).
   - **Registrar voto a nombre de un residente** (admin): selección de unidad, email y votos por pregunta abierta.
   - Copiar código y enlace; enlace a pantalla de acceso/QR.
 - **Control de acceso y QR** (`/dashboard/asambleas/[id]/acceso`):
   - Código QR y URL para que los votantes entren a `/votar/[codigo]`.
-  - **Verificación de quórum (asistencia):** botón **Activar verificación**; al activarlo, en la página de votación aparece un popup para que cada votante confirme "Verifico asistencia". Botón **Registrar asistencia** para marcar manualmente una o varias unidades como presentes. Al desactivar la verificación se resetean todas las confirmaciones (al reactivar, todos deben verificar de nuevo). Cuando la verificación está activa, los paneles de la página de acceso muestran **Ya verificaron asistencia** y **Faltan por verificar** (en lugar de Sesión Activa / Ya Votaron / Pendientes).
-  - **Acceso de asistente delegado:** el administrador puede **Generar enlace** para dar a una persona de confianza; ese enlace (`/asistir/[codigo]?t=token`) permite registrar asistencia y votos en nombre de unidades. Todas las acciones quedan registradas como "registrado por asistente delegado". Se puede revocar el token en cualquier momento.
+  - **Verificación de quórum (asistencia):** **Activar verificación** muestra en la página de votación un popup para que cada votante confirme asistencia. Sin preguntas abiertas = verificación **general**; con preguntas abiertas = asociada a **todas** las abiertas. Al **cerrar** la verificación el resultado queda en el acta (general o por pregunta). Al **reabrir** comienza una nueva sesión (quórum a cero). **Registrar asistencia** marca manualmente unidades (solo cuenta la sesión actual). Paneles **Ya verificaron** / **Faltan por verificar** con totales y desglose directo/por poder.
+  - **Acceso de asistente delegado:** enlace (`/asistir/[codigo]?t=token`) para registrar asistencia y votos en nombre de unidades; quórum por **sesión actual**. Revocable en cualquier momento.
   - **Registro de ingresos en tiempo real** (sesiones activas con actividad reciente).
-  - **Avance de votaciones**: quórum (unidades que ya votaron) y progreso por pregunta abierta; se actualiza cada 10 s.
+  - **Avance de votaciones**: unidades que ya votaron, % de verificación de asistencia (si está activa) y progreso por pregunta; se actualiza cada 10 s.
 - **Envío de correo:** Botón "Enviar enlace por correo" envía por **SMTP** desde el servidor (sin Outlook). Configurable en Super Admin → Ajustes o por variables. Plantilla adicional en Configuración → Poderes y correo.
 - **Poderes** (`/dashboard/asambleas/[id]/poderes`):
   - Asignar apoderados por unidad (quién otorga, email y nombre del apoderado).
   - Límite máximo de poderes por apoderado **configurable** en Dashboard → Configuración → Poderes y correo; validación antes de crear.
   - Revocar poder (con diálogo de confirmación).
   - **Importación masiva** de poderes desde Excel/CSV (`/dashboard/asambleas/[id]/poderes/importar`).
-- **Acta** (`/dashboard/asambleas/[id]/acta`): descarga/impresión con resultados por pregunta, quórum y **detalle de auditoría** (quién votó, cuándo, IP, user-agent).
+- **Acta** (`/dashboard/asambleas/[id]/acta`): descarga/impresión con resultados por pregunta, quórum y **detalle de auditoría** (quién votó, cuándo, IP, user-agent). Incluye **registros de verificación de quórum**: sección "Asamblea en general" (sesiones sin pregunta asociada) y por cada pregunta el registro de la sesión cerrada asociada a esa pregunta (si existe). Unidades que no participaron por pregunta; votos con indicador "Poder" cuando aplica.
 
 **Dashboard principal**
 - Métricas: conjuntos, unidades, coeficientes, censo.

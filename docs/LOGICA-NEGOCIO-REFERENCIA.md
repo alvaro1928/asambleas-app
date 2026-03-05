@@ -83,8 +83,16 @@ Documento de referencia para retomar el trabajo en este chat. **Proyecto:** Asam
 - RPC `calcular_quorum_asamblea`: excluye unidades demo en asambleas reales; solo demo en sandbox.
 - Quórum alcanzado si coeficiente_votante / coeficiente_total >= 50%.
 
-### 4.6 Acta
-- Descarga con resultados, quórum, auditoría (quién votó, IP, user-agent).
+### 4.6 Verificación de asistencia (quórum Ley 675)
+- **Contexto:** Sin preguntas abiertas = verificación **general** (asamblea en general). Con una o más preguntas abiertas = verificación asociada a **todas** las abiertas en ese momento.
+- **Sesiones:** Cada vez que se **activa** la verificación se abre una nueva sesión. Al **desactivar** se cierra la sesión y se guarda el snapshot en `verificacion_asamblea_sesiones` (por pregunta o `pregunta_id` null = general). Al reabrir, nueva sesión → quórum a cero; los votantes deben verificar de nuevo.
+- **Registro:** `verificacion_asistencia_registro` con `pregunta_id` (null = general). RPC `ya_verifico_asistencia` y `unidad_ids_verificados_sesion_actual` filtran por sesión actual (desde última apertura).
+- **Cerrar pregunta:** Si se cierra la pregunta que es el contexto actual de verificación, la app primero desactiva la verificación (trigger guarda sesión con esa pregunta) y luego cierra la pregunta.
+- **Acta:** Sección "Asamblea en general" = sesiones con `pregunta_id` null. Por cada pregunta = sesión cerrada con ese `pregunta_id` (la más reciente si hay varias).
+- **Delegado (asistir):** Usa sesión actual para "ya verificaron"; no acumulado.
+
+### 4.7 Acta
+- Descarga con resultados, quórum, **registros de verificación** (general y por pregunta), auditoría (quién votó, IP, user-agent), unidades que no participaron por pregunta, indicador "Poder" en votos.
 - En sandbox: marca "BORRADOR DE PRUEBA — SIN VALIDEZ LEGAL".
 
 ---
