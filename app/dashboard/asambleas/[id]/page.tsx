@@ -54,6 +54,7 @@ const SITE_URL = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE
   : 'https://www.asamblea.online'
 import { StickyBanner } from '@/components/StickyBanner'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
+import { ModalRegistroAsistencia } from '@/components/ModalRegistroAsistencia'
 
 interface Asamblea {
   id: string
@@ -161,6 +162,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [openVerifAcceso, setOpenVerifAcceso] = useState(false)
   const [openDelegadoAcceso, setOpenDelegadoAcceso] = useState(false)
   const [openDesactivarAcceso, setOpenDesactivarAcceso] = useState(false)
+  const [showModalAsistencia, setShowModalAsistencia] = useState(false)
   // Delegado (token enlace asistente)
   const [generandoToken, setGenerandoToken] = useState(false)
   const [copiadoToken, setCopiadoToken] = useState(false)
@@ -2251,11 +2253,15 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                               {togglingVerif ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block mr-1.5" /> : <UserCheck className="w-4 h-4 mr-1.5" />}
                               {asamblea.verificacion_asistencia_activa ? 'Desactivar verificación' : 'Activar verificación'}
                             </Button>
-                            <Link href={`/dashboard/asambleas/${params.id}/acceso?registrar=asistencia`} className="inline-flex">
-                              <Button type="button" variant="outline" size="sm" className="border-gray-300 dark:border-gray-600">
-                                <CheckCircle2 className="w-4 h-4 mr-1.5" /> Registrar asistencia
-                              </Button>
-                            </Link>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="border-gray-300 dark:border-gray-600"
+                              onClick={() => setShowModalAsistencia(true)}
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-1.5" /> Registrar asistencia
+                            </Button>
                           </div>
                           {statsVerificacion && (statsVerificacion.total_verificados > 0 || asamblea.verificacion_asistencia_activa) && (
                             <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -3844,6 +3850,13 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       </Dialog>
 
       <GuiaTokensModal open={guiaModalOpen} onOpenChange={setGuiaModalOpen} />
+
+      <ModalRegistroAsistencia
+        open={showModalAsistencia}
+        onOpenChange={setShowModalAsistencia}
+        asambleaId={params.id}
+        onGuardado={cargarStatsVerificacion}
+      />
     </div>
   )
 }
