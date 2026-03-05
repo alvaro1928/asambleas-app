@@ -596,7 +596,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         })
       })
       setSesionesPorPregunta(porPregunta)
-      if (!verifActiva && generales.length > 0) {
+      if (!asamblea?.verificacion_asistencia_activa && generales.length > 0) {
         const ultima = generales[0]
         setStatsVerificacion({
           total_verificados: ultima.total_verificados,
