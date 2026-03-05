@@ -127,6 +127,8 @@ export default function VotacionPublicaPage() {
   // --- Verificación de Quórum ---
   const [verificacionActiva, setVerificacionActiva] = useState(false)
   const verificacionActivaRef = useRef(false)
+  /** Contexto actual de verificación (null = general, uuid = pregunta); si cambia, hay que mostrar popup de nuevo */
+  const lastVerificacionPreguntaIdRef = useRef<string | null>(null)
   const [yaVerifico, setYaVerifico] = useState(false)
   const [verificando, setVerificando] = useState(false)
   interface StatsVerif { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
@@ -691,17 +693,26 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  // Cargar estado de verificación de quórum en cuanto tengamos asamblea; polling cada 5 s para que al activar en admin el popup aparezca pronto
+  // Poll rápido solo del flag de verificación (cada 5 s) para que al activar en admin el popup aparezca pronto; el contexto (pregunta_id) se actualiza en refrescarVerificacion
   useEffect(() => {
     if (!asamblea?.asamblea_id || step === 'validando' || step === 'error') return
     const fetchActiva = async () => {
       try {
         const { data } = await supabase
           .from('asambleas')
-          .select('verificacion_asistencia_activa')
+          .select('verificacion_asistencia_activa, verificacion_pregunta_id')
           .eq('id', asamblea.asamblea_id)
           .single()
-        if (data) setVerificacionActiva(!!(data as { verificacion_asistencia_activa?: boolean }).verificacion_asistencia_activa)
+        if (data) {
+          const a = data as { verificacion_asistencia_activa?: boolean; verificacion_pregunta_id?: string | null }
+          setVerificacionActiva(!!a.verificacion_asistencia_activa)
+          const pid = a.verificacion_pregunta_id ?? null
+          if (!!a.verificacion_asistencia_activa && lastVerificacionPreguntaIdRef.current !== pid) {
+            lastVerificacionPreguntaIdRef.current = pid
+            setYaVerifico(false)
+          }
+          if (!a.verificacion_asistencia_activa) lastVerificacionPreguntaIdRef.current = null
+        }
       } catch {
         // ignorar
       }
@@ -723,12 +734,20 @@ export default function VotacionPublicaPage() {
       if (aData) {
         const activa = !!(aData as any).verificacion_asistencia_activa
         const prevActiva = verificacionActivaRef.current
+        const preguntaId = (aData as any).verificacion_pregunta_id ?? null
+        const preguntaIdStr = preguntaId ?? null
+
         setVerificacionActiva(activa)
         // Al reabrir la verificación (inactiva → activa), forzar mostrar popup de nuevo
         if (activa && !prevActiva) setYaVerifico(false)
+        // Al pasar de verificación general a por pregunta (o cambiar de pregunta), mostrar popup de nuevo
+        if (activa) {
+          if (lastVerificacionPreguntaIdRef.current !== preguntaIdStr) setYaVerifico(false)
+          lastVerificacionPreguntaIdRef.current = preguntaIdStr
+        } else {
+          lastVerificacionPreguntaIdRef.current = null
+        }
         verificacionActivaRef.current = activa
-
-        const preguntaId = (aData as any).verificacion_pregunta_id ?? null
 
         const [vRes, yaRes] = await Promise.all([
           supabase.rpc('calcular_verificacion_quorum', {
