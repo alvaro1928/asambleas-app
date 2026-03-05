@@ -1141,30 +1141,26 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     })()}
                   </div>
 
-                  {/* Registro de verificación de quórum asociada a esta pregunta: sesión cerrada con pregunta_id o fallback por corte */}
+                  {/* Registro de verificación de quórum asociada a esta pregunta: solo sesión cerrada con pregunta_id (no fallback general) */}
                   {(() => {
                     const sesionPregunta = sesionesVerificacion.find((s) => s.pregunta_id === pregunta.id && s.cierre_at != null)
-                    const snap = sesionPregunta
-                      ? {
-                          total_verificados: sesionPregunta.total_verificados ?? 0,
-                          porcentaje_verificado: Number(sesionPregunta.porcentaje_verificado) ?? 0,
-                          quorum_alcanzado: !!sesionPregunta.quorum_alcanzado,
-                          corte_timestamp: sesionPregunta.cierre_at ?? undefined,
-                        }
-                      : verificacionPorPregunta[pregunta.id]
-                    if (!snap || snap.total_verificados === 0) return null
-                    const horaCorte = snap.corte_timestamp
-                      ? new Date(snap.corte_timestamp).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+                    if (!sesionPregunta) return null
+                    const total = sesionPregunta.total_verificados ?? 0
+                    if (total === 0) return null
+                    const porcentaje = Number(sesionPregunta.porcentaje_verificado) ?? 0
+                    const quorumAlcanzado = !!sesionPregunta.quorum_alcanzado
+                    const horaCorte = sesionPregunta.cierre_at
+                      ? new Date(sesionPregunta.cierre_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
                       : null
                     return (
                       <div className="ml-10 mt-2 mb-1">
                         <p className="text-xs font-semibold text-indigo-700 mb-0.5">Registro de verificación de quórum (asociada a esta pregunta)</p>
                         <p className="text-xs text-gray-500 italic border-l-2 border-indigo-300 pl-2">
-                          {sesionPregunta ? 'Al cerrar la verificación' : 'Al momento de esta votación'}
+                          Al cerrar la verificación
                           {horaCorte ? ` (${horaCorte})` : ''},{' '}
-                          el <strong>{Number(snap.porcentaje_verificado).toFixed(2)}%</strong> del coeficiente de copropiedad
-                          ({snap.total_verificados} unidades) había verificado asistencia.{' '}
-                          {snap.quorum_alcanzado
+                          el <strong>{porcentaje.toFixed(2)}%</strong> del coeficiente de copropiedad
+                          ({total} unidades) había verificado asistencia.{' '}
+                          {quorumAlcanzado
                             ? 'Quórum alcanzado según Ley 675 de 2001, Art. 45 (>50%).'
                             : 'Quórum no alcanzado según Ley 675 de 2001, Art. 45 (se requiere >50%).'}
                         </p>

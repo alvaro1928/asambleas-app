@@ -151,6 +151,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   interface VerifStats { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
   const [statsVerificacion, setStatsVerificacion] = useState<VerifStats | null>(null)
   const [togglingVerif, setTogglingVerif] = useState(false)
+  /** Sesiones cerradas de verificación con pregunta_id null (asamblea en general), para historial */
+  interface SesionQuorumGeneral { cierre_at: string; total_verificados: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
+  const [sesionesQuorumGeneral, setSesionesQuorumGeneral] = useState<SesionQuorumGeneral[]>([])
+  const [openHistorialQuorumGeneral, setOpenHistorialQuorumGeneral] = useState(false)
 
   // Acceso Público: secciones colapsables
   const [openEnlaceAcceso, setOpenEnlaceAcceso] = useState(true)
@@ -552,6 +556,25 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     } catch (error) {
       console.error('Error loading quorum:', error)
     }
+
+    // Historial de validaciones de quórum (asamblea en general: solo sesiones con pregunta_id null)
+    try {
+      const { data: sesionesData } = await supabase
+        .from('verificacion_asamblea_sesiones')
+        .select('cierre_at, total_verificados, porcentaje_verificado, quorum_alcanzado')
+        .eq('asamblea_id', params.id)
+        .is('pregunta_id', null)
+        .not('cierre_at', 'is', null)
+        .order('cierre_at', { ascending: false })
+      setSesionesQuorumGeneral((sesionesData || []).map((s: any) => ({
+        cierre_at: s.cierre_at,
+        total_verificados: Number(s.total_verificados) ?? 0,
+        porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
+        quorum_alcanzado: !!s.quorum_alcanzado,
+      })))
+    } catch {
+      setSesionesQuorumGeneral([])
+    }
   }
 
   const handleActivarVotacion = async () => {
@@ -900,6 +923,24 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const handleChangeEstadoPregunta = async (preguntaId: string, nuevoEstado: 'pendiente' | 'abierta' | 'cerrada') => {
     try {
+      // Si se cierra la pregunta que es el contexto actual de verificación, primero cerrar la verificación
+      // para que el trigger guarde la sesión con este pregunta_id (quórum asociado a esta pregunta en el acta).
+      if (nuevoEstado === 'cerrada' && asamblea?.verificacion_asistencia_activa && asamblea?.verificacion_pregunta_id === preguntaId) {
+        const { error: errVer } = await supabase
+          .from('asambleas')
+          .update({ verificacion_asistencia_activa: false, verificacion_pregunta_id: null })
+          .eq('id', asamblea.id)
+        if (errVer) {
+          toast.error('No se pudo cerrar la verificación: ' + (errVer.message ?? 'Error'))
+          return
+        }
+        setAsamblea({
+          ...asamblea,
+          verificacion_asistencia_activa: false,
+          verificacion_pregunta_id: null,
+        })
+      }
+
       const { error } = await supabase
         .from('preguntas')
         .update({ estado: nuevoEstado })
@@ -907,16 +948,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       if (error) throw error
 
-      setPreguntas(preguntas.map(p => 
+      setPreguntas(preguntas.map(p =>
         p.id === preguntaId ? { ...p, estado: nuevoEstado } : p
       ))
-      
+
       const mensajes = {
         pendiente: 'Pregunta cerrada',
         abierta: 'Votación abierta - Los propietarios ya pueden votar',
         cerrada: 'Votación cerrada'
       }
-      
+
       setSuccessMessage(mensajes[nuevoEstado])
       setTimeout(() => setSuccessMessage(''), 3000)
 
@@ -1929,6 +1970,38 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
                 ⏱️ Datos actualizados en tiempo real cada 5 segundos
               </p>
+
+              {/* Historial de validaciones de quórum (asamblea en general: sin pregunta abierta o todas cerradas) */}
+              {sesionesQuorumGeneral.length > 0 && (
+                <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setOpenHistorialQuorumGeneral((v) => !v)}
+                    className="flex items-center justify-between w-full text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg px-3 py-2"
+                  >
+                    <span className="flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-indigo-500" />
+                      Historial de validaciones de quórum (asamblea en general)
+                    </span>
+                    {openHistorialQuorumGeneral ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                  {openHistorialQuorumGeneral && (
+                    <ul className="mt-2 space-y-2">
+                      {sesionesQuorumGeneral.map((sesion, idx) => (
+                        <li key={idx} className="flex items-center justify-between text-sm py-2 px-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+                          <span className="text-gray-600 dark:text-gray-400">
+                            {new Date(sesion.cierre_at).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                          <span className={`font-semibold ${sesion.quorum_alcanzado ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                            {sesion.porcentaje_verificado.toFixed(1)}% ({sesion.total_verificados} un.) — {sesion.quorum_alcanzado ? 'Quórum' : 'Sin quórum'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
               </div>
               )}
             </>
