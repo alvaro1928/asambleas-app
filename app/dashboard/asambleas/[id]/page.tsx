@@ -152,9 +152,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   interface VerifStats { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
   const [statsVerificacion, setStatsVerificacion] = useState<VerifStats | null>(null)
   const [togglingVerif, setTogglingVerif] = useState(false)
-  /** Sesiones cerradas de verificación con pregunta_id null (asamblea en general), para historial */
-  interface SesionQuorumGeneral { cierre_at: string; total_verificados: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
+  /** Sesiones cerradas de verificación con pregunta_id null (asamblea en general), para historial y persistencia de asistencia */
+  interface SesionQuorumGeneral { cierre_at: string; total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
   const [sesionesQuorumGeneral, setSesionesQuorumGeneral] = useState<SesionQuorumGeneral[]>([])
+  /** Sesiones cerradas por pregunta_id (para mostrar en cada pregunta cerrada su quórum asociado, no el general) */
+  const [sesionesPorPregunta, setSesionesPorPregunta] = useState<Record<string, SesionQuorumGeneral[]>>({})
   const [openHistorialQuorumGeneral, setOpenHistorialQuorumGeneral] = useState(false)
 
   // Acceso Público: secciones colapsables
@@ -492,22 +494,26 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         setQuorum(rpcData[0])
       }
 
-      // Stats de verificación para el contexto actual: pregunta abierta (si hay una) o general; solo sesión actual cuando verificación activa
-      const preguntaAbiertaId = preguntas.find((p) => p.estado === 'abierta')?.id ?? null
+      // Stats de verificación para la tarjeta "Asistencia verificada" (arriba): usar el contexto actual (verificacion_pregunta_id), no siempre "general"
+      const contextoPreguntaId = asamblea?.verificacion_pregunta_id ?? null
       const verifActiva = !!(asamblea?.verificacion_asistencia_activa)
       const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
         p_asamblea_id: params.id,
-        p_pregunta_id: preguntaAbiertaId,
+        p_pregunta_id: contextoPreguntaId,
         p_solo_sesion_actual: verifActiva,
       })
-      if (verData?.length) {
-        const v = verData[0] as VerifStats
-        setStatsVerificacion({
-          total_verificados: Number(v.total_verificados) || 0,
-          coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
-          porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
-          quorum_alcanzado: !!v.quorum_alcanzado,
-        })
+      if (verifActiva) {
+        if (verData?.length) {
+          const v = verData[0] as VerifStats
+          setStatsVerificacion({
+            total_verificados: Number(v.total_verificados) || 0,
+            coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+            porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+            quorum_alcanzado: !!v.quorum_alcanzado,
+          })
+        } else {
+          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+        }
       }
 
       if (!rpcError && rpcData && rpcData.length > 0) return
@@ -559,23 +565,49 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       console.error('Error loading quorum:', error)
     }
 
-    // Historial de validaciones de quórum (asamblea en general: solo sesiones con pregunta_id null)
+    // Sesiones cerradas de verificación: general (pregunta_id null) y por pregunta (para quórum en cada tarjeta)
     try {
-      const { data: sesionesData } = await supabase
+      const { data: todasSesiones } = await supabase
         .from('verificacion_asamblea_sesiones')
-        .select('cierre_at, total_verificados, porcentaje_verificado, quorum_alcanzado')
+        .select('pregunta_id, cierre_at, total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
         .eq('asamblea_id', params.id)
-        .is('pregunta_id', null)
         .not('cierre_at', 'is', null)
         .order('cierre_at', { ascending: false })
-      setSesionesQuorumGeneral((sesionesData || []).map((s: any) => ({
+      const lista = (todasSesiones || []).map((s: any) => ({
+        pregunta_id: s.pregunta_id as string | null,
         cierre_at: s.cierre_at,
         total_verificados: Number(s.total_verificados) ?? 0,
+        coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0,
         porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
         quorum_alcanzado: !!s.quorum_alcanzado,
-      })))
+      }))
+      const generales = lista.filter((s: { pregunta_id: string | null }) => s.pregunta_id == null)
+      setSesionesQuorumGeneral(generales)
+      const porPregunta: Record<string, SesionQuorumGeneral[]> = {}
+      lista.filter((s: { pregunta_id: string | null }) => s.pregunta_id != null).forEach((s: any) => {
+        const id = s.pregunta_id
+        if (!porPregunta[id]) porPregunta[id] = []
+        porPregunta[id].push({
+          cierre_at: s.cierre_at,
+          total_verificados: s.total_verificados,
+          coeficiente_verificado: s.coeficiente_verificado,
+          porcentaje_verificado: s.porcentaje_verificado,
+          quorum_alcanzado: s.quorum_alcanzado,
+        })
+      })
+      setSesionesPorPregunta(porPregunta)
+      if (!verifActiva && generales.length > 0) {
+        const ultima = generales[0]
+        setStatsVerificacion({
+          total_verificados: ultima.total_verificados,
+          coeficiente_verificado: ultima.coeficiente_verificado,
+          porcentaje_verificado: ultima.porcentaje_verificado,
+          quorum_alcanzado: ultima.quorum_alcanzado,
+        })
+      }
     } catch {
       setSesionesQuorumGeneral([])
+      setSesionesPorPregunta({})
     }
   }
 
@@ -1252,6 +1284,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!asamblea || asamblea.is_demo) return
     setFinalizando(true)
     try {
+      await supabase.rpc('cerrar_sesiones_verificacion_abiertas', { p_asamblea_id: asamblea.id }).then(() => {})
       await supabase.from('preguntas').update({ estado: 'cerrada' }).eq('asamblea_id', asamblea.id).eq('estado', 'abierta')
       const { error } = await supabase
         .from('asambleas')
@@ -1369,22 +1402,45 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const cargarStatsVerificacion = async () => {
     if (!asamblea?.id) return
-    const preguntaAbiertaId = preguntas.find((p) => p.estado === 'abierta')?.id ?? null
-    const { data } = await supabase.rpc('calcular_verificacion_quorum', {
-      p_asamblea_id: asamblea.id,
-      p_pregunta_id: preguntaAbiertaId,
-      p_solo_sesion_actual: !!asamblea.verificacion_asistencia_activa,
-    })
-    if (data?.length) {
-      const v = data[0]
-      setStatsVerificacion({
-        total_verificados: Number(v.total_verificados) || 0,
-        coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
-        porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
-        quorum_alcanzado: !!v.quorum_alcanzado,
+    if (asamblea.verificacion_asistencia_activa) {
+      const contextoPreguntaId = asamblea.verificacion_pregunta_id ?? null
+      const { data } = await supabase.rpc('calcular_verificacion_quorum', {
+        p_asamblea_id: asamblea.id,
+        p_pregunta_id: contextoPreguntaId,
+        p_solo_sesion_actual: true,
       })
+      if (data?.length) {
+        const v = data[0]
+        setStatsVerificacion({
+          total_verificados: Number(v.total_verificados) || 0,
+          coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+          porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+          quorum_alcanzado: !!v.quorum_alcanzado,
+        })
+      } else {
+        setStatsVerificacion(null)
+      }
     } else {
-      setStatsVerificacion(null)
+      // Verificación cerrada: persistir datos de la última sesión general cerrada
+      const { data: sesionesData } = await supabase
+        .from('verificacion_asamblea_sesiones')
+        .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
+        .eq('asamblea_id', asamblea.id)
+        .is('pregunta_id', null)
+        .not('cierre_at', 'is', null)
+        .order('cierre_at', { ascending: false })
+        .limit(1)
+      if (sesionesData?.length) {
+        const s = sesionesData[0] as { total_verificados?: number; coeficiente_verificado?: number; porcentaje_verificado?: number; quorum_alcanzado?: boolean }
+        setStatsVerificacion({
+          total_verificados: Number(s.total_verificados) ?? 0,
+          coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0,
+          porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
+          quorum_alcanzado: !!s.quorum_alcanzado,
+        })
+      } else {
+        setStatsVerificacion(null)
+      }
     }
   }
 
@@ -1869,7 +1925,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                       Quórum Alcanzado
                     </span>
                   )}
-                  {soloVerificacionActiva && statsVerificacion?.quorum_alcanzado && (
+                  {(soloVerificacionActiva || (statsVerificacion && statsVerificacion.total_verificados > 0)) && statsVerificacion?.quorum_alcanzado && (
                     <span className="px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full text-sm font-semibold flex items-center">
                       <CheckCircle2 className="w-4 h-4 mr-1" />
                       Quórum por asistencia
@@ -1881,7 +1937,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
               {openQuorumPanel && (
               <div className="px-4 sm:px-6 pb-6 pt-0">
-            <div className={`grid grid-cols-1 gap-4 ${quorum ? 'md:grid-cols-3' : ''} ${quorum && asamblea?.verificacion_asistencia_activa ? 'md:grid-cols-4' : ''} ${!quorum && soloVerificacionActiva ? 'md:grid-cols-1' : ''}`}>
+            <div className={`grid grid-cols-1 gap-4 ${quorum ? 'md:grid-cols-3' : ''} ${quorum && (asamblea?.verificacion_asistencia_activa || (statsVerificacion && statsVerificacion.total_verificados > 0)) ? 'md:grid-cols-4' : ''} ${!quorum && (soloVerificacionActiva || (statsVerificacion && statsVerificacion.total_verificados > 0)) ? 'md:grid-cols-1' : ''}`}>
               {quorum && (
                 <>
                   {/* Participación Nominal */}
@@ -1940,8 +1996,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 </>
               )}
 
-              {/* Asistencia verificada: 4.ª tarjeta cuando hay quorum + verificación, o única cuando solo verificación (sin preguntas abiertas) */}
-              {(asamblea?.verificacion_asistencia_activa && (soloVerificacionActiva || quorum)) && (
+              {/* Asistencia verificada: en vivo cuando verificación activa; persistente (última sesión general cerrada) cuando está cerrada */}
+              {((asamblea?.verificacion_asistencia_activa && (soloVerificacionActiva || quorum)) || (statsVerificacion && statsVerificacion.total_verificados > 0)) && (
                 <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Asistencia verificada</p>
                   <p className={`text-2xl font-bold ${statsVerificacion?.quorum_alcanzado ? 'text-green-600 dark:text-green-400' : (statsVerificacion && statsVerificacion.porcentaje_verificado >= 30 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white')}`}>
@@ -2690,32 +2746,41 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                                   </div>
                                 )
                               })()}
-                              {/* Chip de quórum verificado */}
-                              {statsVerificacion && (
-                                <div className={`mt-3 flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${
-                                  statsVerificacion.quorum_alcanzado
-                                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                                    : statsVerificacion.porcentaje_verificado >= 30
-                                    ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
-                                    : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                                }`}>
-                                  <span className={`font-medium flex items-center gap-1 ${
-                                    statsVerificacion.quorum_alcanzado ? 'text-green-700 dark:text-green-400' :
-                                    statsVerificacion.porcentaje_verificado >= 30 ? 'text-amber-700 dark:text-amber-400' :
-                                    'text-gray-600 dark:text-gray-400'
+                              {/* Chip de quórum verificado: por pregunta cerrada = sesión asociada; por pregunta abierta = solo si es el contexto actual */}
+                              {(() => {
+                                const statsForPregunta: VerifStats | null =
+                                  pregunta.estado === 'cerrada'
+                                    ? (sesionesPorPregunta[pregunta.id]?.[0] ?? null)
+                                    : (asamblea?.verificacion_pregunta_id === pregunta.id || asamblea?.verificacion_pregunta_id == null)
+                                      ? statsVerificacion
+                                      : null
+                                if (!statsForPregunta) return null
+                                return (
+                                  <div className={`mt-3 flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${
+                                    statsForPregunta.quorum_alcanzado
+                                      ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                                      : statsForPregunta.porcentaje_verificado >= 30
+                                      ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                                      : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                                   }`}>
-                                    ✓ Quórum verificado: {statsVerificacion.porcentaje_verificado.toFixed(1)}%
-                                    ({statsVerificacion.total_verificados} unidades)
-                                  </span>
-                                  <span className={`px-1.5 py-0.5 rounded-full font-semibold ${
-                                    statsVerificacion.quorum_alcanzado
-                                      ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                                      : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                                  }`}>
-                                    {statsVerificacion.quorum_alcanzado ? '✓ Ley 675 >50%' : '✗ Sin quórum'}
-                                  </span>
-                                </div>
-                              )}
+                                    <span className={`font-medium flex items-center gap-1 ${
+                                      statsForPregunta.quorum_alcanzado ? 'text-green-700 dark:text-green-400' :
+                                      statsForPregunta.porcentaje_verificado >= 30 ? 'text-amber-700 dark:text-amber-400' :
+                                      'text-gray-600 dark:text-gray-400'
+                                    }`}>
+                                      ✓ Quórum verificado: {statsForPregunta.porcentaje_verificado.toFixed(1)}%
+                                      ({statsForPregunta.total_verificados} unidades)
+                                    </span>
+                                    <span className={`px-1.5 py-0.5 rounded-full font-semibold ${
+                                      statsForPregunta.quorum_alcanzado
+                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                                        : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                    }`}>
+                                      {statsForPregunta.quorum_alcanzado ? '✓ Ley 675 >50%' : '✗ Sin quórum'}
+                                    </span>
+                                  </div>
+                                )
+                              })()}
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
                                 {pregunta.tipo_votacion === 'coeficiente'
                                   ? '📊 Votación ponderada por coeficiente (Ley 675)'

@@ -354,29 +354,53 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       setPreguntasAvance(avances)
       setPreguntasConResultados(conResultados)
 
-      // Stats de verificación para el contexto actual (solo sesión actual: al reactivar es nueva ronda)
+      // Stats de verificación: usar contexto actual (verificacion_pregunta_id), no siempre primera pregunta abierta
+      const contextoPreguntaId = (asambleaFresh as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id ?? null
       const preguntaAbiertaId = (preguntasData && preguntasData.length > 0) ? preguntasData[0].id : null
-      const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
-        p_asamblea_id: params.id,
-        p_pregunta_id: preguntaAbiertaId,
-        p_solo_sesion_actual: true
-      })
-      if (verData?.length) {
-        const v = verData[0] as VerificacionStats
-        setStatsVerificacion({
-          total_verificados: Number(v.total_verificados) || 0,
-          coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
-          porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
-          quorum_alcanzado: !!v.quorum_alcanzado,
+      const verifActiva = !!asambleaFresh?.verificacion_asistencia_activa
+      if (verifActiva) {
+        const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
+          p_asamblea_id: params.id,
+          p_pregunta_id: contextoPreguntaId,
+          p_solo_sesion_actual: true,
         })
+        if (verData?.length) {
+          const v = verData[0] as VerificacionStats
+          setStatsVerificacion({
+            total_verificados: Number(v.total_verificados) || 0,
+            coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+            porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+            quorum_alcanzado: !!v.quorum_alcanzado,
+          })
+        } else {
+          setStatsVerificacion(null)
+        }
       } else {
-        setStatsVerificacion(null)
+        const { data: sesionesData } = await supabase
+          .from('verificacion_asamblea_sesiones')
+          .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
+          .eq('asamblea_id', params.id)
+          .is('pregunta_id', null)
+          .not('cierre_at', 'is', null)
+          .order('cierre_at', { ascending: false })
+          .limit(1)
+        if (sesionesData?.length) {
+          const s = sesionesData[0] as VerificacionStats
+          setStatsVerificacion({
+            total_verificados: Number(s.total_verificados) ?? 0,
+            coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0,
+            porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
+            quorum_alcanzado: !!s.quorum_alcanzado,
+          })
+        } else {
+          setStatsVerificacion(null)
+        }
       }
 
       try {
         const { data: desgloseData } = await supabase.rpc('calcular_verificacion_quorum_desglose', {
           p_asamblea_id: params.id,
-          p_pregunta_id: preguntaAbiertaId,
+          p_pregunta_id: contextoPreguntaId,
           p_solo_sesion_actual: true,
         })
         if (desgloseData?.length && desgloseData[0]) {
@@ -541,21 +565,43 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         return
       }
       setVerificacionActiva(updatedRow ? !!updatedRow.verificacion_asistencia_activa : nuevoValor)
-      const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
-        p_asamblea_id: params.id,
-        p_pregunta_id: preguntaAbiertaId,
-        p_solo_sesion_actual: true,
-      })
-      if (verData?.length) {
-        const v = verData[0]
-        setStatsVerificacion({
-          total_verificados: Number(v.total_verificados) || 0,
-          coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
-          porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
-          quorum_alcanzado: !!v.quorum_alcanzado,
+      if (nuevoValor) {
+        const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
+          p_asamblea_id: params.id,
+          p_pregunta_id: preguntaAbiertaId,
+          p_solo_sesion_actual: true,
         })
+        if (verData?.length) {
+          const v = verData[0]
+          setStatsVerificacion({
+            total_verificados: Number(v.total_verificados) || 0,
+            coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+            porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+            quorum_alcanzado: !!v.quorum_alcanzado,
+          })
+        } else {
+          setStatsVerificacion(null)
+        }
       } else {
-        setStatsVerificacion(null)
+        const { data: sesionesData } = await supabase
+          .from('verificacion_asamblea_sesiones')
+          .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
+          .eq('asamblea_id', params.id)
+          .is('pregunta_id', null)
+          .not('cierre_at', 'is', null)
+          .order('cierre_at', { ascending: false })
+          .limit(1)
+        if (sesionesData?.length) {
+          const s = sesionesData[0] as VerificacionStats
+          setStatsVerificacion({
+            total_verificados: Number(s.total_verificados) ?? 0,
+            coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0,
+            porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
+            quorum_alcanzado: !!s.quorum_alcanzado,
+          })
+        } else {
+          setStatsVerificacion(null)
+        }
       }
     } finally {
       setToggling(false)

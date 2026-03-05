@@ -827,9 +827,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </p>
         )}
 
-        {/* ── REGISTRO DE VERIFICACIÓN DE QUÓRUM — ASAMBLEA EN GENERAL (solo sesiones con pregunta_id null) ── */}
+        {/* ── REGISTRO DE VERIFICACIÓN DE QUÓRUM — ASAMBLEA EN GENERAL (solo sesiones cerradas con pregunta_id null; no mostrar abiertas) ── */}
         {(() => {
-          const sesionesGenerales = sesionesVerificacion.filter((s) => s.pregunta_id == null)
+          const sesionesGenerales = sesionesVerificacion.filter((s) => s.pregunta_id == null && s.cierre_at != null)
           return (sesionesGenerales.length > 0 || (verificacion && verificacion.total_verificados > 0)) && !quorum
         })() && (
           <section className="mb-8 break-inside-avoid">
@@ -838,7 +838,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             <h3 className="text-xs font-semibold text-gray-600 mb-2">Asamblea en general</h3>
 
             {(() => {
-              const sesionesGenerales = sesionesVerificacion.filter((s) => s.pregunta_id == null)
+              const sesionesGenerales = sesionesVerificacion.filter((s) => s.pregunta_id == null && s.cierre_at != null)
               return sesionesGenerales.length > 0 ? (
               <div className="space-y-4">
                 {sesionesGenerales.map((sesion, idx) => (
@@ -860,13 +860,6 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                             <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Coeficiente verificado</td>
                             <td className="border border-gray-200 px-3 py-2 text-gray-900">{sesion.porcentaje_verificado != null ? `${Number(sesion.porcentaje_verificado).toFixed(2)}%` : '—'}</td>
                           </tr>
-                          <tr>
-                            <td className="border border-gray-200 px-3 py-2 font-bold text-gray-900 bg-indigo-50">Quórum verificado (Ley 675 Art. 45 &gt;50%)</td>
-                            <td className={`border border-gray-200 px-3 py-2 font-bold bg-indigo-50 ${sesion.quorum_alcanzado ? 'text-green-700' : 'text-red-700'}`}>
-                              {sesion.quorum_alcanzado != null ? (sesion.quorum_alcanzado ? '✓ Sí' : '✗ No') : '—'}
-                              {sesion.porcentaje_verificado != null && ` — ${Number(sesion.porcentaje_verificado).toFixed(2)}%`}
-                            </td>
-                          </tr>
                         </>
                       )}
                     </tbody>
@@ -883,12 +876,6 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                   <tr className="bg-gray-50">
                     <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Coeficiente verificado</td>
                     <td className="border border-gray-200 px-3 py-2 text-gray-900">{Math.min(100, verificacion!.coeficiente_verificado).toFixed(4)}%</td>
-                  </tr>
-                  <tr>
-                    <td className="border border-gray-200 px-3 py-2 font-bold text-gray-900 bg-indigo-50">Quórum verificado (Ley 675 Art. 45 &gt;50%)</td>
-                    <td className={`border border-gray-200 px-3 py-2 font-bold bg-indigo-50 ${verificacion!.quorum_alcanzado ? 'text-green-700' : 'text-red-700'}`}>
-                      {verificacion!.quorum_alcanzado ? '✓ Sí' : '✗ No'} — {verificacion!.porcentaje_verificado.toFixed(2)}%
-                    </td>
                   </tr>
                   {verificacion!.hora_verificacion && (
                     <tr className="bg-gray-50">
@@ -912,37 +899,21 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </section>
         )}
 
-        {/* ── QUÓRUM ── */}
-        {quorum && (
+        {/* ── QUÓRUM Y PARTICIPACIÓN (resumen general: solo total unidades, cantidad de preguntas, verificaciones; sin votación por pregunta) ── */}
+        {(quorum || preguntas.length > 0) && (
           <section className="mb-8 break-inside-avoid">
             <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-3 pb-1 border-b border-gray-200">Quórum y participación</h2>
             <table className="w-full border-collapse text-sm">
               <tbody>
-                <tr className="bg-gray-50">
-                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 w-1/2">Total de unidades del conjunto</td>
-                  <td className="border border-gray-200 px-3 py-2 text-gray-900">{quorum.total_unidades}</td>
-                </tr>
-                <tr>
-                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Unidades que votaron</td>
-                  <td className="border border-gray-200 px-3 py-2 text-gray-900">{quorum.unidades_votantes}</td>
-                </tr>
-                <tr className="bg-gray-50">
-                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Unidades que no votaron</td>
-                  <td className="border border-gray-200 px-3 py-2 text-gray-900">{quorum.total_unidades - quorum.unidades_votantes}</td>
-                </tr>
-                <tr>
-                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Participación por coeficiente</td>
-                  <td className="border border-gray-200 px-3 py-2 text-gray-900 font-semibold">{Math.min(100, Number(quorum.porcentaje_participacion_coeficiente)).toFixed(2)}%</td>
-                </tr>
-                <tr className="bg-gray-50">
-                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Coeficiente votante</td>
-                  <td className="border border-gray-200 px-3 py-2 text-gray-900">{Math.min(100, Number(quorum.coeficiente_votante)).toFixed(2)}%</td>
-                </tr>
-                <tr>
-                  <td className="border border-gray-200 px-3 py-2 font-bold text-gray-900">Quórum alcanzado</td>
-                  <td className={`border border-gray-200 px-3 py-2 font-bold ${quorum.quorum_alcanzado ? 'text-green-700' : 'text-red-700'}`}>
-                    {quorum.quorum_alcanzado ? '✓ Sí' : '✗ No'}
-                  </td>
+                {quorum && (
+                  <tr className="bg-gray-50">
+                    <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 w-1/2">Total de unidades del conjunto</td>
+                    <td className="border border-gray-200 px-3 py-2 text-gray-900">{quorum.total_unidades}</td>
+                  </tr>
+                )}
+                <tr className={quorum ? '' : 'bg-gray-50'}>
+                  <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Cantidad de preguntas</td>
+                  <td className="border border-gray-200 px-3 py-2 text-gray-900">{preguntas.length}</td>
                 </tr>
                 {totalPoderes > 0 && (
                   <tr className="bg-gray-50">
@@ -950,23 +921,23 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     <td className="border border-gray-200 px-3 py-2 text-gray-900">{totalPoderes} unidades — coef. delegado {Math.min(100, coefPoderes).toFixed(2)}%</td>
                   </tr>
                 )}
-                {/* Registro de verificación de asistencia — asamblea en general (solo sesiones con pregunta_id null) */}
+                {/* Registro de verificación de asistencia — asamblea en general (solo sesiones cerradas; no mostrar abiertas) */}
                 {(() => {
-                  const sesionesGeneralesResumen = sesionesVerificacion.filter((s) => s.pregunta_id == null)
+                  const sesionesGeneralesResumen = sesionesVerificacion.filter((s) => s.pregunta_id == null && s.cierre_at != null)
                   return (sesionesGeneralesResumen.length > 0 || (verificacion && verificacion.total_verificados > 0))
                 })() && (
                   <>
                     <tr>
                       <td colSpan={2} className="border border-gray-200 px-3 py-2 text-xs font-bold uppercase text-indigo-700 bg-indigo-50">Verificación de asistencia (asamblea en general)</td>
                     </tr>
-                    {sesionesVerificacion.filter((s) => s.pregunta_id == null).length > 0 ? (
-                      sesionesVerificacion.filter((s) => s.pregunta_id == null).map((sesion, idx) => (
+                    {sesionesVerificacion.filter((s) => s.pregunta_id == null && s.cierre_at != null).length > 0 ? (
+                      sesionesVerificacion.filter((s) => s.pregunta_id == null && s.cierre_at != null).map((sesion, idx) => (
                         <tr key={idx}>
                           <td colSpan={2} className="border border-gray-200 px-3 py-2 text-xs bg-indigo-50/50">
                             <strong>Sesión {idx + 1}:</strong> apertura {new Date(sesion.apertura_at).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                             {sesion.cierre_at && (
                               <> — cierre {new Date(sesion.cierre_at).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
-                                {sesion.total_verificados != null && <> · {sesion.total_verificados} un. · {sesion.porcentaje_verificado != null ? `${Number(sesion.porcentaje_verificado).toFixed(2)}%` : ''} {sesion.quorum_alcanzado ? '✓ Quórum' : '✗ Sin quórum'}</>}
+                                {sesion.total_verificados != null && <> · {sesion.total_verificados} un. · {sesion.porcentaje_verificado != null ? `${Number(sesion.porcentaje_verificado).toFixed(2)}%` : ''}</>}
                               </>
                             )}
                           </td>
@@ -981,12 +952,6 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                         <tr className="bg-gray-50">
                           <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Coeficiente verificado</td>
                           <td className="border border-gray-200 px-3 py-2 text-gray-900">{Math.min(100, verificacion!.coeficiente_verificado).toFixed(4)}%</td>
-                        </tr>
-                        <tr>
-                          <td className="border border-gray-200 px-3 py-2 font-bold text-gray-900 bg-indigo-50">Quórum verificado (Ley 675 Art. 45 &gt;50%)</td>
-                          <td className={`border border-gray-200 px-3 py-2 font-bold bg-indigo-50 ${verificacion!.quorum_alcanzado ? 'text-green-700' : 'text-red-700'}`}>
-                            {verificacion!.quorum_alcanzado ? '✓ Sí' : '✗ No'} — {verificacion!.porcentaje_verificado.toFixed(2)}%
-                          </td>
                         </tr>
                         {verificacion!.hora_verificacion && (
                           <tr className="bg-gray-50">
