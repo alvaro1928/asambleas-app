@@ -113,6 +113,14 @@ interface PreguntaConResultados {
   tipo_votacion?: string
   umbral_aprobacion: number | null
   resultados: ResultadoOpcion[]
+  estado?: string
+}
+
+/** Quórum de la sesión cerrada asociada a cada pregunta (para mostrar en la gráfica cuando la pregunta está cerrada) */
+interface QuorumPorPregunta {
+  porcentaje_verificado: number
+  total_verificados: number
+  quorum_alcanzado: boolean
 }
 
 export default function AsambleaAccesoPage({ params }: { params: { id: string } }) {
@@ -136,6 +144,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [quorum, setQuorum] = useState<QuorumData | null>(null)
   const [preguntasAvance, setPreguntasAvance] = useState<PreguntaAvance[]>([])
   const [preguntasConResultados, setPreguntasConResultados] = useState<PreguntaConResultados[]>([])
+  const [quorumPorPregunta, setQuorumPorPregunta] = useState<Record<string, QuorumPorPregunta>>({})
   const [searchSesion, setSearchSesion] = useState('')
   const [searchYaVotaron, setSearchYaVotaron] = useState('')
   const [searchFaltantes, setSearchFaltantes] = useState('')
@@ -303,9 +312,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       const { data: preguntasData } = await supabase
         .from('preguntas')
-        .select('id, texto_pregunta, umbral_aprobacion, tipo_votacion')
+        .select('id, texto_pregunta, umbral_aprobacion, tipo_votacion, estado')
         .eq('asamblea_id', params.id)
-        .eq('estado', 'abierta')
+        .in('estado', ['abierta', 'cerrada'])
         .eq('is_archived', false)
         .order('created_at', { ascending: true })
 
@@ -348,20 +357,39 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           texto_pregunta: p.texto_pregunta,
           tipo_votacion: tipoVot,
           umbral_aprobacion: p.umbral_aprobacion ?? null,
-          resultados
+          resultados,
+          estado: (p as { estado?: string }).estado
         })
       }
       setPreguntasAvance(avances)
       setPreguntasConResultados(conResultados)
 
-      // Stats de verificación: usar contexto actual (verificacion_pregunta_id), no siempre primera pregunta abierta
-      const contextoPreguntaId = (asambleaFresh as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id ?? null
-      const preguntaAbiertaId = (preguntasData && preguntasData.length > 0) ? preguntasData[0].id : null
+      const { data: sesionesData } = await supabase
+        .from('verificacion_asamblea_sesiones')
+        .select('pregunta_id, total_verificados, porcentaje_verificado, quorum_alcanzado')
+        .eq('asamblea_id', params.id)
+        .not('pregunta_id', 'is', null)
+        .not('cierre_at', 'is', null)
+        .order('cierre_at', { ascending: false })
+      const porPregunta: Record<string, QuorumPorPregunta> = {}
+      ;(sesionesData || []).forEach((s: { pregunta_id: string; total_verificados?: number; porcentaje_verificado?: number; quorum_alcanzado?: boolean }) => {
+        const id = s.pregunta_id
+        if (!id || porPregunta[id]) return
+        porPregunta[id] = {
+          total_verificados: Number(s.total_verificados) ?? 0,
+          porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
+          quorum_alcanzado: !!s.quorum_alcanzado
+        }
+      })
+      setQuorumPorPregunta(porPregunta)
+
+      // Tarjeta "Asistencia verificada": solo GENERAL (pregunta_id null). No mezclar con quórum por pregunta.
       const verifActiva = !!asambleaFresh?.verificacion_asistencia_activa
-      if (verifActiva) {
+      const esModoGeneral = (asambleaFresh as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id == null
+      if (verifActiva && esModoGeneral) {
         const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
           p_asamblea_id: params.id,
-          p_pregunta_id: contextoPreguntaId,
+          p_pregunta_id: null,
           p_solo_sesion_actual: true,
         })
         if (verData?.length) {
@@ -373,7 +401,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             quorum_alcanzado: !!v.quorum_alcanzado,
           })
         } else {
-          setStatsVerificacion(null)
+          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
         }
       } else {
         const { data: sesionesData } = await supabase
@@ -393,15 +421,15 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             quorum_alcanzado: !!s.quorum_alcanzado,
           })
         } else {
-          setStatsVerificacion(null)
+          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
         }
       }
 
       try {
         const { data: desgloseData } = await supabase.rpc('calcular_verificacion_quorum_desglose', {
           p_asamblea_id: params.id,
-          p_pregunta_id: contextoPreguntaId,
-          p_solo_sesion_actual: true,
+          p_pregunta_id: null,
+          p_solo_sesion_actual: verifActiva && esModoGeneral,
         })
         if (desgloseData?.length && desgloseData[0]) {
           const d = desgloseData[0] as {
@@ -565,10 +593,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         return
       }
       setVerificacionActiva(updatedRow ? !!updatedRow.verificacion_asistencia_activa : nuevoValor)
-      if (nuevoValor) {
+      // Tarjeta siempre general: si abrimos en modo general usar RPC en vivo; si no, última sesión general cerrada
+      if (nuevoValor && !preguntaAbiertaId) {
         const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
           p_asamblea_id: params.id,
-          p_pregunta_id: preguntaAbiertaId,
+          p_pregunta_id: null,
           p_solo_sesion_actual: true,
         })
         if (verData?.length) {
@@ -580,7 +609,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             quorum_alcanzado: !!v.quorum_alcanzado,
           })
         } else {
-          setStatsVerificacion(null)
+          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
         }
       } else {
         const { data: sesionesData } = await supabase
@@ -600,7 +629,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             quorum_alcanzado: !!s.quorum_alcanzado,
           })
         } else {
-          setStatsVerificacion(null)
+          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
         }
       }
     } finally {
@@ -793,7 +822,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               <div className="flex items-center gap-2 min-w-0">
                 <UserCheck className="w-4 h-4 shrink-0" style={{ color: verificacionActiva ? '#4ade80' : '#94a3b8' }} />
                 <span className="text-sm font-semibold text-slate-200">Verificación de Quórum</span>
-                {statsVerificacion && (statsVerificacion.total_verificados > 0 || verificacionActiva) && (
+                {statsVerificacion && (
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statsVerificacion.quorum_alcanzado ? 'bg-green-900/40 text-green-300' : 'bg-red-900/40 text-red-300'}`}>
                     {statsVerificacion.porcentaje_verificado.toFixed(1)}% · {statsVerificacion.quorum_alcanzado ? 'Quórum' : 'Sin quórum'}
                   </span>
@@ -818,9 +847,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     <CheckCircle2 className="w-4 h-4 mr-1.5" /> Registrar asistencia
                   </Button>
                 </div>
-                {statsVerificacion && (statsVerificacion.total_verificados > 0 || verificacionActiva) && (
+                {statsVerificacion && (
                   <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
-                    <span className="text-slate-400">Asistencia:</span>
+                    <span className="text-slate-400">Asistencia (general):</span>
                     <span className={`font-bold ${statsVerificacion.quorum_alcanzado ? 'text-green-400' : statsVerificacion.porcentaje_verificado >= 30 ? 'text-amber-400' : 'text-red-400'}`}>
                       {statsVerificacion.porcentaje_verificado.toFixed(1)}%
                     </span>
@@ -1171,7 +1200,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </Button>
               </CardHeader>
               <CardContent className="p-6 space-y-8">
-                {verificacionActiva && statsVerificacion != null && (
+                {statsVerificacion != null && (
                   <div className="flex flex-col gap-0.5 text-sm">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600 dark:text-gray-400">Verificación de asistencia</span>
@@ -1209,11 +1238,20 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     }
                   })
                   const umbral = preg.umbral_aprobacion ?? 51
+                  const quorumPreg = quorumPorPregunta[preg.id]
                   return (
                     <div key={preg.id} className="space-y-3 min-w-0">
                       <p className="text-base font-semibold text-slate-200 line-clamp-2">
                         {preg.texto_pregunta}
                       </p>
+                      {preg.estado === 'cerrada' && quorumPreg && (
+                        <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                          <span className={quorumPreg.quorum_alcanzado ? 'text-green-400' : 'text-amber-400'}>
+                            Quórum verificado: {quorumPreg.porcentaje_verificado.toFixed(1)}% ({quorumPreg.total_verificados} un.)
+                          </span>
+                          {quorumPreg.quorum_alcanzado ? '✓ Ley 675' : '✗ Sin quórum'}
+                        </p>
+                      )}
                       <div className="h-[320px] min-h-[240px] w-full overflow-x-auto overflow-y-hidden -mx-1 px-1">
                         <div className="h-full min-w-[260px] w-full">
                           <VotacionBarChart
@@ -1305,7 +1343,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             </Button>
           </DialogHeader>
           <div className="space-y-10 pt-4">
-            {verificacionActiva && statsVerificacion != null && (
+            {statsVerificacion != null && (
               <div className="flex flex-col gap-1 text-base">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 dark:text-gray-400">Verificación de asistencia</span>
@@ -1343,11 +1381,20 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 }
               })
               const umbral = preg.umbral_aprobacion ?? 51
+              const quorumPreg = quorumPorPregunta[preg.id]
               return (
                 <div key={preg.id} className="space-y-4">
                   <p className="text-xl sm:text-2xl font-bold text-slate-100 leading-snug">
                     {preg.texto_pregunta}
                   </p>
+                  {preg.estado === 'cerrada' && quorumPreg && (
+                    <p className="text-sm text-slate-400 flex items-center gap-2">
+                      <span className={quorumPreg.quorum_alcanzado ? 'text-green-400' : 'text-amber-400'}>
+                        Quórum verificado: {quorumPreg.porcentaje_verificado.toFixed(1)}% ({quorumPreg.total_verificados} un.)
+                      </span>
+                      {quorumPreg.quorum_alcanzado ? '✓ Ley 675' : '✗ Sin quórum'}
+                    </p>
+                  )}
                   <div className="min-h-[50vh] h-[55vh] w-full">
                     <VotacionBarChart
                       data={data}
