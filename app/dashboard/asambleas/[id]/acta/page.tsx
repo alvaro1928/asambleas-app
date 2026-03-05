@@ -1141,9 +1141,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     })()}
                   </div>
 
-                  {/* Registro de verificación de quórum asociada a esta pregunta: solo sesión cerrada con pregunta_id (no fallback general) */}
+                  {/* Registro de verificación de quórum asociada a esta pregunta: solo sesión cerrada con pregunta_id (la más reciente si hay varias) */}
                   {(() => {
-                    const sesionPregunta = sesionesVerificacion.find((s) => s.pregunta_id === pregunta.id && s.cierre_at != null)
+                    const sesionesPregunta = sesionesVerificacion
+                      .filter((s) => s.pregunta_id === pregunta.id && s.cierre_at != null)
+                      .sort((a, b) => new Date(b.cierre_at!).getTime() - new Date(a.cierre_at!).getTime())
+                    const sesionPregunta = sesionesPregunta[0] ?? null
                     if (!sesionPregunta) return null
                     const total = sesionPregunta.total_verificados ?? 0
                     if (total === 0) return null
