@@ -13,6 +13,9 @@ ALTER TABLE verificacion_asamblea_sesiones
 COMMENT ON COLUMN verificacion_asamblea_sesiones.pregunta_id IS
   'Al cerrar: null = verificación general (sin pregunta); no null = verificación asociada a esa pregunta. Para el acta: general = solo sesiones con pregunta_id IS NULL.';
 
+-- Quitar la versión de 2 argumentos para que no haya ambigüedad (la de 3 args con default es la que debe quedar)
+DROP FUNCTION IF EXISTS calcular_verificacion_quorum(UUID, UUID);
+
 -- 2. Trigger: al desactivar verificación, cerrar sesión y guardar pregunta_id del contexto
 CREATE OR REPLACE FUNCTION trg_verificacion_asistencia_sesion()
 RETURNS TRIGGER
