@@ -1240,6 +1240,21 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </Button>
               </CardHeader>
               <CardContent className="p-6 space-y-8">
+                {verificacionActiva && statsVerificacion != null && (
+                  <div className="flex flex-col gap-0.5 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-400">Verificación de asistencia</span>
+                      <span className={`font-bold ${statsVerificacion.quorum_alcanzado ? 'text-green-400' : 'text-amber-400'}`}>
+                        {statsVerificacion.porcentaje_verificado.toFixed(1)}% ({statsVerificacion.total_verificados} un.)
+                      </span>
+                    </div>
+                    {statsDesglose && (statsDesglose.porcentaje_directo > 0 || statsDesglose.porcentaje_poder > 0) && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {statsDesglose.porcentaje_directo.toFixed(1)}% directos · {statsDesglose.porcentaje_poder.toFixed(1)}% por poder
+                      </p>
+                    )}
+                  </div>
+                )}
                 {quorum && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Unidades que ya votaron</span>
@@ -1359,6 +1374,21 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             </Button>
           </DialogHeader>
           <div className="space-y-10 pt-4">
+            {verificacionActiva && statsVerificacion != null && (
+              <div className="flex flex-col gap-1 text-base">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 dark:text-gray-400">Verificación de asistencia</span>
+                  <span className={`font-bold text-lg ${statsVerificacion.quorum_alcanzado ? 'text-green-400' : 'text-amber-400'}`}>
+                    {statsVerificacion.porcentaje_verificado.toFixed(1)}% ({statsVerificacion.total_verificados} un.)
+                  </span>
+                </div>
+                {statsDesglose && (statsDesglose.porcentaje_directo > 0 || statsDesglose.porcentaje_poder > 0) && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {statsDesglose.porcentaje_directo.toFixed(1)}% directos · {statsDesglose.porcentaje_poder.toFixed(1)}% por poder
+                  </p>
+                )}
+              </div>
+            )}
             {quorum && (
               <div className="flex justify-between text-lg">
                 <span className="text-gray-600 dark:text-gray-400">Unidades que ya votaron</span>
