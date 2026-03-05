@@ -28,6 +28,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { useToast } from '@/components/providers/ToastProvider'
 import type { BarChartData } from '@/components/charts/VotacionBarChart'
 
 const QRCodeSVG = dynamic(
@@ -115,6 +116,7 @@ interface PreguntaConResultados {
 
 export default function AsambleaAccesoPage({ params }: { params: { id: string } }) {
   const router = useRouter()
+  const toast = useToast()
   const [asamblea, setAsamblea] = useState<Asamblea | null>(null)
   const [asistentes, setAsistentes] = useState<Asistente[]>([])
   const [yaVotaron, setYaVotaron] = useState<UnidadFila[]>([])
@@ -536,28 +538,32 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       if (nuevoValor) payload.verificacion_pregunta_id = preguntaAbiertaId
       else payload.verificacion_pregunta_id = null
 
-      const { error } = await supabase
+      const { data: updatedRow, error } = await supabase
         .from('asambleas')
         .update(payload)
         .eq('id', params.id)
-      if (!error) {
-        setVerificacionActiva(nuevoValor)
-        const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
-          p_asamblea_id: params.id,
-          p_pregunta_id: preguntaAbiertaId,
-          p_solo_sesion_actual: true,
+        .select('verificacion_asistencia_activa, verificacion_pregunta_id')
+        .single()
+      if (error) {
+        toast.error('No se pudo actualizar la verificación: ' + (error.message || 'Error en la base de datos'))
+        return
+      }
+      setVerificacionActiva(updatedRow ? !!updatedRow.verificacion_asistencia_activa : nuevoValor)
+      const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
+        p_asamblea_id: params.id,
+        p_pregunta_id: preguntaAbiertaId,
+        p_solo_sesion_actual: true,
+      })
+      if (verData?.length) {
+        const v = verData[0]
+        setStatsVerificacion({
+          total_verificados: Number(v.total_verificados) || 0,
+          coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+          porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+          quorum_alcanzado: !!v.quorum_alcanzado,
         })
-        if (verData?.length) {
-          const v = verData[0]
-          setStatsVerificacion({
-            total_verificados: Number(v.total_verificados) || 0,
-            coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
-            porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
-            quorum_alcanzado: !!v.quorum_alcanzado,
-          })
-        } else {
-          setStatsVerificacion(null)
-        }
+      } else {
+        setStatsVerificacion(null)
       }
     } finally {
       setToggling(false)

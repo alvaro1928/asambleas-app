@@ -1345,14 +1345,22 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       } else {
         payload.verificacion_pregunta_id = null
       }
-      const { error } = await supabase
+      const { data: updatedRow, error } = await supabase
         .from('asambleas')
         .update(payload)
         .eq('id', asamblea.id)
-      if (!error) {
-        setAsamblea({ ...asamblea, ...payload })
-        await cargarStatsVerificacion()
+        .select('verificacion_asistencia_activa, verificacion_pregunta_id')
+        .single()
+      if (error) {
+        toast.error('No se pudo actualizar la verificación: ' + (error.message || 'Error en la base de datos'))
+        return
       }
+      if (updatedRow) {
+        setAsamblea({ ...asamblea, ...payload, verificacion_asistencia_activa: !!updatedRow.verificacion_asistencia_activa, verificacion_pregunta_id: updatedRow.verificacion_pregunta_id ?? null })
+      } else {
+        setAsamblea({ ...asamblea, ...payload })
+      }
+      await cargarStatsVerificacion()
     } finally {
       setTogglingVerif(false)
     }
