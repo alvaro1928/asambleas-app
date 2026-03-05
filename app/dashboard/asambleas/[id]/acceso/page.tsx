@@ -616,25 +616,14 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       const preguntaIdModal = (asambleaModal as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id ?? null
       let verificadasSet = new Set<string>()
-      const { data: verificadas, error: verErr } = await supabase
-        .from('verificacion_asistencia_registro')
-        .select('quorum_asamblea(unidad_id)')
-        .eq('asamblea_id', params.id)
-        .is('pregunta_id', preguntaIdModal)
-      if (!verErr && verificadas) {
-        verificadasSet = new Set(
-          (verificadas || []).map((v: { quorum_asamblea?: { unidad_id?: string } | { unidad_id?: string }[] | null }) => {
-            const qa = v.quorum_asamblea
-            return Array.isArray(qa) ? qa[0]?.unidad_id : qa?.unidad_id
-          }).filter(Boolean) as string[]
-        )
-      } else {
-        const { data: fallback } = await supabase
-          .from('quorum_asamblea')
-          .select('unidad_id')
-          .eq('asamblea_id', params.id)
-          .eq('verifico_asistencia', true)
-        verificadasSet = new Set((fallback || []).map((v: { unidad_id: string }) => v.unidad_id).filter(Boolean))
+      const { data: idsSesion, error: rpcErr } = await supabase.rpc('unidad_ids_verificados_sesion_actual', {
+        p_asamblea_id: params.id,
+        p_pregunta_id: preguntaIdModal,
+      })
+      if (!rpcErr && idsSesion?.length !== undefined) {
+        (idsSesion as { unidad_id: string }[]).forEach((r) => {
+          if (r.unidad_id) verificadasSet.add(r.unidad_id)
+        })
       }
 
       setUnidadesParaAsistencia(

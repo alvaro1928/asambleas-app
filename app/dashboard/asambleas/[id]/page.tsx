@@ -1209,9 +1209,25 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!asamblea || asamblea.is_demo) return
     setFinalizando(true)
     try {
-      const { error } = await supabase.from('asambleas').update({ estado: 'finalizada' }).eq('id', asamblea.id)
+      await supabase.from('preguntas').update({ estado: 'cerrada' }).eq('asamblea_id', asamblea.id).eq('estado', 'abierta')
+      const { error } = await supabase
+        .from('asambleas')
+        .update({
+          estado: 'finalizada',
+          verificacion_asistencia_activa: false,
+          verificacion_pregunta_id: null,
+          token_delegado: null,
+        })
+        .eq('id', asamblea.id)
       if (error) throw error
-      setAsamblea({ ...asamblea, estado: 'finalizada' })
+      setAsamblea({
+        ...asamblea,
+        estado: 'finalizada',
+        verificacion_asistencia_activa: false,
+        verificacion_pregunta_id: null,
+        token_delegado: null,
+      })
+      setPreguntas((prev) => prev.map((p) => (p.estado === 'abierta' ? { ...p, estado: 'cerrada' } : p)))
       setShowModalConfirmarFinalizar(false)
       setSuccessMessage('Asamblea finalizada. El acta definitiva queda disponible para descarga.')
       setTimeout(() => setSuccessMessage(''), 7000)
@@ -3401,6 +3417,21 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             <p className="text-xs text-muted-foreground/60 mt-1">
               Para reabrir la asamblea después tendrás un costo del 10% de los tokens originales.
             </p>
+            {(() => {
+              const nAbiertas = preguntas.filter((p) => p.estado === 'abierta').length
+              const hayVerif = !!asamblea?.verificacion_asistencia_activa
+              const hayDelegado = !!asamblea?.token_delegado
+              if (nAbiertas === 0 && !hayVerif && !hayDelegado) return null
+              const items: string[] = []
+              if (nAbiertas > 0) items.push(nAbiertas === 1 ? '1 pregunta abierta' : `${nAbiertas} preguntas abiertas`)
+              if (hayVerif) items.push('verificación de asistencia')
+              if (hayDelegado) items.push('acceso del asistente delegado')
+              return (
+                <p className="text-sm text-amber-800/90 dark:text-amber-200/90 mt-3 border-l-2 border-amber-400 pl-3">
+                  Se cerrarán automáticamente: <strong>{items.join(', ')}</strong>. Si reabres la asamblea más adelante, tendrás que activarlos de nuevo manualmente.
+                </p>
+              )
+            })()}
           </DialogHeader>
           <div className="mt-4 flex gap-3">
             <Button variant="outline" onClick={() => setShowModalConfirmarFinalizar(false)} className="flex-1">
