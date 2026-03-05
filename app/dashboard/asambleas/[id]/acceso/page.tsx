@@ -682,6 +682,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     if (!asamblea?.organization_id || searchParams.get('registrar') !== 'asistencia') return
     abrirModalAsistencia()
     router.replace(`/dashboard/asambleas/${params.id}/acceso`, { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once when landing with query; abrirModalAsistencia is stable
   }, [asamblea?.organization_id, searchParams, params.id, router])
 
   const toggleUnidad = (id: string) => {
@@ -1341,7 +1342,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             </DialogDescription>
             <div className="space-y-2 text-left text-sm text-slate-400 mt-2">
               <p>
-                Al cerrar la verificación, el resultado quedará registrado en el acta: si hay pregunta(s) abierta(s), asociado a todas; si no hay ninguna abierta, como "Asamblea en general".
+                Al cerrar la verificación, el resultado quedará registrado en el acta: si hay pregunta(s) abierta(s), asociado a todas; si no hay ninguna abierta, como {'"'}Asamblea en general{'"'}.
               </p>
               <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-400 mt-3">
                 <input
@@ -1476,7 +1477,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </Button>
             </div>
             <p className="text-sm text-slate-400 mt-1">
-              Selecciona las unidades cuya asistencia quieres registrar en esta sesión. Las que ya verificaron en la sesión actual aparecen como "Verificada" y no se pueden volver a seleccionar.
+              Selecciona las unidades cuya asistencia quieres registrar en esta sesión. Las que ya verificaron en la sesión actual aparecen como {'"'}Verificada{'"'} y no se pueden volver a seleccionar.
             </p>
           </DialogHeader>
 
