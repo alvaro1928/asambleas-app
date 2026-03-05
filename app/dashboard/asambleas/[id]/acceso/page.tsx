@@ -310,11 +310,12 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         })
       } else setQuorum(null)
 
+      // En Acceso solo se muestran preguntas ABIERTAS en la gráfica (las cerradas no se votan ni se ven aquí)
       const { data: preguntasData } = await supabase
         .from('preguntas')
         .select('id, texto_pregunta, umbral_aprobacion, tipo_votacion, estado')
         .eq('asamblea_id', params.id)
-        .in('estado', ['abierta', 'cerrada'])
+        .eq('estado', 'abierta')
         .eq('is_archived', false)
         .order('created_at', { ascending: true })
 
@@ -401,7 +402,25 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             quorum_alcanzado: !!v.quorum_alcanzado,
           })
         } else {
-          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+          const { data: sesionesData } = await supabase
+            .from('verificacion_asamblea_sesiones')
+            .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
+            .eq('asamblea_id', params.id)
+            .is('pregunta_id', null)
+            .not('cierre_at', 'is', null)
+            .order('cierre_at', { ascending: false })
+            .limit(1)
+          if (sesionesData?.length) {
+            const s = sesionesData[0] as VerificacionStats
+            setStatsVerificacion({
+              total_verificados: Number(s.total_verificados) ?? 0,
+              coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0,
+              porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
+              quorum_alcanzado: !!s.quorum_alcanzado,
+            })
+          } else {
+            setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+          }
         }
       } else {
         const { data: sesionesData } = await supabase
@@ -609,7 +628,25 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             quorum_alcanzado: !!v.quorum_alcanzado,
           })
         } else {
-          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+          const { data: sesionesData } = await supabase
+            .from('verificacion_asamblea_sesiones')
+            .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
+            .eq('asamblea_id', params.id)
+            .is('pregunta_id', null)
+            .not('cierre_at', 'is', null)
+            .order('cierre_at', { ascending: false })
+            .limit(1)
+          if (sesionesData?.length) {
+            const s = sesionesData[0] as VerificacionStats
+            setStatsVerificacion({
+              total_verificados: Number(s.total_verificados) ?? 0,
+              coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0,
+              porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
+              quorum_alcanzado: !!s.quorum_alcanzado,
+            })
+          } else {
+            setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+          }
         }
       } else {
         const { data: sesionesData } = await supabase
@@ -1244,7 +1281,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       <p className="text-base font-semibold text-slate-200 line-clamp-2">
                         {preg.texto_pregunta}
                       </p>
-                      {preg.estado === 'cerrada' && quorumPreg && (
+                      {quorumPreg && (
                         <p className="text-xs text-slate-400 flex items-center gap-1.5">
                           <span className={quorumPreg.quorum_alcanzado ? 'text-green-400' : 'text-amber-400'}>
                             Quórum verificado: {quorumPreg.porcentaje_verificado.toFixed(1)}% ({quorumPreg.total_verificados} un.)
@@ -1387,7 +1424,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   <p className="text-xl sm:text-2xl font-bold text-slate-100 leading-snug">
                     {preg.texto_pregunta}
                   </p>
-                  {preg.estado === 'cerrada' && quorumPreg && (
+                  {quorumPreg && (
                     <p className="text-sm text-slate-400 flex items-center gap-2">
                       <span className={quorumPreg.quorum_alcanzado ? 'text-green-400' : 'text-amber-400'}>
                         Quórum verificado: {quorumPreg.porcentaje_verificado.toFixed(1)}% ({quorumPreg.total_verificados} un.)
