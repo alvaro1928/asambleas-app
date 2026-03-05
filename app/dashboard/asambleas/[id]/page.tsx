@@ -2251,7 +2251,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                               {togglingVerif ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block mr-1.5" /> : <UserCheck className="w-4 h-4 mr-1.5" />}
                               {asamblea.verificacion_asistencia_activa ? 'Desactivar verificación' : 'Activar verificación'}
                             </Button>
-                            <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="inline-flex">
+                            <Link href={`/dashboard/asambleas/${params.id}/acceso?registrar=asistencia`} className="inline-flex">
                               <Button type="button" variant="outline" size="sm" className="border-gray-300 dark:border-gray-600">
                                 <CheckCircle2 className="w-4 h-4 mr-1.5" /> Registrar asistencia
                               </Button>

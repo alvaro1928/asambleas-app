@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
@@ -116,6 +116,7 @@ interface PreguntaConResultados {
 
 export default function AsambleaAccesoPage({ params }: { params: { id: string } }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const toast = useToast()
   const [asamblea, setAsamblea] = useState<Asamblea | null>(null)
   const [asistentes, setAsistentes] = useState<Asistente[]>([])
@@ -675,6 +676,13 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       setGuardandoAsistencia(false)
     }
   }
+
+  // Si se entró con ?registrar=asistencia (desde la página de la asamblea), abrir el modal de registro manual
+  useEffect(() => {
+    if (!asamblea?.organization_id || searchParams.get('registrar') !== 'asistencia') return
+    abrirModalAsistencia()
+    router.replace(`/dashboard/asambleas/${params.id}/acceso`, { scroll: false })
+  }, [asamblea?.organization_id, searchParams, params.id, router])
 
   const toggleUnidad = (id: string) => {
     setSeleccionadas((prev) => {
