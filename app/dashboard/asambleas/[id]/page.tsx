@@ -1582,6 +1582,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       }
       // Pasar estado ya actualizado para que la tarjeta general muestre la última sesión cerrada (evitar 0% por estado desactualizado)
       await cargarStatsVerificacion({ verificacion_asistencia_activa: !!updatedRow?.verificacion_asistencia_activa, verificacion_pregunta_id: updatedRow?.verificacion_pregunta_id ?? null })
+      // Al cerrar verificación, el trigger guarda la sesión; recargar sesiones para que la tarjeta de la pregunta muestre las 8 unidades (no el general)
+      if (!nuevoValor) await loadQuorum()
     } finally {
       setTogglingVerif(false)
     }
@@ -2865,16 +2867,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                                   </div>
                                 )
                               })()}
-                              {/* Chip de quórum verificado: cerrada = sesión asociada; abierta = solo si es la pregunta en verificación, con sus propios stats */}
+                              {/* Chip de quórum verificado: cerrada = sesión asociada; abierta = si es la pregunta en verificación usa stats en vivo, si no usa última sesión de esta pregunta o general */}
                               {(() => {
                                 const statsForPregunta: VerifStats | null =
                                   pregunta.estado === 'cerrada'
                                     ? (sesionesPorPregunta[pregunta.id]?.[0] ?? null)
                                     : asamblea?.verificacion_pregunta_id === pregunta.id
                                       ? statsVerificacionPreguntaActiva
-                                      : asamblea?.verificacion_pregunta_id == null
-                                        ? statsVerificacion
-                                        : null
+                                      : (sesionesPorPregunta[pregunta.id]?.[0] ?? (asamblea?.verificacion_pregunta_id == null ? statsVerificacion : null))
                                 if (!statsForPregunta) return null
                                 return (
                                   <div className={`mt-3 flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${
