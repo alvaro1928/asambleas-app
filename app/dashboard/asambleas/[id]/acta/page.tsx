@@ -89,6 +89,13 @@ interface UnidadNoParticipo {
   coeficiente: number
 }
 
+/** Una entrada del resumen al final del acta: sesión de verificación y unidades que no validaron asistencia */
+interface ResumenNoValidacion {
+  titulo: string
+  cierreAt: string
+  unidades: UnidadNoParticipo[]
+}
+
 /** Voto final de una unidad en una pregunta (para cuadro de auditoría de votaciones finales) */
 interface VotoFinalUnidad {
   torre: string
@@ -122,6 +129,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [costoOperacion, setCostoOperacion] = useState(0)
   /** Por pregunta: unidades que no participaron (no votaron) en esa pregunta */
   const [unidadesNoParticipationPorPregunta, setUnidadesNoParticipationPorPregunta] = useState<Record<string, UnidadNoParticipo[]>>({})
+  /** Resumen al final del acta: por cada sesión de verificación (general o por pregunta), unidades que no validaron asistencia */
+  const [resumenNoValidacionPorSesion, setResumenNoValidacionPorSesion] = useState<ResumenNoValidacion[]>([])
   /** Por pregunta: lista de votos finales (una fila por unidad con su opción elegida) para el cuadro de auditoría */
   const [votacionesFinalesPorPregunta, setVotacionesFinalesPorPregunta] = useState<Record<string, VotoFinalUnidad[]>>({})
 
@@ -416,6 +425,45 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           .map((u: any) => baseUnidad(u))
       }
       setUnidadesNoParticipationPorPregunta(noParticiparonPorPregunta)
+
+      // Resumen de no validación: por cada sesión cerrada (general o por pregunta), unidades que no validaron asistencia
+      const { data: registrosVerif } = await supabase
+        .from('verificacion_asistencia_registro')
+        .select('creado_en, pregunta_id, quorum_asamblea_id, quorum_asamblea(unidad_id)')
+        .eq('asamblea_id', params.id)
+      const registrosConUnidad = (registrosVerif || []).map((r: any) => {
+        const qa = r.quorum_asamblea
+        const unidad_id = qa && (Array.isArray(qa) ? qa[0]?.unidad_id : qa.unidad_id) ?? null
+        return { creado_en: r.creado_en, pregunta_id: r.pregunta_id ?? null, unidad_id }
+      }).filter((r: { unidad_id: string | null }) => r.unidad_id)
+      const mapaPreguntaTexto = new Map((preguntasConOpciones || []).map((p, i) => [p.id, `P${i + 1}: ${(p.texto_pregunta || '').trim() || 'Pregunta'}`]))
+      const resumenNoValidacion: ResumenNoValidacion[] = []
+      const sesionesCerradas = [...(sesionesData || [])]
+        .filter((s) => s.cierre_at != null)
+        .sort((a, b) => (new Date(a.cierre_at!).getTime() - new Date(b.cierre_at!).getTime()))
+      for (const sesion of sesionesCerradas) {
+        const apertura = sesion.apertura_at ? new Date(sesion.apertura_at).getTime() : 0
+        const cierre = sesion.cierre_at ? new Date(sesion.cierre_at).getTime() : 0
+        const preguntaIdSesion = sesion.pregunta_id ?? null
+        const verificaronEnSesion = new Set(
+          registrosConUnidad
+            .filter((r: { creado_en: string; pregunta_id: string | null }) => {
+              const t = new Date(r.creado_en).getTime()
+              const matchPregunta = (r.pregunta_id == null && preguntaIdSesion == null) || (r.pregunta_id === preguntaIdSesion)
+              return t >= apertura && t <= cierre && matchPregunta
+            })
+            .map((r: { unidad_id: string }) => r.unidad_id)
+        )
+        const noValidaron = unidadesFiltradas
+          .filter((u: any) => !verificaronEnSesion.has(u.id))
+          .map((u: any) => baseUnidad(u))
+        const titulo = preguntaIdSesion == null
+          ? 'Verificación general'
+          : (mapaPreguntaTexto.get(preguntaIdSesion) ?? `Pregunta ${preguntaIdSesion}`)
+        const cierreAt = sesion.cierre_at ?? ''
+        resumenNoValidacion.push({ titulo, cierreAt, unidades: noValidaron })
+      }
+      setResumenNoValidacionPorSesion(resumenNoValidacion)
     } catch (e) {
       console.error(e)
       router.push('/dashboard/asambleas')
@@ -1219,6 +1267,54 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             })}
           </div>
         </section>
+
+        {/* ── RESUMEN: UNIDADES QUE NO VALIDARON ASISTENCIA (al final del acta) ── */}
+        {resumenNoValidacionPorSesion.length > 0 && resumenNoValidacionPorSesion.some((r) => r.unidades.length > 0) && (
+          <section className="mt-10 pt-6 border-t-2 border-gray-200 break-before-page">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-2">Resumen de no participación en la verificación de asistencia</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              Unidades que no validaron su asistencia (no registraron en la verificación). Diferente a las que no votaron en una pregunta.
+            </p>
+            <div className="space-y-6">
+              {resumenNoValidacionPorSesion.filter((r) => r.unidades.length > 0).map((bloque, idx) => {
+                const cierreStr = bloque.cierreAt
+                  ? new Date(bloque.cierreAt).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })
+                  : ''
+                return (
+                  <div key={idx} className="break-inside-avoid">
+                    <p className="text-xs font-semibold text-indigo-700 mb-1">
+                      {bloque.titulo}{cierreStr ? ` — cierre ${cierreStr}` : ''} · {bloque.unidades.length} unidad(es) no validaron
+                    </p>
+                    <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
+                      <thead>
+                        <tr style={{ background: '#f1f5f9' }}>
+                          <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>Torre</th>
+                          <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>N.°</th>
+                          <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '28%' }}>Propietario / Residente</th>
+                          <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '28%' }}>Email</th>
+                          <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '17%' }}>Teléfono</th>
+                          <th className="border border-gray-200 px-2 py-1.5 text-right font-semibold" style={{ width: '9%' }}>Coef.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bloque.unidades.map((u) => (
+                          <tr key={u.id} style={{ background: 'inherit' }}>
+                            <td className="border border-gray-200 px-2 py-1">{u.torre || '—'}</td>
+                            <td className="border border-gray-200 px-2 py-1">{u.numero || '—'}</td>
+                            <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{u.nombre_propietario || '—'}</td>
+                            <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-all' }}>{(u.email_propietario ?? '').trim() || 'No registrado'}</td>
+                            <td className="border border-gray-200 px-2 py-1">{(u.telefono_propietario ?? '').trim() || '—'}</td>
+                            <td className="border border-gray-200 px-2 py-1 text-right">{u.coeficiente.toFixed(2)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
         {/* ── FIRMAS ── */}
         <section className="mt-12 pt-6 border-t-2 border-gray-900 break-inside-avoid">
