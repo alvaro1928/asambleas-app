@@ -490,10 +490,14 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       }
 
       try {
+        // Desglose para el panel "Ya verificaron": mismo contexto que la tarjeta (general o pregunta en votación)
+        const preguntaIdDesglose = verifActiva && (asambleaFresh as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id
+          ? (asambleaFresh as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id
+          : null
         const { data: desgloseData } = await supabase.rpc('calcular_verificacion_quorum_desglose', {
           p_asamblea_id: params.id,
-          p_pregunta_id: null,
-          p_solo_sesion_actual: verifActiva && esModoGeneral,
+          p_pregunta_id: preguntaIdDesglose,
+          p_solo_sesion_actual: verifActiva,
         })
         if (desgloseData?.length && desgloseData[0]) {
           const d = desgloseData[0] as {
