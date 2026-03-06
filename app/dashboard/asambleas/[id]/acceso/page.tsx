@@ -1344,7 +1344,10 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     }
                   })
                   const umbral = preg.umbral_aprobacion ?? 51
-                  const quorumPreg = quorumPorPregunta[preg.id]
+                  const preguntaIdVerif = (asamblea as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id
+                  const quorumPreg = preguntaIdVerif === preg.id && statsVerificacionPregunta
+                    ? { porcentaje_verificado: statsVerificacionPregunta.porcentaje_verificado, total_verificados: statsVerificacionPregunta.total_verificados, quorum_alcanzado: statsVerificacionPregunta.quorum_alcanzado }
+                    : quorumPorPregunta[preg.id]
                   return (
                     <div key={preg.id} className="space-y-3 min-w-0">
                       <p className="text-base font-semibold text-slate-200 line-clamp-2">
@@ -1487,18 +1490,21 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 }
               })
               const umbral = preg.umbral_aprobacion ?? 51
-              const quorumPreg = quorumPorPregunta[preg.id]
+              const preguntaIdVerifModal = (asamblea as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id
+              const quorumPregModal = preguntaIdVerifModal === preg.id && statsVerificacionPregunta
+                ? { porcentaje_verificado: statsVerificacionPregunta.porcentaje_verificado, total_verificados: statsVerificacionPregunta.total_verificados, quorum_alcanzado: statsVerificacionPregunta.quorum_alcanzado }
+                : quorumPorPregunta[preg.id]
               return (
                 <div key={preg.id} className="space-y-4">
                   <p className="text-xl sm:text-2xl font-bold text-slate-100 leading-snug">
                     {preg.texto_pregunta}
                   </p>
-                  {quorumPreg && (
+                  {quorumPregModal && (
                     <p className="text-sm text-slate-400 flex items-center gap-2">
-                      <span className={quorumPreg.quorum_alcanzado ? 'text-green-400' : 'text-amber-400'}>
-                        Quórum verificado: {quorumPreg.porcentaje_verificado.toFixed(1)}% ({quorumPreg.total_verificados} un.)
+                      <span className={quorumPregModal.quorum_alcanzado ? 'text-green-400' : 'text-amber-400'}>
+                        Quórum verificado: {quorumPregModal.porcentaje_verificado.toFixed(1)}% ({quorumPregModal.total_verificados} un.)
                       </span>
-                      {quorumPreg.quorum_alcanzado ? '✓ Ley 675' : '✗ Sin quórum'}
+                      {quorumPregModal.quorum_alcanzado ? '✓ Ley 675' : '✗ Sin quórum'}
                     </p>
                   )}
                   <div className="min-h-[50vh] h-[55vh] w-full">

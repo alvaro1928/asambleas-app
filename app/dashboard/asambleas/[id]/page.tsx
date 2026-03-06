@@ -273,6 +273,19 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load when id changes
   }, [params.id])
 
+  // Al volver a la pestaña, refrescar asamblea y sesiones (p. ej. si desactivaron verificación en Acceso)
+  useEffect(() => {
+    if (typeof document === 'undefined' || !params.id) return
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadData()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar por params.id
+  }, [params.id])
+
   // Polling para estadísticas (separado)
   useEffect(() => {
     if (preguntas.length === 0) return
