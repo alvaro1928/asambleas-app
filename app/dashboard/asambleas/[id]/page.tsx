@@ -672,19 +672,29 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         })
       })
       setSesionesPorPregunta(porPregunta)
-      // Rellenar tarjeta "Asistencia verificada" con última general cuando: verificación cerrada O verificación activa por pregunta
-      const mostrarUltimaGeneral = generales.length > 0 && (!verifActiva || !esModoGeneral)
-      if (mostrarUltimaGeneral) {
-        const ultima = generales[0]
-        setStatsVerificacion({
-          total_verificados: ultima.total_verificados,
-          coeficiente_verificado: ultima.coeficiente_verificado,
-          porcentaje_verificado: ultima.porcentaje_verificado,
-          quorum_alcanzado: ultima.quorum_alcanzado,
-        })
-      } else if (!verifActiva || !esModoGeneral) {
-        // Sin sesión general cerrada: mostrar 0% para que la tarjeta no desaparezca
-        setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+      // Rellenar tarjeta "Asistencia verificada": última sesión GENERAL si hay; si no (ej. solo se cerró por pregunta), usar la última sesión cerrada de cualquier tipo para no volver a 0%
+      const cuandoInactivaOPorPregunta = !verifActiva || !esModoGeneral
+      if (cuandoInactivaOPorPregunta) {
+        if (generales.length > 0) {
+          const ultima = generales[0]
+          setStatsVerificacion({
+            total_verificados: ultima.total_verificados,
+            coeficiente_verificado: ultima.coeficiente_verificado,
+            porcentaje_verificado: ultima.porcentaje_verificado,
+            quorum_alcanzado: ultima.quorum_alcanzado,
+          })
+        } else if (lista.length > 0) {
+          // Sin sesión general pero sí sesión(es) por pregunta: mostrar la última cerrada (ej. 100% al desactivar por pregunta) para que no vuelva a cero
+          const ultimaCualquiera = lista[0]
+          setStatsVerificacion({
+            total_verificados: ultimaCualquiera.total_verificados,
+            coeficiente_verificado: ultimaCualquiera.coeficiente_verificado,
+            porcentaje_verificado: ultimaCualquiera.porcentaje_verificado,
+            quorum_alcanzado: ultimaCualquiera.quorum_alcanzado,
+          })
+        } else {
+          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+        }
       }
     } catch {
       setSesionesQuorumGeneral([])
