@@ -619,12 +619,12 @@ function AsambleasPageContent() {
               </AlertDescription>
             </Alert>
           )}
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
             <Button
               variant="outline"
               onClick={closeDeleteModal}
               disabled={deleting}
-              className="flex-1"
+              className="w-full sm:flex-1"
             >
               Cancelar
             </Button>
@@ -632,7 +632,7 @@ function AsambleasPageContent() {
               variant="destructive"
               onClick={handleConfirmDeleteAsamblea}
               disabled={deleting || (confirmStep === 2 && confirmInput.trim() !== asambleaToDelete?.nombre.trim())}
-              className="flex-1"
+              className="w-full sm:flex-1"
             >
               {deleting ? (
                 <>
@@ -675,18 +675,18 @@ function AsambleasPageContent() {
               </p>
             </div>
           </DialogHeader>
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
             <Button
               variant="outline"
               onClick={() => setShowWelcomeDemoModal(false)}
-              className="flex-1"
+              className="w-full sm:flex-1"
             >
               Ahora no
             </Button>
             <Button
               onClick={handleProbarDemo}
               disabled={creatingDemo}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+              className="w-full sm:flex-1 bg-indigo-600 hover:bg-indigo-700"
             >
               {creatingDemo ? (
                 <>

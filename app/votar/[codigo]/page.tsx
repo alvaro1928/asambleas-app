@@ -1817,16 +1817,16 @@ export default function VotacionPublicaPage() {
                   Este certificado no consume tokens; límite: 3 por hora.
                 </DialogDescription>
               </DialogHeader>
-              <div className="flex gap-3 mt-2">
+              <div className="flex flex-col-reverse sm:flex-row gap-3 mt-2">
                 <Button
                   variant="outline"
                   onClick={() => setShowModalCertificado(false)}
-                  className="flex-1"
+                  className="w-full sm:flex-1"
                 >
                   Cancelar
                 </Button>
                 <Button
-                  className="flex-1"
+                  className="w-full sm:flex-1"
                   onClick={async () => {
                     setShowModalCertificado(false)
                     setDescargandoCertificado(true)

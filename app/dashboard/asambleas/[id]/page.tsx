@@ -36,7 +36,8 @@ import {
   UserCheck,
   ShieldCheck,
   Link2,
-  Link2Off
+  Link2Off,
+  RefreshCw
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -157,7 +158,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [sesionesQuorumGeneral, setSesionesQuorumGeneral] = useState<SesionQuorumGeneral[]>([])
   /** Sesiones cerradas por pregunta_id (para mostrar en cada pregunta cerrada su quórum asociado, no el general) */
   const [sesionesPorPregunta, setSesionesPorPregunta] = useState<Record<string, SesionQuorumGeneral[]>>({})
+  /** Cuando la verificación está activa por pregunta: stats en vivo de esa pregunta (no mezclar con general) */
+  const [statsVerificacionPreguntaActiva, setStatsVerificacionPreguntaActiva] = useState<VerifStats | null>(null)
   const [openHistorialQuorumGeneral, setOpenHistorialQuorumGeneral] = useState(false)
+  const [refrescandoAvance, setRefrescandoAvance] = useState(false)
 
   // Acceso Público: secciones colapsables
   const [openEnlaceAcceso, setOpenEnlaceAcceso] = useState(true)
@@ -534,7 +538,27 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           }
         }
       }
-      // Si verificación activa por pregunta: la tarjeta general se rellena con última sesión general cerrada (bloque sesiones abajo)
+      // Si verificación activa por pregunta: cargar stats de esa pregunta para el chip (no usar general)
+      if (verifActiva && !esModoGeneral && asamblea?.verificacion_pregunta_id) {
+        const { data: verPregData } = await supabase.rpc('calcular_verificacion_quorum', {
+          p_asamblea_id: params.id,
+          p_pregunta_id: asamblea.verificacion_pregunta_id,
+          p_solo_sesion_actual: true,
+        })
+        if (verPregData?.length) {
+          const v = verPregData[0] as VerifStats
+          setStatsVerificacionPreguntaActiva({
+            total_verificados: Number(v.total_verificados) || 0,
+            coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+            porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+            quorum_alcanzado: !!v.quorum_alcanzado,
+          })
+        } else {
+          setStatsVerificacionPreguntaActiva({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+        }
+      } else {
+        setStatsVerificacionPreguntaActiva(null)
+      }
 
       if (!rpcError && rpcData && rpcData.length > 0) return
 
@@ -1487,6 +1511,42 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
       }
     }
+    // Cuando la verificación está activa por pregunta: cargar stats de esa pregunta para el chip
+    const preguntaIdActiva = override?.verificacion_pregunta_id ?? asamblea.verificacion_pregunta_id
+    if (verifActiva && preguntaIdActiva) {
+      const { data: dataPreg } = await supabase.rpc('calcular_verificacion_quorum', {
+        p_asamblea_id: asamblea.id,
+        p_pregunta_id: preguntaIdActiva,
+        p_solo_sesion_actual: true,
+      })
+      if (dataPreg?.length) {
+        const v = dataPreg[0]
+        setStatsVerificacionPreguntaActiva({
+          total_verificados: Number(v.total_verificados) || 0,
+          coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+          porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+          quorum_alcanzado: !!v.quorum_alcanzado,
+        })
+      } else {
+        setStatsVerificacionPreguntaActiva({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+      }
+    } else {
+      setStatsVerificacionPreguntaActiva(null)
+    }
+  }
+
+  const refrescarAvance = async () => {
+    if (!asamblea?.id || refrescandoAvance) return
+    setRefrescandoAvance(true)
+    try {
+      await loadQuorum()
+      await loadEstadisticas(preguntas)
+      await cargarStatsVerificacion()
+    } catch (e) {
+      console.error('Error al refrescar avance:', e)
+    } finally {
+      setRefrescandoAvance(false)
+    }
   }
 
   const AVISO_REABRIR_QUORUM_OMITIR_KEY = 'asambleas_quorum_reabrir_aviso_omitir'
@@ -2071,9 +2131,22 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               )}
             </div>
 
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-                ⏱️ Datos actualizados en tiempo real cada 5 segundos
-              </p>
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  ⏱️ Datos actualizados en tiempo real cada 5 segundos
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={refrescarAvance}
+                  disabled={refrescandoAvance}
+                  className="rounded-xl border-gray-300 dark:border-gray-600"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${refrescandoAvance ? 'animate-spin' : ''}`} />
+                  Actualizar
+                </Button>
+              </div>
 
               {/* Historial de validaciones de quórum (asamblea en general: sin pregunta abierta o todas cerradas) */}
               {sesionesQuorumGeneral.length > 0 && (
@@ -2392,11 +2465,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {asamblea.token_delegado ? (
-                              <Button type="button" onClick={revocarTokenDelegado} disabled={generandoToken} size="sm" className="bg-red-600 hover:bg-red-700 text-white">
+                              <Button type="button" onClick={revocarTokenDelegado} disabled={generandoToken} size="sm" className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white">
                                 <Link2Off className="w-4 h-4 mr-1.5" /> Revocar acceso
                               </Button>
                             ) : (
-                              <Button type="button" onClick={generarTokenDelegado} disabled={generandoToken} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                              <Button type="button" onClick={generarTokenDelegado} disabled={generandoToken} size="sm" className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white">
                                 {generandoToken ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block mr-1.5" /> : <Link2 className="w-4 h-4 mr-1.5" />}
                                 Generar enlace
                               </Button>
@@ -2405,7 +2478,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                           {asamblea.token_delegado && urlDelegado && (
                             <div className="flex flex-col sm:flex-row gap-2">
                               <input type="text" readOnly value={urlDelegado} className="flex-1 min-w-0 px-3 py-2 text-xs bg-white dark:bg-gray-900 border rounded font-mono" aria-label="Enlace delegado" />
-                              <Button type="button" onClick={copiarEnlaceDelegado} size="sm" variant="outline" className="shrink-0">
+                              <Button type="button" onClick={copiarEnlaceDelegado} size="sm" variant="outline" className="w-full sm:w-auto shrink-0">
                                 <Copy className="w-4 h-4 mr-1" /> {copiadoToken ? '¡Copiado!' : 'Copiar'}
                               </Button>
                             </div>
@@ -2792,14 +2865,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                                   </div>
                                 )
                               })()}
-                              {/* Chip de quórum verificado: por pregunta cerrada = sesión asociada; por pregunta abierta = solo si es el contexto actual */}
+                              {/* Chip de quórum verificado: cerrada = sesión asociada; abierta = solo si es la pregunta en verificación, con sus propios stats */}
                               {(() => {
                                 const statsForPregunta: VerifStats | null =
                                   pregunta.estado === 'cerrada'
                                     ? (sesionesPorPregunta[pregunta.id]?.[0] ?? null)
-                                    : (asamblea?.verificacion_pregunta_id === pregunta.id || asamblea?.verificacion_pregunta_id == null)
-                                      ? statsVerificacion
-                                      : null
+                                    : asamblea?.verificacion_pregunta_id === pregunta.id
+                                      ? statsVerificacionPreguntaActiva
+                                      : asamblea?.verificacion_pregunta_id == null
+                                        ? statsVerificacion
+                                        : null
                                 if (!statsForPregunta) return null
                                 return (
                                   <div className={`mt-3 flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${
@@ -3271,12 +3346,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             </AlertDescription>
           </Alert>
 
-          <div className="flex space-x-3 pt-4">
+          <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
             <Button
               variant="outline"
               onClick={() => setDeletingPregunta(null)}
               disabled={deleting}
-              className="flex-1"
+              className="w-full sm:flex-1"
             >
               Cancelar
             </Button>
@@ -3284,7 +3359,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               variant="destructive"
               onClick={handleDeletePregunta}
               disabled={deleting}
-              className="flex-1"
+              className="w-full sm:flex-1"
             >
               {deleting ? (
                 <>
@@ -3623,12 +3698,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               )
             })()}
           </DialogHeader>
-          <div className="mt-4 flex gap-3">
-            <Button variant="outline" onClick={() => setShowModalConfirmarFinalizar(false)} className="flex-1">
+          <div className="mt-4 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="outline" onClick={() => setShowModalConfirmarFinalizar(false)} className="w-full sm:flex-1">
               Cancelar
             </Button>
             <Button
-              className="flex-1 border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+              className="w-full sm:flex-1 border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
               disabled={finalizando}
               onClick={handleFinalizarAsamblea}
             >
@@ -3650,12 +3725,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               Se borrarán todos los votos de esta asamblea de simulación. Las preguntas y unidades se mantendrán. Podrás repetir la experiencia de votación desde cero.
             </DialogDescription>
           </DialogHeader>
-          <div className="mt-4 flex gap-3">
-            <Button variant="outline" onClick={() => setShowModalConfirmarReiniciarDemo(false)} className="flex-1">
+          <div className="mt-4 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="outline" onClick={() => setShowModalConfirmarReiniciarDemo(false)} className="w-full sm:flex-1">
               Cancelar
             </Button>
             <Button
-              className="flex-1 border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+              className="w-full sm:flex-1 border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
               disabled={reiniciandoDemo}
               onClick={handleReiniciarSimulacion}
             >
@@ -3677,12 +3752,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               Al reabrir la asamblea se permitirá de nuevo el acceso a la votación con el mismo enlace y código. Esta acción consumirá <strong>{costoReapertura} tokens (créditos)</strong> (10% del costo de la primera activación). Tu saldo actual es <strong>{tokensDisponibles} tokens (créditos)</strong>. ¿Deseas continuar?
             </DialogDescription>
           </DialogHeader>
-          <div className="mt-4 flex gap-3">
-            <Button variant="outline" onClick={() => setShowModalConfirmarReabrir(false)} className="flex-1">
+          <div className="mt-4 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="outline" onClick={() => setShowModalConfirmarReabrir(false)} className="w-full sm:flex-1">
               Cancelar
             </Button>
             <Button
-              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+              className="w-full sm:flex-1 bg-green-600 hover:bg-green-700 text-white"
               disabled={reabriendo || tokensDisponibles < costoReapertura}
               onClick={handleReabrirAsamblea}
             >
@@ -3720,11 +3795,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               </label>
             </div>
           </DialogHeader>
-          <div className="mt-4 flex gap-3">
-            <Button variant="outline" onClick={() => setShowModalAvisoReabrirQuorum(false)} className="flex-1">
+          <div className="mt-4 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="outline" onClick={() => setShowModalAvisoReabrirQuorum(false)} className="w-full sm:flex-1">
               Cancelar
             </Button>
-            <Button onClick={confirmarAvisoReabrirQuorum} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">
+            <Button onClick={confirmarAvisoReabrirQuorum} className="w-full sm:flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">
               Entendido, activar verificación
             </Button>
           </div>
@@ -3871,14 +3946,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               La asamblea quedará programada para: <strong>{editFechaValue && editHoraValue ? new Date(editFechaValue + 'T' + (editHoraValue.trim() || '10:00').slice(0, 5) + ':00').toLocaleString('es-CO', { dateStyle: 'long', timeStyle: 'short' }) : ''}</strong>. ¿Deseas guardar este cambio?
             </DialogDescription>
           </DialogHeader>
-          <div className="mt-4 flex gap-3">
-            <Button variant="outline" onClick={() => setShowConfirmFechaModal(false)} className="flex-1">
+          <div className="mt-4 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="outline" onClick={() => setShowConfirmFechaModal(false)} className="w-full sm:flex-1">
               Cancelar
             </Button>
             <Button
               onClick={handleConfirmarCambioFecha}
               disabled={savingFecha || !editFechaValue.trim()}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+              className="w-full sm:flex-1 bg-indigo-600 hover:bg-indigo-700"
             >
               {savingFecha ? 'Guardando…' : 'Sí, guardar'}
             </Button>

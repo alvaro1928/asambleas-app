@@ -314,19 +314,19 @@ export function ModalRegistroAsistencia({
               {mensajeAsistencia.texto}
             </p>
           )}
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm text-slate-400">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
+            <span className="text-sm text-slate-400 order-2 sm:order-1">
               {seleccionadas.size > 0
                 ? `${seleccionadas.size} unidad${seleccionadas.size !== 1 ? 'es' : ''} seleccionada${seleccionadas.size !== 1 ? 's' : ''}`
                 : 'Ninguna unidad seleccionada'}
             </span>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto order-1 sm:order-2">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => handleOpenChange(false)}
                 disabled={guardandoAsistencia}
-                className="rounded-2xl text-slate-400 hover:text-slate-200"
+                className="rounded-2xl text-slate-400 hover:text-slate-200 w-full sm:w-auto"
               >
                 Cancelar
               </Button>
@@ -334,7 +334,7 @@ export function ModalRegistroAsistencia({
                 type="button"
                 onClick={guardarAsistenciaManual}
                 disabled={seleccionadas.size === 0 || guardandoAsistencia}
-                className="rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-2"
+                className="rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 w-full sm:w-auto"
               >
                 {guardandoAsistencia ? (
                   <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />

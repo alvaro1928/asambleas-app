@@ -121,6 +121,7 @@ interface QuorumPorPregunta {
   porcentaje_verificado: number
   total_verificados: number
   quorum_alcanzado: boolean
+  coeficiente_verificado?: number
 }
 
 export default function AsambleaAccesoPage({ params }: { params: { id: string } }) {
@@ -178,6 +179,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     quorum_alcanzado: boolean
   }
   const [statsVerificacion, setStatsVerificacion] = useState<VerificacionStats | null>(null)
+  /** Quórum de la pregunta en votación: en vivo si verificación activa por pregunta, o última sesión cerrada para esa pregunta (persiste al cerrar) */
+  const [statsVerificacionPregunta, setStatsVerificacionPregunta] = useState<VerificacionStats | null>(null)
+  const [nombrePreguntaEnVotacion, setNombrePreguntaEnVotacion] = useState<string>('')
   const [statsDesglose, setStatsDesglose] = useState<VerificacionDesglose | null>(null)
 
   // Enlace delegado
@@ -367,19 +371,20 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       const { data: sesionesData } = await supabase
         .from('verificacion_asamblea_sesiones')
-        .select('pregunta_id, total_verificados, porcentaje_verificado, quorum_alcanzado')
+        .select('pregunta_id, total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
         .eq('asamblea_id', params.id)
         .not('pregunta_id', 'is', null)
         .not('cierre_at', 'is', null)
         .order('cierre_at', { ascending: false })
       const porPregunta: Record<string, QuorumPorPregunta> = {}
-      ;(sesionesData || []).forEach((s: { pregunta_id: string; total_verificados?: number; porcentaje_verificado?: number; quorum_alcanzado?: boolean }) => {
+      ;(sesionesData || []).forEach((s: { pregunta_id: string; total_verificados?: number; coeficiente_verificado?: number; porcentaje_verificado?: number; quorum_alcanzado?: boolean }) => {
         const id = s.pregunta_id
         if (!id || porPregunta[id]) return
         porPregunta[id] = {
           total_verificados: Number(s.total_verificados) ?? 0,
           porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
-          quorum_alcanzado: !!s.quorum_alcanzado
+          quorum_alcanzado: !!s.quorum_alcanzado,
+          coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0
         }
       })
       setQuorumPorPregunta(porPregunta)
@@ -442,6 +447,46 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         } else {
           setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
         }
+      }
+
+      // Quórum de la pregunta en votación: en vivo si verificación activa por pregunta, o última cerrada (queda visible al cerrar)
+      const preguntaIdEnVotacion = (asambleaFresh as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id ?? conResultados[0]?.id
+      if (preguntaIdEnVotacion) {
+        const nombrePregunta = conResultados.find((p: { id: string }) => p.id === preguntaIdEnVotacion)?.texto_pregunta ?? conResultados[0]?.texto_pregunta ?? 'Pregunta en votación'
+        setNombrePreguntaEnVotacion(nombrePregunta)
+        if (verifActiva && (asambleaFresh as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id) {
+          const { data: verPregData } = await supabase.rpc('calcular_verificacion_quorum', {
+            p_asamblea_id: params.id,
+            p_pregunta_id: preguntaIdEnVotacion,
+            p_solo_sesion_actual: true,
+          })
+          if (verPregData?.length) {
+            const v = verPregData[0] as VerificacionStats
+            setStatsVerificacionPregunta({
+              total_verificados: Number(v.total_verificados) || 0,
+              coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+              porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+              quorum_alcanzado: !!v.quorum_alcanzado,
+            })
+          } else {
+            setStatsVerificacionPregunta({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+          }
+        } else {
+          const ultimaPreg = porPregunta[preguntaIdEnVotacion]
+          if (ultimaPreg) {
+            setStatsVerificacionPregunta({
+              total_verificados: ultimaPreg.total_verificados,
+              coeficiente_verificado: ultimaPreg.coeficiente_verificado ?? 0,
+              porcentaje_verificado: ultimaPreg.porcentaje_verificado,
+              quorum_alcanzado: ultimaPreg.quorum_alcanzado,
+            })
+          } else {
+            setStatsVerificacionPregunta(null)
+          }
+        }
+      } else {
+        setStatsVerificacionPregunta(null)
+        setNombrePreguntaEnVotacion('')
       }
 
       try {
@@ -669,6 +714,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
         }
       }
+      if (!nuevoValor) {
+        await loadAvanceVotaciones()
+      }
     } finally {
       setToggling(false)
     }
@@ -808,15 +856,20 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                loadAsistentes(true)
-                loadAvanceVotaciones()
+              onClick={async () => {
+                setRecargando(true)
+                try {
+                  await loadAvanceVotaciones()
+                  await loadAsistentes(true)
+                } finally {
+                  setRecargando(false)
+                }
               }}
               disabled={recargando}
               className="rounded-3xl border-gray-200 dark:border-[rgba(255,255,255,0.1)]"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
-              Actualizar
+              {recargando ? 'Actualizando…' : 'Actualizar'}
             </Button>
           </div>
 
@@ -891,6 +944,15 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       {statsVerificacion.porcentaje_verificado.toFixed(1)}%
                     </span>
                     <span className="text-slate-400">({statsVerificacion.total_verificados} un. · coef. {statsVerificacion.coeficiente_verificado.toFixed(4)}%)</span>
+                  </div>
+                )}
+                {statsVerificacionPregunta != null && nombrePreguntaEnVotacion && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
+                    <span className="text-slate-400">Asistencia (pregunta en votación):</span>
+                    <span className={`font-bold ${statsVerificacionPregunta.quorum_alcanzado ? 'text-green-400' : statsVerificacionPregunta.porcentaje_verificado >= 30 ? 'text-amber-400' : 'text-red-400'}`}>
+                      {statsVerificacionPregunta.porcentaje_verificado.toFixed(1)}%
+                    </span>
+                    <span className="text-slate-400">({statsVerificacionPregunta.total_verificados} un. · coef. {statsVerificacionPregunta.coeficiente_verificado.toFixed(4)}%)</span>
                   </div>
                 )}
               </div>
@@ -1350,11 +1412,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </label>
             </div>
           </DialogHeader>
-          <div className="mt-4 flex gap-3">
-            <Button variant="outline" onClick={() => setShowModalAvisoReabrirQuorum(false)} className="flex-1 border-slate-600 text-slate-300">
+          <div className="mt-4 flex flex-col-reverse sm:flex-row gap-3">
+            <Button variant="outline" onClick={() => setShowModalAvisoReabrirQuorum(false)} className="w-full sm:flex-1 border-slate-600 text-slate-300">
               Cancelar
             </Button>
-            <Button onClick={confirmarAvisoReabrirQuorum} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">
+            <Button onClick={confirmarAvisoReabrirQuorum} className="w-full sm:flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">
               Entendido, activar verificación
             </Button>
           </div>
