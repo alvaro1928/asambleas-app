@@ -273,33 +273,47 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load when id changes
   }, [params.id])
 
-  // Al volver a la pestaña, refrescar asamblea y sesiones (p. ej. si desactivaron verificación en Acceso)
+  // Al volver a la pestaña o al dar foco a la ventana, refrescar (quórum y validaciones hechas en Acceso)
   useEffect(() => {
     if (typeof document === 'undefined' || !params.id) return
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        loadData()
-      }
-    }
+    const refresh = () => { loadData() }
+    const onVisibility = () => { if (document.visibilityState === 'visible') refresh() }
     document.addEventListener('visibilitychange', onVisibility)
-    return () => document.removeEventListener('visibilitychange', onVisibility)
+    window.addEventListener('focus', refresh)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('focus', refresh)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar por params.id
   }, [params.id])
 
-  // Polling para estadísticas (separado)
+  // Polling: estadísticas + estado de verificación desde servidor y sesiones (para que al desactivar en Acceso la pregunta quede en 3.2%)
   useEffect(() => {
-    if (preguntas.length === 0) return
+    if (preguntas.length === 0 || !asamblea?.id) return
 
-    const interval = setInterval(() => {
-      if (preguntas.some(p => p.estado === 'abierta')) {
-        loadEstadisticas()
-        loadQuorum()
+    const tick = async () => {
+      if (!preguntas.some(p => p.estado === 'abierta')) return
+      loadEstadisticas()
+      const { data: verifData } = await supabase
+        .from('asambleas')
+        .select('verificacion_asistencia_activa, verificacion_pregunta_id')
+        .eq('id', params.id)
+        .single()
+      if (verifData) {
+        setAsamblea((prev) => prev ? { ...prev, ...verifData } : prev)
+        await loadQuorum(undefined, {
+          verificacion_asistencia_activa: !!verifData.verificacion_asistencia_activa,
+          verificacion_pregunta_id: verifData.verificacion_pregunta_id ?? null,
+        })
+      } else {
+        await loadQuorum()
       }
-    }, 5000)
+    }
 
+    const interval = setInterval(tick, 5000)
     return () => clearInterval(interval)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when preguntas length changes
-  }, [params.id, preguntas.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when preguntas/asamblea
+  }, [params.id, preguntas.length, asamblea?.id])
 
   // Cuando no hay preguntas o ninguna abierta y verificación activa: actualizar stats de asistencia cada 5s
   const noHayPreguntasAbiertas = preguntas.length === 0 || preguntas.every((p) => p.estado !== 'abierta')
@@ -429,7 +443,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       // Cargar estadísticas y quórum (pasamos preguntas recién cargadas: setState es async y loadEstadisticas usa preguntas)
       await loadEstadisticas(preguntasData || [])
-      await loadQuorum(asambleaData)
+      const a = asambleaData as { verificacion_asistencia_activa?: boolean; verificacion_pregunta_id?: string | null }
+      await loadQuorum(asambleaData, { verificacion_asistencia_activa: !!a.verificacion_asistencia_activa, verificacion_pregunta_id: a.verificacion_pregunta_id ?? null })
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -497,7 +512,13 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
-  const loadQuorum = async (asambleaOverride?: { is_demo?: boolean; sandbox_usar_unidades_reales?: boolean } | null) => {
+  const loadQuorum = async (
+    asambleaOverride?: { is_demo?: boolean; sandbox_usar_unidades_reales?: boolean } | null,
+    verificacionOverride?: { verificacion_asistencia_activa?: boolean; verificacion_pregunta_id?: string | null }
+  ) => {
+    const verifActiva = verificacionOverride?.verificacion_asistencia_activa ?? !!(asamblea?.verificacion_asistencia_activa)
+    const esModoGeneral = (verificacionOverride?.verificacion_pregunta_id ?? asamblea?.verificacion_pregunta_id) == null
+    const preguntaIdVerif = verificacionOverride?.verificacion_pregunta_id ?? asamblea?.verificacion_pregunta_id
     try {
       const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
       if (!selectedConjuntoId) return
@@ -511,9 +532,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         setQuorum(rpcData[0])
       }
 
-      // Tarjeta "Asistencia verificada" (arriba): solo verificaciones GENERALES (pregunta_id null). No mezclar con quórum por pregunta.
-      const verifActiva = !!(asamblea?.verificacion_asistencia_activa)
-      const esModoGeneral = asamblea?.verificacion_pregunta_id == null
+      // Tarjeta "Asistencia verificada" (arriba): solo verificaciones GENERALES (pregunta_id null). Usar override si viene del polling para no depender de estado stale.
       if (verifActiva && esModoGeneral) {
         const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
           p_asamblea_id: params.id,
@@ -552,10 +571,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         }
       }
       // Si verificación activa por pregunta: cargar stats de esa pregunta para el chip (no usar general)
-      if (verifActiva && !esModoGeneral && asamblea?.verificacion_pregunta_id) {
+      if (verifActiva && !esModoGeneral && preguntaIdVerif) {
         const { data: verPregData } = await supabase.rpc('calcular_verificacion_quorum', {
           p_asamblea_id: params.id,
-          p_pregunta_id: asamblea.verificacion_pregunta_id,
+          p_pregunta_id: preguntaIdVerif,
           p_solo_sesion_actual: true,
         })
         if (verPregData?.length) {
@@ -654,7 +673,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       })
       setSesionesPorPregunta(porPregunta)
       // Rellenar tarjeta "Asistencia verificada" con última general cuando: verificación cerrada O verificación activa por pregunta
-      const mostrarUltimaGeneral = generales.length > 0 && (!asamblea?.verificacion_asistencia_activa || asamblea?.verificacion_pregunta_id != null)
+      const mostrarUltimaGeneral = generales.length > 0 && (!verifActiva || !esModoGeneral)
       if (mostrarUltimaGeneral) {
         const ultima = generales[0]
         setStatsVerificacion({
@@ -663,7 +682,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           porcentaje_verificado: ultima.porcentaje_verificado,
           quorum_alcanzado: ultima.quorum_alcanzado,
         })
-      } else if (!asamblea?.verificacion_asistencia_activa || asamblea?.verificacion_pregunta_id != null) {
+      } else if (!verifActiva || !esModoGeneral) {
         // Sin sesión general cerrada: mostrar 0% para que la tarjeta no desaparezca
         setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
       }
