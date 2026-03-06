@@ -1532,7 +1532,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         }
       }
     } else {
-      // Verificación cerrada o activa por pregunta: tarjeta general muestra última sesión general cerrada
+      // Verificación cerrada o activa por pregunta: tarjeta general = última sesión general cerrada, o última cerrada de cualquier tipo
       const { data: sesionesData } = await supabase
         .from('verificacion_asamblea_sesiones')
         .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
@@ -1550,7 +1550,25 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           quorum_alcanzado: !!s.quorum_alcanzado,
         })
       } else {
-        setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+        // Sin sesiones generales: usar última sesión cerrada (cualquier pregunta) para no mostrar 0% tras cerrar general
+        const { data: ultimaCualquiera } = await supabase
+          .from('verificacion_asamblea_sesiones')
+          .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
+          .eq('asamblea_id', asamblea.id)
+          .not('cierre_at', 'is', null)
+          .order('cierre_at', { ascending: false })
+          .limit(1)
+        if (ultimaCualquiera?.length) {
+          const s = ultimaCualquiera[0] as { total_verificados?: number; coeficiente_verificado?: number; porcentaje_verificado?: number; quorum_alcanzado?: boolean }
+          setStatsVerificacion({
+            total_verificados: Number(s.total_verificados) ?? 0,
+            coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0,
+            porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
+            quorum_alcanzado: !!s.quorum_alcanzado,
+          })
+        } else {
+          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
+        }
       }
     }
     // Cuando la verificación está activa por pregunta: cargar stats de esa pregunta para el chip
@@ -1622,10 +1640,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       } else {
         setAsamblea({ ...asamblea, ...payload })
       }
-      // Pasar estado ya actualizado para que la tarjeta general muestre la última sesión cerrada (evitar 0% por estado desactualizado)
-      await cargarStatsVerificacion({ verificacion_asistencia_activa: !!updatedRow?.verificacion_asistencia_activa, verificacion_pregunta_id: updatedRow?.verificacion_pregunta_id ?? null })
-      // Al cerrar verificación, el trigger guarda la sesión; recargar sesiones para que la tarjeta de la pregunta muestre las 8 unidades (no el general)
-      if (!nuevoValor) await loadQuorum()
+      const verifOverride = { verificacion_asistencia_activa: !!updatedRow?.verificacion_asistencia_activa, verificacion_pregunta_id: updatedRow?.verificacion_pregunta_id ?? null }
+      await cargarStatsVerificacion(verifOverride)
+      // Al cerrar verificación: forzar override para que loadQuorum use sesiones cerradas (estado React puede ir retrasado)
+      await loadQuorum(undefined, verifOverride)
     } finally {
       setTogglingVerif(false)
     }
