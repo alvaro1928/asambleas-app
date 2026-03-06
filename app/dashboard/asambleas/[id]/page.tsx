@@ -2927,15 +2927,20 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                                   </div>
                                 )
                               })()}
-                              {/* Chip de quórum verificado: solo datos de esta pregunta (en vivo o última sesión cerrada); nunca el general */}
+                              {/* Chip de quórum verificado: siempre visible; datos de esta pregunta (en vivo o última sesión cerrada) o 0% si no hay */}
                               {(() => {
-                                const statsForPregunta: VerifStats | null =
+                                const raw: VerifStats | null =
                                   pregunta.estado === 'cerrada'
                                     ? (sesionesPorPregunta[pregunta.id]?.[0] ?? null)
                                     : asamblea?.verificacion_pregunta_id === pregunta.id
                                       ? statsVerificacionPreguntaActiva
                                       : (sesionesPorPregunta[pregunta.id]?.[0] ?? null)
-                                if (!statsForPregunta) return null
+                                const statsForPregunta: VerifStats = raw ?? {
+                                  total_verificados: 0,
+                                  coeficiente_verificado: 0,
+                                  porcentaje_verificado: 0,
+                                  quorum_alcanzado: false,
+                                }
                                 return (
                                   <div className={`mt-3 flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${
                                     statsForPregunta.quorum_alcanzado
