@@ -1091,23 +1091,33 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     })()}
                   </div>
 
-                  {/* Registro de verificación de quórum asociada a esta pregunta: solo sesión cerrada con pregunta_id (la más reciente si hay varias) */}
+                  {/* Registro de verificación de quórum: sesión de esta pregunta si existe; si no, última sesión general para no mostrar cero */}
                   {(() => {
                     const sesionesPregunta = sesionesVerificacion
                       .filter((s) => s.pregunta_id === pregunta.id && s.cierre_at != null)
                       .sort((a, b) => new Date(b.cierre_at!).getTime() - new Date(a.cierre_at!).getTime())
                     const sesionPregunta = sesionesPregunta[0] ?? null
-                    if (!sesionPregunta) return null
-                    const total = sesionPregunta.total_verificados ?? 0
-                    if (total === 0) return null
-                    const porcentaje = Number(sesionPregunta.porcentaje_verificado) ?? 0
-                    const quorumAlcanzado = !!sesionPregunta.quorum_alcanzado
-                    const horaCorte = sesionPregunta.cierre_at
-                      ? new Date(sesionPregunta.cierre_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+                    const sesionesGenerales = sesionesVerificacion
+                      .filter((s) => s.pregunta_id == null && s.cierre_at != null)
+                      .sort((a, b) => new Date(b.cierre_at!).getTime() - new Date(a.cierre_at!).getTime())
+                    const ultimaGeneral = sesionesGenerales[0] ?? null
+                    const sesionUsar = sesionPregunta ?? ultimaGeneral
+                    if (!sesionUsar) return null
+                    const total = sesionUsar.total_verificados ?? 0
+                    const porcentaje = Number(sesionUsar.porcentaje_verificado) ?? 0
+                    if (total === 0 && porcentaje === 0) return null
+                    const quorumAlcanzado = !!sesionUsar.quorum_alcanzado
+                    const horaCorte = sesionUsar.cierre_at
+                      ? new Date(sesionUsar.cierre_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
                       : null
+                    const esGeneral = !sesionPregunta && !!ultimaGeneral
                     return (
                       <div className="ml-10 mt-2 mb-1">
-                        <p className="text-xs font-semibold text-indigo-700 mb-0.5">Registro de verificación de quórum (asociada a esta pregunta)</p>
+                        <p className="text-xs font-semibold text-indigo-700 mb-0.5">
+                          {esGeneral
+                            ? 'Registro de verificación de quórum (asamblea en general, aplicable a esta pregunta)'
+                            : 'Registro de verificación de quórum (asociada a esta pregunta)'}
+                        </p>
                         <p className="text-xs text-gray-500 italic border-l-2 border-indigo-300 pl-2">
                           Al cerrar la verificación
                           {horaCorte ? ` (${horaCorte})` : ''},{' '}
