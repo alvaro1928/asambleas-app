@@ -1513,9 +1513,21 @@ export default function VotacionPublicaPage() {
                 </div>
               )}
 
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Umbral de aprobación: {UMBRAL_APROBACION_DEFECTO}% (mayoría simple). Se actualiza automáticamente.
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Umbral de aprobación: {UMBRAL_APROBACION_DEFECTO}% (mayoría simple). Se actualiza automáticamente.
+                </p>
+                <Button
+                  onClick={refrescarDatos}
+                  disabled={recargando}
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-1.5 ${recargando ? 'animate-spin' : ''}`} />
+                  {recargando ? 'Actualizando…' : 'Actualizar'}
+                </Button>
+              </div>
 
               {/* Preguntas abiertas */}
               {preguntas.length > 0 && (
@@ -1786,25 +1798,15 @@ export default function VotacionPublicaPage() {
               )}
 
               {/* Acciones */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button
-                  onClick={refrescarDatos}
-                  disabled={recargando}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-sm"
-                >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
-                  {recargando ? 'Actualizando...' : 'Actualizar'}
-                </Button>
-                <Button
-                  onClick={() => setShowModalCertificado(true)}
-                  disabled={descargandoCertificado}
-                  variant="outline"
-                  className="w-full border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-sm"
-                >
-                  <FileDown className={`w-4 h-4 mr-2 ${descargandoCertificado ? 'animate-pulse' : ''}`} />
-                  Certificado de mis votos
-                </Button>
-              </div>
+              <Button
+                onClick={() => setShowModalCertificado(true)}
+                disabled={descargandoCertificado}
+                variant="outline"
+                className="w-full border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-sm"
+              >
+                <FileDown className={`w-4 h-4 mr-2 ${descargandoCertificado ? 'animate-pulse' : ''}`} />
+                Certificado de mis votos
+              </Button>
             </div>
           )}
 
