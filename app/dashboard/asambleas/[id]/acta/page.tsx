@@ -433,7 +433,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         .eq('asamblea_id', params.id)
       const registrosConUnidad = (registrosVerif || []).map((r: any) => {
         const qa = r.quorum_asamblea
-        const unidad_id = qa && (Array.isArray(qa) ? qa[0]?.unidad_id : qa.unidad_id) ?? null
+        const unidad_id = (qa && (Array.isArray(qa) ? qa[0]?.unidad_id : qa.unidad_id)) ?? null
         return { creado_en: r.creado_en, pregunta_id: r.pregunta_id ?? null, unidad_id }
       }).filter((r: { unidad_id: string | null }) => r.unidad_id)
       const mapaPreguntaTexto = new Map((preguntasConOpciones || []).map((p, i) => [p.id, `P${i + 1}: ${(p.texto_pregunta || '').trim() || 'Pregunta'}`]))
