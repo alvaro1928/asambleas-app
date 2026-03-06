@@ -592,8 +592,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         setStatsVerificacionPreguntaActiva(null)
       }
 
-      if (!rpcError && rpcData && rpcData.length > 0) return
-
+      // No hacer return aquí: siempre hay que cargar sesiones cerradas (sesionesPorPregunta) para que el chip muestre los datos al cerrar verificación/pregunta
+      if (rpcError || !rpcData || rpcData.length === 0) {
       // Si falla la función RPC (no existe aún), calcular manualmente con mismo criterio que el RPC
       const isDemoAsam = asambleaOverride?.is_demo ?? asamblea?.is_demo
       const usarReales = asambleaOverride?.sandbox_usar_unidades_reales ?? asamblea?.sandbox_usar_unidades_reales
@@ -637,6 +637,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         porcentaje_participacion_coeficiente: porcentajeCoeficiente,
         quorum_alcanzado: porcentajeCoeficiente >= 50
       })
+      }
     } catch (error) {
       console.error('Error loading quorum:', error)
     }
@@ -1050,7 +1051,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     try {
       // Si se cierra la pregunta que es el contexto actual de verificación, primero cerrar la verificación
       // para que el trigger guarde la sesión con este pregunta_id (quórum asociado a esta pregunta en el acta).
-      if (nuevoEstado === 'cerrada' && asamblea?.verificacion_asistencia_activa && asamblea?.verificacion_pregunta_id === preguntaId) {
+      const cerramosVerificacion = nuevoEstado === 'cerrada' && asamblea?.verificacion_asistencia_activa && asamblea?.verificacion_pregunta_id === preguntaId
+      if (cerramosVerificacion) {
         const { error: errVer } = await supabase
           .from('asambleas')
           .update({ verificacion_asistencia_activa: false, verificacion_pregunta_id: null })
@@ -1086,9 +1088,13 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       setSuccessMessage(mensajes[nuevoEstado])
       setTimeout(() => setSuccessMessage(''), 3000)
 
-      // Recargar estadísticas
+      // Recargar estadísticas y sesiones cerradas (con override si cerramos verificación para que el chip muestre los datos guardados)
       await loadEstadisticas()
-      await loadQuorum()
+      if (cerramosVerificacion) {
+        await loadQuorum(undefined, { verificacion_asistencia_activa: false, verificacion_pregunta_id: null })
+      } else {
+        await loadQuorum()
+      }
     } catch (error: any) {
       console.error('Error updating estado:', error)
       toast.error('Error al cambiar estado: ' + error.message)
