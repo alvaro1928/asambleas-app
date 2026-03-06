@@ -388,6 +388,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         }
       })
       setQuorumPorPregunta(porPregunta)
+      // Pregunta cuya última sesión cerrada es la más reciente (para mostrar "pregunta en votación" al cerrar verificación)
+      const ultimaSesionPorPregunta = (sesionesData || []).find((s: { pregunta_id?: string | null }) => s.pregunta_id != null)
+      const preguntaIdUltimaSesionCerrada = ultimaSesionPorPregunta ? (ultimaSesionPorPregunta as { pregunta_id: string }).pregunta_id : null
 
       // Tarjeta "Asistencia verificada": solo GENERAL (pregunta_id null). No mezclar con quórum por pregunta.
       const verifActiva = !!asambleaFresh?.verificacion_asistencia_activa
@@ -449,8 +452,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         }
       }
 
-      // Quórum de la pregunta en votación: en vivo si verificación activa por pregunta, o última cerrada (queda visible al cerrar)
-      const preguntaIdEnVotacion = (asambleaFresh as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id ?? conResultados[0]?.id
+      // Quórum de la pregunta en votación: en vivo si verificación activa por pregunta; al cerrar, la que tiene la última sesión cerrada (mantiene 8 un.)
+      const preguntaIdEnVotacion = (asambleaFresh as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id ?? preguntaIdUltimaSesionCerrada ?? conResultados[0]?.id
       if (preguntaIdEnVotacion) {
         const nombrePregunta = conResultados.find((p: { id: string }) => p.id === preguntaIdEnVotacion)?.texto_pregunta ?? conResultados[0]?.texto_pregunta ?? 'Pregunta en votación'
         setNombrePreguntaEnVotacion(nombrePregunta)
