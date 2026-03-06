@@ -133,6 +133,8 @@ export default function VotacionPublicaPage() {
   const [verificando, setVerificando] = useState(false)
   interface StatsVerif { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
   const [statsVerificacion, setStatsVerificacion] = useState<StatsVerif | null>(null)
+  /** Quórum verificado por pregunta (para tab Avance: cada pregunta muestra su quórum) */
+  const [statsVerificacionPorPregunta, setStatsVerificacionPorPregunta] = useState<Record<string, StatsVerif>>({})
   // --- Tabs ---
   const [tabActivo, setTabActivo] = useState<'votacion' | 'avance' | 'misdatos'>('votacion')
 
@@ -796,6 +798,38 @@ export default function VotacionPublicaPage() {
         } else {
           setStatsVerificacion(null)
         }
+
+        // Quórum por pregunta (para tab Avance): sesiones cerradas por pregunta_id + si hay verificación activa para una pregunta, esa pregunta usa los stats en vivo
+        const { data: sesionesPorPregunta } = await supabase
+          .from('verificacion_asamblea_sesiones')
+          .select('pregunta_id, total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
+          .eq('asamblea_id', asambleaId)
+          .not('pregunta_id', 'is', null)
+          .not('cierre_at', 'is', null)
+          .order('cierre_at', { ascending: false })
+        const porPregunta: Record<string, StatsVerif> = {}
+        ;(sesionesPorPregunta || []).forEach((s: { pregunta_id: string; total_verificados?: number; coeficiente_verificado?: number; porcentaje_verificado?: number; quorum_alcanzado?: boolean }) => {
+          const id = s.pregunta_id
+          if (id && !porPregunta[id]) {
+            porPregunta[id] = {
+              total_verificados: Number(s.total_verificados) ?? 0,
+              coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0,
+              porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
+              quorum_alcanzado: !!s.quorum_alcanzado,
+            }
+          }
+        })
+        if (activa && preguntaId && vData?.length) {
+          const v = vData[0]
+          porPregunta[preguntaId] = {
+            total_verificados: Number(v.total_verificados) || 0,
+            coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+            porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+            quorum_alcanzado: !!v.quorum_alcanzado,
+          }
+        }
+        setStatsVerificacionPorPregunta(porPregunta)
+
         // Mientras la verificación está activa no cerramos el popup con el valor del servidor
         // (evita que se cierre solo al refrescar o por verificación anterior); solo se cierra al clic o al desactivar
         const yaVerificoVal = yaRes.data
@@ -1555,9 +1589,15 @@ export default function VotacionPublicaPage() {
                             P{index + 1}: {pregunta.texto_pregunta}
                           </h4>
                           <div className="flex items-center gap-2 shrink-0">
-                            {statsVerificacion && (
-                              <QuorumChip pct={statsVerificacion.porcentaje_verificado} total={statsVerificacion.total_verificados} small />
-                            )}
+                            {(() => {
+                              const statsPreg = statsVerificacionPorPregunta[pregunta.id] ?? statsVerificacion
+                              return statsPreg ? (
+                                <span className="flex items-center gap-1.5 text-xs font-medium" title="Quórum verificado para esta pregunta">
+                                  <QuorumChip pct={statsPreg.porcentaje_verificado} total={statsPreg.total_verificados} small />
+                                  <span className="text-gray-500 dark:text-gray-400 hidden sm:inline">Quórum</span>
+                                </span>
+                              ) : null
+                            })()}
                             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${algunaAprobada ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'}`}>
                               {algunaAprobada ? '✓ Aprobada' : '○ Pendiente'}
                             </span>
@@ -1640,7 +1680,14 @@ export default function VotacionPublicaPage() {
                             <h4 className="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate max-w-[70%]">
                               P{index + 1}: {pregunta.texto_pregunta}
                             </h4>
-                            <span className="text-xs font-bold bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full shrink-0">CERRADA</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {statsVerificacionPorPregunta[pregunta.id] && (
+                                <span className="flex items-center gap-1.5 text-xs" title="Quórum verificado para esta pregunta">
+                                  <QuorumChip pct={statsVerificacionPorPregunta[pregunta.id].porcentaje_verificado} total={statsVerificacionPorPregunta[pregunta.id].total_verificados} small />
+                                </span>
+                              )}
+                              <span className="text-xs font-bold bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">CERRADA</span>
+                            </div>
                           </div>
                           <div className="p-4 space-y-3">
                             {misVotos.length > 0 && (
