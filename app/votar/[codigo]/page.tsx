@@ -644,12 +644,13 @@ export default function VotacionPublicaPage() {
   const refrescarDatos = async () => {
     setRecargando(true)
     try {
-      // Re-validar unidades y poderes (por si se agregaron nuevos poderes)
       const nuevasUnidades = await refrescarUnidades()
-      
       await cargarPreguntas(nuevasUnidades)
       if (mostrarHistorial) {
         await cargarHistorial(nuevasUnidades)
+      }
+      if (asamblea?.asamblea_id) {
+        await refrescarVerificacion(asamblea.asamblea_id, email.trim())
       }
     } catch (error: any) {
       console.error('Error refrescando datos:', error)
@@ -749,30 +750,51 @@ export default function VotacionPublicaPage() {
         }
         verificacionActivaRef.current = activa
 
-        const [vRes, yaRes] = await Promise.all([
-          supabase.rpc('calcular_verificacion_quorum', {
+        let vData: { total_verificados?: number; coeficiente_verificado?: number; porcentaje_verificado?: number; quorum_alcanzado?: boolean }[] | null = null
+        if (activa) {
+          const vRes = await supabase.rpc('calcular_verificacion_quorum', {
             p_asamblea_id: asambleaId,
             p_pregunta_id: preguntaId,
-            p_solo_sesion_actual: activa,
-          }),
-          emailVotante?.trim()
-            ? supabase.rpc('ya_verifico_asistencia', {
-                p_asamblea_id: asambleaId,
-                p_email: emailVotante.trim(),
-                p_pregunta_id: preguntaId,
-              })
-            : Promise.resolve({ data: null }),
-        ])
+            p_solo_sesion_actual: true,
+          })
+          vData = vRes.data
+        } else {
+          // Verificación cerrada: mostrar última sesión GENERAL cerrada (igual que asamblea/acceso), no acumulado histórico
+          const { data: ultimaSesion } = await supabase
+            .from('verificacion_asamblea_sesiones')
+            .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
+            .eq('asamblea_id', asambleaId)
+            .is('pregunta_id', null)
+            .not('cierre_at', 'is', null)
+            .order('cierre_at', { ascending: false })
+            .limit(1)
+          if (ultimaSesion?.length) {
+            vData = [{
+              total_verificados: Number(ultimaSesion[0].total_verificados) ?? 0,
+              coeficiente_verificado: Number(ultimaSesion[0].coeficiente_verificado) ?? 0,
+              porcentaje_verificado: Number(ultimaSesion[0].porcentaje_verificado) ?? 0,
+              quorum_alcanzado: !!ultimaSesion[0].quorum_alcanzado,
+            }]
+          }
+        }
+        const yaRes = emailVotante?.trim()
+          ? await supabase.rpc('ya_verifico_asistencia', {
+              p_asamblea_id: asambleaId,
+              p_email: emailVotante.trim(),
+              p_pregunta_id: preguntaId,
+            })
+          : { data: null }
 
-        const vData = vRes.data
         if (vData?.length) {
-          const v = vData[0] as StatsVerif
+          const v = vData[0]
           setStatsVerificacion({
             total_verificados: Number(v.total_verificados) || 0,
             coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
             porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
             quorum_alcanzado: !!v.quorum_alcanzado,
           })
+        } else {
+          setStatsVerificacion(null)
         }
         // Mientras la verificación está activa no cerramos el popup con el valor del servidor
         // (evita que se cierre solo al refrescar o por verificación anterior); solo se cierra al clic o al desactivar

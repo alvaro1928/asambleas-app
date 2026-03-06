@@ -313,14 +313,18 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       }
 
       // Cargar sesiones de verificación (con pregunta_id: null = general, no null = por pregunta)
+      let sesionesData: Array<{ apertura_at?: string; cierre_at?: string; total_verificados?: number; coeficiente_verificado?: number; porcentaje_verificado?: number; quorum_alcanzado?: boolean; pregunta_id?: string | null }> = []
       try {
-        const { data: sesionesData } = await supabase
+        const { data: sesionesFetch } = await supabase
           .from('verificacion_asamblea_sesiones')
           .select('apertura_at, cierre_at, total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado, pregunta_id')
           .eq('asamblea_id', params.id)
-          .order('apertura_at', { ascending: true })
-        if (sesionesData && sesionesData.length > 0) {
-          setSesionesVerificacion(sesionesData as SesionVerificacion[])
+          .not('cierre_at', 'is', null)
+          .order('cierre_at', { ascending: false })
+        sesionesData = sesionesFetch || []
+        const porApertura = [...sesionesData].sort((a, b) => (a.apertura_at || '').localeCompare(b.apertura_at || ''))
+        if (porApertura.length > 0) {
+          setSesionesVerificacion(porApertura as SesionVerificacion[])
         } else {
           setSesionesVerificacion([])
         }
@@ -328,35 +332,16 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         setSesionesVerificacion([])
       }
 
-      const [{ data: verData }, { data: verPorPregData }] = await Promise.all([
-        supabase.rpc('calcular_verificacion_quorum', { p_asamblea_id: params.id }),
-        supabase.rpc('calcular_verificacion_por_preguntas', { p_asamblea_id: params.id }),
-      ])
-      if (verData && verData[0]) {
-        const v = verData[0] as VerifStatsActa
-        const { data: primeraHoraData } = await supabase
-          .from('quorum_asamblea')
-          .select('hora_verificacion')
-          .eq('asamblea_id', params.id)
-          .eq('verifico_asistencia', true)
-          .not('hora_verificacion', 'is', null)
-          .order('hora_verificacion', { ascending: true })
-          .limit(1)
-        const { data: ultimaHoraData } = await supabase
-          .from('quorum_asamblea')
-          .select('hora_verificacion')
-          .eq('asamblea_id', params.id)
-          .eq('verifico_asistencia', true)
-          .not('hora_verificacion', 'is', null)
-          .order('hora_verificacion', { ascending: false })
-          .limit(1)
+      const { data: verPorPregData } = await supabase.rpc('calcular_verificacion_por_preguntas', { p_asamblea_id: params.id })
+      const ultimaGeneral = sesionesData.filter((s) => s.pregunta_id == null)[0]
+      if (ultimaGeneral) {
         setVerificacion({
-          total_verificados: Number(v.total_verificados) || 0,
-          coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
-          porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
-          quorum_alcanzado: !!v.quorum_alcanzado,
-          hora_verificacion: (primeraHoraData && primeraHoraData[0])?.hora_verificacion ?? undefined,
-          hora_ultima_verificacion: (ultimaHoraData && ultimaHoraData[0])?.hora_verificacion ?? undefined,
+          total_verificados: Number(ultimaGeneral.total_verificados) ?? 0,
+          coeficiente_verificado: Number(ultimaGeneral.coeficiente_verificado) ?? 0,
+          porcentaje_verificado: Number(ultimaGeneral.porcentaje_verificado) ?? 0,
+          quorum_alcanzado: !!ultimaGeneral.quorum_alcanzado,
+          hora_verificacion: ultimaGeneral.apertura_at ?? undefined,
+          hora_ultima_verificacion: ultimaGeneral.cierre_at ?? undefined,
         } as VerifStatsActa)
       }
       // Cargar snapshot por pregunta
