@@ -54,6 +54,7 @@ export function ModalRegistroAsistencia({
   const [seleccionadas, setSeleccionadas] = useState<Set<string>>(new Set())
   const [busquedaAsistencia, setBusquedaAsistencia] = useState('')
   const [guardandoAsistencia, setGuardandoAsistencia] = useState(false)
+  const [quitandoId, setQuitandoId] = useState<string | null>(null)
   const [cargandoUnidadesAsistencia, setCargandoUnidadesAsistencia] = useState(false)
   const [mensajeAsistencia, setMensajeAsistencia] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
 
@@ -185,6 +186,33 @@ export function ModalRegistroAsistencia({
     }
   }
 
+  const quitarAsistencia = async (unidadId: string) => {
+    if (quitandoId || guardandoAsistencia) return
+    setQuitandoId(unidadId)
+    setMensajeAsistencia(null)
+    try {
+      const res = await fetch('/api/quitar-asistencia-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: asambleaId, unidad_ids: [unidadId] }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setUnidadesParaAsistencia((prev) =>
+          prev.map((u) => (u.id === unidadId ? { ...u, ya_verifico: false } : u))
+        )
+        setMensajeAsistencia({ tipo: 'ok', texto: 'Asistencia quitada. La unidad vuelve a pendientes de verificar.' })
+        await onGuardado?.()
+      } else {
+        setMensajeAsistencia({ tipo: 'error', texto: data.error || 'Error al quitar asistencia.' })
+      }
+    } catch {
+      setMensajeAsistencia({ tipo: 'error', texto: 'Error de conexión. Intenta de nuevo.' })
+    } finally {
+      setQuitandoId(null)
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
@@ -210,7 +238,7 @@ export function ModalRegistroAsistencia({
             </Button>
           </div>
           <p className="text-sm text-slate-400 mt-1">
-            Selecciona las unidades cuya asistencia quieres registrar en esta sesión. Las que ya verificaron en la sesión actual aparecen como {'"'}Verificada{'"'} y no se pueden volver a seleccionar.
+            Selecciona las unidades cuya asistencia quieres registrar en esta sesión. Las que ya verificaron aparecen como Verificada; si registraste una por error, usa Quitar para desmarcarla (solo mientras la verificación esté activa).
           </p>
         </DialogHeader>
 
@@ -290,9 +318,22 @@ export function ModalRegistroAsistencia({
                       </div>
                       <span className="text-xs text-slate-500 shrink-0">coef. {u.coeficiente.toFixed(4)}%</span>
                       {u.ya_verifico && (
-                        <span className="text-xs text-emerald-400 font-semibold shrink-0 flex items-center gap-1">
+                        <span className="text-xs text-emerald-400 font-semibold shrink-0 flex items-center gap-2">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           Verificada
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-amber-400 hover:text-amber-300 hover:bg-amber-900/20"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              quitarAsistencia(u.id)
+                            }}
+                            disabled={quitandoId === u.id || guardandoAsistencia}
+                          >
+                            {quitandoId === u.id ? 'Quitando...' : 'Quitar'}
+                          </Button>
                         </span>
                       )}
                     </label>
