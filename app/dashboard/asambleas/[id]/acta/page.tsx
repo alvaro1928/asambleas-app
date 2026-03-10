@@ -480,6 +480,10 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [actaOtsBase64, setActaOtsBase64] = useState<string | null>(null)
   const [descargandoPdf, setDescargandoPdf] = useState(false)
   const [showVerificacionModal, setShowVerificacionModal] = useState(false)
+  const [showModalTipoActa, setShowModalTipoActa] = useState(false)
+  /** true = renderizar acta sin auditoría (para PDF soporte general); al descargar se restaura a false */
+  const [actaModoSoporte, setActaModoSoporte] = useState(false)
+  const [descargarSoportePendiente, setDescargarSoportePendiente] = useState(false)
   const [certificando, setCertificando] = useState(false)
   const [blockchainCertEnabled, setBlockchainCertEnabled] = useState(false)
   const actaContentRef = useRef<HTMLElement>(null)
@@ -490,6 +494,17 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       setActaGenerada(sessionStorage.getItem('acta_generada_' + params.id) === '1')
     }
   }, [params.id])
+
+  /** Tras elegir "soporte general", el DOM se re-renderiza sin auditoría; luego generamos el PDF y volvemos al modo completo */
+  useEffect(() => {
+    if (!actaModoSoporte || !descargarSoportePendiente) return
+    const t = setTimeout(() => {
+      handleDescargarPdf(true)
+      setDescargarSoportePendiente(false)
+      setActaModoSoporte(false)
+    }, 500)
+    return () => clearTimeout(t)
+  }, [actaModoSoporte, descargarSoportePendiente])
 
   /** Descontar tokens y marcar acta como generada; luego se puede imprimir sin volver a cobrar (Ctrl+P o botón). */
   const handleGenerarActa = async () => {
@@ -576,8 +591,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     window.print()
   }
 
-  /** Descarga el acta (incluyendo certificado blockchain si existe) como PDF. */
-  const handleDescargarPdf = async () => {
+  /** Descarga el acta como PDF. soporteGeneral = true → acta para anexo público (sin auditoría, sin quién votó qué). */
+  const handleDescargarPdf = async (soporteGeneral = false) => {
     const mainEl = actaContentRef.current
     if (!mainEl) return
     setDescargandoPdf(true)
@@ -605,7 +620,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     try {
       const html2pdf = (await import('html2pdf.js')).default
       const nombreSeguro = (asamblea?.nombre ?? 'asamblea').replace(/[^a-zA-Z0-9\u00C0-\u024F\s.-]/g, '').trim().slice(0, 80) || 'acta'
-      const filename = `acta-${nombreSeguro}-${params.id}.pdf`.replace(/\s+/g, '_')
+      const filename = soporteGeneral
+        ? `acta-soporte-${nombreSeguro}-${params.id}.pdf`.replace(/\s+/g, '_')
+        : `acta-${nombreSeguro}-${params.id}.pdf`.replace(/\s+/g, '_')
       const opts = {
         margin: [12, 10, 12, 10] as [number, number, number, number],
         filename,
@@ -800,7 +817,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               </Button>
             )}
             <Button
-              onClick={handleDescargarPdf}
+              onClick={() => setShowModalTipoActa(true)}
               disabled={descargandoPdf}
               variant="outline"
               className="border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
@@ -824,6 +841,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1">Votaciones de Asambleas Online</p>
               <h1 className="text-3xl font-black uppercase tracking-tight text-gray-900">Acta de votación</h1>
+              {actaModoSoporte && (
+                <p className="text-sm font-semibold text-indigo-700 mt-1">Anexo para soporte general (sin auditoría — para compartir con participantes)</p>
+              )}
             </div>
             <div className="text-right text-xs text-gray-500 mt-1">
               <p>Generada: {new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
@@ -1103,7 +1123,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     )}
                   </div>
 
-                  {/* Votación final por unidad (siempre visible para auditoría) */}
+                  {/* Votación final por unidad (solo en acta con auditoría; no en soporte general) */}
+                  {!actaModoSoporte && (
                   <div className="ml-10 mt-3">
                     <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Votación final por unidad</p>
                     <table className="w-full border-collapse" style={{ fontSize: '11px' }}>
@@ -1138,6 +1159,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       )
                     })()}
                   </div>
+                  )}
 
                   {/* Registro de verificación de quórum: sesión de esta pregunta si existe; si no, última sesión general para no mostrar cero */}
                   {(() => {
@@ -1179,7 +1201,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     )
                   })()}
 
-                  {/* Auditoría de transacciones (siempre visible para auditoría) */}
+                  {/* Auditoría de transacciones (solo en acta con auditoría; no en soporte general) */}
+                  {!actaModoSoporte && (
                   <div className="ml-10 mt-3">
                     <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Auditoría de transacciones (cambios de voto, quién votó, cuándo)</p>
                     <table className="w-full border-collapse" style={{ fontSize: '10px', tableLayout: 'fixed' }}>
@@ -1220,6 +1243,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       <p className="text-xs text-gray-400 mt-1">* Voto ejercido mediante poder notarial.</p>
                     )}
                   </div>
+                  )}
 
                   {/* Unidades que no participaron en esta pregunta */}
                   {(() => {
@@ -1353,6 +1377,52 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           <p className="text-right whitespace-nowrap ml-4">{new Date().toLocaleString('es-CO')}</p>
         </footer>
       </main>
+
+      {/* Modal: elegir tipo de acta al descargar */}
+      <Dialog open={showModalTipoActa} onOpenChange={setShowModalTipoActa}>
+        <DialogContent showCloseButton={false} className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5 text-indigo-600" />
+              Descargar acta (PDF)
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Elige el tipo de acta que deseas descargar:
+          </p>
+          <div className="flex flex-col gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="justify-start text-left h-auto py-3 px-4 border-indigo-200 hover:bg-indigo-50 dark:border-indigo-800 dark:hover:bg-indigo-900/20"
+              onClick={() => {
+                setShowModalTipoActa(false)
+                handleDescargarPdf(false)
+              }}
+            >
+              <span className="font-semibold block">Acta con auditoría completa</span>
+              <span className="text-xs text-gray-500 font-normal mt-0.5">
+                Incluye quién votó qué, transacciones, IP y datos para revisión del administrador. Solo uso interno/auditoría.
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="justify-start text-left h-auto py-3 px-4 border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/50"
+              onClick={() => {
+                setShowModalTipoActa(false)
+                setActaModoSoporte(true)
+                setDescargarSoportePendiente(true)
+              }}
+            >
+              <span className="font-semibold block">Acta para soporte general (anexo público)</span>
+              <span className="text-xs text-gray-500 font-normal mt-0.5">
+                Quórums generales, preguntas con resultados (porcentaje y total en coeficiente), aprobado/no aprobado, unidades que no votaron, ausentes y validaciones de quórum. Sin quién votó qué ni auditoría.
+              </span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: Certificado y cómo verificar (no forma parte del acta descargada) */}
       <Dialog open={showVerificacionModal} onOpenChange={setShowVerificacionModal}>
