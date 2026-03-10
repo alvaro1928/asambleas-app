@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
@@ -124,6 +124,7 @@ export default function AsistirPage() {
   const [avanceVotaciones, setAvanceVotaciones] = useState<PreguntaConResultados[]>([])
 
   const [revalidando, setRevalidando] = useState(false)
+  const isBackgroundRefreshRef = useRef(false)
 
   // Revalidar estado de la asamblea (verificación activa, pregunta_id) para actualizar pestañas sin recargar
   const revalidar = useCallback(async () => {
@@ -182,7 +183,8 @@ export default function AsistirPage() {
   // ── Cargar unidades (ya_verifico según sesión actual; es_poder para etiqueta) ──────────────────────────────────────
   const cargarUnidades = useCallback(async () => {
     if (!asamblea) return
-    setCargandoUnidades(true)
+    const silent = isBackgroundRefreshRef.current
+    if (!silent) setCargandoUnidades(true)
     try {
       const soloDemo = asamblea.is_demo && !asamblea.sandbox_usar_unidades_reales
       let q = supabase
@@ -221,14 +223,16 @@ export default function AsistirPage() {
         }))
       )
     } finally {
-      setCargandoUnidades(false)
+      if (!silent) setCargandoUnidades(false)
+      isBackgroundRefreshRef.current = false
     }
   }, [asamblea])
 
   // ── Cargar preguntas ─────────────────────────────────────────────────────
   const cargarPreguntas = useCallback(async () => {
     if (!asamblea) return
-    setCargandoPreguntas(true)
+    const silent = isBackgroundRefreshRef.current
+    if (!silent) setCargandoPreguntas(true)
     try {
       const { data: pregData } = await supabase
         .from('preguntas')
@@ -321,7 +325,8 @@ export default function AsistirPage() {
         setPreguntaActiva(nuevasPreguntas[0].id)
       }
     } finally {
-      setCargandoPreguntas(false)
+      if (!silent) setCargandoPreguntas(false)
+      isBackgroundRefreshRef.current = false
     }
   }, [asamblea, preguntaActiva])
 
@@ -340,12 +345,13 @@ export default function AsistirPage() {
     return () => clearTimeout(t)
   }, [step, asamblea, preguntas.length, revalidar])
 
-  // Refresco automático cada 3 min: revalidar (verificación activa / preguntas); intervalo largo para no interrumpir la selección
+  // Refresco automático cada 2 min: revalidar en segundo plano (sin mostrar carga para que la tabla no desaparezca)
   useEffect(() => {
     if (step !== 'ok' || !asamblea) return
     const t = setInterval(() => {
+      isBackgroundRefreshRef.current = true
       revalidar()
-    }, 180000)
+    }, 120000)
     return () => clearInterval(t)
   }, [step, asamblea, revalidar])
 
