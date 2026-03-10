@@ -35,10 +35,10 @@ export async function POST(request: NextRequest) {
       { auth: { persistSession: false } }
     )
 
-    // Validar token
+    // Validar token y obtener contexto de verificación (pregunta_id para sesión actual)
     const { data: asamblea } = await admin
       .from('asambleas')
-      .select('id, organization_id, token_delegado')
+      .select('id, organization_id, token_delegado, verificacion_pregunta_id')
       .eq('id', asamblea_id.trim())
       .single()
 
@@ -88,6 +88,28 @@ export async function POST(request: NextRequest) {
         console.error('delegado/registrar-asistencia fallback:', updateErr)
         return NextResponse.json({ error: 'Error al guardar asistencia' }, { status: 500 })
       }
+    }
+
+    // Registrar en verificacion_asistencia_registro (igual que registrar-asistencia-manual)
+    // para que "Ya verificaron" y el quórum de la sesión actual cuenten a estas unidades
+    const preguntaId = (asamblea as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null
+    const unidadIds = unidadesValidas.map((u: any) => u.id)
+    const { data: quorumRows } = await admin
+      .from('quorum_asamblea')
+      .select('id')
+      .eq('asamblea_id', asamblea_id.trim())
+      .in('unidad_id', unidadIds)
+
+    if (quorumRows?.length) {
+      const registros = quorumRows.map((r: { id: string }) => ({
+        asamblea_id: asamblea_id.trim(),
+        quorum_asamblea_id: r.id,
+        pregunta_id: preguntaId,
+        creado_en: now,
+      }))
+      await admin
+        .from('verificacion_asistencia_registro')
+        .upsert(registros, { onConflict: 'quorum_asamblea_id,pregunta_id', ignoreDuplicates: false })
     }
 
     return NextResponse.json({
