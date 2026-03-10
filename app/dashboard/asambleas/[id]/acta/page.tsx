@@ -5,7 +5,7 @@ import JSZip from 'jszip'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Download, FileText, Loader2, Printer, X } from 'lucide-react'
+import { ArrowLeft, Download, FileText, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/providers/ToastProvider'
@@ -542,7 +542,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     return () => clearTimeout(t)
   }, [actaModoSoporte, descargarSoportePendiente])
 
-  /** Descontar tokens y marcar acta como generada; luego se puede imprimir sin volver a cobrar (Ctrl+P o botón). */
+  /** Descontar tokens y marcar acta como generada; luego se puede descargar PDF sin volver a cobrar. */
   const handleGenerarActa = async () => {
     if (!asamblea?.id) return
     setGenerarError(null)
@@ -621,10 +621,6 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     } finally {
       setCertificando(false)
     }
-  }
-
-  const handlePrint = () => {
-    window.print()
   }
 
   /** Descarga el acta como PDF. soporteGeneral = true → acta para anexo público. Si incluirAnexos y hay poderes con documento, descarga ZIP con acta + anexos. */
@@ -733,8 +729,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         URL.revokeObjectURL(url)
       }
 
-      // Certificar con el hash del PDF (solo si se descargó solo el PDF, no el ZIP)
-      if (!anexosActivos) {
+      // Certificar en blockchain solo la acta con auditoría (no la versión pública), y solo si se descargó PDF sin ZIP
+      if (!anexosActivos && !soporteGeneral) {
         try {
           const certRes = await fetch('/api/dashboard/acta-certificar-blockchain', {
             method: 'POST',
@@ -754,7 +750,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       }
     } catch (e) {
       console.error('Error al generar PDF:', e)
-      setPrintError('No se pudo generar el PDF. Usa Imprimir y elige "Guardar como PDF".')
+      setPrintError('No se pudo generar el PDF. Intenta de nuevo o recarga la página.')
     } finally {
       auditoriaOnlyEls.forEach(({ el, parent, nextSibling }) => {
         if (nextSibling) parent.insertBefore(el, nextSibling)
@@ -813,7 +809,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     )
   }
 
-  // Puerta: generar acta consume tokens; confirmar antes de mostrar el acta (luego pueden imprimir con Ctrl+P sin volver a cobrar)
+  // Puerta: generar acta consume tokens; confirmar antes de mostrar el acta (luego pueden descargar PDF sin volver a cobrar)
   if (!actaGenerada) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-6 print:hidden">
@@ -823,7 +819,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             Generar acta
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            El cobro es <strong>solo al activar la asamblea</strong> (una vez). Si ya activaste, puedes generar el acta sin nuevo cobro. Una vez generada, podrás imprimir (Ctrl+P o botón) cuantas veces quieras.
+            El cobro es <strong>solo al activar la asamblea</strong> (una vez). Si ya activaste, puedes generar el acta sin nuevo cobro. Una vez generada, podrás descargar el PDF (con auditoría o versión pública) cuando lo necesites.
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
             Tu saldo: <strong>{tokensDisponibles} tokens (créditos)</strong>
@@ -885,7 +881,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             <span className="text-sm font-bold text-indigo-600">{tokensDisponibles} tokens (créditos)</span>
           </div>
           <p className="text-xs text-slate-500">
-            Acta generada. Imprimir (Ctrl+P o botón) no consume más tokens.
+            Acta generada. Descarga el PDF cuando lo necesites (no consume más tokens).
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -907,15 +903,10 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             <Button
               onClick={() => setShowModalTipoActa(true)}
               disabled={descargandoPdf}
-              variant="outline"
-              className="border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+              className="bg-indigo-600 hover:bg-indigo-700"
             >
               {descargandoPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
               Descargar acta (PDF)
-            </Button>
-            <Button onClick={handlePrint} className="bg-indigo-600 hover:bg-indigo-700">
-              <Printer className="w-4 h-4 mr-2" />
-              Imprimir
             </Button>
           </div>
         </div>
@@ -961,7 +952,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         {/* Dentro del acta (PDF): solo una línea de sellado cuando hay certificado */}
         {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) && (
           <p className="mb-6 text-sm text-gray-700 border-l-4 border-gray-400 pl-3 py-1">
-            Este acta fue sellada en la blockchain de Bitcoin (OpenTimestamps). Verificación:{' '}
+            El acta con auditoría completa (quién votó qué) queda sellada en la blockchain de Bitcoin (OpenTimestamps). Verificación:{' '}
             <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-800 underline">
               https://opentimestamps.org
             </a>
@@ -1121,11 +1112,11 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
         {/* ── RESULTADOS POR PREGUNTA ── */}
         <section>
-          <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4 pb-1 border-b border-gray-200">Resultados por pregunta</h2>
-          <p className="text-xs text-gray-500 mb-4">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-2 pb-1 border-b border-gray-200">Resultados por pregunta</h2>
+          <p className="text-xs text-gray-500 mb-3">
             Para cada pregunta se indican los resultados de votación y el registro de verificación de quórum al momento de esa votación. Las verificaciones de la asamblea en general figuran en la sección anterior.
           </p>
-          <div className="space-y-10">
+          <div className="space-y-5">
             {preguntas.map((pregunta, idx) => {
               const stats = estadisticas[pregunta.id]
               const votosFinales = votacionesFinalesPorPregunta[pregunta.id] || []
@@ -1169,8 +1160,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               return (
                 <div key={pregunta.id} className="break-inside-avoid">
                   {/* Título de pregunta */}
-                  <div className="flex items-start gap-3 mb-3">
-                    <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center text-xs font-semibold text-gray-700 border border-gray-400">{idx + 1}</span>
+                  <div className="flex items-start gap-2 mb-2">
+                    <span className="flex-shrink-0 text-sm font-semibold text-gray-800">{idx + 1}.</span>
                     <div>
                       <h3 className="font-bold text-base text-gray-900 leading-snug">{pregunta.texto_pregunta}</h3>
                       {pregunta.descripcion && <p className="text-xs text-gray-500 mt-0.5">{pregunta.descripcion}</p>}
@@ -1182,7 +1173,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                   </div>
 
                   {/* Resultados resumen (siempre visible para auditoría) */}
-                  <div className="ml-10 mb-3">
+                  <div className="ml-5 mb-2">
                     <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Resultados de la pregunta</p>
                     <table className="w-full border-collapse text-sm">
                       <thead>
@@ -1205,7 +1196,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       </tbody>
                     </table>
                     {pregunta.umbral_aprobacion != null && (
-                      <p className="text-sm font-semibold mt-2 px-3 py-1.5 border border-gray-300 bg-gray-50 text-gray-800">
+                      <p className="text-sm font-semibold mt-1.5 px-3 py-1.5 border border-gray-300 bg-gray-50 text-gray-800">
                         {aprobado ? 'APROBADO' : 'NO APROBADO'} — Mayoría requerida: {pregunta.umbral_aprobacion}% · Obtenido: {items.length > 0 ? `${pctAfavor.toFixed(2)}%` : '0%'}
                       </p>
                     )}
@@ -1213,7 +1204,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
                   {/* Votación final por unidad (solo en acta con auditoría; no en soporte general) */}
                   {!actaModoSoporte && (
-                  <div className="ml-10 mt-3" data-solo-auditoria="true">
+                  <div className="ml-5 mt-2" data-solo-auditoria="true">
                     <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Votación final por unidad</p>
                     <table className="w-full border-collapse" style={{ fontSize: '11px' }}>
                       <thead>
@@ -1270,7 +1261,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       : null
                     const esGeneral = !sesionPregunta && !!ultimaGeneral
                     return (
-                      <div className="ml-10 mt-2 mb-1">
+                      <div className="ml-5 mt-2 mb-0.5">
                         <p className="text-xs font-semibold text-gray-700 mb-0.5">
                           {esGeneral
                             ? 'Registro de verificación de quórum (asamblea en general, aplicable a esta pregunta)'
@@ -1291,7 +1282,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
                   {/* Auditoría de transacciones (solo en acta con auditoría; no en soporte general) */}
                   {!actaModoSoporte && (
-                  <div className="ml-10 mt-3" data-solo-auditoria="true">
+                  <div className="ml-5 mt-2" data-solo-auditoria="true">
                     <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Auditoría de transacciones (cambios de voto, quién votó, cuándo)</p>
                     <table className="w-full border-collapse" style={{ fontSize: '10px', tableLayout: 'fixed' }}>
                       <thead>
@@ -1339,7 +1330,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     if (noParticiparonPregunta.length === 0) return null
                     const coefTotal = noParticiparonPregunta.reduce((s, u) => s + u.coeficiente, 0)
                     return (
-                      <div className="ml-10 mt-3 break-inside-avoid">
+                      <div className="ml-5 mt-2 break-inside-avoid">
                         <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">
                           Unidades que no participaron en esta pregunta: <strong>{noParticiparonPregunta.length}</strong> unidad(es) · Coeficiente no participante: <strong>{Math.min(100, coefTotal).toFixed(2)}%</strong>
                           {quorum && <> ({noParticiparonPregunta.length} de {quorum.total_unidades} unidades)</>}
@@ -1436,33 +1427,33 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           <div className="grid grid-cols-3 gap-8">
             <div>
               <p className="text-xs font-semibold text-gray-700 mb-1">Administrador(a)</p>
-              <div className="h-14 border-b-2 border-gray-400 mt-6" />
-              <div className="h-7 border-b border-gray-300 mt-4" />
-              <p className="text-xs text-gray-400 mt-1">Nombre y CC</p>
-              <p className="text-xs text-gray-400 mt-2">Fecha</p>
+              <div className="h-14 border-b-2 border-gray-500 mt-6" />
+              <div className="h-7 border-b border-gray-400 mt-4" />
+              <p className="text-xs text-gray-600 mt-1">Nombre y CC</p>
+              <p className="text-xs text-gray-600 mt-2">Fecha</p>
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-700 mb-1">Presidente de la Asamblea</p>
-              <div className="h-14 border-b-2 border-gray-400 mt-6" />
-              <div className="h-7 border-b border-gray-300 mt-4" />
-              <p className="text-xs text-gray-400 mt-1">Nombre y CC</p>
-              <p className="text-xs text-gray-400 mt-2">Fecha</p>
+              <div className="h-14 border-b-2 border-gray-500 mt-6" />
+              <div className="h-7 border-b border-gray-400 mt-4" />
+              <p className="text-xs text-gray-600 mt-1">Nombre y CC</p>
+              <p className="text-xs text-gray-600 mt-2">Fecha</p>
             </div>
             <div>
               <p className="text-xs font-semibold text-gray-700 mb-1">Secretario(a) de la Asamblea</p>
-              <div className="h-14 border-b-2 border-gray-400 mt-6" />
-              <div className="h-7 border-b border-gray-300 mt-4" />
-              <p className="text-xs text-gray-400 mt-1">Nombre y CC</p>
-              <p className="text-xs text-gray-400 mt-2">Fecha</p>
+              <div className="h-14 border-b-2 border-gray-500 mt-6" />
+              <div className="h-7 border-b border-gray-400 mt-4" />
+              <p className="text-xs text-gray-600 mt-1">Nombre y CC</p>
+              <p className="text-xs text-gray-600 mt-2">Fecha</p>
             </div>
           </div>
         </section>
 
         {/* ── PIE DE PÁGINA ── */}
-        <footer className="mt-10 pt-4 border-t border-gray-200 flex items-center justify-between text-xs text-gray-400 break-inside-avoid">
+        <footer className="mt-10 pt-4 border-t border-gray-300 flex items-center justify-between text-xs text-gray-600 break-inside-avoid">
           <p>
             Este documento refleja las votaciones electrónicas registradas en la plataforma Votaciones de Asambleas Online.
-            {asamblea?.id && <span className="block mt-1 text-gray-400">Ref. {asamblea.id.slice(0, 8)}…</span>}
+            {asamblea?.id && <span className="block mt-1 text-gray-600 break-all font-mono text-[11px]">Ref. {asamblea.id}</span>}
           </p>
           <p className="text-right whitespace-nowrap ml-4">{new Date().toLocaleString('es-CO')}</p>
         </footer>
@@ -1549,7 +1540,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) ? (
               <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
                 <p className="text-sm font-semibold text-emerald-800 mb-2">Esta asamblea tiene certificado .ots</p>
-                <p className="text-sm text-gray-700 mb-3">Descarga el archivo .ots y verifica en opentimestamps.org con el PDF del acta.</p>
+                <p className="text-sm text-gray-700 mb-3">El certificado corresponde al PDF del acta con auditoría. Descarga el .ots y verifica en opentimestamps.org usando ese mismo PDF.</p>
                 <div className="flex flex-wrap gap-2">
                   <a
                     href={`data:application/octet-stream;base64,${asamblea?.acta_ots_proof_base64 || actaOtsBase64}`}
