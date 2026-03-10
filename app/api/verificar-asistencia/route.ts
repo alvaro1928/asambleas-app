@@ -61,18 +61,35 @@ export async function POST(request: NextRequest) {
 
     const preguntaId = (asamblea as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null
 
-    // Obtener los quorum_asamblea.id donde este email puede verificar (incl. múltiples correos por unidad)
-    const { data: idRows, error: fetchFilasErr } = await admin.rpc('quorum_ids_para_verificar_asistencia', {
+    // Obtener los quorum_asamblea.id donde este email puede verificar (incl. múltiples correos y poder a terceros)
+    let idRows: { quorum_id: string }[] | null = null
+    let fetchFilasErr: unknown = null
+    ;({ data: idRows, error: fetchFilasErr } = await admin.rpc('quorum_ids_para_verificar_asistencia', {
       p_asamblea_id: asamblea_id.trim(),
       p_email: email.trim(),
-    })
+    }))
 
     if (fetchFilasErr) {
       console.error('verificar-asistencia fetch filas:', fetchFilasErr)
       return NextResponse.json({ error: 'Error al buscar registro' }, { status: 500 })
     }
 
-    const filas = (idRows as { quorum_id: string }[] | null)?.map((r) => ({ id: r.quorum_id })) ?? []
+    let filas = (idRows ?? []).map((r) => ({ id: r.quorum_id }))
+    if (filas.length === 0 && email.trim().includes('@')) {
+      try {
+        await admin.rpc('asegurar_quorum_para_identificador', {
+          p_asamblea_id: asamblea_id.trim(),
+          p_email: email.trim(),
+        })
+        const { data: idRowsRetry } = await admin.rpc('quorum_ids_para_verificar_asistencia', {
+          p_asamblea_id: asamblea_id.trim(),
+          p_email: email.trim(),
+        })
+        filas = (idRowsRetry ?? []).map((r: { quorum_id: string }) => ({ id: r.quorum_id }))
+      } catch {
+        // Si asegurar_quorum_para_identificador no existe o falla, se mantiene filas.length === 0
+      }
+    }
     if (filas.length === 0) {
       return NextResponse.json(
         { error: 'No se encontró tu registro en esta asamblea. Intenta salir y volver a entrar.' },
