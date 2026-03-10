@@ -2,9 +2,16 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, UserCheck, Vote, Search, RefreshCw, AlertTriangle, X, Users } from 'lucide-react'
+import { CheckCircle2, UserCheck, Vote, Search, RefreshCw, AlertTriangle, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import type { BarChartData } from '@/components/charts/VotacionBarChart'
+
+const VotacionBarChart = dynamic(
+  () => import('@/components/charts/VotacionBarChart'),
+  { ssr: false, loading: () => <div className="w-full h-[200px] bg-gray-100 dark:bg-gray-700/50 animate-pulse rounded-2xl" /> }
+)
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -54,6 +61,24 @@ interface VotoRegistrado {
   es_poder?: boolean
 }
 
+interface ResultadoOpcionGrafica {
+  opcion_id: string
+  opcion_texto: string
+  color: string
+  votos_cantidad: number
+  votos_coeficiente: number
+  porcentaje_coeficiente_total: number
+  porcentaje_nominal_total?: number
+}
+
+interface PreguntaConResultados {
+  id: string
+  texto_pregunta: string
+  tipo_votacion: string
+  umbral_aprobacion: number | null
+  resultados: ResultadoOpcionGrafica[]
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatFecha(fecha: string) {
@@ -96,6 +121,7 @@ export default function AsistirPage() {
   const [guardandoVoto, setGuardandoVoto] = useState(false)
   const [msgVotacion, setMsgVotacion] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
   const [cargandoPreguntas, setCargandoPreguntas] = useState(false)
+  const [avanceVotaciones, setAvanceVotaciones] = useState<PreguntaConResultados[]>([])
 
   // ── Validar token al montar ──────────────────────────────────────────────
   useEffect(() => {
@@ -219,6 +245,49 @@ export default function AsistirPage() {
           es_poder: !!v.es_poder,
         })))
       }
+
+      // Cargar avance de votaciones (estadísticas por pregunta para la gráfica)
+      const conResultados: PreguntaConResultados[] = []
+      for (const p of nuevasPreguntas) {
+        const { data: statsData } = await supabase.rpc('calcular_estadisticas_pregunta', {
+          p_pregunta_id: p.id,
+        })
+        const rows = (statsData as Record<string, unknown>[] | null) ?? []
+        const s = rows[0] as { resultados?: unknown } | undefined
+        let resultados: ResultadoOpcionGrafica[] = []
+        if (s?.resultados) {
+          const raw = typeof s.resultados === 'string' ? JSON.parse(s.resultados as string || '[]') : s.resultados
+          const arr = Array.isArray(raw) ? raw : []
+          resultados = arr.map((r: Record<string, unknown>) => ({
+            opcion_id: String(r.opcion_id ?? ''),
+            opcion_texto: String(r.opcion_texto ?? r.texto_opcion ?? 'Opción'),
+            color: String(r.color ?? '#6366f1'),
+            votos_cantidad: Number(r.votos_cantidad ?? r.votos_count ?? 0),
+            votos_coeficiente: Number(r.votos_coeficiente ?? 0),
+            porcentaje_coeficiente_total: Number(r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0),
+            porcentaje_nominal_total: Number(r.porcentaje_nominal_total ?? r.porcentaje_nominal ?? 0),
+          }))
+        } else if (rows.length > 0) {
+          // RPC devuelve una fila por opción (opcion_id, texto_opcion, color, votos_count, votos_coeficiente, porcentaje_nominal, porcentaje_coeficiente)
+          resultados = rows.map((r: Record<string, unknown>) => ({
+            opcion_id: String(r.opcion_id ?? ''),
+            opcion_texto: String(r.texto_opcion ?? r.opcion_texto ?? 'Opción'),
+            color: String(r.color ?? '#6366f1'),
+            votos_cantidad: Number(r.votos_count ?? r.votos_cantidad ?? 0),
+            votos_coeficiente: Number(r.votos_coeficiente ?? 0),
+            porcentaje_coeficiente_total: Number(r.porcentaje_coeficiente ?? r.porcentaje_coeficiente_total ?? 0),
+            porcentaje_nominal_total: Number(r.porcentaje_nominal ?? r.porcentaje_nominal_total ?? 0),
+          }))
+        }
+        conResultados.push({
+          id: p.id,
+          texto_pregunta: p.texto_pregunta,
+          tipo_votacion: p.tipo_votacion ?? 'coeficiente',
+          umbral_aprobacion: p.umbral_aprobacion ?? null,
+          resultados,
+        })
+      }
+      setAvanceVotaciones(conResultados)
 
       if (nuevasPreguntas.length > 0 && !preguntaActiva) {
         setPreguntaActiva(nuevasPreguntas[0].id)
@@ -789,6 +858,69 @@ export default function AsistirPage() {
             </div>
           </div>
         </div>
+
+        {/* Avance de votaciones (gráfica como en Acceso / Votos) */}
+        {avanceVotaciones.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-4">
+              <h2 className="text-white font-bold flex items-center gap-2">
+                <Vote className="w-5 h-5" />
+                Avance de votaciones
+              </h2>
+              <p className="text-indigo-100 text-xs mt-0.5">Resultados en tiempo real de las preguntas abiertas.</p>
+            </div>
+            <div className="p-4 space-y-6">
+              {avanceVotaciones.map((preg) => {
+                const pctRelevante = (r: ResultadoOpcionGrafica) =>
+                  preg.tipo_votacion === 'nominal' ? (r.porcentaje_nominal_total ?? 0) : r.porcentaje_coeficiente_total
+                const maxLabelLen = 18
+                const data: BarChartData[] = preg.resultados.map((r) => {
+                  const pct = pctRelevante(r)
+                  const texto = r.opcion_texto || ''
+                  return {
+                    name: texto.length > maxLabelLen + 2 ? texto.slice(0, maxLabelLen) + '…' : texto,
+                    fullName: texto,
+                    porcentaje: Math.round(pct * 100) / 100,
+                    votosCantidad: r.votos_cantidad,
+                    color: r.color,
+                    aprueba: preg.umbral_aprobacion != null && pct >= preg.umbral_aprobacion,
+                  }
+                })
+                const umbral = preg.umbral_aprobacion ?? 51
+                if (data.length === 0) return null
+                return (
+                  <div key={preg.id} className="space-y-2 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2">
+                      {preg.texto_pregunta}
+                    </p>
+                    <div className="h-[280px] min-h-[200px] w-full overflow-x-auto overflow-y-hidden -mx-1 px-1">
+                      <div className="h-full min-w-[260px] w-full">
+                        <VotacionBarChart
+                          data={data}
+                          umbral={umbral}
+                          tipoVotacion={preg.tipo_votacion}
+                          variant="panel"
+                        />
+                      </div>
+                    </div>
+                    {data.some((d) => d.aprueba) && (
+                      <div className="flex flex-wrap gap-2">
+                        {data.filter((d) => d.aprueba).map((d, i) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center px-2.5 py-1 rounded-2xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700"
+                          >
+                            Mayoría alcanzada — {d.name}: {d.porcentaje}% ({d.votosCantidad} {d.votosCantidad !== 1 ? 'votos' : 'voto'})
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
