@@ -84,18 +84,9 @@ export default function VotacionBarChart({
             maxBarSize={56}
             label={{
               position: 'right',
-              formatter: (value: unknown, entryOrIndex: unknown, index?: number) => {
+              formatter: (value: unknown) => {
                 const v = Number(value ?? 0)
-                const payload: BarChartData | null =
-                  typeof entryOrIndex === 'number' && data[entryOrIndex]
-                    ? data[entryOrIndex]
-                    : typeof entryOrIndex === 'object' && entryOrIndex !== null && 'payload' in (entryOrIndex as object)
-                      ? (entryOrIndex as { payload?: BarChartData }).payload ?? null
-                      : typeof entryOrIndex === 'object' && entryOrIndex !== null && 'votosCantidad' in (entryOrIndex as object)
-                        ? (entryOrIndex as BarChartData)
-                        : typeof index === 'number' && data[index]
-                          ? data[index]
-                          : null
+                const payload = data.find((d) => Math.abs(d.porcentaje - v) < 0.01) ?? data[0]
                 const aprueba = payload?.aprueba ?? false
                 if (aprueba) return `${v}% MAYORÍA ALCANZADA`
                 return `${v}%`
@@ -170,18 +161,9 @@ export default function VotacionBarChart({
           maxBarSize={esMobile ? 28 : 40}
           label={{
             position: 'right',
-            formatter: (value: unknown, entryOrIndex: unknown, index?: number) => {
+            formatter: (value: unknown) => {
               const v = Number(value ?? 0)
-              const payload: BarChartData | null =
-                typeof entryOrIndex === 'number' && data[entryOrIndex]
-                  ? data[entryOrIndex]
-                  : typeof entryOrIndex === 'object' && entryOrIndex !== null && 'payload' in (entryOrIndex as object)
-                    ? (entryOrIndex as { payload?: BarChartData }).payload ?? null
-                    : typeof entryOrIndex === 'object' && entryOrIndex !== null && 'votosCantidad' in (entryOrIndex as object)
-                      ? (entryOrIndex as BarChartData)
-                      : typeof index === 'number' && data[index]
-                        ? data[index]
-                        : null
+              const payload = data.find((d) => Math.abs(d.porcentaje - v) < 0.01) ?? data[0]
               const aprueba = payload?.aprueba ?? false
               if (aprueba) return esMobile ? `${v}% ✓` : `${v}% MAYORÍA ALCANZADA`
               return `${v}%`
