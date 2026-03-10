@@ -35,6 +35,8 @@ interface Asamblea {
   fecha: string
   estado: string
   organization_id: string
+  is_demo?: boolean
+  sandbox_usar_unidades_reales?: boolean
 }
 
 interface Unidad {
@@ -157,6 +159,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   const [observaciones, setObservaciones] = useState('')
   const [archivoPoder, setArchivoPoder] = useState<File | null>(null)
   const [savingPoder, setSavingPoder] = useState(false)
+  /** true = apoderado es tercero (no es propietario de una unidad); false = apoderado es otra unidad del conjunto */
+  const [apoderadoEsTercero, setApoderadoEsTercero] = useState(false)
 
   // Reemplazar documento
   const [reemplazandoPoderId, setReemplazandoPoderId] = useState<string | null>(null)
@@ -222,10 +226,10 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
         return
       }
 
-      // Cargar asamblea
+      // Cargar asamblea (incl. is_demo para filtrar unidades en no-sandbox)
       const { data: asambleaData, error: asambleaError } = await supabase
         .from('asambleas')
-        .select('*')
+        .select('id, nombre, fecha, estado, organization_id, is_demo, sandbox_usar_unidades_reales')
         .eq('id', params.id)
         .eq('organization_id', selectedConjuntoId)
         .single()
@@ -233,13 +237,17 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       if (asambleaError) throw asambleaError
       setAsamblea(asambleaData)
 
-      // Cargar unidades del conjunto
-      const { data: unidadesData, error: unidadesError } = await supabase
+      // Cargar unidades del conjunto: en asambleas no sandbox solo unidades reales; en sandbox según sandbox_usar_unidades_reales
+      const soloUnidadesDemo = (asambleaData as { is_demo?: boolean })?.is_demo === true &&
+        !((asambleaData as { sandbox_usar_unidades_reales?: boolean })?.sandbox_usar_unidades_reales === true)
+      let queryUnidades = supabase
         .from('unidades')
         .select('*')
         .eq('organization_id', selectedConjuntoId)
         .order('torre', { ascending: true })
         .order('numero', { ascending: true })
+      queryUnidades = soloUnidadesDemo ? queryUnidades.eq('is_demo', true) : queryUnidades.or('is_demo.eq.false,is_demo.is.null')
+      const { data: unidadesData, error: unidadesError } = await queryUnidades
 
       if (unidadesError) throw unidadesError
       setUnidades(unidadesData || [])
@@ -322,8 +330,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       return
     }
 
-    if (!selectedReceptor) {
-      toast.error('Debes seleccionar la unidad que recibe el poder (apoderado)')
+    if (!apoderadoEsTercero && !selectedReceptor) {
+      toast.error('Debes seleccionar la unidad que recibe el poder (apoderado) o marcar "Apoderado es tercero"')
       return
     }
 
@@ -371,7 +379,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
         .insert({
           asamblea_id: params.id,
           unidad_otorgante_id: selectedOtorgante.id,
-          unidad_receptor_id: selectedReceptor?.id ?? null,
+          unidad_receptor_id: apoderadoEsTercero ? null : (selectedReceptor?.id ?? null),
           email_otorgante: emailOtorgante,
           nombre_otorgante: selectedOtorgante.nombre_propietario,
           email_receptor: emailReceptor.trim(),
@@ -401,6 +409,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       setShowNewPoder(false)
       setSelectedOtorgante(null)
       setSelectedReceptor(null)
+      setApoderadoEsTercero(false)
       setEmailReceptor('')
       setNombreReceptor('')
       setObservaciones('')
@@ -760,6 +769,11 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
                           {poder.nombre_receptor}
+                          {!poder.unidad_receptor_id && (
+                            <span className="ml-1.5 text-xs font-normal text-amber-600 dark:text-amber-400" title="Poder a nombre de tercero (no es propietario)">
+                              (Tercero)
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
                           {poder.email_receptor}
@@ -954,83 +968,126 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               )}
             </div>
 
-            {/* Unidad que recibe el poder (apoderado): seleccionar por unidad y autollenar correo/nombre */}
+            {/* Apoderado: otra unidad del conjunto o tercero (no propietario) */}
             <div className="border-t pt-4">
               <Label className="text-base font-semibold">
-                2. Unidad que recibe el poder (apoderado) <span className="text-red-500">*</span>
+                2. Apoderado (quien recibe el poder) <span className="text-red-500">*</span>
               </Label>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                Selecciona la unidad del apoderado; se autollenarán correo y nombre desde el registro de la unidad.
-              </p>
-              <div className="mt-2 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  type="text"
-                  placeholder="Buscar por torre, número o propietario..."
-                  value={searchReceptor}
-                  onChange={(e) => setSearchReceptor(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="flex flex-wrap gap-4 mt-2 mb-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="tipo-apoderado"
+                    checked={!apoderadoEsTercero}
+                    onChange={() => {
+                      setApoderadoEsTercero(false)
+                      setSelectedReceptor(null)
+                      setEmailReceptor('')
+                      setNombreReceptor('')
+                      setSearchReceptor('')
+                    }}
+                    className="rounded-full border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Otra unidad del conjunto</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="tipo-apoderado"
+                    checked={apoderadoEsTercero}
+                    onChange={() => {
+                      setApoderadoEsTercero(true)
+                      setSelectedReceptor(null)
+                      setSearchReceptor('')
+                    }}
+                    className="rounded-full border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Tercero (no es propietario de una unidad)</span>
+                </label>
               </div>
-              {selectedReceptor ? (
-                <div className="mt-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-emerald-900 dark:text-emerald-100">
-                        {selectedReceptor.torre} - {selectedReceptor.numero}
-                      </p>
-                      <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                        {(selectedReceptor as { nombre_propietario?: string }).nombre_propietario}
-                      </p>
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                        {(selectedReceptor as { email_propietario?: string; email?: string }).email_propietario ?? (selectedReceptor as { email?: string }).email}
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedReceptor(null)
-                        setEmailReceptor('')
-                        setNombreReceptor('')
-                      }}
-                    >
-                      Cambiar
-                    </Button>
+
+              {!apoderadoEsTercero && (
+                <>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    Selecciona la unidad del apoderado; se autollenarán correo y nombre desde el registro.
+                  </p>
+                  <div className="mt-2 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      type="text"
+                      placeholder="Buscar por torre, número o propietario..."
+                      value={searchReceptor}
+                      onChange={(e) => setSearchReceptor(e.target.value)}
+                      className="pl-10"
+                    />
                   </div>
-                </div>
-              ) : searchReceptor && (
-                <div className="mt-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                  {filteredReceptores.length === 0 ? (
-                    <p className="p-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-                      No se encontraron unidades
-                    </p>
-                  ) : (
-                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {filteredReceptores.slice(0, 10).map((unidad) => (
-                        <button
-                          key={unidad.id}
-                          type="button"
+                  {selectedReceptor ? (
+                    <div className="mt-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-emerald-900 dark:text-emerald-100">
+                            {selectedReceptor.torre} - {selectedReceptor.numero}
+                          </p>
+                          <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                            {(selectedReceptor as { nombre_propietario?: string }).nombre_propietario}
+                          </p>
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                            {(selectedReceptor as { email_propietario?: string; email?: string }).email_propietario ?? (selectedReceptor as { email?: string }).email}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => {
-                            const u = unidad as { nombre_propietario?: string; email_propietario?: string; email?: string }
-                            setSelectedReceptor(unidad)
-                            setEmailReceptor(u.email_propietario ?? u.email ?? '')
-                            setNombreReceptor(u.nombre_propietario ?? '')
-                            setSearchReceptor('')
+                            setSelectedReceptor(null)
+                            setEmailReceptor('')
+                            setNombreReceptor('')
                           }}
-                          className="w-full p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {unidad.torre} - {unidad.numero}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {(unidad as { nombre_propietario?: string }).nombre_propietario} • {(unidad as { email_propietario?: string; email?: string }).email_propietario ?? (unidad as { email?: string }).email}
-                          </p>
-                        </button>
-                      ))}
+                          Cambiar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : searchReceptor && (
+                    <div className="mt-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                      {filteredReceptores.length === 0 ? (
+                        <p className="p-4 text-sm text-gray-500 dark:text-gray-400 text-center">
+                          No se encontraron unidades
+                        </p>
+                      ) : (
+                        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {filteredReceptores.slice(0, 10).map((unidad) => (
+                            <button
+                              key={unidad.id}
+                              type="button"
+                              onClick={() => {
+                                const u = unidad as { nombre_propietario?: string; email_propietario?: string; email?: string }
+                                setSelectedReceptor(unidad)
+                                setEmailReceptor(u.email_propietario ?? u.email ?? '')
+                                setNombreReceptor(u.nombre_propietario ?? '')
+                                setSearchReceptor('')
+                              }}
+                              className="w-full p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                              <p className="font-medium text-gray-900 dark:text-white">
+                                {unidad.torre} - {unidad.numero}
+                              </p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {(unidad as { nombre_propietario?: string }).nombre_propietario} • {(unidad as { email_propietario?: string; email?: string }).email_propietario ?? (unidad as { email?: string }).email}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
+                </>
+              )}
+
+              {apoderadoEsTercero && (
+                <p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
+                  Ingresa nombre y correo del apoderado (persona que no es propietaria de una unidad en el conjunto).
+                </p>
               )}
 
               <div className="space-y-4 mt-4">
@@ -1061,7 +1118,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                     className="mt-2"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Se autollena al elegir la unidad; puedes editarlo si hace falta.
+                    {apoderadoEsTercero ? 'Correo con el que el tercero votará en la plataforma.' : 'Se autollena al elegir la unidad; puedes editarlo si hace falta.'}
                   </p>
                 </div>
 
@@ -1132,6 +1189,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   setShowNewPoder(false)
                   setSelectedOtorgante(null)
                   setSelectedReceptor(null)
+                  setApoderadoEsTercero(false)
                   setEmailReceptor('')
                   setNombreReceptor('')
                   setObservaciones('')
@@ -1145,7 +1203,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               </Button>
               <Button
                 onClick={handleCreatePoder}
-                disabled={savingPoder || !selectedOtorgante || !selectedReceptor || !emailReceptor.trim() || !nombreReceptor.trim()}
+                disabled={savingPoder || !selectedOtorgante || !emailReceptor.trim() || !nombreReceptor.trim() || (!apoderadoEsTercero && !selectedReceptor)}
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
               >
                 {savingPoder ? (
