@@ -1071,7 +1071,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               if (items.length === 0 && pregunta.opciones?.length) {
                 items = pregunta.opciones.map((o) => ({ opcion_texto: o.texto_opcion, pct: 0, count: 0 }))
               }
-              const opcionAfavor = items.find((i) => i.opcion_texto?.trim().toLowerCase().includes('a favor'))
+              // Opción que cuenta para el umbral: la que tenga "a favor" en el texto o, si no hay, la primera (p. ej. "Sí")
+              const opcionAfavor = items.find((i) => i.opcion_texto?.trim().toLowerCase().includes('a favor')) ?? items[0]
               const pctAfavor = opcionAfavor?.pct ?? 0
               const aprobado = pregunta.umbral_aprobacion != null && pctAfavor >= pregunta.umbral_aprobacion
 
@@ -1113,12 +1114,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                         )}
                       </tbody>
                     </table>
-                    {pregunta.umbral_aprobacion != null && items.length > 0 && (
+                    {pregunta.umbral_aprobacion != null && (
                       <p
                         className="text-sm font-bold mt-2 px-3 py-1.5 rounded"
                         style={{ background: aprobado ? '#f0fdf4' : '#fff7ed', color: aprobado ? '#166534' : '#92400e', border: `1px solid ${aprobado ? '#bbf7d0' : '#fde68a'}` }}
                       >
-                        {aprobado ? '✓ APROBADO' : '✗ NO APROBADO'} — Mayoría requerida: {pregunta.umbral_aprobacion}% · Obtenido: {pctAfavor.toFixed(2)}%
+                        {aprobado ? '✓ APROBADO' : '✗ NO APROBADO'} — Mayoría requerida: {pregunta.umbral_aprobacion}% · Obtenido: {items.length > 0 ? `${pctAfavor.toFixed(2)}%` : '0%'}
                       </p>
                     )}
                   </div>
