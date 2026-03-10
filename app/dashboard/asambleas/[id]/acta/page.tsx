@@ -525,15 +525,20 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     }
   }, [params.id])
 
-  /** Tras elegir "soporte general", el DOM se re-renderiza sin auditoría; luego generamos el PDF y volvemos al modo completo */
+  /** Tras elegir "versión pública", el DOM debe re-renderizar sin auditoría ni votación por unidad; esperamos al siguiente paint y luego generamos el PDF */
   useEffect(() => {
     if (!actaModoSoporte || !descargarSoportePendiente) return
     const conAnexos = descargarSoporteConAnexosRef.current
     const t = setTimeout(() => {
-      handleDescargarPdf(true, conAnexos)
-      setDescargarSoportePendiente(false)
-      setActaModoSoporte(false)
-    }, 500)
+      // Esperar al siguiente frame de pintado para que el DOM ya no tenga tablas de "quién votó qué"
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          handleDescargarPdf(true, conAnexos)
+          setDescargarSoportePendiente(false)
+          setActaModoSoporte(false)
+        })
+      })
+    }, 600)
     return () => clearTimeout(t)
   }, [actaModoSoporte, descargarSoportePendiente])
 
@@ -648,6 +653,15 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       el.style.width = '100%'
     })
 
+    // Versión pública: ocultar en el DOM cualquier bloque de auditoría (quién votó qué, detalle por unidad) por si el render no ha quitado aún
+    const auditoriaOnlyEls: { el: HTMLElement; prevDisplay: string }[] = []
+    if (soporteGeneral) {
+      mainEl.querySelectorAll<HTMLElement>('[data-solo-auditoria="true"]').forEach((el) => {
+        auditoriaOnlyEls.push({ el, prevDisplay: el.style.display })
+        el.style.display = 'none'
+      })
+    }
+
     try {
       const html2pdf = (await import('html2pdf.js')).default
       const nombreSeguro = (asamblea?.nombre ?? 'asamblea').replace(/[^a-zA-Z0-9\u00C0-\u024F\s.-]/g, '').trim().slice(0, 80) || 'acta'
@@ -682,10 +696,11 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         zip.file(filenamePdf, blob)
         const anexosDir = zip.folder('anexos-documentos-poder')
         if (anexosDir) {
+          const proxyUrl = '/api/dashboard/acta-proxy-documento-poder'
           for (let i = 0; i < poderesConDocumento.length; i++) {
             const p = poderesConDocumento[i]
             try {
-              const res = await fetch(p.archivo_poder, { mode: 'cors' })
+              const res = await fetch(`${proxyUrl}?url=${encodeURIComponent(p.archivo_poder)}`, { credentials: 'include' })
               if (res.ok) {
                 const anexoBlob = await res.blob()
                 const ext = p.archivo_poder.toLowerCase().includes('.docx') ? '.docx' : p.archivo_poder.toLowerCase().includes('.doc') ? '.doc' : '.pdf'
@@ -693,7 +708,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                 anexosDir.file(nombreAnexo, anexoBlob)
               }
             } catch {
-              // Si falla un anexo (p. ej. CORS), no bloqueamos el resto
+              // Si falla un anexo, no bloqueamos el resto
             }
           }
         }
@@ -738,6 +753,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       console.error('Error al generar PDF:', e)
       setPrintError('No se pudo generar el PDF. Usa Imprimir y elige "Guardar como PDF".')
     } finally {
+      auditoriaOnlyEls.forEach(({ el, prevDisplay }) => { el.style.display = prevDisplay })
       overflowEls.forEach(({ el, prev }) => { el.style.overflow = prev })
       tableEls.forEach(({ el, prev }) => { el.style.width = prev })
       if (hadDarkClass) htmlEl.classList.add('dark')
@@ -1194,7 +1210,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
                   {/* Votación final por unidad (solo en acta con auditoría; no en soporte general) */}
                   {!actaModoSoporte && (
-                  <div className="ml-10 mt-3">
+                  <div className="ml-10 mt-3" data-solo-auditoria="true">
                     <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Votación final por unidad</p>
                     <table className="w-full border-collapse" style={{ fontSize: '11px' }}>
                       <thead>
@@ -1272,7 +1288,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
                   {/* Auditoría de transacciones (solo en acta con auditoría; no en soporte general) */}
                   {!actaModoSoporte && (
-                  <div className="ml-10 mt-3">
+                  <div className="ml-10 mt-3" data-solo-auditoria="true">
                     <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Auditoría de transacciones (cambios de voto, quién votó, cuándo)</p>
                     <table className="w-full border-collapse" style={{ fontSize: '10px', tableLayout: 'fixed' }}>
                       <thead>
@@ -1326,7 +1342,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                           {quorum && <> ({noParticiparonPregunta.length} de {quorum.total_unidades} unidades)</>}
                         </p>
                         {!actaModoSoporte && (
-                        <table className="w-full border-collapse text-xs mt-1.5" style={{ tableLayout: 'fixed' }}>
+                        <table className="w-full border-collapse text-xs mt-1.5" style={{ tableLayout: 'fixed' }} data-solo-auditoria="true">
                           <thead>
                             <tr style={{ background: '#f1f5f9' }}>
                               <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>Torre</th>
@@ -1379,7 +1395,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       {bloque.titulo}{cierreStr ? ` — cierre ${cierreStr}` : ''}: <strong>{bloque.unidades.length}</strong> unidad(es) no validaron · Coeficiente total: <strong>{Math.min(100, coefNoValidaron).toFixed(2)}%</strong>
                     </p>
                     {!actaModoSoporte && (
-                    <table className="w-full border-collapse text-xs mt-1.5" style={{ tableLayout: 'fixed' }}>
+                    <table className="w-full border-collapse text-xs mt-1.5" style={{ tableLayout: 'fixed' }} data-solo-auditoria="true">
                       <thead>
                         <tr style={{ background: '#f1f5f9' }}>
                           <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>Torre</th>
