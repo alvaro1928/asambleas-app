@@ -123,6 +123,22 @@ export default function AsistirPage() {
   const [cargandoPreguntas, setCargandoPreguntas] = useState(false)
   const [avanceVotaciones, setAvanceVotaciones] = useState<PreguntaConResultados[]>([])
 
+  // Revalidar estado de la asamblea (verificación activa, pregunta_id) para actualizar pestañas sin recargar
+  const revalidar = useCallback(async () => {
+    if (!codigo || !token) return
+    try {
+      const r = await fetch('/api/delegado/validar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo_asamblea: codigo, token }),
+      })
+      const data = await r.json()
+      if (data.ok) setAsamblea(data)
+    } catch {
+      // No cambiar step para no expulsar al delegado; solo no actualizar
+    }
+  }, [codigo, token])
+
   // ── Validar token al montar ──────────────────────────────────────────────
   useEffect(() => {
     if (!codigo || !token) {
@@ -304,15 +320,14 @@ export default function AsistirPage() {
     }
   }, [step, asamblea])
 
-  // Refresco automático cada 15 s en modo delegado
+  // Refresco automático cada 15 s: revalidar (verificación activa / preguntas) y así se recargan unidades y preguntas vía efecto
   useEffect(() => {
     if (step !== 'ok' || !asamblea) return
     const t = setInterval(() => {
-      cargarUnidades()
-      cargarPreguntas()
+      revalidar()
     }, 15000)
     return () => clearInterval(t)
-  }, [step, asamblea, cargarUnidades, cargarPreguntas])
+  }, [step, asamblea, revalidar])
 
   // Pestaña por defecto y validez: asistencia solo si verificación activa, votación solo si hay pregunta abierta
   const mostrarTabAsistencia = !!asamblea?.verificacion_asistencia_activa
@@ -522,7 +537,7 @@ export default function AsistirPage() {
             <p className="text-gray-600 dark:text-gray-400 text-sm">
               Para registrar asistencia o votos, el administrador debe activar la verificación de asistencia o abrir al menos una pregunta de votación.
             </p>
-            <Button variant="outline" size="sm" className="mt-4 rounded-2xl" onClick={() => { cargarUnidades(); cargarPreguntas() }}>
+            <Button variant="outline" size="sm" className="mt-4 rounded-2xl" onClick={() => revalidar()}>
               <RefreshCw className="w-4 h-4 mr-2" /> Actualizar
             </Button>
           </div>
