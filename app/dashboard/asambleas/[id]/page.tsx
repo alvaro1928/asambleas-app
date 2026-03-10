@@ -948,8 +948,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error((data as { error?: string }).error ?? 'Error al enviar')
       const d = data as { enviados?: number }
-      toast.success(d.enviados >= 1 ? 'Correo enviado correctamente' : 'No se pudo enviar')
-      if (d.enviados >= 1) setEmailAdicionalEnvio('')
+      const enviados = d.enviados ?? 0
+      toast.success(enviados >= 1 ? 'Correo enviado correctamente' : 'No se pudo enviar')
+      if (enviados >= 1) setEmailAdicionalEnvio('')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al enviar el correo')
     } finally {
