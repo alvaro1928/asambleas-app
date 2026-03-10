@@ -10,7 +10,7 @@
 
 | Documento | Descripción |
 |-----------|-------------|
-| **[RESUMEN-APLICACION.md](RESUMEN-APLICACION.md)** | Resumen funcional (por rol: admin, votantes, super-admin) y técnico (stack, rutas, APIs, BD). Incluye **billetera de tokens por gestor** (1 token = 1 unidad; cobro solo al activar asamblea) y **asamblea de pruebas (sandbox)** para explorar sin consumir tokens. Punto de entrada para entender la app. |
+| **[RESUMEN-APLICACION.md](RESUMEN-APLICACION.md)** | Resumen funcional (por rol: admin, votantes, super-admin) y técnico (stack, rutas, APIs, BD). Incluye **billetera de tokens por gestor** (1 token = 1 unidad; cobro solo al activar asamblea), **asamblea de pruebas (sandbox)** y **ayudas al usuario** (modales de ayuda en votación pública y en modo asistente delegado). Punto de entrada para entender la app. |
 
 ---
 

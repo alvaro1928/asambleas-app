@@ -36,13 +36,19 @@ Estructura lista para:
 - **Registrar asistencia manual:** El administrador puede marcar una o varias unidades como presentes (modal con lista y búsqueda). Se actualiza el porcentaje de asistencia verificada y el indicador de quórum (Ley 675 >50%).
 - **Paneles según estado:** Con verificación activa, la página de acceso muestra dos paneles: **Ya verificaron asistencia** y **Faltan por verificar**. Al desactivar la verificación, vuelven los paneles habituales: Sesión Activa, Ya Votaron, Pendientes.
 - **Reseteo:** Si el admin desactiva y vuelve a activar la verificación, todas las confirmaciones se borran; los votantes deben verificar de nuevo.
-- **Acta:** La verificación de asistencia se refleja en el acta (global y por pregunta, según el momento de la votación). Scripts: `ADD-VERIFICACION-ASISTENCIA.sql`, `ADD-VERIFICACION-POR-PREGUNTA.sql`, `FIX-VERIFICACION-QUORUM-SANDBOX.sql`.
+- **Acta:** La verificación de asistencia se refleja en el acta (global y por pregunta, según el momento de la votación). En preguntas por **coeficiente**, los porcentajes por opción en el acta se calculan sobre el **coeficiente total del conjunto** (100% = todas las unidades). Scripts: `ADD-VERIFICACION-ASISTENCIA.sql`, `ADD-VERIFICACION-POR-PREGUNTA.sql`, `FIX-VERIFICACION-QUORUM-SANDBOX.sql`.
 
 ### ✅ 5. Acceso de asistente delegado
 
 - **Enlace seguro:** El administrador puede generar un enlace (`/asistir/[codigo]?t=token`) para una persona de confianza. Ese enlace permite registrar asistencia y votos en nombre de unidades sin iniciar sesión.
 - **Registro:** Todas las acciones quedan registradas como "registrado por asistente delegado". Se puede revocar el token en cualquier momento desde Control de acceso.
+- **Ayuda al usuario:** En la página del asistente delegado hay un botón de ayuda (ícono ?) en la cabecera que abre un modal con instrucciones: qué es el modo delegado, cómo registrar asistencia y cómo registrar votos.
 - **APIs:** `POST|DELETE /api/delegado/configurar`, `POST /api/delegado/validar`, `POST /api/delegado/registrar-asistencia`, `POST /api/delegado/registrar-voto`. Columna `asambleas.token_delegado` (script `ADD-TOKEN-DELEGADO.sql`).
+
+### ✅ 6. Ayuda al usuario en votación y delegado
+
+- **Votación pública** (`/votar/[codigo]`): En la pantalla de votación (paso "Votar") hay un ícono de ayuda (?) en la cabecera que abre un modal con: pasos de la votación (código, email/teléfono, consentimiento, votar), tipos de votación (coeficiente vs nominal), poderes y verificación de asistencia.
+- **Asistente delegado** (`/asistir/[codigo]?t=token`): Ícono de ayuda (?) en la cabecera con explicación del modo delegado, cómo registrar asistencia y cómo registrar votos.
 
 ---
 

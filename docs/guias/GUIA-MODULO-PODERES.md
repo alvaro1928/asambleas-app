@@ -118,7 +118,11 @@ SELECT * FROM resumen_poderes_asamblea('asamblea-uuid');
    - **Checklist manual (Ley 675):** Lista desplegable con lo que debe contener el documento según normativa, para que el gestor verifique antes de subir
    - Requiere ejecutar `supabase/STORAGE-BUCKET-PODERES-DOCS.sql` una vez
 
-6. **Botón "Registrar Poder":**
+6. **Documentos de poder como anexos en la descarga del acta**
+   - En la página del acta (`/dashboard/asambleas/[id]/acta`), al descargar el PDF el administrador puede elegir **incluir documentos de poder como anexos** (checkbox en el modal de descarga, visible solo si hay poderes con documento cargado).
+   - Si se marca la opción, se genera un **ZIP** que contiene: el PDF del acta (auditoría completa o versión pública) y una carpeta **anexos-documentos-poder** con los archivos de cada poder (nombre tipo `poder-T{torre}-Apt{numero}.pdf`). Útil para adjuntar las pruebas de poderes al acta en un solo paquete.
+
+7. **Botón "Registrar Poder":**
    - Abre modal con 2 pasos:
      1. Seleccionar unidad que otorga el poder
      2. Ingresar datos del apoderado y opcionalmente adjuntar documento

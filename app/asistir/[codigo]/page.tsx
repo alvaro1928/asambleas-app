@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, UserCheck, Vote, Search, RefreshCw, AlertTriangle, Users } from 'lucide-react'
+import { CheckCircle2, UserCheck, Vote, Search, RefreshCw, AlertTriangle, Users, HelpCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import type { BarChartData } from '@/components/charts/VotacionBarChart'
 
 const VotacionBarChart = dynamic(
@@ -122,6 +123,7 @@ export default function AsistirPage() {
   const [msgVotacion, setMsgVotacion] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
   const [cargandoPreguntas, setCargandoPreguntas] = useState(false)
   const [avanceVotaciones, setAvanceVotaciones] = useState<PreguntaConResultados[]>([])
+  const [showAyudaDelegado, setShowAyudaDelegado] = useState(false)
 
   const [revalidando, setRevalidando] = useState(false)
   const isBackgroundRefreshRef = useRef(false)
@@ -506,6 +508,47 @@ export default function AsistirPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
+      {/* Modal de ayuda para asistente delegado */}
+      <Dialog open={showAyudaDelegado} onOpenChange={setShowAyudaDelegado}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              Ayuda: modo asistente delegado
+            </DialogTitle>
+            <DialogDescription>
+              Cómo registrar asistencia y votos en nombre de las unidades.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-1">¿Qué es el modo asistente delegado?</h4>
+              <p className="text-gray-600 dark:text-gray-400">
+                Es un enlace seguro que el administrador te envió para que registres <strong>asistencia</strong> y <strong>votos</strong> en nombre de los propietarios o residentes que no pueden hacerlo por sí mismos. Todas las acciones quedan registradas en el acta como &quot;registrado por asistente delegado&quot;.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Registrar asistencia</h4>
+              <p className="text-gray-600 dark:text-gray-400">
+                En la pestaña <strong>Registrar asistencia</strong>: busca las unidades (por torre/apto o nombre), marca las que están presentes y pulsa <strong>Guardar asistencia</strong>. Puedes quitar la asistencia de una unidad con el botón correspondiente. Solo aparece esta pestaña si el administrador activó la verificación de quórum.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Registrar votos</h4>
+              <p className="text-gray-600 dark:text-gray-400">
+                En la pestaña <strong>Registrar votos</strong>: elige la pregunta activa, selecciona la opción de voto, marca las unidades que votan por esa opción y pulsa <strong>Registrar votos</strong>. Debes repetir el proceso por cada pregunta abierta y por cada opción que corresponda a distintas unidades.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Actualizar</h4>
+              <p className="text-gray-600 dark:text-gray-400">
+                Usa el botón de actualizar (ícono de refresco) en la cabecera para recargar la lista de unidades y el estado de preguntas si el administrador abrió o cerró alguna.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="max-w-2xl mx-auto px-4 py-3">
@@ -517,14 +560,25 @@ export default function AsistirPage() {
                 Modo asistente delegado
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => { cargarUnidades(); cargarPreguntas() }}
-              className="shrink-0 rounded-2xl border-gray-300 dark:border-gray-600"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowAyudaDelegado(true)}
+                className="p-2 rounded-xl text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors"
+                title="Ayuda"
+                aria-label="Ver ayuda"
+              >
+                <HelpCircle className="w-5 h-5" />
+              </button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { cargarUnidades(); cargarPreguntas() }}
+                className="rounded-2xl border-gray-300 dark:border-gray-600"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
           {/* Tabs: solo si hay más de una pestaña disponible */}
           {tabsDisponibles.length > 1 && (

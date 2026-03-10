@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import JSZip from 'jszip'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -106,6 +107,14 @@ interface VotoFinalUnidad {
   es_poder?: boolean
 }
 
+/** Poder con documento cargado (para anexos en descarga del acta) */
+interface PoderConDocumento {
+  id: string
+  archivo_poder: string
+  torre: string
+  numero: string
+}
+
 export default function ActaPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -133,6 +142,10 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [resumenNoValidacionPorSesion, setResumenNoValidacionPorSesion] = useState<ResumenNoValidacion[]>([])
   /** Por pregunta: lista de votos finales (una fila por unidad con su opción elegida) para el cuadro de auditoría */
   const [votacionesFinalesPorPregunta, setVotacionesFinalesPorPregunta] = useState<Record<string, VotoFinalUnidad[]>>({})
+  /** Poderes con documento cargado (para opción "incluir como anexos" en descarga) */
+  const [poderesConDocumento, setPoderesConDocumento] = useState<PoderConDocumento[]>([])
+  const [incluirAnexosPoderes, setIncluirAnexosPoderes] = useState(false)
+  const descargarSoporteConAnexosRef = useRef(false)
 
   useEffect(() => {
     loadData()
@@ -374,6 +387,23 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         .eq('asamblea_id', params.id)
         .eq('estado', 'activo')
 
+      // Poderes con documento (para anexos en descarga del acta)
+      const { data: poderesConDoc } = await supabase
+        .from('vista_poderes_completa')
+        .select('id, archivo_poder, unidad_otorgante_torre, unidad_otorgante_numero')
+        .eq('asamblea_id', params.id)
+        .eq('estado', 'activo')
+        .not('archivo_poder', 'is', null)
+      const listadoPoderesConDoc: PoderConDocumento[] = (poderesConDoc || [])
+        .filter((p: any) => p.archivo_poder)
+        .map((p: any) => ({
+          id: p.id,
+          archivo_poder: p.archivo_poder,
+          torre: String(p.unidad_otorgante_torre ?? ''),
+          numero: String(p.unidad_otorgante_numero ?? ''),
+        }))
+      setPoderesConDocumento(listadoPoderesConDoc)
+
       const unidadIdsPoderes = (poderesData || []).map((p: any) => p.unidad_otorgante_id)
       let coef = 0
       if (unidadIdsPoderes.length > 0) {
@@ -498,8 +528,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   /** Tras elegir "soporte general", el DOM se re-renderiza sin auditoría; luego generamos el PDF y volvemos al modo completo */
   useEffect(() => {
     if (!actaModoSoporte || !descargarSoportePendiente) return
+    const conAnexos = descargarSoporteConAnexosRef.current
     const t = setTimeout(() => {
-      handleDescargarPdf(true)
+      handleDescargarPdf(true, conAnexos)
       setDescargarSoportePendiente(false)
       setActaModoSoporte(false)
     }, 500)
@@ -591,8 +622,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     window.print()
   }
 
-  /** Descarga el acta como PDF. soporteGeneral = true → acta para anexo público (sin auditoría, sin quién votó qué). */
-  const handleDescargarPdf = async (soporteGeneral = false) => {
+  /** Descarga el acta como PDF. soporteGeneral = true → acta para anexo público. Si incluirAnexos y hay poderes con documento, descarga ZIP con acta + anexos. */
+  const handleDescargarPdf = async (soporteGeneral = false, incluirAnexos = false) => {
     const mainEl = actaContentRef.current
     if (!mainEl) return
     setDescargandoPdf(true)
@@ -620,12 +651,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     try {
       const html2pdf = (await import('html2pdf.js')).default
       const nombreSeguro = (asamblea?.nombre ?? 'asamblea').replace(/[^a-zA-Z0-9\u00C0-\u024F\s.-]/g, '').trim().slice(0, 80) || 'acta'
-      const filename = soporteGeneral
+      const filenamePdf = soporteGeneral
         ? `acta-soporte-${nombreSeguro}-${params.id}.pdf`.replace(/\s+/g, '_')
         : `acta-${nombreSeguro}-${params.id}.pdf`.replace(/\s+/g, '_')
       const opts = {
         margin: [12, 10, 12, 10] as [number, number, number, number],
-        filename,
+        filename: filenamePdf,
         image: { type: 'jpeg' as const, quality: 0.82 },
         html2canvas: {
           scale: 1.25,
@@ -643,35 +674,70 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       const pdfSha256Hex = Array.from(new Uint8Array(hashBuffer))
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('')
-      // Descargar el PDF
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(url)
-      // Certificar con el hash del PDF para que opentimestamps.org valide este mismo archivo
-      try {
-        const certRes = await fetch('/api/dashboard/acta-certificar-blockchain', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ asamblea_id: asamblea?.id, pdf_sha256_hex: pdfSha256Hex }),
-        })
-        const certData = await certRes.json().catch(() => ({}))
-        if (certRes.ok && certData.ots_base64) {
-          setActaOtsBase64(certData.ots_base64)
-          setAsamblea((prev) => (prev ? { ...prev, acta_ots_proof_base64: certData.ots_base64 } : null))
-          toast.success('Certificado .ots generado para este PDF. Descárgalo y verifica en opentimestamps.org con el mismo archivo.')
+
+      const anexosActivos = incluirAnexos && poderesConDocumento.length > 0
+
+      if (anexosActivos) {
+        const zip = new JSZip()
+        zip.file(filenamePdf, blob)
+        const anexosDir = zip.folder('anexos-documentos-poder')
+        if (anexosDir) {
+          for (let i = 0; i < poderesConDocumento.length; i++) {
+            const p = poderesConDocumento[i]
+            try {
+              const res = await fetch(p.archivo_poder, { mode: 'cors' })
+              if (res.ok) {
+                const anexoBlob = await res.blob()
+                const ext = p.archivo_poder.toLowerCase().includes('.docx') ? '.docx' : p.archivo_poder.toLowerCase().includes('.doc') ? '.doc' : '.pdf'
+                const nombreAnexo = `poder-T${p.torre}-Apt${p.numero}${ext}`.replace(/\s+/g, '_')
+                anexosDir.file(nombreAnexo, anexoBlob)
+              }
+            } catch {
+              // Si falla un anexo (p. ej. CORS), no bloqueamos el resto
+            }
+          }
         }
-      } catch {
-        // No bloquear la descarga si falla la certificación
+        const zipBlob = await zip.generateAsync({ type: 'blob' })
+        const zipUrl = URL.createObjectURL(zipBlob)
+        const zipFilename = `acta-y-anexos-${nombreSeguro}-${params.id}.zip`.replace(/\s+/g, '_')
+        const a = document.createElement('a')
+        a.href = zipUrl
+        a.download = zipFilename
+        a.click()
+        URL.revokeObjectURL(zipUrl)
+        toast.success(`Descargado ${zipFilename} con acta y ${poderesConDocumento.length} documento(s) de poder.`)
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filenamePdf
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+
+      // Certificar con el hash del PDF (solo si se descargó solo el PDF, no el ZIP)
+      if (!anexosActivos) {
+        try {
+          const certRes = await fetch('/api/dashboard/acta-certificar-blockchain', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ asamblea_id: asamblea?.id, pdf_sha256_hex: pdfSha256Hex }),
+          })
+          const certData = await certRes.json().catch(() => ({}))
+          if (certRes.ok && certData.ots_base64) {
+            setActaOtsBase64(certData.ots_base64)
+            setAsamblea((prev) => (prev ? { ...prev, acta_ots_proof_base64: certData.ots_base64 } : null))
+            toast.success('Certificado .ots generado para este PDF. Descárgalo y verifica en opentimestamps.org con el mismo archivo.')
+          }
+        } catch {
+          // No bloquear la descarga si falla la certificación
+        }
       }
     } catch (e) {
       console.error('Error al generar PDF:', e)
       setPrintError('No se pudo generar el PDF. Usa Imprimir y elige "Guardar como PDF".')
     } finally {
-      // Restaurar estilos originales
       overflowEls.forEach(({ el, prev }) => { el.style.overflow = prev })
       tableEls.forEach(({ el, prev }) => { el.style.width = prev })
       if (hadDarkClass) htmlEl.classList.add('dark')
@@ -1055,11 +1121,13 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                 pregunta.tipo_votacion === 'nominal'
                   ? Number(r.porcentaje_nominal_total ?? r.porcentaje_votos_emitidos ?? 0)
                   : Number(r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0)
+              // Para votación por coeficiente, el % se calcula sobre el coeficiente total del conjunto (100%), no sobre los participantes
+              const coefTotalConjunto = stats?.coeficiente_total_conjunto ?? 100
               let items: { opcion_texto: string; pct: number; count: number }[] = stats
                 ? (resumenDesdeTabla && pregunta.tipo_votacion === 'coeficiente'
                     ? Object.entries(resumenDesdeTabla).map(([opcion, { coef, count }]) => ({
                         opcion_texto: opcion,
-                        pct: totalCoefVotantes > 0 ? (coef / totalCoefVotantes) * 100 : 0,
+                        pct: coefTotalConjunto > 0 ? Math.min(100, (coef / coefTotalConjunto) * 100) : 0,
                         count,
                       }))
                     : (stats.resultados || []).map((r: any) => ({
@@ -1390,36 +1458,50 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               Descargar acta (PDF)
             </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-sm text-gray-700 dark:text-gray-200 mb-4">
             Elige el tipo de acta que deseas descargar:
           </p>
+          {poderesConDocumento.length > 0 && (
+            <label className="flex items-center gap-2 mb-4 p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={incluirAnexosPoderes}
+                onChange={(e) => setIncluirAnexosPoderes(e.target.checked)}
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-200">
+                Incluir documentos de poder como anexos ({poderesConDocumento.length} documento{poderesConDocumento.length !== 1 ? 's' : ''})
+              </span>
+            </label>
+          )}
           <div className="flex flex-col gap-3">
             <Button
               type="button"
               variant="outline"
-              className="justify-start text-left h-auto py-3 px-4 border-indigo-200 hover:bg-indigo-50 dark:border-indigo-800 dark:hover:bg-indigo-900/20"
+              className="justify-start text-left h-auto py-3 px-4 border-indigo-200 hover:bg-indigo-50 dark:border-indigo-600 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/30 dark:text-gray-100"
               onClick={() => {
                 setShowModalTipoActa(false)
-                handleDescargarPdf(false)
+                handleDescargarPdf(false, incluirAnexosPoderes)
               }}
             >
-              <span className="font-semibold block">Acta con auditoría completa</span>
-              <span className="text-xs text-gray-500 font-normal mt-0.5">
+              <span className="font-semibold block dark:text-white">Acta con auditoría completa</span>
+              <span className="text-xs text-gray-600 dark:text-gray-300 font-normal mt-0.5 block">
                 Incluye quién votó qué, transacciones, IP y datos para revisión del administrador. Solo uso interno/auditoría.
               </span>
             </Button>
             <Button
               type="button"
               variant="outline"
-              className="justify-start text-left h-auto py-3 px-4 border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/50"
+              className="justify-start text-left h-auto py-3 px-4 border-slate-200 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900/60 dark:hover:bg-slate-800/70 dark:text-gray-100"
               onClick={() => {
                 setShowModalTipoActa(false)
+                descargarSoporteConAnexosRef.current = incluirAnexosPoderes
                 setActaModoSoporte(true)
                 setDescargarSoportePendiente(true)
               }}
             >
-              <span className="font-semibold block">Acta versión pública</span>
-              <span className="text-xs text-gray-500 font-normal mt-0.5">
+              <span className="font-semibold block dark:text-white">Acta versión pública</span>
+              <span className="text-xs text-gray-600 dark:text-gray-300 font-normal mt-0.5 block">
                 Quórums generales, preguntas con resultados (porcentaje y total en coeficiente), aprobado/no aprobado, cantidades de unidades que no votaron o no validaron y coeficiente total. Para compartir con participantes.
               </span>
             </Button>

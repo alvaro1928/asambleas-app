@@ -48,7 +48,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - **Control de acceso y QR** (`/dashboard/asambleas/[id]/acceso`):
   - Código QR y URL para que los votantes entren a `/votar/[codigo]`.
   - **Verificación de quórum (asistencia):** **Activar verificación** muestra en la página de votación un popup para que cada votante confirme asistencia. Sin preguntas abiertas = verificación **general**; con preguntas abiertas = asociada a **todas** las abiertas. Al **cerrar** la verificación el resultado queda en el acta (general o por pregunta). Al **reabrir** comienza una nueva sesión (quórum a cero). **Registrar asistencia** marca manualmente unidades (solo cuenta la sesión actual). Paneles **Ya verificaron** / **Faltan por verificar** con totales y desglose directo/por poder.
-  - **Acceso de asistente delegado:** enlace (`/asistir/[codigo]?t=token`) para registrar asistencia y votos en nombre de unidades; quórum por **sesión actual**. Revocable en cualquier momento.
+  - **Acceso de asistente delegado:** enlace (`/asistir/[codigo]?t=token`) para registrar asistencia y votos en nombre de unidades; quórum por **sesión actual**. Revocable en cualquier momento. En la página de asistente hay **modal de ayuda** (ícono ?) con instrucciones para registrar asistencia y votos.
   - **Registro de ingresos en tiempo real** (sesiones activas con actividad reciente).
   - **Avance de votaciones**: unidades que ya votaron, % de verificación de asistencia (si está activa) y progreso por pregunta; se actualiza cada 10 s.
 - **Envío de correo:** Botón "Enviar enlace por correo" envía por **SMTP** desde el servidor (sin Outlook). Configurable en Super Admin → Ajustes o por variables. Plantilla adicional en Configuración → Poderes y correo.
@@ -57,7 +57,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
   - Límite máximo de poderes por apoderado **configurable** en Dashboard → Configuración → Poderes y correo; validación antes de crear.
   - Revocar poder (con diálogo de confirmación).
   - **Importación masiva** de poderes desde Excel/CSV (`/dashboard/asambleas/[id]/poderes/importar`).
-- **Acta** (`/dashboard/asambleas/[id]/acta`): descarga/impresión con resultados por pregunta, quórum y **detalle de auditoría** (quién votó, cuándo, IP, user-agent). Incluye **registros de verificación de quórum**: sección "Asamblea en general" (sesiones sin pregunta asociada) y por cada pregunta el registro de la sesión cerrada asociada a esa pregunta (si existe). Unidades que no participaron por pregunta; votos con indicador "Poder" cuando aplica.
+- **Acta** (`/dashboard/asambleas/[id]/acta`): descarga/impresión con resultados por pregunta, quórum y **detalle de auditoría** (quién votó, cuándo, IP, user-agent). **Descarga:** dos tipos — acta con auditoría completa (uso interno) y acta versión pública (totales y coeficientes, para compartir); opción de **incluir documentos de poder como anexos** (descarga en ZIP con acta + carpeta de documentos). En preguntas por **coeficiente**, los porcentajes se calculan sobre el **coeficiente total del conjunto** (100% = todas las unidades). Incluye **registros de verificación de quórum**: sección "Asamblea en general" (sesiones sin pregunta asociada) y por cada pregunta el registro de la sesión cerrada asociada a esa pregunta (si existe). Unidades que no participaron por pregunta; votos con indicador "Poder" cuando aplica.
 
 **Dashboard principal**
 - Métricas: conjuntos, unidades, coeficientes, censo.
@@ -80,6 +80,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - **Indicador de pasos** (StepIndicator): Código → Email → Unidades → Votar.
 - Progreso "X/Y unidades votadas" por pregunta.
 - Mensaje al completar todas las votaciones; **historial** de preguntas cerradas con resultados y votos del votante.
+- **Ayuda al usuario:** modal de ayuda (ícono ? en la cabecera) con guía de pasos, tipos de votación (coeficiente vs nominal), poderes y verificación de asistencia.
 - **Trazabilidad**: IP y user-agent vía `/api/client-info`; RPC `registrar_voto_con_trazabilidad`.
 - Heartbeat cada 2 min y marcar salida al abandonar (quorum_asamblea, registro de ingresos).
 - Toasts para éxito/error (no `alert()`).

@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle, UserCheck } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle, UserCheck, HelpCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -123,6 +123,7 @@ export default function VotacionPublicaPage() {
   const [consentimientoAceptado, setConsentimientoAceptado] = useState(false)
   const [guardandoConsentimiento, setGuardandoConsentimiento] = useState(false)
   const [avanceColapsado, setAvanceColapsado] = useState(false)
+  const [showAyudaVotar, setShowAyudaVotar] = useState(false)
 
   // --- Verificación de Quórum ---
   const [verificacionActiva, setVerificacionActiva] = useState(false)
@@ -1268,6 +1269,50 @@ export default function VotacionPublicaPage() {
           </DialogContent>
         </Dialog>
 
+        {/* Modal de ayuda al votante */}
+        <Dialog open={showAyudaVotar} onOpenChange={setShowAyudaVotar}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                Ayuda: cómo votar
+              </DialogTitle>
+              <DialogDescription>
+                Guía rápida para participar en la votación en línea.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
+              <div>
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Pasos de la votación</h4>
+                <ol className="list-decimal list-inside space-y-1 text-gray-600 dark:text-gray-400">
+                  <li><strong>Código de acceso</strong> — El enlace o QR que te enviaron ya incluye el código.</li>
+                  <li><strong>Email o teléfono</strong> — Ingresa el que está registrado en tu unidad o con el que tienes poderes.</li>
+                  <li><strong>Consentimiento</strong> — Acepta el tratamiento de datos (Ley 1581) para continuar.</li>
+                  <li><strong>Votar</strong> — En cada pregunta elige una opción por cada una de tus unidades (propias y poderes).</li>
+                </ol>
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Tipos de votación</h4>
+                <p className="text-gray-600 dark:text-gray-400">
+                  <strong>Por coeficiente:</strong> el peso de tu voto es el % de copropiedad de tu unidad (Ley 675). <strong>Nominal:</strong> cada unidad cuenta como un voto. Los resultados se muestran según el tipo definido por el administrador.
+                </p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Poderes</h4>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Si te otorgaron un poder, verás esas unidades junto con las tuyas. Debes votar por cada una (propia y poderes) en cada pregunta abierta.
+                </p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Verificación de asistencia</h4>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Si el administrador activó la verificación de quórum, aparecerá un aviso para que confirmes tu asistencia. Es necesario hacerlo para que tu presencia quede registrada en el acta.
+                </p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Header fijo con indicador de quórum */}
         <div className="sticky top-0 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-b border-gray-200 dark:border-gray-700 shadow-sm">
           <div className="max-w-2xl mx-auto px-4 py-2">
@@ -1277,6 +1322,15 @@ export default function VotacionPublicaPage() {
                 <h1 className="text-sm font-bold text-gray-900 dark:text-white truncate">{asamblea?.nombre}</h1>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowAyudaVotar(true)}
+                  className="p-2 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors"
+                  title="Ayuda"
+                  aria-label="Ver ayuda"
+                >
+                  <HelpCircle className="w-5 h-5" />
+                </button>
                 {statsVerificacion && (
                   <QuorumChip pct={statsVerificacion.porcentaje_verificado} total={statsVerificacion.total_verificados} />
                 )}
