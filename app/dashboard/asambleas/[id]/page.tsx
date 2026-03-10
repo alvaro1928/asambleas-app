@@ -246,6 +246,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [enviandoCorreoEmail, setEnviandoCorreoEmail] = useState<string | null>(null)
   /** WhatsApp adicional (ej. grupo de la copropiedad no inscrito a ninguna unidad) */
   const [whatsappAdicionalEnvio, setWhatsappAdicionalEnvio] = useState('')
+  /** Correo adicional (email no registrado en ninguna unidad) */
+  const [emailAdicionalEnvio, setEmailAdicionalEnvio] = useState('')
+  const [enviandoCorreoAdicional, setEnviandoCorreoAdicional] = useState(false)
 
   const [billeteraColapsada, setBilleteraColapsada] = useState(true)
   const [openQuorumPanel, setOpenQuorumPanel] = useState(true)
@@ -918,6 +921,39 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       toast.error(e instanceof Error ? e.message : 'Error al enviar el correo')
     } finally {
       setEnviandoCorreoEmail(null)
+    }
+  }
+
+  const enviarCorreoAdicional = async () => {
+    const email = emailAdicionalEnvio.trim()
+    if (!email) {
+      toast.error('Ingresa un correo')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Correo no válido')
+      return
+    }
+    setEnviandoCorreoAdicional(true)
+    try {
+      const res = await fetch('/api/dashboard/enviar-enlace-votacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          asamblea_id: params.id,
+          emails: [],
+          emails_adicionales: [email],
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? 'Error al enviar')
+      const d = data as { enviados?: number }
+      toast.success(d.enviados >= 1 ? 'Correo enviado correctamente' : 'No se pudo enviar')
+      if (d.enviados >= 1) setEmailAdicionalEnvio('')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al enviar el correo')
+    } finally {
+      setEnviandoCorreoAdicional(false)
     }
   }
 
@@ -3597,7 +3633,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               Enviar enlace de votación a cada contacto
             </DialogTitle>
             <DialogDescription>
-              Cada envío se abre por separado (WhatsApp o correo) para que nadie vea el teléfono o email de otros. Usa los teléfonos y correos registrados en las unidades del conjunto. Puedes añadir un WhatsApp adicional (ej. grupo de la copropiedad) que no esté asociado a ninguna unidad.
+              Cada envío se abre por separado (WhatsApp o correo) para que nadie vea el teléfono o email de otros. Usa los teléfonos y correos registrados en las unidades del conjunto. Puedes añadir un WhatsApp o un correo adicional (ej. grupo de la copropiedad o un email no registrado en ninguna unidad).
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-6 py-2">
@@ -3635,6 +3671,33 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                       }}
                     >
                       Enviar a este número
+                    </Button>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-gray-200 dark:border-gray-600 p-3 bg-gray-50 dark:bg-gray-800/50">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+                    <Mail className="w-4 h-4 text-indigo-600" />
+                    Correo adicional (no registrado en unidades)
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Envía el enlace de votación a un correo que no esté en el registro de unidades (ej. apoderado, familiar, otro contacto).
+                  </p>
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <Input
+                      type="email"
+                      placeholder="Ej. contacto@ejemplo.com"
+                      value={emailAdicionalEnvio}
+                      onChange={(e) => setEmailAdicionalEnvio(e.target.value)}
+                      className="max-w-[260px]"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400"
+                      onClick={enviarCorreoAdicional}
+                      disabled={!emailAdicionalEnvio.trim() || enviandoCorreoAdicional}
+                    >
+                      {enviandoCorreoAdicional ? 'Enviando…' : 'Enviar a este correo'}
                     </Button>
                   </div>
                 </div>

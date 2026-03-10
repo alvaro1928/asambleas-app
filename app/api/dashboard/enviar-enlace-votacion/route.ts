@@ -100,7 +100,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { asamblea_id, emails: emailsParam } = body as { asamblea_id?: string; emails?: string[] }
+    const { asamblea_id, emails: emailsParam, emails_adicionales: emailsAdicionalesParam } = body as {
+      asamblea_id?: string
+      emails?: string[]
+      emails_adicionales?: string[]
+    }
     if (!asamblea_id) {
       return NextResponse.json({ error: 'Falta asamblea_id' }, { status: 400 })
     }
@@ -146,12 +150,23 @@ export async function POST(request: NextRequest) {
       if (e && !todosEmails.includes(e)) todosEmails.push(e)
     }
 
-    const emails =
-      Array.isArray(emailsParam) && emailsParam.length > 0
-        ? emailsParam
-            .map((e) => (e && String(e).trim()).toLowerCase())
-            .filter((e) => e && todosEmails.some((t) => t.toLowerCase() === e))
-        : todosEmails
+    const emailsRegistrados =
+      emailsParam === undefined
+        ? todosEmails
+        : Array.isArray(emailsParam)
+          ? emailsParam
+              .map((e) => (e && String(e).trim()).toLowerCase())
+              .filter((e) => e && todosEmails.some((t) => t.toLowerCase() === e))
+          : []
+
+    const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const adicionales = Array.isArray(emailsAdicionalesParam)
+      ? emailsAdicionalesParam
+          .map((e) => (e && String(e).trim()).toLowerCase())
+          .filter((e) => e && reEmail.test(e))
+      : []
+    const emailsSet = new Set<string>([...emailsRegistrados, ...adicionales])
+    const emails = Array.from(emailsSet)
 
     if (emails.length === 0) {
       return NextResponse.json(
@@ -159,7 +174,9 @@ export async function POST(request: NextRequest) {
           error:
             Array.isArray(emailsParam) && emailsParam.length > 0
               ? 'Ninguno de los correos pertenece a este conjunto.'
-              : 'No hay unidades con correo registrado en este conjunto.',
+              : Array.isArray(emailsAdicionalesParam) && emailsAdicionalesParam.length > 0
+                ? 'Ingresa al menos un correo válido.'
+                : 'No hay unidades con correo registrado en este conjunto.',
         },
         { status: 400 }
       )
