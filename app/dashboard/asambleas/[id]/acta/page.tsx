@@ -653,12 +653,15 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       el.style.width = '100%'
     })
 
-    // Versión pública: ocultar en el DOM cualquier bloque de auditoría (quién votó qué, detalle por unidad) por si el render no ha quitado aún
-    const auditoriaOnlyEls: { el: HTMLElement; prevDisplay: string }[] = []
+    // Versión pública: quitar del DOM los bloques de auditoría (quién votó qué, detalle por unidad) para que no quede espacio en blanco; se restauran después
+    const auditoriaOnlyEls: { el: HTMLElement; parent: HTMLElement; nextSibling: ChildNode | null }[] = []
     if (soporteGeneral) {
       mainEl.querySelectorAll<HTMLElement>('[data-solo-auditoria="true"]').forEach((el) => {
-        auditoriaOnlyEls.push({ el, prevDisplay: el.style.display })
-        el.style.display = 'none'
+        const parent = el.parentElement
+        if (parent) {
+          auditoriaOnlyEls.push({ el, parent, nextSibling: el.nextSibling })
+          parent.removeChild(el)
+        }
       })
     }
 
@@ -753,7 +756,10 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       console.error('Error al generar PDF:', e)
       setPrintError('No se pudo generar el PDF. Usa Imprimir y elige "Guardar como PDF".')
     } finally {
-      auditoriaOnlyEls.forEach(({ el, prevDisplay }) => { el.style.display = prevDisplay })
+      auditoriaOnlyEls.forEach(({ el, parent, nextSibling }) => {
+        if (nextSibling) parent.insertBefore(el, nextSibling)
+        else parent.appendChild(el)
+      })
       overflowEls.forEach(({ el, prev }) => { el.style.overflow = prev })
       tableEls.forEach(({ el, prev }) => { el.style.width = prev })
       if (hadDarkClass) htmlEl.classList.add('dark')
@@ -924,7 +930,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1">Votaciones de Asambleas Online</p>
               <h1 className="text-3xl font-black uppercase tracking-tight text-gray-900 leading-tight">Acta de votación</h1>
               {actaModoSoporte && (
-                <p className="text-sm font-semibold text-indigo-600 mt-2">Versión pública</p>
+                <p className="text-sm font-semibold text-gray-600 mt-2">Versión pública</p>
               )}
             </div>
             <div className="text-right text-xs text-gray-500 mt-1 shrink-0 ml-4">
@@ -954,9 +960,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
         {/* Dentro del acta (PDF): solo una línea de sellado cuando hay certificado */}
         {(asamblea?.acta_ots_proof_base64 || actaOtsBase64) && (
-          <p className="mb-6 text-sm text-gray-700 border-l-4 border-emerald-500 pl-3 py-1">
+          <p className="mb-6 text-sm text-gray-700 border-l-4 border-gray-400 pl-3 py-1">
             Este acta fue sellada en la blockchain de Bitcoin (OpenTimestamps). Verificación:{' '}
-            <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-700 underline">
+            <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-800 underline">
               https://opentimestamps.org
             </a>
           </p>
@@ -979,8 +985,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                 {sesionesGenerales.map((sesion, idx) => (
                   <table key={idx} className="w-full border-collapse text-sm mb-4">
                     <tbody>
-                      <tr className="bg-indigo-50">
-                        <td colSpan={2} className="border border-gray-200 px-3 py-2 font-bold text-indigo-800">
+                      <tr className="bg-gray-50">
+                        <td colSpan={2} className="border border-gray-200 px-3 py-2 font-bold text-gray-800">
                           Sesión {idx + 1}: apertura {new Date(sesion.apertura_at).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                           {sesion.cierre_at && <> — cierre {new Date(sesion.cierre_at).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</>}
                         </td>
@@ -1005,8 +1011,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               <table className="w-full border-collapse text-sm">
                 <tbody>
                   <tr>
-                    <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50 w-1/2">Unidades que verificaron asistencia</td>
-                    <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">{verificacion!.total_verificados}</td>
+                    <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-gray-50 w-1/2">Unidades que verificaron asistencia</td>
+                    <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-gray-50">{verificacion!.total_verificados}</td>
                   </tr>
                   <tr className="bg-gray-50">
                     <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Coeficiente verificado</td>
@@ -1022,8 +1028,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                   )}
                   {verificacion!.hora_ultima_verificacion && verificacion!.hora_ultima_verificacion !== verificacion!.hora_verificacion && (
                     <tr>
-                      <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50">Última verificación</td>
-                      <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">
+                      <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-gray-50">Última verificación</td>
+                      <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-gray-50">
                         {new Date(verificacion!.hora_ultima_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </td>
                     </tr>
@@ -1063,12 +1069,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                 })() && (
                   <>
                     <tr>
-                      <td colSpan={2} className="border border-gray-200 px-3 py-2 text-xs font-bold uppercase text-indigo-700 bg-indigo-50">Verificación de asistencia (asamblea en general)</td>
+                      <td colSpan={2} className="border border-gray-200 px-3 py-2 text-xs font-bold uppercase text-gray-700 bg-gray-100">Verificación de asistencia (asamblea en general)</td>
                     </tr>
                     {sesionesVerificacion.filter((s) => s.pregunta_id == null && s.cierre_at != null).length > 0 ? (
                       sesionesVerificacion.filter((s) => s.pregunta_id == null && s.cierre_at != null).map((sesion, idx) => (
                         <tr key={idx}>
-                          <td colSpan={2} className="border border-gray-200 px-3 py-2 text-xs bg-indigo-50/50">
+                          <td colSpan={2} className="border border-gray-200 px-3 py-2 text-xs bg-gray-50">
                             <strong>Sesión {idx + 1}:</strong> apertura {new Date(sesion.apertura_at).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                             {sesion.cierre_at && (
                               <> — cierre {new Date(sesion.cierre_at).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
@@ -1081,8 +1087,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     ) : (
                       <>
                         <tr>
-                          <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50">Unidades que verificaron asistencia</td>
-                          <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">{verificacion!.total_verificados}</td>
+<td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-gray-50">Unidades que verificaron asistencia</td>
+                            <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-gray-50">{verificacion!.total_verificados}</td>
                         </tr>
                         <tr className="bg-gray-50">
                           <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">Coeficiente verificado</td>
@@ -1098,8 +1104,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                         )}
                         {verificacion!.hora_ultima_verificacion && verificacion!.hora_ultima_verificacion !== verificacion!.hora_verificacion && (
                           <tr>
-                            <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-indigo-50">Última verificación de asistencia</td>
-                            <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-indigo-50">
+                            <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 bg-gray-50">Última verificación de asistencia</td>
+                            <td className="border border-gray-200 px-3 py-2 text-gray-900 bg-gray-50">
                               {new Date(verificacion!.hora_ultima_verificacion).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                             </td>
                           </tr>
@@ -1164,7 +1170,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                 <div key={pregunta.id} className="break-inside-avoid">
                   {/* Título de pregunta */}
                   <div className="flex items-start gap-3 mb-3">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-xs font-bold flex items-center justify-center">{idx + 1}</span>
+                    <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center text-xs font-semibold text-gray-700 border border-gray-400">{idx + 1}</span>
                     <div>
                       <h3 className="font-bold text-base text-gray-900 leading-snug">{pregunta.texto_pregunta}</h3>
                       {pregunta.descripcion && <p className="text-xs text-gray-500 mt-0.5">{pregunta.descripcion}</p>}
@@ -1180,15 +1186,15 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Resultados de la pregunta</p>
                     <table className="w-full border-collapse text-sm">
                       <thead>
-                        <tr style={{ background: '#f8fafc' }}>
-                          <th className="border border-gray-200 px-3 py-1.5 text-left font-semibold text-gray-700">Opción</th>
-                          <th className="border border-gray-200 px-3 py-1.5 text-right font-semibold text-gray-700 w-24">Votos</th>
-                          <th className="border border-gray-200 px-3 py-1.5 text-right font-semibold text-gray-700 w-24">%</th>
+                        <tr className="bg-gray-100">
+                          <th className="border border-gray-300 px-3 py-1.5 text-left font-semibold text-gray-800">Opción</th>
+                          <th className="border border-gray-300 px-3 py-1.5 text-right font-semibold text-gray-800 w-24">Votos</th>
+                          <th className="border border-gray-300 px-3 py-1.5 text-right font-semibold text-gray-800 w-24">%</th>
                         </tr>
                       </thead>
                       <tbody>
                         {items.length > 0 ? items.map((item, i) => (
-                          <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                             <td className="border border-gray-200 px-3 py-1.5 text-gray-900">{item.opcion_texto}</td>
                             <td className="border border-gray-200 px-3 py-1.5 text-right text-gray-700">{item.count}</td>
                             <td className="border border-gray-200 px-3 py-1.5 text-right font-semibold text-gray-900">{item.pct.toFixed(2)}%</td>
@@ -1199,11 +1205,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                       </tbody>
                     </table>
                     {pregunta.umbral_aprobacion != null && (
-                      <p
-                        className="text-sm font-bold mt-2 px-3 py-1.5 rounded"
-                        style={{ background: aprobado ? '#f0fdf4' : '#fff7ed', color: aprobado ? '#166534' : '#92400e', border: `1px solid ${aprobado ? '#bbf7d0' : '#fde68a'}` }}
-                      >
-                        {aprobado ? '✓ APROBADO' : '✗ NO APROBADO'} — Mayoría requerida: {pregunta.umbral_aprobacion}% · Obtenido: {items.length > 0 ? `${pctAfavor.toFixed(2)}%` : '0%'}
+                      <p className="text-sm font-semibold mt-2 px-3 py-1.5 border border-gray-300 bg-gray-50 text-gray-800">
+                        {aprobado ? 'APROBADO' : 'NO APROBADO'} — Mayoría requerida: {pregunta.umbral_aprobacion}% · Obtenido: {items.length > 0 ? `${pctAfavor.toFixed(2)}%` : '0%'}
                       </p>
                     )}
                   </div>
@@ -1214,16 +1217,16 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Votación final por unidad</p>
                     <table className="w-full border-collapse" style={{ fontSize: '11px' }}>
                       <thead>
-                        <tr style={{ background: '#f1f5f9' }}>
-                          <th className="border border-gray-200 px-2 py-1 text-left font-semibold" style={{ width: '12%' }}>Unidad</th>
-                          <th className="border border-gray-200 px-2 py-1 text-left font-semibold" style={{ width: '40%' }}>Propietario / Residente</th>
-                          <th className="border border-gray-200 px-2 py-1 text-left font-semibold" style={{ width: '30%' }}>Voto final</th>
-                          <th className="border border-gray-200 px-2 py-1 text-right font-semibold" style={{ width: '18%' }}>Coef. %</th>
+                        <tr className="bg-gray-100">
+                          <th className="border border-gray-300 px-2 py-1 text-left font-semibold text-gray-800" style={{ width: '12%' }}>Unidad</th>
+                          <th className="border border-gray-300 px-2 py-1 text-left font-semibold text-gray-800" style={{ width: '40%' }}>Propietario / Residente</th>
+                          <th className="border border-gray-300 px-2 py-1 text-left font-semibold text-gray-800" style={{ width: '30%' }}>Voto final</th>
+                          <th className="border border-gray-300 px-2 py-1 text-right font-semibold text-gray-800" style={{ width: '18%' }}>Coef. %</th>
                         </tr>
                       </thead>
                       <tbody>
                         {votosFinales.length > 0 ? votosFinales.map((row, i) => (
-                          <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                             <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.es_poder ? 'Poder ' : ''}{row.torre}-{row.numero}</td>
                             <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.nombre_propietario ?? '—'}</td>
                             <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{row.opcion_texto}</td>
@@ -1268,12 +1271,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     const esGeneral = !sesionPregunta && !!ultimaGeneral
                     return (
                       <div className="ml-10 mt-2 mb-1">
-                        <p className="text-xs font-semibold text-indigo-700 mb-0.5">
+                        <p className="text-xs font-semibold text-gray-700 mb-0.5">
                           {esGeneral
                             ? 'Registro de verificación de quórum (asamblea en general, aplicable a esta pregunta)'
                             : 'Registro de verificación de quórum (asociada a esta pregunta)'}
                         </p>
-                        <p className="text-xs text-gray-500 italic border-l-2 border-indigo-300 pl-2">
+                        <p className="text-xs text-gray-600 border-l-2 border-gray-300 pl-2">
                           Al cerrar la verificación
                           {horaCorte ? ` (${horaCorte})` : ''},{' '}
                           el <strong>{porcentaje.toFixed(2)}%</strong> del coeficiente de copropiedad
@@ -1292,18 +1295,18 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Auditoría de transacciones (cambios de voto, quién votó, cuándo)</p>
                     <table className="w-full border-collapse" style={{ fontSize: '10px', tableLayout: 'fixed' }}>
                       <thead>
-                        <tr style={{ background: '#f1f5f9' }}>
-                          <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '22%' }}>Votante</th>
-                          <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '9%' }}>Unidad</th>
-                          <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '14%' }}>Opción</th>
-                          <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '20%' }}>Acción</th>
-                          <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '18%' }}>Fecha/hora</th>
-                          <th className="border border-gray-200 px-1.5 py-1 text-left font-semibold" style={{ width: '17%' }}>IP</th>
+                        <tr className="bg-gray-100">
+                          <th className="border border-gray-300 px-1.5 py-1 text-left font-semibold text-gray-800" style={{ width: '22%' }}>Votante</th>
+                          <th className="border border-gray-300 px-1.5 py-1 text-left font-semibold text-gray-800" style={{ width: '9%' }}>Unidad</th>
+                          <th className="border border-gray-300 px-1.5 py-1 text-left font-semibold text-gray-800" style={{ width: '14%' }}>Opción</th>
+                          <th className="border border-gray-300 px-1.5 py-1 text-left font-semibold text-gray-800" style={{ width: '20%' }}>Acción</th>
+                          <th className="border border-gray-300 px-1.5 py-1 text-left font-semibold text-gray-800" style={{ width: '18%' }}>Fecha/hora</th>
+                          <th className="border border-gray-300 px-1.5 py-1 text-left font-semibold text-gray-800" style={{ width: '17%' }}>IP</th>
                         </tr>
                       </thead>
                       <tbody>
                         {auditoria[pregunta.id] && auditoria[pregunta.id].length > 0 ? auditoria[pregunta.id].map((row, i) => (
-                          <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                             <td className="border border-gray-200 px-1.5 py-1" style={{ wordBreak: 'break-all', overflowWrap: 'break-word' }}>
                               {row.votante_email}{row.votante_nombre ? ` (${row.votante_nombre})` : ''}
                             </td>
@@ -1344,18 +1347,18 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                         {!actaModoSoporte && (
                         <table className="w-full border-collapse text-xs mt-1.5" style={{ tableLayout: 'fixed' }} data-solo-auditoria="true">
                           <thead>
-                            <tr style={{ background: '#f1f5f9' }}>
-                              <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>Torre</th>
+                            <tr className="bg-gray-100">
+                              <th className="border border-gray-300 px-2 py-1.5 text-left font-semibold text-gray-800" style={{ width: '9%' }}>Torre</th>
                               <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>N.°</th>
                               <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '30%' }}>Propietario / Residente</th>
-                              <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '29%' }}>Email</th>
-                              <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '14%' }}>Teléfono</th>
-                              <th className="border border-gray-200 px-2 py-1.5 text-right font-semibold" style={{ width: '9%' }}>Coef.</th>
+                              <th className="border border-gray-300 px-2 py-1.5 text-left font-semibold text-gray-800" style={{ width: '29%' }}>Email</th>
+                              <th className="border border-gray-300 px-2 py-1.5 text-left font-semibold text-gray-800" style={{ width: '14%' }}>Teléfono</th>
+                              <th className="border border-gray-300 px-2 py-1.5 text-right font-semibold text-gray-800" style={{ width: '9%' }}>Coef.</th>
                             </tr>
                           </thead>
                           <tbody>
                             {noParticiparonPregunta.map((u) => (
-                              <tr key={u.id} style={{ background: 'inherit' }}>
+                              <tr key={u.id} className="bg-white">
                                 <td className="border border-gray-200 px-2 py-1">{u.torre || '—'}</td>
                                 <td className="border border-gray-200 px-2 py-1">{u.numero || '—'}</td>
                                 <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{u.nombre_propietario || '—'}</td>
@@ -1391,24 +1394,24 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                 const coefNoValidaron = bloque.unidades.reduce((s, u) => s + u.coeficiente, 0)
                 return (
                   <div key={idx} className="break-inside-avoid">
-                    <p className="text-xs font-semibold text-indigo-700">
+                    <p className="text-xs font-semibold text-gray-800">
                       {bloque.titulo}{cierreStr ? ` — cierre ${cierreStr}` : ''}: <strong>{bloque.unidades.length}</strong> unidad(es) no validaron · Coeficiente total: <strong>{Math.min(100, coefNoValidaron).toFixed(2)}%</strong>
                     </p>
                     {!actaModoSoporte && (
                     <table className="w-full border-collapse text-xs mt-1.5" style={{ tableLayout: 'fixed' }} data-solo-auditoria="true">
                       <thead>
-                        <tr style={{ background: '#f1f5f9' }}>
-                          <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>Torre</th>
-                          <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>N.°</th>
-                          <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '28%' }}>Propietario / Residente</th>
-                          <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '28%' }}>Email</th>
-                          <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '17%' }}>Teléfono</th>
-                          <th className="border border-gray-200 px-2 py-1.5 text-right font-semibold" style={{ width: '9%' }}>Coef.</th>
+                        <tr className="bg-gray-100">
+                          <th className="border border-gray-300 px-2 py-1.5 text-left font-semibold text-gray-800" style={{ width: '9%' }}>Torre</th>
+                          <th className="border border-gray-300 px-2 py-1.5 text-left font-semibold text-gray-800" style={{ width: '9%' }}>N.°</th>
+                          <th className="border border-gray-300 px-2 py-1.5 text-left font-semibold text-gray-800" style={{ width: '28%' }}>Propietario / Residente</th>
+                          <th className="border border-gray-300 px-2 py-1.5 text-left font-semibold text-gray-800" style={{ width: '28%' }}>Email</th>
+                          <th className="border border-gray-300 px-2 py-1.5 text-left font-semibold text-gray-800" style={{ width: '17%' }}>Teléfono</th>
+                          <th className="border border-gray-300 px-2 py-1.5 text-right font-semibold text-gray-800" style={{ width: '9%' }}>Coef.</th>
                         </tr>
                       </thead>
                       <tbody>
                         {bloque.unidades.map((u) => (
-                          <tr key={u.id} style={{ background: 'inherit' }}>
+                          <tr key={u.id} className="bg-white">
                             <td className="border border-gray-200 px-2 py-1">{u.torre || '—'}</td>
                             <td className="border border-gray-200 px-2 py-1">{u.numero || '—'}</td>
                             <td className="border border-gray-200 px-2 py-1" style={{ wordBreak: 'break-word' }}>{u.nombre_propietario || '—'}</td>
