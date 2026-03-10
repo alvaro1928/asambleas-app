@@ -340,12 +340,12 @@ export default function AsistirPage() {
     return () => clearTimeout(t)
   }, [step, asamblea, preguntas.length, revalidar])
 
-  // Refresco automático cada 15 s: revalidar (verificación activa / preguntas) y así se recargan unidades y preguntas vía efecto
+  // Refresco automático cada 60 s: revalidar (verificación activa / preguntas) y así se recargan unidades y preguntas vía efecto
   useEffect(() => {
     if (step !== 'ok' || !asamblea) return
     const t = setInterval(() => {
       revalidar()
-    }, 15000)
+    }, 60000)
     return () => clearInterval(t)
   }, [step, asamblea, revalidar])
 
