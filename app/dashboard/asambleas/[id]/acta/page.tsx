@@ -530,7 +530,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     if (!actaModoSoporte || !descargarSoportePendiente) return
     const conAnexos = descargarSoporteConAnexosRef.current
     const t = setTimeout(() => {
-      // Esperar al siguiente frame de pintado para que el DOM ya no tenga tablas de "quién votó qué"
+      // Esperar a que React pinte el DOM sin bloques de auditoría; delay generoso para que la primera descarga ya sea la versión pública
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           handleDescargarPdf(true, conAnexos)
@@ -538,7 +538,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           setActaModoSoporte(false)
         })
       })
-    }, 600)
+    }, 1400)
     return () => clearTimeout(t)
   }, [actaModoSoporte, descargarSoportePendiente])
 
@@ -915,7 +915,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       <main ref={actaContentRef} className="max-w-4xl mx-auto px-8 py-10 print:py-6 bg-white text-gray-900 print:[&_section]:break-inside-avoid print:[&_table]:break-inside-avoid shadow-sm print:shadow-none rounded-lg print:rounded-none">
 
         {/* ── ENCABEZADO ── */}
-        <header className="mb-8 break-inside-avoid">
+        <header className="mb-5 break-inside-avoid">
           <div className="flex items-start justify-between border-b-4 border-gray-900 pb-5">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1">Votaciones de Asambleas Online</p>
@@ -964,7 +964,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           const sesionesGenerales = sesionesVerificacion.filter((s) => s.pregunta_id == null && s.cierre_at != null)
           return (sesionesGenerales.length > 0 || (verificacion && verificacion.total_verificados > 0)) && !quorum
         })() && (
-          <section className="mb-8 break-inside-avoid">
+          <section className="mb-4 break-inside-avoid">
             <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-1 pb-1 border-b border-gray-200">Registros de verificación de quórum</h2>
             <p className="text-xs text-gray-500 mb-3">Verificación de asistencia asociada a la asamblea en general (inicial o sin preguntas abiertas). Cada vez que se abrió y cerró la verificación se registra una sesión con fecha y hora.</p>
             <h3 className="text-xs font-semibold text-gray-600 mb-2">Asamblea en general</h3>
@@ -1033,8 +1033,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
         {/* ── QUÓRUM Y PARTICIPACIÓN (resumen general: solo total unidades, cantidad de preguntas, verificaciones; sin votación por pregunta) ── */}
         {(quorum || preguntas.length > 0) && (
-          <section className="mb-8 break-inside-avoid">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-3 pb-1 border-b border-gray-200">Quórum y participación</h2>
+          <section className="mb-4 break-inside-avoid">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-2 pb-1 border-b border-gray-200">Quórum y participación</h2>
             <table className="w-full border-collapse text-sm">
               <tbody>
                 {quorum && (
@@ -1116,7 +1116,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           <p className="text-xs text-gray-500 mb-3">
             Para cada pregunta se indican los resultados de votación y el registro de verificación de quórum al momento de esa votación. Las verificaciones de la asamblea en general figuran en la sección anterior.
           </p>
-          <div className="space-y-5">
+          <div className="space-y-3">
             {preguntas.map((pregunta, idx) => {
               const stats = estadisticas[pregunta.id]
               const votosFinales = votacionesFinalesPorPregunta[pregunta.id] || []
@@ -1372,12 +1372,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
         {/* ── RESUMEN: UNIDADES QUE NO VALIDARON ASISTENCIA (al final del acta). Versión pública: solo cantidades y coeficiente. */}
         {resumenNoValidacionPorSesion.length > 0 && resumenNoValidacionPorSesion.some((r) => r.unidades.length > 0) && (
-          <section className="mt-10 pt-6 border-t-2 border-gray-200 break-before-page">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-2">Resumen de no participación en la verificación de asistencia</h2>
-            <p className="text-xs text-gray-500 mb-4">
+          <section className="mt-4 pt-3 border-t-2 border-gray-200 break-inside-avoid">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-1">Resumen de no participación en la verificación de asistencia</h2>
+            <p className="text-xs text-gray-500 mb-2">
               Unidades que no validaron su asistencia (no registraron en la verificación). Diferente a las que no votaron en una pregunta.
             </p>
-            <div className="space-y-4">
+            <div className="space-y-2">
               {resumenNoValidacionPorSesion.filter((r) => r.unidades.length > 0).map((bloque, idx) => {
                 const cierreStr = bloque.cierreAt
                   ? new Date(bloque.cierreAt).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -1422,8 +1422,8 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         )}
 
         {/* ── FIRMAS ── */}
-        <section className="mt-12 pt-6 border-t-2 border-gray-900 break-inside-avoid">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-6">Firmas y aprobación del acta</h2>
+        <section className="mt-5 pt-4 border-t-2 border-gray-900 break-inside-avoid">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4">Firmas y aprobación del acta</h2>
           <div className="grid grid-cols-3 gap-8">
             <div>
               <p className="text-xs font-semibold text-gray-700 mb-1">Administrador(a)</p>
@@ -1450,7 +1450,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         </section>
 
         {/* ── PIE DE PÁGINA ── */}
-        <footer className="mt-10 pt-4 border-t border-gray-300 flex items-center justify-between text-xs text-gray-600 break-inside-avoid">
+        <footer className="mt-5 pt-3 border-t border-gray-300 flex items-center justify-between text-xs text-gray-600 break-inside-avoid">
           <p>
             Este documento refleja las votaciones electrónicas registradas en la plataforma Votaciones de Asambleas Online.
             {asamblea?.id && <span className="block mt-1 text-gray-600 break-all font-mono text-[11px]">Ref. {asamblea.id}</span>}
