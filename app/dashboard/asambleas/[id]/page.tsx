@@ -676,7 +676,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         })
       })
       setSesionesPorPregunta(porPregunta)
-      // Rellenar tarjeta "Asistencia verificada": última sesión GENERAL si hay; si no (ej. solo se cerró por pregunta), usar la última sesión cerrada de cualquier tipo para no volver a 0%
+      // Rellenar tarjeta "Asistencia verificada": SOLO última sesión GENERAL (pregunta_id null). Nunca usar sesiones por pregunta.
       const cuandoInactivaOPorPregunta = !verifActiva || !esModoGeneral
       if (cuandoInactivaOPorPregunta) {
         if (generales.length > 0) {
@@ -687,16 +687,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             porcentaje_verificado: ultima.porcentaje_verificado,
             quorum_alcanzado: ultima.quorum_alcanzado,
           })
-        } else if (lista.length > 0) {
-          // Sin sesión general pero sí sesión(es) por pregunta: mostrar la última cerrada (ej. 100% al desactivar por pregunta) para que no vuelva a cero
-          const ultimaCualquiera = lista[0]
-          setStatsVerificacion({
-            total_verificados: ultimaCualquiera.total_verificados,
-            coeficiente_verificado: ultimaCualquiera.coeficiente_verificado,
-            porcentaje_verificado: ultimaCualquiera.porcentaje_verificado,
-            quorum_alcanzado: ultimaCualquiera.quorum_alcanzado,
-          })
         } else {
+          // Sin sesión general: el recuadro es solo de asistencia general, debe mostrar 0% (no datos de una pregunta)
           setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
         }
       }
@@ -1575,7 +1567,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         }
       }
     } else {
-      // Verificación cerrada o activa por pregunta: tarjeta general = última sesión general cerrada, o última cerrada de cualquier tipo
+      // Verificación cerrada o activa por pregunta: tarjeta general = SOLO última sesión general cerrada (nunca por pregunta)
       const { data: sesionesData } = await supabase
         .from('verificacion_asamblea_sesiones')
         .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
@@ -1593,25 +1585,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           quorum_alcanzado: !!s.quorum_alcanzado,
         })
       } else {
-        // Sin sesiones generales: usar última sesión cerrada (cualquier pregunta) para no mostrar 0% tras cerrar general
-        const { data: ultimaCualquiera } = await supabase
-          .from('verificacion_asamblea_sesiones')
-          .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
-          .eq('asamblea_id', asamblea.id)
-          .not('cierre_at', 'is', null)
-          .order('cierre_at', { ascending: false })
-          .limit(1)
-        if (ultimaCualquiera?.length) {
-          const s = ultimaCualquiera[0] as { total_verificados?: number; coeficiente_verificado?: number; porcentaje_verificado?: number; quorum_alcanzado?: boolean }
-          setStatsVerificacion({
-            total_verificados: Number(s.total_verificados) ?? 0,
-            coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0,
-            porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
-            quorum_alcanzado: !!s.quorum_alcanzado,
-          })
-        } else {
-          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
-        }
+        setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
       }
     }
     // Cuando la verificación está activa por pregunta: cargar stats de esa pregunta para el chip
