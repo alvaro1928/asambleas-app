@@ -84,16 +84,21 @@ export default function VotacionBarChart({
             maxBarSize={56}
             label={{
               position: 'right',
-              formatter: (label: unknown, ...args: unknown[]) => {
-                const v = Number(label ?? 0)
-                const entryOrProps = args[0] as
-                  | { payload?: { aprueba?: boolean; votosCantidad?: number }; votosCantidad?: number; aprueba?: boolean }
-                  | undefined
-                const p = entryOrProps?.payload ?? entryOrProps
-                const votos = Math.max(0, Number(p?.votosCantidad ?? 0))
-                const suf = votos !== 1 ? 'votos' : 'voto'
-                if (p?.aprueba) return `${v}% (${votos} ${suf}) MAYORÍA ALCANZADA`
-                return `${v}% (${votos} ${suf})`
+              formatter: (value: unknown, entryOrIndex: unknown, index?: number) => {
+                const v = Number(value ?? 0)
+                const payload: BarChartData | null =
+                  typeof entryOrIndex === 'number' && data[entryOrIndex]
+                    ? data[entryOrIndex]
+                    : typeof entryOrIndex === 'object' && entryOrIndex !== null && 'payload' in (entryOrIndex as object)
+                      ? (entryOrIndex as { payload?: BarChartData }).payload ?? null
+                      : typeof entryOrIndex === 'object' && entryOrIndex !== null && 'votosCantidad' in (entryOrIndex as object)
+                        ? (entryOrIndex as BarChartData)
+                        : typeof index === 'number' && data[index]
+                          ? data[index]
+                          : null
+                const aprueba = payload?.aprueba ?? false
+                if (aprueba) return `${v}% MAYORÍA ALCANZADA`
+                return `${v}%`
               },
               fontSize: 18,
               fill: '#e2e8f0',
@@ -165,16 +170,21 @@ export default function VotacionBarChart({
           maxBarSize={esMobile ? 28 : 40}
           label={{
             position: 'right',
-            formatter: (label: unknown, ...args: unknown[]) => {
-              const v = Number(label ?? 0)
-              const entryOrProps = args[0] as
-                | { payload?: { aprueba?: boolean; votosCantidad?: number }; votosCantidad?: number; aprueba?: boolean }
-                | undefined
-              const p = entryOrProps?.payload ?? entryOrProps
-              const votos = Math.max(0, Number(p?.votosCantidad ?? 0))
-              const suf = votos !== 1 ? 'votos' : 'voto'
-              if (p?.aprueba) return esMobile ? `${v}% ✓` : `${v}% (${votos} ${suf}) MAYORÍA ALCANZADA`
-              return esMobile ? `${v}%` : `${v}% (${votos} ${suf})`
+            formatter: (value: unknown, entryOrIndex: unknown, index?: number) => {
+              const v = Number(value ?? 0)
+              const payload: BarChartData | null =
+                typeof entryOrIndex === 'number' && data[entryOrIndex]
+                  ? data[entryOrIndex]
+                  : typeof entryOrIndex === 'object' && entryOrIndex !== null && 'payload' in (entryOrIndex as object)
+                    ? (entryOrIndex as { payload?: BarChartData }).payload ?? null
+                    : typeof entryOrIndex === 'object' && entryOrIndex !== null && 'votosCantidad' in (entryOrIndex as object)
+                      ? (entryOrIndex as BarChartData)
+                      : typeof index === 'number' && data[index]
+                        ? data[index]
+                        : null
+              const aprueba = payload?.aprueba ?? false
+              if (aprueba) return esMobile ? `${v}% ✓` : `${v}% MAYORÍA ALCANZADA`
+              return `${v}%`
             },
             fontSize: barLabelFontSize,
             fill: '#e2e8f0',
