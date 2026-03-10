@@ -833,24 +833,24 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      <main ref={actaContentRef} className="max-w-4xl mx-auto px-8 py-10 print:py-6 bg-white text-gray-900 print:[&_section]:break-inside-avoid print:[&_table]:break-inside-avoid">
+      <main ref={actaContentRef} className="max-w-4xl mx-auto px-8 py-10 print:py-6 bg-white text-gray-900 print:[&_section]:break-inside-avoid print:[&_table]:break-inside-avoid shadow-sm print:shadow-none rounded-lg print:rounded-none">
 
         {/* ── ENCABEZADO ── */}
         <header className="mb-8 break-inside-avoid">
           <div className="flex items-start justify-between border-b-4 border-gray-900 pb-5">
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1">Votaciones de Asambleas Online</p>
-              <h1 className="text-3xl font-black uppercase tracking-tight text-gray-900">Acta de votación</h1>
+              <h1 className="text-3xl font-black uppercase tracking-tight text-gray-900 leading-tight">Acta de votación</h1>
               {actaModoSoporte && (
-                <p className="text-sm font-semibold text-indigo-700 mt-1">Anexo para soporte general (sin auditoría — para compartir con participantes)</p>
+                <p className="text-sm font-semibold text-indigo-600 mt-2">Versión pública</p>
               )}
             </div>
-            <div className="text-right text-xs text-gray-500 mt-1">
-              <p>Generada: {new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            <div className="text-right text-xs text-gray-500 mt-1 shrink-0 ml-4">
+              <p className="font-medium text-gray-600">Generada: {new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
               {isDemo && <p className="mt-1 text-red-600 font-semibold uppercase">Demo — sin validez legal</p>}
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
+          <div className="mt-5 grid grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
             <div>
               <span className="font-semibold text-gray-600">Asamblea:</span>{' '}
               <span className="text-gray-900 font-medium">{asamblea?.nombre}</span>
@@ -1246,7 +1246,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                   </div>
                   )}
 
-                  {/* Unidades que no participaron en esta pregunta */}
+                  {/* Unidades que no participaron en esta pregunta: en versión pública solo totales; en acta completa tabla con detalle */}
                   {(() => {
                     const noParticiparonPregunta = unidadesNoParticipationPorPregunta[pregunta.id] ?? []
                     if (noParticiparonPregunta.length === 0) return null
@@ -1254,13 +1254,11 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     return (
                       <div className="ml-10 mt-3 break-inside-avoid">
                         <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">
-                          Unidades que no participaron en esta pregunta ({noParticiparonPregunta.length})
+                          Unidades que no participaron en esta pregunta: <strong>{noParticiparonPregunta.length}</strong> unidad(es) · Coeficiente no participante: <strong>{Math.min(100, coefTotal).toFixed(2)}%</strong>
+                          {quorum && <> ({noParticiparonPregunta.length} de {quorum.total_unidades} unidades)</>}
                         </p>
-                        <p className="text-xs text-gray-500 mb-1.5">
-                          Coeficiente no participante: <strong>{Math.min(100, coefTotal).toFixed(2)}%</strong>
-                          {quorum && <> · {noParticiparonPregunta.length} de {quorum.total_unidades} unidades</>}
-                        </p>
-                        <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
+                        {!actaModoSoporte && (
+                        <table className="w-full border-collapse text-xs mt-1.5" style={{ tableLayout: 'fixed' }}>
                           <thead>
                             <tr style={{ background: '#f1f5f9' }}>
                               <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>Torre</th>
@@ -1284,6 +1282,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                             ))}
                           </tbody>
                         </table>
+                        )}
                       </div>
                     )
                   })()}
@@ -1293,24 +1292,26 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </div>
         </section>
 
-        {/* ── RESUMEN: UNIDADES QUE NO VALIDARON ASISTENCIA (al final del acta) ── */}
+        {/* ── RESUMEN: UNIDADES QUE NO VALIDARON ASISTENCIA (al final del acta). Versión pública: solo cantidades y coeficiente. */}
         {resumenNoValidacionPorSesion.length > 0 && resumenNoValidacionPorSesion.some((r) => r.unidades.length > 0) && (
           <section className="mt-10 pt-6 border-t-2 border-gray-200 break-before-page">
             <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-2">Resumen de no participación en la verificación de asistencia</h2>
             <p className="text-xs text-gray-500 mb-4">
               Unidades que no validaron su asistencia (no registraron en la verificación). Diferente a las que no votaron en una pregunta.
             </p>
-            <div className="space-y-6">
+            <div className="space-y-4">
               {resumenNoValidacionPorSesion.filter((r) => r.unidades.length > 0).map((bloque, idx) => {
                 const cierreStr = bloque.cierreAt
                   ? new Date(bloque.cierreAt).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })
                   : ''
+                const coefNoValidaron = bloque.unidades.reduce((s, u) => s + u.coeficiente, 0)
                 return (
                   <div key={idx} className="break-inside-avoid">
-                    <p className="text-xs font-semibold text-indigo-700 mb-1">
-                      {bloque.titulo}{cierreStr ? ` — cierre ${cierreStr}` : ''} · {bloque.unidades.length} unidad(es) no validaron
+                    <p className="text-xs font-semibold text-indigo-700">
+                      {bloque.titulo}{cierreStr ? ` — cierre ${cierreStr}` : ''}: <strong>{bloque.unidades.length}</strong> unidad(es) no validaron · Coeficiente total: <strong>{Math.min(100, coefNoValidaron).toFixed(2)}%</strong>
                     </p>
-                    <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
+                    {!actaModoSoporte && (
+                    <table className="w-full border-collapse text-xs mt-1.5" style={{ tableLayout: 'fixed' }}>
                       <thead>
                         <tr style={{ background: '#f1f5f9' }}>
                           <th className="border border-gray-200 px-2 py-1.5 text-left font-semibold" style={{ width: '9%' }}>Torre</th>
@@ -1334,6 +1335,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                         ))}
                       </tbody>
                     </table>
+                    )}
                   </div>
                 )
               })}
@@ -1416,9 +1418,9 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                 setDescargarSoportePendiente(true)
               }}
             >
-              <span className="font-semibold block">Acta para soporte general (anexo público)</span>
+              <span className="font-semibold block">Acta versión pública</span>
               <span className="text-xs text-gray-500 font-normal mt-0.5">
-                Quórums generales, preguntas con resultados (porcentaje y total en coeficiente), aprobado/no aprobado, unidades que no votaron, ausentes y validaciones de quórum. Sin quién votó qué ni auditoría.
+                Quórums generales, preguntas con resultados (porcentaje y total en coeficiente), aprobado/no aprobado, cantidades de unidades que no votaron o no validaron y coeficiente total. Para compartir con participantes.
               </span>
             </Button>
           </div>
