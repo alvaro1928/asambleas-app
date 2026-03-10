@@ -1146,6 +1146,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       <CardTitle className="text-sm flex items-center gap-1.5">
                         <Radio className="w-4 h-4 text-green-600" />
                         Sesión Activa
+                        <span className="font-bold tabular-nums">({asistentes.length})</span>
                       </CardTitle>
                       <span className="text-xs font-bold text-green-700 dark:text-green-400 bg-green-200 dark:bg-green-800/50 px-2 py-0.5 rounded-full">
                         EN VIVO
@@ -1195,6 +1196,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     <CardTitle className="text-sm flex items-center gap-1.5 text-slate-200">
                       <UserCheck className="w-4 h-4 text-emerald-500" />
                       Ya Votaron
+                      <span className="font-bold tabular-nums">({yaVotaron.length})</span>
                     </CardTitle>
                     <p className="text-xs text-slate-400 mt-1">
                       Tienen registro en votos
@@ -1237,6 +1239,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
                       <UserX className="w-4 h-4" />
                       Pendientes (Faltantes)
+                      <span className="font-bold tabular-nums">({faltantes.length})</span>
                     </CardTitle>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       Unidades que aún no han votado — para localizar y alcanzar quórum
