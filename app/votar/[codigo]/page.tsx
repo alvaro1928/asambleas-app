@@ -1287,26 +1287,26 @@ export default function VotacionPublicaPage() {
                 )}
               </div>
             </div>
-            {/* Tabs */}
-            <div className="flex w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
+            {/* Tabs: min-w-0 y overflow-hidden para que no desborden en móvil */}
+            <div className="flex w-full min-w-0 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setTabActivo(tab.id)}
-                  className={`flex-1 py-2 text-xs sm:text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                  className={`flex-1 min-w-0 py-2 px-1 text-xs sm:text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 overflow-hidden flex items-center justify-center gap-1 ${
                     tabActivo === tab.id
                       ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  <span className="sm:hidden">{tab.short}</span>
+                  <span className="hidden sm:inline truncate">{tab.label}</span>
+                  <span className="sm:hidden truncate">{tab.short}</span>
                   {tab.id === 'votacion' && preguntas.length > 0 && (
-                    <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[9px] font-bold">{preguntas.length}</span>
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[9px] font-bold shrink-0">{preguntas.length}</span>
                   )}
                   {tab.id === 'avance' && todasVotadas && (
-                    <span className="ml-1 text-green-500">✓</span>
+                    <span className="text-green-500 shrink-0">✓</span>
                   )}
                 </button>
               ))}
@@ -1433,13 +1433,13 @@ export default function VotacionPublicaPage() {
                           
                           return (
                             <div key={unidad.id} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-900">
-                              {/* Header de la unidad */}
-                              <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-                                <div>
-                                  <p className="font-bold text-gray-900 dark:text-white">
+                              {/* Header de la unidad: responsive para que "Votado" y opción no desborden */}
+                              <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-bold text-gray-900 dark:text-white truncate">
                                     {unidad.torre} - {unidad.numero}
                                   </p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                                     Coeficiente: {unidad.coeficiente.toFixed(6)}%
                                     {unidad.es_poder && (
                                       <span className="ml-2 text-purple-600 dark:text-purple-400">• Poder</span>
@@ -1447,11 +1447,11 @@ export default function VotacionPublicaPage() {
                                   </p>
                                 </div>
                                 {votoUnidad && (
-                                  <div className="text-right">
-                                    <span className="text-xs bg-green-500 text-white px-2 py-1 rounded-full">
+                                  <div className="shrink-0 flex flex-col items-end gap-0.5 text-right min-w-0 max-w-full">
+                                    <span className="text-xs bg-green-500 text-white px-2 py-1 rounded-full whitespace-nowrap">
                                       ✓ Votado
                                     </span>
-                                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                    <p className="text-xs text-green-600 dark:text-green-400 break-words line-clamp-2">
                                       {votoUnidad.opcion_texto}
                                     </p>
                                   </div>
