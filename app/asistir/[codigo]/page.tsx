@@ -123,19 +123,29 @@ export default function AsistirPage() {
   const [cargandoPreguntas, setCargandoPreguntas] = useState(false)
   const [avanceVotaciones, setAvanceVotaciones] = useState<PreguntaConResultados[]>([])
 
+  const [revalidando, setRevalidando] = useState(false)
+
   // Revalidar estado de la asamblea (verificación activa, pregunta_id) para actualizar pestañas sin recargar
   const revalidar = useCallback(async () => {
     if (!codigo || !token) return
     try {
+      setRevalidando(true)
       const r = await fetch('/api/delegado/validar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ codigo_asamblea: codigo, token }),
+        cache: 'no-store',
       })
       const data = await r.json()
-      if (data.ok) setAsamblea(data)
+      if (data.ok) {
+        // Copia nueva para forzar re-render y que las pestañas se actualicen
+        const { ok: _o, ...resto } = data
+        setAsamblea(resto as AsambleaInfo)
+      }
     } catch {
       // No cambiar step para no expulsar al delegado; solo no actualizar
+    } finally {
+      setRevalidando(false)
     }
   }, [codigo, token])
 
@@ -150,11 +160,13 @@ export default function AsistirPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ codigo_asamblea: codigo, token }),
+      cache: 'no-store',
     })
       .then((r) => r.json())
       .then((data) => {
         if (data.ok) {
-          setAsamblea(data)
+          const { ok: _o, ...resto } = data
+          setAsamblea(resto as AsambleaInfo)
           setStep('ok')
         } else {
           setErrorMsg(data.error || 'Acceso no autorizado')
@@ -319,6 +331,14 @@ export default function AsistirPage() {
       cargarPreguntas()
     }
   }, [step, asamblea])
+
+  // Cuando no hay pestañas, revalidar pronto (2 s) por si el admin acaba de activar verificación
+  useEffect(() => {
+    if (step !== 'ok' || !asamblea || asamblea?.verificacion_asistencia_activa) return
+    if (preguntas.length > 0) return
+    const t = setTimeout(() => revalidar(), 2000)
+    return () => clearTimeout(t)
+  }, [step, asamblea, preguntas.length, revalidar])
 
   // Refresco automático cada 15 s: revalidar (verificación activa / preguntas) y así se recargan unidades y preguntas vía efecto
   useEffect(() => {
@@ -537,8 +557,9 @@ export default function AsistirPage() {
             <p className="text-gray-600 dark:text-gray-400 text-sm">
               Para registrar asistencia o votos, el administrador debe activar la verificación de asistencia o abrir al menos una pregunta de votación.
             </p>
-            <Button variant="outline" size="sm" className="mt-4 rounded-2xl" onClick={() => revalidar()}>
-              <RefreshCw className="w-4 h-4 mr-2" /> Actualizar
+            <Button variant="outline" size="sm" className="mt-4 rounded-2xl" onClick={() => revalidar()} disabled={revalidando}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${revalidando ? 'animate-spin' : ''}`} />
+              {revalidando ? 'Comprobando…' : 'Actualizar'}
             </Button>
           </div>
         )}
