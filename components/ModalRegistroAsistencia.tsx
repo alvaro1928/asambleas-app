@@ -146,6 +146,7 @@ export function ModalRegistroAsistencia({
         return next
       })
     } else {
+      if (idsVisibles.length > 0 && !window.confirm('¿Está seguro de seleccionar todas las unidades mostradas?')) return
       setSeleccionadas((prev) => {
         const next = new Set(prev)
         idsVisibles.forEach((id) => next.add(id))

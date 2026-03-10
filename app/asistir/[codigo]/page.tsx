@@ -18,6 +18,7 @@ interface AsambleaInfo {
   is_demo: boolean
   sandbox_usar_unidades_reales: boolean
   verificacion_pregunta_id?: string | null
+  verificacion_asistencia_activa?: boolean
 }
 
 interface Unidad {
@@ -81,6 +82,7 @@ export default function AsistirPage() {
   const [selAsistencia, setSelAsistencia] = useState<Set<string>>(new Set())
   const [busqAsistencia, setBusqAsistencia] = useState('')
   const [guardandoAsistencia, setGuardandoAsistencia] = useState(false)
+  const [quitandoAsistenciaId, setQuitandoAsistenciaId] = useState<string | null>(null)
   const [msgAsistencia, setMsgAsistencia] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
   const [cargandoUnidades, setCargandoUnidades] = useState(false)
 
@@ -233,6 +235,29 @@ export default function AsistirPage() {
     }
   }, [step, asamblea])
 
+  // Refresco automático cada 15 s en modo delegado
+  useEffect(() => {
+    if (step !== 'ok' || !asamblea) return
+    const t = setInterval(() => {
+      cargarUnidades()
+      cargarPreguntas()
+    }, 15000)
+    return () => clearInterval(t)
+  }, [step, asamblea, cargarUnidades, cargarPreguntas])
+
+  // Pestaña por defecto y validez: asistencia solo si verificación activa, votación solo si hay pregunta abierta
+  const mostrarTabAsistencia = !!asamblea?.verificacion_asistencia_activa
+  const mostrarTabVotacion = preguntas.length > 0
+  const tabsDisponibles = [
+    ...(mostrarTabAsistencia ? [{ id: 'asistencia' as const, label: 'Registrar asistencia', icon: UserCheck }] : []),
+    ...(mostrarTabVotacion ? [{ id: 'votacion' as const, label: 'Registrar votos', icon: Vote }] : []),
+  ]
+  useEffect(() => {
+    if (!mostrarTabAsistencia && !mostrarTabVotacion) return
+    if (tab === 'asistencia' && !mostrarTabAsistencia) setTab('votacion')
+    else if (tab === 'votacion' && !mostrarTabVotacion) setTab('asistencia')
+  }, [tab, mostrarTabAsistencia, mostrarTabVotacion])
+
   // ── Asistencia ────────────────────────────────────────────────────────────
   const guardarAsistencia = async () => {
     if (selAsistencia.size === 0 || guardandoAsistencia || !asamblea) return
@@ -257,6 +282,30 @@ export default function AsistirPage() {
       setMsgAsistencia({ tipo: 'error', texto: 'Error de conexión.' })
     } finally {
       setGuardandoAsistencia(false)
+    }
+  }
+
+  const quitarAsistenciaDelegado = async (unidadId: string) => {
+    if (quitandoAsistenciaId || guardandoAsistencia || !asamblea) return
+    setQuitandoAsistenciaId(unidadId)
+    setMsgAsistencia(null)
+    try {
+      const res = await fetch('/api/delegado/quitar-asistencia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: asamblea.asamblea_id, token, unidad_ids: [unidadId] }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setUnidades((prev) => prev.map((u) => (u.id === unidadId ? { ...u, ya_verifico: false } : u)))
+        setMsgAsistencia({ tipo: 'ok', texto: 'Asistencia quitada. La unidad vuelve a pendientes de verificar.' })
+      } else {
+        setMsgAsistencia({ tipo: 'error', texto: data.error || 'Error al quitar asistencia.' })
+      }
+    } catch {
+      setMsgAsistencia({ tipo: 'error', texto: 'Error de conexión.' })
+    } finally {
+      setQuitandoAsistenciaId(null)
     }
   }
 
@@ -367,27 +416,26 @@ export default function AsistirPage() {
               <RefreshCw className="w-4 h-4" />
             </Button>
           </div>
-          {/* Tabs */}
-          <div className="flex w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
-            {([
-              { id: 'asistencia', label: 'Registrar asistencia', icon: UserCheck },
-              { id: 'votacion', label: 'Registrar votos', icon: Vote },
-            ] as const).map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTab(id)}
-                className={`flex-1 py-2 px-3 text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
-                  tab === id
-                    ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5 shrink-0" />
-                {label}
-              </button>
-            ))}
-          </div>
+          {/* Tabs: solo si hay más de una pestaña disponible */}
+          {tabsDisponibles.length > 1 && (
+            <div className="flex w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
+              {tabsDisponibles.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setTab(id)}
+                  className={`flex-1 py-2 px-3 text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                    tab === id
+                      ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -398,8 +446,21 @@ export default function AsistirPage() {
           <span>Los registros quedarán marcados como <strong>registrados por asistente delegado</strong> en el acta y auditoría.</span>
         </div>
 
+        {/* Sin pestañas disponibles */}
+        {tabsDisponibles.length === 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 p-6 text-center">
+            <UserCheck className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
+              Para registrar asistencia o votos, el administrador debe activar la verificación de asistencia o abrir al menos una pregunta de votación.
+            </p>
+            <Button variant="outline" size="sm" className="mt-4 rounded-2xl" onClick={() => { cargarUnidades(); cargarPreguntas() }}>
+              <RefreshCw className="w-4 h-4 mr-2" /> Actualizar
+            </Button>
+          </div>
+        )}
+
         {/* ── TAB ASISTENCIA ── */}
-        {tab === 'asistencia' && (
+        {mostrarTabAsistencia && tab === 'asistencia' && (
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="bg-indigo-600 px-5 py-4">
               <h2 className="text-white font-bold flex items-center gap-2">
@@ -434,6 +495,7 @@ export default function AsistirPage() {
                       if (todasSel) {
                         setSelAsistencia((p) => { const n = new Set(p); pendientes.forEach((id) => n.delete(id)); return n })
                       } else {
+                        if (pendientes.length > 0 && !window.confirm('¿Está seguro de seleccionar todas las unidades mostradas?')) return
                         setSelAsistencia((p) => { const n = new Set(p); pendientes.forEach((id) => n.add(id)); return n })
                       }
                     }}
@@ -486,8 +548,16 @@ export default function AsistirPage() {
                           </div>
                           <span className="text-xs text-gray-400 shrink-0">{u.coeficiente.toFixed(3)}%</span>
                           {u.ya_verifico && (
-                            <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1 shrink-0">
+                            <span className="text-xs text-emerald-600 font-semibold flex items-center gap-2 shrink-0">
                               <CheckCircle2 className="w-3.5 h-3.5" /> Verificada
+                              <button
+                                type="button"
+                                className="text-amber-600 dark:text-amber-400 hover:underline"
+                                onClick={() => quitarAsistenciaDelegado(u.id)}
+                                disabled={quitandoAsistenciaId === u.id || guardandoAsistencia}
+                              >
+                                {quitandoAsistenciaId === u.id ? 'Quitando...' : 'Quitar'}
+                              </button>
                             </span>
                           )}
                         </label>
@@ -518,7 +588,7 @@ export default function AsistirPage() {
         )}
 
         {/* ── TAB VOTACIÓN ── */}
-        {tab === 'votacion' && (
+        {mostrarTabVotacion && tab === 'votacion' && (
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-4">
               <h2 className="text-white font-bold flex items-center gap-2">
@@ -615,7 +685,10 @@ export default function AsistirPage() {
                                 const ids = unidadesSinVotar.map((u) => u.id)
                                 const todasSel = ids.every((id) => selVotacion.has(id))
                                 if (todasSel) setSelVotacion(new Set())
-                                else setSelVotacion(new Set(ids))
+                                else {
+                                  if (ids.length > 0 && !window.confirm('¿Está seguro de seleccionar todas las unidades para registrar el voto?')) return
+                                  setSelVotacion(new Set(ids))
+                                }
                               }}
                             >
                               {unidadesSinVotar.every((u) => selVotacion.has(u.id)) && unidadesSinVotar.length > 0
