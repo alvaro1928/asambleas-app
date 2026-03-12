@@ -858,6 +858,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     return digits || ''
   }
 
+  /** Separa un campo de correo por coma, punto y coma o espacios y devuelve direcciones válidas (para envío masivo). */
+  const splitEmails = (raw: string | null | undefined): string[] => {
+    if (!raw || typeof raw !== 'string') return []
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return raw
+      .split(/[,;\s]+/)
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s && re.test(s))
+  }
+
   const openModalEnviarEnlace = async () => {
     const tieneEnlace = asamblea?.codigo_acceso || asamblea?.url_publica
     if (!asamblea?.organization_id || !tieneEnlace) return
@@ -907,12 +917,13 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     return data as { enviados: number; total: number; errores?: string[] }
   }
 
-  const abrirCorreoUnidad = async (email: string) => {
-    if (!email?.trim()) return
-    setEnviandoCorreoEmail(email.trim())
+  const abrirCorreoUnidad = async (emailRaw: string) => {
+    const emails = splitEmails(emailRaw)
+    if (emails.length === 0) return
+    setEnviandoCorreoEmail(emailRaw.trim())
     try {
-      const data = await enviarCorreoPorApi([email.trim()])
-      toast.success(data.enviados >= 1 ? 'Correo enviado correctamente' : 'No se pudo enviar')
+      const data = await enviarCorreoPorApi(emails)
+      toast.success(data.enviados >= 1 ? `Enviado(s) ${data.enviados} de ${data.total} correo(s).` : 'No se pudo enviar')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al enviar el correo')
     } finally {
@@ -954,9 +965,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
-  const correosRegistrados = unidadesParaEnvio
-    .map((u) => (u.email_propietario || u.email)?.trim())
-    .filter((e): e is string => !!e)
+  const correosRegistrados = [...new Set(
+    unidadesParaEnvio.flatMap((u) => splitEmails(u.email_propietario || u.email))
+  )]
   const abrirCorreoATodos = async () => {
     if (correosRegistrados.length === 0) {
       toast.error('No hay unidades con correo registrado')

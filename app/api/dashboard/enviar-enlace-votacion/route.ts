@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
 
     const { data: asamblea, error: asambleaError } = await supabase
       .from('asambleas')
-      .select('id, nombre, codigo_acceso, url_publica, organization_id, fecha')
+      .select('id, nombre, codigo_acceso, url_publica, organization_id, fecha, is_demo, sandbox_usar_unidades_reales')
       .eq('id', asamblea_id)
       .single()
 
@@ -120,6 +120,8 @@ export async function POST(request: NextRequest) {
     }
 
     const orgId = asamblea.organization_id
+    const asambleaRow = asamblea as { is_demo?: boolean; sandbox_usar_unidades_reales?: boolean }
+    const soloUnidadesDemo = asambleaRow?.is_demo === true && !(asambleaRow?.sandbox_usar_unidades_reales === true)
     const { data: profile } = await supabase
       .from('profiles')
       .select('id')
@@ -139,24 +141,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { data: unidades } = await supabase
+    let queryUnidades = supabase
       .from('unidades')
       .select('id, email_propietario, email, torre, numero')
       .eq('organization_id', orgId)
+    queryUnidades = soloUnidadesDemo ? queryUnidades.eq('is_demo', true) : queryUnidades.or('is_demo.eq.false,is_demo.is.null')
+    const { data: unidades } = await queryUnidades
 
-    const todosEmails: string[] = []
-    for (const u of unidades ?? []) {
-      const e = (u.email_propietario ?? u.email)?.trim()
-      if (e && !todosEmails.includes(e)) todosEmails.push(e)
+    const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const splitEmails = (raw: string | null | undefined): string[] => {
+      if (!raw || typeof raw !== 'string') return []
+      return raw
+        .split(/[,;\s]+/)
+        .map((s) => s.trim().toLowerCase())
+        .filter((s) => s && reEmail.test(s))
     }
+    const todosEmailsSet = new Set<string>()
+    for (const u of unidades ?? []) {
+      const raw = (u as { email_propietario?: string | null; email?: string | null }).email_propietario ?? (u as { email?: string | null }).email
+      for (const e of splitEmails(raw)) todosEmailsSet.add(e)
+    }
+    const todosEmails = Array.from(todosEmailsSet)
 
+    const todosEmailsLower = new Set(todosEmails.map((e) => e.toLowerCase()))
     const emailsRegistrados =
       emailsParam === undefined
         ? todosEmails
         : Array.isArray(emailsParam)
-          ? emailsParam
-              .map((e) => (e && String(e).trim()).toLowerCase())
-              .filter((e) => e && todosEmails.some((t) => t.toLowerCase() === e))
+          ? [...new Set(emailsParam.flatMap((e) => splitEmails(e && String(e))).filter((e) => todosEmailsLower.has(e)))]
           : []
 
     const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
