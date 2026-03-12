@@ -171,7 +171,6 @@ export async function POST(request: NextRequest) {
           ? [...new Set(emailsParam.flatMap((e) => splitEmails(e && String(e))).filter((e) => todosEmailsLower.has(e)))]
           : []
 
-    const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     const adicionales = Array.isArray(emailsAdicionalesParam)
       ? emailsAdicionalesParam
           .map((e) => (e && String(e).trim()).toLowerCase())
