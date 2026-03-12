@@ -864,12 +864,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     setShowModalEnviarEnlace(true)
     setLoadingUnidadesEnvio(true)
     try {
-      const { data } = await supabase
+      // En asambleas no sandbox solo unidades reales; en sandbox según sandbox_usar_unidades_reales (demo o reales)
+      const soloUnidadesDemo = asamblea?.is_demo === true && !(asamblea?.sandbox_usar_unidades_reales === true)
+      let query = supabase
         .from('unidades')
         .select('id, torre, numero, email_propietario, telefono_propietario, email, telefono')
         .eq('organization_id', asamblea.organization_id)
         .order('torre')
         .order('numero')
+      query = soloUnidadesDemo ? query.eq('is_demo', true) : query.or('is_demo.eq.false,is_demo.is.null')
+      const { data } = await query
       setUnidadesParaEnvio(data ?? [])
     } catch (e) {
       console.error('Error cargando unidades para envío:', e)
