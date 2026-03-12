@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, UserCheck, Vote, Search, RefreshCw, AlertTriangle, Users, HelpCircle } from 'lucide-react'
+import { CheckCircle2, UserCheck, Vote, Search, RefreshCw, AlertTriangle, Users, HelpCircle, Settings2, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import type { BarChartData } from '@/components/charts/VotacionBarChart'
@@ -182,7 +183,7 @@ export default function AsistirPage() {
       })
   }, [codigo, token])
 
-  // ── Cargar unidades (ya_verifico según sesión actual; es_poder para etiqueta) ──────────────────────────────────────
+  // ── Cargar unidades (ya_verifico según sesión actual; es_poder para etiqueta). Sandbox: demo o reales según sandbox_usar_unidades_reales; misma UI y ayuda para real y sandbox. ──
   const cargarUnidades = useCallback(async () => {
     if (!asamblea) return
     const silent = isBackgroundRefreshRef.current
@@ -609,6 +610,36 @@ export default function AsistirPage() {
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>Los registros quedarán marcados como <strong>registrados por asistente delegado</strong> en el acta y auditoría.</span>
         </div>
+
+        {/* Acceso rápido al panel: unidades y poderes (para actualizar datos o agregar poderes) */}
+        {asamblea?.asamblea_id && asamblea?.organization_id && (
+          <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3">
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wide">Gestión en el panel</p>
+            <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">Si necesitas actualizar información de unidades o agregar poderes, abre el panel del administrador:</p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/dashboard/unidades?volver_asamblea=${asamblea.asamblea_id}&conjunto_id=${asamblea.organization_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+              >
+                <Settings2 className="w-4 h-4" />
+                Unidades
+                <ExternalLink className="w-3 h-3 opacity-70" />
+              </Link>
+              <Link
+                href={`/dashboard/asambleas/${asamblea.asamblea_id}/poderes`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+              >
+                <Users className="w-4 h-4" />
+                Poderes
+                <ExternalLink className="w-3 h-3 opacity-70" />
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Sin pestañas disponibles */}
         {tabsDisponibles.length === 0 && (

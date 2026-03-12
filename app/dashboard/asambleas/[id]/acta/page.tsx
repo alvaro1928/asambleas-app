@@ -525,7 +525,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     }
   }, [params.id])
 
-  /** Tras elegir "versión pública", el DOM debe re-renderizar sin auditoría ni votación por unidad; esperamos al siguiente paint y luego generamos el PDF */
+  /** Tras elegir "versión pública", el DOM debe re-renderizar sin auditoría; delay y layout aplican igual para asambleas reales y sandbox/demo. */
   useEffect(() => {
     if (!actaModoSoporte || !descargarSoportePendiente) return
     const conAnexos = descargarSoporteConAnexosRef.current

@@ -123,6 +123,7 @@ export default function VotacionPublicaPage() {
   const [consentimientoAceptado, setConsentimientoAceptado] = useState(false)
   const [guardandoConsentimiento, setGuardandoConsentimiento] = useState(false)
   const [avanceColapsado, setAvanceColapsado] = useState(false)
+  /** Modal de ayuda al votante; misma UI y ayuda para asambleas reales y sandbox. */
   const [showAyudaVotar, setShowAyudaVotar] = useState(false)
 
   // --- Verificación de Quórum ---
