@@ -161,6 +161,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   /** Cuando la verificación está activa por pregunta: stats en vivo de esa pregunta (no mezclar con general) */
   const [statsVerificacionPreguntaActiva, setStatsVerificacionPreguntaActiva] = useState<VerifStats | null>(null)
   const [openHistorialQuorumGeneral, setOpenHistorialQuorumGeneral] = useState(false)
+  // Abrir historial de quórum general cuando hay sesiones cerradas (p. ej. al reabrir la asamblea) para que sea visible
+  useEffect(() => {
+    if (sesionesQuorumGeneral.length > 0) setOpenHistorialQuorumGeneral(true)
+  }, [sesionesQuorumGeneral.length])
   const [refrescandoAvance, setRefrescandoAvance] = useState(false)
 
   // Acceso Público: secciones colapsables
@@ -535,14 +539,35 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         setQuorum(rpcData[0])
       }
 
-      // Tarjeta "Asistencia verificada" (arriba): solo verificaciones GENERALES (pregunta_id null). Usar override si viene del polling para no depender de estado stale.
+      // Tarjeta "Asistencia verificada" (arriba): solo verificaciones GENERALES (pregunta_id null). Si la sesión actual está vacía (p. ej. al reabrir), mostrar última sesión cerrada para no perder el dato.
+      const cargarUltimaGeneralCerrada = async (): Promise<VerifStats | null> => {
+        const { data: ultimaGeneral } = await supabase
+          .from('verificacion_asamblea_sesiones')
+          .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
+          .eq('asamblea_id', params.id)
+          .is('pregunta_id', null)
+          .not('cierre_at', 'is', null)
+          .order('cierre_at', { ascending: false })
+          .limit(1)
+        if (ultimaGeneral?.length) {
+          const u = ultimaGeneral[0] as VerifStats
+          return {
+            total_verificados: Number(u.total_verificados) ?? 0,
+            coeficiente_verificado: Number(u.coeficiente_verificado) ?? 0,
+            porcentaje_verificado: Number(u.porcentaje_verificado) ?? 0,
+            quorum_alcanzado: !!u.quorum_alcanzado,
+          }
+        }
+        return null
+      }
       if (verifActiva && esModoGeneral) {
         const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
           p_asamblea_id: params.id,
           p_pregunta_id: null,
           p_solo_sesion_actual: true,
         })
-        if (verData?.length) {
+        const totalActual = verData?.length ? Number((verData[0] as VerifStats).total_verificados) || 0 : 0
+        if (verData?.length && totalActual > 0) {
           const v = verData[0] as VerifStats
           setStatsVerificacion({
             total_verificados: Number(v.total_verificados) || 0,
@@ -551,23 +576,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             quorum_alcanzado: !!v.quorum_alcanzado,
           })
         } else {
-          // Sesión recién cerrada o sin sesión abierta: usar última general cerrada para no mostrar 0%
-          const { data: ultimaGeneral } = await supabase
-            .from('verificacion_asamblea_sesiones')
-            .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
-            .eq('asamblea_id', params.id)
-            .is('pregunta_id', null)
-            .not('cierre_at', 'is', null)
-            .order('cierre_at', { ascending: false })
-            .limit(1)
-          if (ultimaGeneral?.length) {
-            const u = ultimaGeneral[0] as VerifStats
-            setStatsVerificacion({
-              total_verificados: Number(u.total_verificados) ?? 0,
-              coeficiente_verificado: Number(u.coeficiente_verificado) ?? 0,
-              porcentaje_verificado: Number(u.porcentaje_verificado) ?? 0,
-              quorum_alcanzado: !!u.quorum_alcanzado,
-            })
+          const ultima = await cargarUltimaGeneralCerrada()
+          if (ultima) {
+            setStatsVerificacion(ultima)
           } else {
             setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
           }
