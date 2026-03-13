@@ -965,9 +965,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
-  const correosRegistrados = [...new Set(
-    unidadesParaEnvio.flatMap((u) => splitEmails(u.email_propietario || u.email))
-  )]
+  const correosRegistrados = Array.from(
+    new Set(unidadesParaEnvio.flatMap((u) => splitEmails(u.email_propietario || u.email)))
+  )
   const abrirCorreoATodos = async () => {
     if (correosRegistrados.length === 0) {
       toast.error('No hay unidades con correo registrado')
