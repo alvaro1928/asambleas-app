@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
       emailsParam === undefined
         ? todosEmails
         : Array.isArray(emailsParam)
-          ? [...new Set(emailsParam.flatMap((e) => splitEmails(e && String(e))).filter((e) => todosEmailsLower.has(e)))]
+          ? Array.from(new Set(emailsParam.flatMap((e) => splitEmails(e && String(e))).filter((e) => todosEmailsLower.has(e))))
           : []
 
     const adicionales = Array.isArray(emailsAdicionalesParam)
