@@ -91,7 +91,16 @@ export async function GET() {
     const conjuntosQuePagaron = new Set((pagosResumen || []).map((r) => (r as { organization_id: string }).organization_id)).size
     const dineroTotalCentavos = (pagosResumen || []).reduce((acc, r) => acc + Number((r as { monto: number }).monto ?? 0), 0)
 
-    const orgIds = (orgs || []).map((o) => o.id)
+    const orgIds = (orgs || []).map((o) => o.id) as string[]
+
+    const { data: asambleasActivasFinalizadas } = await admin
+      .from('asambleas')
+      .select('organization_id')
+      .in('organization_id', orgIds)
+      .in('estado', ['activa', 'finalizada'])
+    const orgIdsConAsambleasActivasFinalizadas = new Set(
+      (asambleasActivasFinalizadas || []).map((a) => (a as { organization_id: string }).organization_id)
+    )
 
     const { data: unidades } = await admin
       .from('unidades')
@@ -130,6 +139,7 @@ export async function GET() {
         unidades_count: countByOrg[id] ?? 0,
         admin_email: adminEmailByOrg[id] ?? null,
         plan_status: (o as { plan_status?: string }).plan_status ?? null,
+        puede_eliminar: !orgIdsConAsambleasActivasFinalizadas.has(id),
       }
     })
 
@@ -369,6 +379,21 @@ export async function DELETE(request: NextRequest) {
     }
 
     const orgId = org.id as string
+
+    const { data: asambleasActivasFinalizadas } = await admin
+      .from('asambleas')
+      .select('id')
+      .eq('organization_id', orgId)
+      .in('estado', ['activa', 'finalizada'])
+    if (asambleasActivasFinalizadas && asambleasActivasFinalizadas.length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            'No se puede eliminar el conjunto porque tiene asambleas activas o finalizadas. Solo se pueden eliminar conjuntos sin asambleas o cuyas asambleas estén todas en borrador.',
+        },
+        { status: 400 }
+      )
+    }
 
     const { data: asambleas } = await admin.from('asambleas').select('id').eq('organization_id', orgId)
     const asambleaIds = (asambleas || []).map((a) => (a as { id: string }).id)

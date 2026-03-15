@@ -14,6 +14,7 @@ import { useToast } from '@/components/providers/ToastProvider'
 interface ConjuntoRow {
   id: string
   name: string
+  puede_eliminar?: boolean
 }
 
 export default function SuperAdminConjuntosPage() {
@@ -55,7 +56,11 @@ export default function SuperAdminConjuntosPage() {
         }
         if (!res.ok) return
         const data = await res.json()
-        const rows = (data.conjuntos || []).map((c: ConjuntoRow) => ({ id: c.id, name: c.name }))
+        const rows = (data.conjuntos || []).map((c: ConjuntoRow) => ({
+          id: c.id,
+          name: c.name,
+          puede_eliminar: c.puede_eliminar !== false,
+        }))
         setConjuntos(rows)
       } catch {
         router.replace('/login?redirect=/super-admin/conjuntos')
@@ -195,14 +200,16 @@ export default function SuperAdminConjuntosPage() {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                        className={c.puede_eliminar ? 'text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20' : 'text-gray-400 cursor-not-allowed dark:text-gray-500'}
+                        disabled={!c.puede_eliminar}
                         onClick={(e) => {
                           e.preventDefault()
+                          if (!c.puede_eliminar) return
                           setConjuntoToDelete(c)
                           setConfirmStep(1)
                           setConfirmInput('')
                         }}
-                        title="Eliminar conjunto"
+                        title={c.puede_eliminar ? 'Eliminar conjunto' : 'Solo se puede eliminar si no tiene asambleas activas o finalizadas'}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -232,12 +239,12 @@ export default function SuperAdminConjuntosPage() {
             <DialogDescription>
               {conjuntoToDelete && confirmStep === 1 && (
                 <span>
-                  El conjunto <strong>«{conjuntoToDelete.name}»</strong> se eliminará de forma permanente, junto con todas sus asambleas, actas, preguntas, votos, poderes, unidades y datos asociados. Esta acción no se puede deshacer.
+                  El conjunto <strong>«{conjuntoToDelete.name}»</strong> se eliminará de forma permanente, junto con todas sus asambleas, actas, preguntas, votos, poderes, unidades y datos asociados. Esta acción no se puede deshacer. Solo puede eliminarse porque no tiene asambleas activas ni finalizadas.
                 </span>
               )}
               {conjuntoToDelete && confirmStep === 2 && (
                 <span>
-                  Escribe el nombre del conjunto exactamente como aparece para confirmar:
+                  Para confirmar que está consciente de la eliminación irreversible, escriba el nombre del conjunto exactamente como aparece:
                 </span>
               )}
             </DialogDescription>
@@ -262,7 +269,7 @@ export default function SuperAdminConjuntosPage() {
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Advertencia</AlertTitle>
               <AlertDescription>
-                Se eliminarán el conjunto, todas las asambleas, actas, preguntas, votos, poderes, unidades y registros asociados. Los usuarios quedarán desvinculados del conjunto. Esta acción no se puede deshacer.
+                Se eliminarán el conjunto, todas las asambleas, actas, preguntas, votos, poderes, unidades y registros asociados. Los usuarios quedarán desvinculados del conjunto. Esta acción es permanente e irreversible. Asegúrese de estar consciente antes de continuar.
               </AlertDescription>
             </Alert>
           )}
