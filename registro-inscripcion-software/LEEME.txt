@@ -1,0 +1,32 @@
+========================================
+INSCRIPCIÓN DE SOFTWARE - ASAMBLEAS APP
+========================================
+
+Esta carpeta contiene lo necesario para el Paso 4 del registro (archivos adjuntos).
+
+--- DOCUMENTOS ---
+
+1. Descripcion-del-programa-Asambleas-App.html
+   → Abrirlo en Microsoft Word y guardar como:
+     "Descripcion-del-programa-Asambleas-App.docx"
+   → Adjuntar ese .docx en "Descripción del Programa de Computador" (formatos: docx, DOCX).
+
+2. Material-auxiliar-Asambleas-App.html (opcional)
+   → Abrirlo en el navegador, Imprimir → Guardar como PDF.
+   → Adjuntar el PDF (o un ZIP con el PDF) en "Material Auxiliar" (formatos: pdf, zip).
+
+--- CÓDIGO FUENTE (Programa de computador) ---
+
+3. Ejecutar el script para generar el ZIP del código:
+   → En PowerShell, desde la raíz del proyecto (asambleas-app):
+     .\registro-inscripcion-software\crear-zip-codigo.ps1
+   → Se creará: codigo-fuente-Asambleas-App.zip
+   → Adjuntar ese .zip en "Programa de Computador" (formatos: rar, zip, apk).
+
+   El ZIP incluye todo el código en el repositorio (sin node_modules, .env ni archivos ignorados).
+
+--- TRANSFERENCIA DE DERECHOS ---
+
+Si tú eres el autor y no has cedido derechos: marcar "No".
+
+========================================
