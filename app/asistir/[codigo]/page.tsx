@@ -348,13 +348,13 @@ export default function AsistirPage() {
     return () => clearTimeout(t)
   }, [step, asamblea?.verificacion_asistencia_activa, preguntas.length, revalidar])
 
-  // Refresco automático cada 2 min: revalidar en segundo plano (sin mostrar carga para que la tabla no desaparezca)
+  // Refresco automático cada 1 min: revalidar en segundo plano (sin mostrar carga para que la tabla no desaparezca)
   useEffect(() => {
     if (step !== 'ok' || !asamblea) return
     const t = setInterval(() => {
       isBackgroundRefreshRef.current = true
       revalidar()
-    }, 120000)
+    }, 60000)
     return () => clearInterval(t)
   }, [step, asamblea, revalidar])
 
