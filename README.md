@@ -41,3 +41,7 @@ Aplicación SaaS para asambleas de propiedades horizontales: votaciones, quórum
 ## Documentación
 
 Índice completo: **[docs/README.md](docs/README.md)** — resumen de la app, guías de uso, configuración, despliegue, Supabase, referencia técnica, pruebas y UX.
+
+## Licencia
+
+Este proyecto es **propietario** y el código se ofrece en formato **source available** (código visible) para auditoría y verificación. No está bajo una licencia open source (MIT, GPL, etc.): el uso en producción, la distribución y el uso comercial requieren una **licencia o acuerdo** con el titular. Detalles en [LICENSE](LICENSE).
