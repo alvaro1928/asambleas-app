@@ -4,8 +4,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Building2, ArrowLeft, MapPin, FileText, Home, Edit, Trash2, Copy } from 'lucide-react'
+import { Building2, ArrowLeft, MapPin, FileText, Home, Edit, Trash2, Copy, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useToast } from '@/components/providers/ToastProvider'
 
 interface Conjunto {
@@ -17,6 +20,7 @@ interface Conjunto {
   city?: string
   created_at: string
   unidades_count: number
+  puede_eliminar?: boolean
 }
 
 export default function ConjuntosPage() {
@@ -24,6 +28,10 @@ export default function ConjuntosPage() {
   const [conjuntos, setConjuntos] = useState<Conjunto[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const [conjuntoToDelete, setConjuntoToDelete] = useState<Conjunto | null>(null)
+  const [confirmStep, setConfirmStep] = useState<1 | 2>(1)
+  const [confirmInput, setConfirmInput] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     loadConjuntos()
@@ -62,6 +70,14 @@ export default function ConjuntosPage() {
                 .select('*', { count: 'exact', head: true })
                 .eq('organization_id', org.id)
 
+              // Solo se puede eliminar si no tiene asambleas activas ni finalizadas
+              const { data: asambleasActivasFinalizadas } = await supabase
+                .from('asambleas')
+                .select('id')
+                .eq('organization_id', org.id)
+                .in('estado', ['activa', 'finalizada'])
+              const puede_eliminar = !asambleasActivasFinalizadas || asambleasActivasFinalizadas.length === 0
+
               return {
                 id: org.id,
                 name: org.name,
@@ -71,6 +87,7 @@ export default function ConjuntosPage() {
                 city: org.city,
                 created_at: org.created_at,
                 unidades_count: count || 0,
+                puede_eliminar,
               }
             })
         )
@@ -88,6 +105,43 @@ export default function ConjuntosPage() {
   const handleSelectConjunto = (conjuntoId: string) => {
     localStorage.setItem('selectedConjuntoId', conjuntoId)
     router.push('/dashboard')
+  }
+
+  const closeDeleteModal = () => {
+    setConjuntoToDelete(null)
+    setConfirmStep(1)
+    setConfirmInput('')
+  }
+
+  const handleConfirmDeleteConjunto = async () => {
+    if (!conjuntoToDelete) return
+    if (confirmStep === 1) {
+      setConfirmStep(2)
+      return
+    }
+    if (confirmInput.trim() !== conjuntoToDelete.name.trim()) return
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/dashboard/eliminar-conjunto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: conjuntoToDelete.id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data?.error || 'Error al eliminar el conjunto')
+        return
+      }
+      setConjuntos((prev) => prev.filter((c) => c.id !== conjuntoToDelete.id))
+      closeDeleteModal()
+      toast.success('Conjunto eliminado correctamente')
+      if (typeof window !== 'undefined') {
+        const current = localStorage.getItem('selectedConjuntoId')
+        if (current === conjuntoToDelete.id) localStorage.removeItem('selectedConjuntoId')
+      }
+    } finally {
+      setDeleting(false)
+    }
   }
 
   if (loading) {
@@ -243,26 +297,111 @@ export default function ConjuntosPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex space-x-3">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 min-w-0"
                       onClick={() => handleSelectConjunto(conjunto.id)}
                     >
                       Administrar
                     </Button>
-                    <Link href={`/dashboard/conjuntos/${conjunto.id}/editar`} className="flex-1">
+                    <Link href={`/dashboard/conjuntos/${conjunto.id}/editar`} className="flex-1 min-w-0">
                       <Button variant="outline" className="w-full">
                         <Edit className="w-4 h-4 mr-2" />
                         Editar
                       </Button>
-                    </Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className={conjunto.puede_eliminar ? 'text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 shrink-0' : 'text-gray-400 cursor-not-allowed dark:text-gray-500 shrink-0'}
+                      disabled={!conjunto.puede_eliminar}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        if (!conjunto.puede_eliminar) return
+                        setConjuntoToDelete(conjunto)
+                        setConfirmStep(1)
+                        setConfirmInput('')
+                      }}
+                      title={conjunto.puede_eliminar ? 'Eliminar conjunto' : 'Solo se puede eliminar si no tiene asambleas activas o finalizadas'}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
         )}
+
+      {/* Modal: confirmación eliminar conjunto */}
+      <Dialog open={conjuntoToDelete !== null} onOpenChange={(open) => !open && closeDeleteModal()}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {confirmStep === 1 ? '¿Eliminar este conjunto?' : 'Confirmar eliminación'}
+            </DialogTitle>
+            <DialogDescription>
+              {conjuntoToDelete && confirmStep === 1 && (
+                <span>
+                  El conjunto <strong>«{conjuntoToDelete.name}»</strong> se eliminará de forma permanente, junto con todas sus asambleas, actas, preguntas, votos, poderes, unidades y datos asociados. Esta acción no se puede deshacer. Solo puede eliminarse porque no tiene asambleas activas ni finalizadas.
+                </span>
+              )}
+              {conjuntoToDelete && confirmStep === 2 && (
+                <span>
+                  Para confirmar que está consciente de la eliminación irreversible, escriba el nombre del conjunto exactamente como aparece:
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {confirmStep === 2 && conjuntoToDelete && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Nombre a escribir: <strong className="text-gray-900 dark:text-white">«{conjuntoToDelete.name}»</strong>
+              </p>
+              <Input
+                type="text"
+                value={confirmInput}
+                onChange={(e) => setConfirmInput(e.target.value)}
+                placeholder="Escribe el nombre aquí"
+                className="rounded-xl"
+                autoFocus
+              />
+            </div>
+          )}
+          {confirmStep === 1 && (
+            <Alert variant="destructive" className="my-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Advertencia</AlertTitle>
+              <AlertDescription>
+                Se eliminarán el conjunto, todas las asambleas, actas, preguntas, votos, poderes, unidades y registros asociados. Esta acción es permanente e irreversible. Asegúrese de estar consciente antes de continuar.
+              </AlertDescription>
+            </Alert>
+          )}
+          <div className="flex gap-3 pt-4">
+            <Button variant="outline" onClick={closeDeleteModal} disabled={deleting} className="flex-1">
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDeleteConjunto}
+              disabled={deleting || (confirmStep === 2 && confirmInput.trim() !== conjuntoToDelete?.name.trim())}
+              className="flex-1"
+            >
+              {deleting ? (
+                <>
+                  <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent inline-block mr-2" />
+                  Eliminando...
+                </>
+              ) : confirmStep === 1 ? (
+                'Continuar'
+              ) : (
+                'Confirmar eliminación'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       </main>
     </div>
   )
