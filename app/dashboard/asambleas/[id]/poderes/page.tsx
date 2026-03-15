@@ -600,17 +600,25 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   Consultar Unidades
                 </Button>
               </Link>
-              <Link href={`/dashboard/asambleas/${params.id}/poderes/importar`}>
-                <Button
-                  variant="outline"
-                  className="border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                >
+              {asamblea?.estado === 'finalizada' ? (
+                <Button variant="outline" disabled className="opacity-60 cursor-not-allowed border-purple-300 dark:border-purple-700">
                   <Upload className="w-4 h-4 mr-2" />
                   Importar Excel
                 </Button>
-              </Link>
+              ) : (
+                <Link href={`/dashboard/asambleas/${params.id}/poderes/importar`}>
+                  <Button
+                    variant="outline"
+                    className="border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Importar Excel
+                  </Button>
+                </Link>
+              )}
               <Button
-                onClick={() => setShowNewPoder(true)}
+                onClick={() => asamblea?.estado !== 'finalizada' && setShowNewPoder(true)}
+                disabled={asamblea?.estado === 'finalizada'}
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -622,6 +630,16 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {asamblea?.estado === 'finalizada' && (
+          <Alert className="mb-6 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <AlertTitle className="text-amber-900 dark:text-amber-100">Asamblea cerrada</AlertTitle>
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
+              No puedes agregar, modificar ni revocar poderes. Reabre la asamblea desde el detalle de la asamblea para habilitar la gestión.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Mensaje de éxito */}
         {successMessage && (
           <Alert className="mb-6 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
@@ -805,6 +823,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                                   setReemplazandoPoderId(poder.id)
                                   setArchivoReemplazo(null)
                                 }}
+                                disabled={asamblea?.estado === 'finalizada'}
+                                title={asamblea?.estado === 'finalizada' ? 'Asamblea cerrada' : undefined}
                               >
                                 Reemplazar
                               </Button>
@@ -818,6 +838,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                                 setReemplazandoPoderId(poder.id)
                                 setArchivoReemplazo(null)
                               }}
+                              disabled={asamblea?.estado === 'finalizada'}
+                              title={asamblea?.estado === 'finalizada' ? 'Asamblea cerrada' : undefined}
                             >
                               Cargar documento
                             </Button>
@@ -854,9 +876,10 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleRevocarPoder(poder.id)}
+                            onClick={() => asamblea?.estado !== 'finalizada' && handleRevocarPoder(poder.id)}
+                            disabled={asamblea?.estado === 'finalizada'}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            title="Revocar este poder"
+                            title={asamblea?.estado === 'finalizada' ? 'Asamblea cerrada' : 'Revocar este poder'}
                           >
                             <XCircle className="w-4 h-4 mr-1" />
                             Revocar
@@ -1203,7 +1226,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               </Button>
               <Button
                 onClick={handleCreatePoder}
-                disabled={savingPoder || !selectedOtorgante || !emailReceptor.trim() || !nombreReceptor.trim() || (!apoderadoEsTercero && !selectedReceptor)}
+                disabled={savingPoder || asamblea?.estado === 'finalizada' || !selectedOtorgante || !emailReceptor.trim() || !nombreReceptor.trim() || (!apoderadoEsTercero && !selectedReceptor)}
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
               >
                 {savingPoder ? (
@@ -1275,7 +1298,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               <Button variant="outline" onClick={() => { setReemplazandoPoderId(null); setArchivoReemplazo(null) }} disabled={reemplazando}>
                 Cancelar
               </Button>
-              <Button onClick={handleReemplazarDocumento} disabled={!archivoReemplazo || reemplazando}>
+              <Button onClick={handleReemplazarDocumento} disabled={!archivoReemplazo || reemplazando || asamblea?.estado === 'finalizada'}>
                 {reemplazando ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />

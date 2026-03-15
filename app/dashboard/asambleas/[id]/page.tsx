@@ -1514,6 +1514,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     try {
       await supabase.rpc('cerrar_sesiones_verificacion_abiertas', { p_asamblea_id: asamblea.id }).then(() => {})
       await supabase.from('preguntas').update({ estado: 'cerrada' }).eq('asamblea_id', asamblea.id).eq('estado', 'abierta')
+      if (asamblea.acceso_publico) {
+        await supabase.rpc('desactivar_votacion_publica', { p_asamblea_id: asamblea.id }).then(() => {})
+      }
       const { error } = await supabase
         .from('asambleas')
         .update({
@@ -1527,6 +1530,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       setAsamblea({
         ...asamblea,
         estado: 'finalizada',
+        acceso_publico: false,
         verificacion_asistencia_activa: false,
         verificacion_pregunta_id: null,
         token_delegado: null,
@@ -2534,7 +2538,17 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   Acceso Público
                 </h3>
 
-                {!asamblea.acceso_publico ? (
+                {asamblea.estado === 'finalizada' ? (
+                  <div className="space-y-2 rounded-2xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50 p-4">
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <Lock className="w-5 h-5 shrink-0 text-gray-500" />
+                      <span className="font-medium">Asamblea cerrada</span>
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      El acceso a votantes está desactivado. No se pueden abrir o cerrar preguntas ni gestionar poderes. Reabre la asamblea (botón verde arriba) para volver a habilitar todo.
+                    </p>
+                  </div>
+                ) : !asamblea.acceso_publico ? (
                   <div className="space-y-3">
                     {asamblea.estado !== 'activa' ? (
                       <>
@@ -2701,19 +2715,33 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   <Users className="w-4 h-4 mr-2" />
                   Gestión de Poderes
                 </h3>
-                <Link href={`/dashboard/asambleas/${params.id}/poderes`} className="block" title="Administrar poderes y representación">
-                  <Button
-                    variant="outline"
-                    className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white border-0"
-                    size="lg"
-                  >
-                    <Users className="w-4 h-4 mr-2" />
-                    Gestión de Poderes
-                  </Button>
-                </Link>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                  Administra quién vota en representación de otros
-                </p>
+                {asamblea.estado === 'finalizada' ? (
+                  <div className="rounded-2xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50 p-4 text-center">
+                    <Button variant="outline" disabled className="w-full opacity-60 cursor-not-allowed" size="lg">
+                      <Users className="w-4 h-4 mr-2" />
+                      Gestión de Poderes
+                    </Button>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      Asamblea cerrada. Reabre la asamblea para gestionar poderes.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <Link href={`/dashboard/asambleas/${params.id}/poderes`} className="block" title="Administrar poderes y representación">
+                      <Button
+                        variant="outline"
+                        className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white border-0"
+                        size="lg"
+                      >
+                        <Users className="w-4 h-4 mr-2" />
+                        Gestión de Poderes
+                      </Button>
+                    </Link>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                      Administra quién vota en representación de otros
+                    </p>
+                  </>
+                )}
               </div>
 
               {/* 3. Información (abajo) */}
@@ -3115,9 +3143,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         {pregunta.estado === 'pendiente' && (
                           <Button
                             size="sm"
-                            onClick={() => handleAbrirPreguntaClick(pregunta.id)}
+                            onClick={() => !isReadOnlyStructure && handleAbrirPreguntaClick(pregunta.id)}
+                            disabled={isReadOnlyStructure}
                             className="bg-green-600 hover:bg-green-700"
-                            title="Abrir pregunta para votar"
+                            title={isReadOnlyStructure ? 'Asamblea cerrada' : 'Abrir pregunta para votar'}
                           >
                             <Play className="w-3 h-3 mr-1" />
                             Abrir Pregunta
@@ -3126,9 +3155,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         {pregunta.estado === 'abierta' && (
                           <Button
                             size="sm"
-                            onClick={() => handleChangeEstadoPregunta(pregunta.id, 'cerrada')}
+                            onClick={() => !isReadOnlyStructure && handleChangeEstadoPregunta(pregunta.id, 'cerrada')}
+                            disabled={isReadOnlyStructure}
                             className="bg-blue-600 hover:bg-blue-700"
-                            title="Cerrar esta pregunta (no se podrán emitir más votos)"
+                            title={isReadOnlyStructure ? 'Asamblea cerrada' : 'Cerrar esta pregunta (no se podrán emitir más votos)'}
                           >
                             <X className="w-3 h-3 mr-1" />
                             Cerrar Pregunta
@@ -3139,8 +3169,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleAbrirPreguntaClick(pregunta.id)}
-                              title="Reabrir pregunta"
+                              onClick={() => !isReadOnlyStructure && handleAbrirPreguntaClick(pregunta.id)}
+                              disabled={isReadOnlyStructure}
+                              title={isReadOnlyStructure ? 'Asamblea cerrada' : 'Reabrir pregunta'}
                             >
                               <Play className="w-3 h-3 mr-1" />
                               Reabrir Pregunta
