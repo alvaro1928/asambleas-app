@@ -3,13 +3,19 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle, UserCheck, HelpCircle } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle, UserCheck, HelpCircle, QrCode, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { StepIndicator } from '@/components/ui/StepIndicator'
 import { useToast } from '@/components/providers/ToastProvider'
+import dynamic from 'next/dynamic'
+
+const QRCodeSVG = dynamic(
+  () => import('qrcode.react').then((m) => ({ default: m.QRCodeSVG })),
+  { ssr: false, loading: () => <div className="bg-gray-200 dark:bg-gray-700 animate-pulse rounded-xl min-w-[160px] min-h-[160px] sm:min-w-[200px] sm:min-h-[200px]" /> }
+)
 
 const STORAGE_EMAIL_KEY = (codigo: string) => `votar_email_${codigo}`
 
@@ -125,6 +131,15 @@ export default function VotacionPublicaPage() {
   const [avanceColapsado, setAvanceColapsado] = useState(false)
   /** Modal de ayuda al votante; misma UI y ayuda para asambleas reales y sandbox. */
   const [showAyudaVotar, setShowAyudaVotar] = useState(false)
+  /** URL de la página de votación (origen + /votar/codigo) para mostrar QR y copiar enlace; solo en cliente */
+  const [urlVotacionCompartir, setUrlVotacionCompartir] = useState('')
+  const [copiandoEnlace, setCopiandoEnlace] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && codigo) {
+      setUrlVotacionCompartir(`${window.location.origin}/votar/${codigo}`)
+    }
+  }, [codigo])
 
   // --- Verificación de Quórum ---
   const [verificacionActiva, setVerificacionActiva] = useState(false)
@@ -1400,15 +1415,72 @@ export default function VotacionPublicaPage() {
           {/* Tarjetas de votación */}
           <div className="space-y-4">
             {preguntas.length === 0 ? (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700 text-center">
-                <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                  No hay preguntas abiertas
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  En este momento no hay preguntas disponibles para votar. El administrador abrirá las preguntas cuando inicie la votación.
-                </p>
-              </div>
+              <>
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-8 border border-gray-200 dark:border-gray-700 text-center">
+                  <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                    No hay preguntas abiertas
+                  </h2>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    En este momento no hay preguntas disponibles para votar. El administrador abrirá las preguntas cuando inicie la votación.
+                  </p>
+                </div>
+                {/* Cuando tampoco hay verificación de asistencia activa, mostrar QR para compartir acceso con quienes no han ingresado */}
+                {!verificacionActiva && urlVotacionCompartir && (
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-8 border border-gray-200 dark:border-gray-700">
+                    <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+                      <div className="flex flex-col items-center shrink-0">
+                        <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 mb-3">
+                          <QrCode className="w-5 h-5" aria-hidden />
+                          <span className="text-sm font-semibold">Comparte el acceso</span>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-3 max-w-[220px]">
+                          Quienes ya están dentro pueden mostrar este QR para que otros ingresen a la votación.
+                        </p>
+                        <div className="bg-white p-3 sm:p-4 rounded-2xl shadow-inner border border-gray-100 dark:border-gray-700 w-[160px] h-[160px] sm:w-[200px] sm:h-[200px] flex items-center justify-center" role="img" aria-label="Código QR de acceso a la página de votación">
+                          <QRCodeSVG value={urlVotacionCompartir} size={200} level="H" includeMargin style={{ width: '100%', height: '100%', maxWidth: '100%', maxHeight: '100%' }} />
+                        </div>
+                      </div>
+                      <div className="flex-1 w-full sm:w-auto flex flex-col items-center sm:items-start gap-3">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 text-center sm:text-left">
+                          O copia el enlace y compártelo por WhatsApp, correo o mensaje:
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-2 w-full max-w-md">
+                          <input
+                            type="text"
+                            readOnly
+                            value={urlVotacionCompartir}
+                            className="flex-1 min-w-0 text-sm bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2 text-gray-700 dark:text-gray-300 truncate"
+                            aria-label="Enlace de votación"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              if (copiandoEnlace) return
+                              setCopiandoEnlace(true)
+                              try {
+                                await navigator.clipboard.writeText(urlVotacionCompartir)
+                                toast.success('Enlace copiado. Compártelo con quien necesite ingresar.')
+                              } catch {
+                                toast.error('No se pudo copiar. Copia el enlace manualmente.')
+                              } finally {
+                                setCopiandoEnlace(false)
+                              }
+                            }}
+                            disabled={copiandoEnlace}
+                            className="shrink-0 inline-flex items-center gap-2 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                          >
+                            <Copy className="w-4 h-4" />
+                            {copiandoEnlace ? 'Copiado…' : 'Copiar enlace'}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               preguntas.map((pregunta, index) => {
                 const votoActual = votosActuales.find(v => v.pregunta_id === pregunta.id)
