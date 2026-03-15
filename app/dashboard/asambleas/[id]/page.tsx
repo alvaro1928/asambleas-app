@@ -169,7 +169,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   // Acceso Público: secciones colapsables
   const [openEnlaceAcceso, setOpenEnlaceAcceso] = useState(true)
-  const [openVerifAcceso, setOpenVerifAcceso] = useState(false)
   const [openDelegadoAcceso, setOpenDelegadoAcceso] = useState(false)
   const [openDesactivarAcceso, setOpenDesactivarAcceso] = useState(false)
   const [showModalAsistencia, setShowModalAsistencia] = useState(false)
@@ -2537,26 +2536,69 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
                 {!asamblea.acceso_publico ? (
                   <div className="space-y-3">
-                    <Alert className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
-                      <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                      <AlertDescription className="text-yellow-800 dark:text-yellow-200 text-xs">
-                        La votación pública no está activada. Los residentes no podrán acceder a votar.
-                      </AlertDescription>
-                    </Alert>
-                    <Button
-                      onClick={handleActivarVotacion}
-                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                    >
-                      <Unlock className="w-4 h-4 mr-2" />
-                      Activar Votación Pública
-                    </Button>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                      Esto generará un código único para compartir
-                    </p>
+                    {asamblea.estado !== 'activa' ? (
+                      <>
+                        <Alert className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                          <AlertDescription className="text-amber-800 dark:text-amber-200 text-xs">
+                            Para abrir el acceso a la votación primero debes <strong>activar la asamblea</strong> con el botón verde de arriba. Así se genera el código y el enlace para compartir con los residentes.
+                          </AlertDescription>
+                        </Alert>
+                        <Button disabled className="w-full bg-gray-400 dark:bg-gray-600 cursor-not-allowed" title="Activa primero la asamblea (arriba)">
+                          <Unlock className="w-4 h-4 mr-2" />
+                          Activar Votación Pública
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Alert className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+                          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                          <AlertDescription className="text-yellow-800 dark:text-yellow-200 text-xs">
+                            La votación pública no está activada. Los residentes no podrán acceder a votar.
+                          </AlertDescription>
+                        </Alert>
+                        <Button
+                          onClick={handleActivarVotacion}
+                          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                        >
+                          <Unlock className="w-4 h-4 mr-2" />
+                          Activar Votación Pública
+                        </Button>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                          Esto generará un código único para compartir
+                        </p>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <span className="inline-block px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">✓ Votación activa</span>
+
+                    {/* Verificación de quórum — siempre visible para no olvidar que está activa */}
+                    <div className="flex flex-wrap items-center gap-2 py-2 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
+                      <span className="text-xs font-semibold text-indigo-800 dark:text-indigo-200 flex items-center gap-1.5">
+                        <UserCheck className="w-4 h-4 shrink-0" />
+                        Verificación de quórum
+                        {asamblea.verificacion_asistencia_activa && (
+                          <span className="font-normal text-indigo-600 dark:text-indigo-300">· Activa</span>
+                        )}
+                      </span>
+                      {statsVerificacion && (statsVerificacion.total_verificados > 0 || asamblea.verificacion_asistencia_activa) && (
+                        <span className={`text-xs ${statsVerificacion.quorum_alcanzado ? 'text-green-600 dark:text-green-400 font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
+                          {statsVerificacion.porcentaje_verificado.toFixed(1)}% verificados
+                          {statsVerificacion.quorum_alcanzado && ' · Quórum alcanzado'}
+                        </span>
+                      )}
+                      <div className="flex flex-wrap gap-2 ml-auto">
+                        <Button type="button" onClick={onActivarVerificacionClick} disabled={togglingVerif} size="sm" className={asamblea.verificacion_asistencia_activa ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}>
+                          {togglingVerif ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block mr-1.5" /> : <UserCheck className="w-4 h-4 mr-1.5" />}
+                          {asamblea.verificacion_asistencia_activa ? 'Desactivar verificación' : 'Activar verificación'}
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" className="border-gray-300 dark:border-gray-600" onClick={() => setShowModalAsistencia(true)}>
+                          <CheckCircle2 className="w-4 h-4 mr-1.5" /> Registrar asistencia
+                        </Button>
+                      </div>
+                    </div>
 
                     {/* 1. Enlace de votación — colapsable */}
                     <div className="rounded-2xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-900/50">
@@ -2589,48 +2631,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                       )}
                     </div>
 
-                    {/* 2. Verificación de quórum — colapsable */}
-                    <div className="rounded-2xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-900/50">
-                      <button type="button" onClick={() => setOpenVerifAcceso((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
-                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                          <UserCheck className="w-4 h-4 shrink-0" />
-                          Verificación de quórum
-                          {statsVerificacion && (statsVerificacion.total_verificados > 0 || asamblea.verificacion_asistencia_activa) && (
-                            <span className={statsVerificacion.quorum_alcanzado ? 'text-green-600 dark:text-green-400' : 'text-gray-500'}>
-                              {statsVerificacion.porcentaje_verificado.toFixed(1)}% · {statsVerificacion.quorum_alcanzado ? 'Quórum' : 'Sin quórum'}
-                            </span>
-                          )}
-                        </span>
-                        {openVerifAcceso ? <ChevronUp className="w-4 h-4 text-gray-500 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />}
-                      </button>
-                      {openVerifAcceso && (
-                        <div className="px-3 pb-3 pt-0 border-t border-gray-200 dark:border-gray-600 space-y-2 pt-2">
-                          <div className="flex flex-wrap gap-2">
-                            <Button type="button" onClick={onActivarVerificacionClick} disabled={togglingVerif} size="sm" className={asamblea.verificacion_asistencia_activa ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}>
-                              {togglingVerif ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block mr-1.5" /> : <UserCheck className="w-4 h-4 mr-1.5" />}
-                              {asamblea.verificacion_asistencia_activa ? 'Desactivar verificación' : 'Activar verificación'}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="border-gray-300 dark:border-gray-600"
-                              onClick={() => setShowModalAsistencia(true)}
-                            >
-                              <CheckCircle2 className="w-4 h-4 mr-1.5" /> Registrar asistencia
-                            </Button>
-                          </div>
-                          {statsVerificacion && (statsVerificacion.total_verificados > 0 || asamblea.verificacion_asistencia_activa) && (
-                            <p className="text-xs text-gray-600 dark:text-gray-400">
-                              Asistencia verificada: {statsVerificacion.porcentaje_verificado.toFixed(1)}% ({statsVerificacion.total_verificados} unidades)
-                              {statsVerificacion.quorum_alcanzado && <span className="ml-1.5 text-green-600 dark:text-green-400 font-medium">· Quórum alcanzado (Ley 675)</span>}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 3. Acceso de asistente delegado — colapsable */}
+                    {/* 2. Acceso de asistente delegado — colapsable */}
                     <div className="rounded-2xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-900/50">
                       <button type="button" onClick={() => setOpenDelegadoAcceso((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
                         <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
@@ -2669,7 +2670,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                       )}
                     </div>
 
-                    {/* 4. Desactivar votación — colapsable */}
+                    {/* 3. Desactivar votación — colapsable */}
                     <div className="rounded-2xl border border-red-200 dark:border-red-900/50 overflow-hidden bg-red-50/50 dark:bg-red-900/10">
                       <button type="button" onClick={() => setOpenDesactivarAcceso((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors">
                         <span className="text-xs font-semibold text-red-700 dark:text-red-300 flex items-center gap-2">
@@ -2754,14 +2755,20 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   Preguntas de Votación
                 </h2>
                 {preguntas.length < planLimits.max_preguntas_por_asamblea && !isDemo && !isReadOnlyStructure && (
-                <Button
-                  onClick={() => setShowNewPregunta(true)}
-                  className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
-                  title="Añadir una nueva pregunta de votación a esta asamblea"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Agregar Pregunta
-                </Button>
+                  asamblea.estado === 'activa' ? (
+                    <Button
+                      onClick={() => setShowNewPregunta(true)}
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                      title="Añadir una nueva pregunta de votación a esta asamblea"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Agregar Pregunta
+                    </Button>
+                  ) : asamblea.estado === 'borrador' ? (
+                    <span className="text-xs text-amber-600 dark:text-amber-400 font-medium" title="Activa la asamblea (botón verde arriba) para poder agregar preguntas">
+                      Activa la asamblea para agregar preguntas
+                    </span>
+                  ) : null
                 )}
               </div>
 
@@ -2798,13 +2805,19 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     No hay preguntas creadas
                   </p>
                   {preguntas.length < planLimits.max_preguntas_por_asamblea && !isDemo && !isReadOnlyStructure && (
-                    <Button
-                      onClick={() => setShowNewPregunta(true)}
-                      variant="outline"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Crear Primera Pregunta
-                    </Button>
+                    asamblea.estado === 'activa' ? (
+                      <Button
+                        onClick={() => setShowNewPregunta(true)}
+                        variant="outline"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Crear Primera Pregunta
+                      </Button>
+                    ) : asamblea.estado === 'borrador' ? (
+                      <p className="text-sm text-amber-700 dark:text-amber-300 max-w-md mx-auto">
+                        Activa la asamblea (botón verde arriba) para poder crear preguntas.
+                      </p>
+                    ) : null
                   )}
                   {!isDemo && isReadOnlyStructure && (
                     <p className="text-sm text-amber-700 dark:text-amber-300 mt-3 max-w-md mx-auto">
