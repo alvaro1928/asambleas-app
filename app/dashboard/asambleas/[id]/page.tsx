@@ -227,6 +227,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   /** Modal aviso al reabrir quórum (activar verificación): qué pasa y qué queda en el acta */
   const [showModalAvisoReabrirQuorum, setShowModalAvisoReabrirQuorum] = useState(false)
   const [noVolverMostrarAvisoQuorum, setNoVolverMostrarAvisoQuorum] = useState(false)
+  /** Modal: hay verificación de asistencia activa (general); al abrir pregunta preguntar si cerrar quórum antes o abrir con quórum asociado */
+  const [showModalQuorumAntesAbrirPregunta, setShowModalQuorumAntesAbrirPregunta] = useState(false)
+  const [preguntaIdAbrirConQuorum, setPreguntaIdAbrirConQuorum] = useState<string | null>(null)
+  const [ejecutandoOpcionQuorumAbrir, setEjecutandoOpcionQuorumAbrir] = useState(false)
   const [finalizando, setFinalizando] = useState(false)
   const [reiniciandoDemo, setReiniciandoDemo] = useState(false)
   const [reabriendo, setReabriendo] = useState(false)
@@ -1153,6 +1157,79 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     } catch (error: any) {
       console.error('Error updating estado:', error)
       toast.error('Error al cambiar estado: ' + error.message)
+    }
+  }
+
+  /** Al hacer clic en "Abrir Pregunta" o "Reabrir Pregunta": si hay verificación de asistencia activa en general, mostrar modal para elegir cerrar quórum antes o abrir con quórum asociado. */
+  const handleAbrirPreguntaClick = (preguntaId: string) => {
+    const verifActivaGeneral = asamblea?.verificacion_asistencia_activa && (asamblea?.verificacion_pregunta_id == null)
+    if (verifActivaGeneral) {
+      setPreguntaIdAbrirConQuorum(preguntaId)
+      setShowModalQuorumAntesAbrirPregunta(true)
+      return
+    }
+    handleChangeEstadoPregunta(preguntaId, 'abierta')
+  }
+
+  /** Opción del modal: cerrar primero la verificación de quórum (queda en acta como general) y luego abrir la pregunta. */
+  const confirmarQuorumAntesAbrirCerrarPrimero = async () => {
+    const preguntaId = preguntaIdAbrirConQuorum
+    if (!preguntaId || !asamblea || ejecutandoOpcionQuorumAbrir) return
+    setEjecutandoOpcionQuorumAbrir(true)
+    setShowModalQuorumAntesAbrirPregunta(false)
+    setPreguntaIdAbrirConQuorum(null)
+    try {
+      const { error: errVer } = await supabase
+        .from('asambleas')
+        .update({ verificacion_asistencia_activa: false, verificacion_pregunta_id: null })
+        .eq('id', asamblea.id)
+      if (errVer) {
+        toast.error('No se pudo cerrar la verificación: ' + (errVer.message ?? 'Error'))
+        return
+      }
+      setAsamblea({ ...asamblea, verificacion_asistencia_activa: false, verificacion_pregunta_id: null })
+      await handleChangeEstadoPregunta(preguntaId, 'abierta')
+      await loadQuorum(undefined, { verificacion_asistencia_activa: false, verificacion_pregunta_id: null })
+      toast.success('Verificación cerrada (quedó en acta como general). Pregunta abierta.')
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error')
+    } finally {
+      setEjecutandoOpcionQuorumAbrir(false)
+    }
+  }
+
+  /** Opción del modal: abrir la pregunta y asociar la verificación de quórum actual a esta pregunta. */
+  const confirmarQuorumAntesAbrirConQuorum = async () => {
+    const preguntaId = preguntaIdAbrirConQuorum
+    if (!preguntaId || !asamblea || ejecutandoOpcionQuorumAbrir) return
+    setEjecutandoOpcionQuorumAbrir(true)
+    setShowModalQuorumAntesAbrirPregunta(false)
+    setPreguntaIdAbrirConQuorum(null)
+    try {
+      const { error: errAsamblea } = await supabase
+        .from('asambleas')
+        .update({ verificacion_pregunta_id: preguntaId })
+        .eq('id', asamblea.id)
+      if (errAsamblea) {
+        toast.error('No se pudo asociar la verificación: ' + (errAsamblea.message ?? 'Error'))
+        return
+      }
+      const { error: errPregunta } = await supabase
+        .from('preguntas')
+        .update({ estado: 'abierta' })
+        .eq('id', preguntaId)
+      if (errPregunta) throw errPregunta
+      setAsamblea({ ...asamblea, verificacion_pregunta_id: preguntaId })
+      setPreguntas((prev) => prev.map((p) => (p.id === preguntaId ? { ...p, estado: 'abierta' } : p)))
+      setSuccessMessage('Votación abierta - La verificación de asistencia queda asociada a esta pregunta')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      await loadEstadisticas()
+      await loadQuorum()
+      toast.success('Pregunta abierta con la verificación de quórum asociada.')
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Error')
+    } finally {
+      setEjecutandoOpcionQuorumAbrir(false)
     }
   }
 
@@ -3025,7 +3102,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         {pregunta.estado === 'pendiente' && (
                           <Button
                             size="sm"
-                            onClick={() => handleChangeEstadoPregunta(pregunta.id, 'abierta')}
+                            onClick={() => handleAbrirPreguntaClick(pregunta.id)}
                             className="bg-green-600 hover:bg-green-700"
                             title="Abrir pregunta para votar"
                           >
@@ -3049,7 +3126,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleChangeEstadoPregunta(pregunta.id, 'abierta')}
+                              onClick={() => handleAbrirPreguntaClick(pregunta.id)}
                               title="Reabrir pregunta"
                             >
                               <Play className="w-3 h-3 mr-1" />
@@ -3936,6 +4013,49 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             </Button>
             <Button onClick={confirmarAvisoReabrirQuorum} className="w-full sm:flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">
               Entendido, activar verificación
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Verificación de asistencia activa (general) — al abrir pregunta, elegir si cerrar quórum antes o abrir con quórum asociado */}
+      <Dialog open={showModalQuorumAntesAbrirPregunta} onOpenChange={(open) => { if (!open) { setShowModalQuorumAntesAbrirPregunta(false); setPreguntaIdAbrirConQuorum(null) } }}>
+        <DialogContent className="max-w-lg rounded-3xl" showCloseButton={!ejecutandoOpcionQuorumAbrir}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-indigo-800 dark:text-indigo-200">
+              <UserCheck className="w-5 h-5" />
+              Verificación de asistencia (quórum) activa
+            </DialogTitle>
+            <DialogDescription>
+              Hay una validación de asistencia activa en general (sin pregunta abierta). Si abres la pregunta ahora, puedes cerrar antes la verificación para que quede en el acta como «asamblea en general», o abrir la pregunta y asociar esta verificación a la nueva pregunta.
+            </DialogDescription>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+              ¿Qué deseas hacer?
+            </p>
+          </DialogHeader>
+          <div className="mt-4 flex flex-col gap-3">
+            <Button
+              variant="outline"
+              onClick={confirmarQuorumAntesAbrirCerrarPrimero}
+              disabled={ejecutandoOpcionQuorumAbrir}
+              className="w-full justify-start text-left h-auto py-3"
+            >
+              Cerrar primero la verificación de quórum (queda en acta como general) y luego abrir la pregunta
+            </Button>
+            <Button
+              onClick={confirmarQuorumAntesAbrirConQuorum}
+              disabled={ejecutandoOpcionQuorumAbrir}
+              className="w-full justify-start text-left h-auto py-3 bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              Abrir la pregunta con la verificación de quórum actual asociada a esta pregunta
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => { setShowModalQuorumAntesAbrirPregunta(false); setPreguntaIdAbrirConQuorum(null) }}
+              disabled={ejecutandoOpcionQuorumAbrir}
+              className="w-full"
+            >
+              Cancelar
             </Button>
           </div>
         </DialogContent>
