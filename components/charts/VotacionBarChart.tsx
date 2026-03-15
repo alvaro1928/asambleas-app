@@ -62,9 +62,12 @@ export default function VotacionBarChart({
             }
             contentStyle={{
               backgroundColor: '#0f172a',
-              border: '1px solid rgba(255,255,255,0.1)',
+              border: '1px solid rgba(255,255,255,0.2)',
               borderRadius: '12px',
+              color: '#e2e8f0',
             }}
+            labelStyle={{ color: '#f1f5f9' }}
+            itemStyle={{ color: '#e2e8f0' }}
           />
           <ReferenceLine
             x={umbral}
@@ -139,9 +142,12 @@ export default function VotacionBarChart({
           }
           contentStyle={{
             backgroundColor: '#0f172a',
-            border: '1px solid rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255,255,255,0.2)',
             borderRadius: '12px',
+            color: '#e2e8f0',
           }}
+          labelStyle={{ color: '#f1f5f9' }}
+          itemStyle={{ color: '#e2e8f0' }}
         />
         <ReferenceLine
           x={umbral}
