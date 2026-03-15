@@ -2022,7 +2022,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   </span>
                 )}
                 {getEstadoBadge(asamblea.estado)}
-                {(asamblea.estado === 'finalizada' || asamblea.estado === 'activa' || preguntas.some(p => p.estado === 'cerrada')) && actaDisponible && (
+                {asamblea.estado === 'finalizada' && actaDisponible && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 shrink-0" title="Acta lista para descarga">
                     <FileText className="w-3.5 h-3.5 shrink-0" />
                     <span className="hidden sm:inline">Acta Lista para Descarga</span>
@@ -2084,24 +2084,18 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   </Button>
                 )
               )}
-              {(asamblea.estado === 'finalizada' || asamblea.estado === 'activa' || preguntas.some(p => p.estado === 'cerrada')) && (
-                actaDisponible ? (
-                  <Link href={`/dashboard/asambleas/${params.id}/acta`} className="shrink-0">
-                    <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 w-full sm:w-auto">
-                      <FileText className="w-4 h-4 sm:mr-2 shrink-0" />
-                      <span className="hidden sm:inline">{preguntas.some(p => p.estado === 'cerrada') ? 'Descargar acta de la votación' : 'Generar acta'}</span>
-                      <span className="sm:hidden">Acta</span>
-                    </Button>
-                  </Link>
-                ) : asamblea.estado === 'borrador' ? (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Activa la asamblea para habilitar la generación del acta (cobro único de {costoOperacion} tokens (créditos)).
-                  </p>
-                ) : (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Para generar el acta primero activa la asamblea (se cobran {costoOperacion} tokens (créditos) una sola vez). Saldo: {tokensDisponibles}.
-                  </p>
-                )
+              {asamblea.estado === 'finalizada' && actaDisponible ? (
+                <Link href={`/dashboard/asambleas/${params.id}/acta`} className="shrink-0">
+                  <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 w-full sm:w-auto">
+                    <FileText className="w-4 h-4 sm:mr-2 shrink-0" />
+                    <span className="hidden sm:inline">Descargar acta de la votación</span>
+                    <span className="sm:hidden">Acta</span>
+                  </Button>
+                </Link>
+              ) : asamblea.estado === 'borrador' && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Activa la asamblea para habilitar la generación del acta (cobro único de {costoOperacion} tokens (créditos)).
+                </p>
               )}
               {asamblea.estado === 'activa' && !isDemo && (
                 <Button
