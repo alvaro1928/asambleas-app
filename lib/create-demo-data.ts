@@ -16,9 +16,22 @@ export async function createDemoData(
 
   // 10 unidades: coeficiente 10% cada una (total 100%); emails test1@asambleas.online ... test10@asambleas.online para login en simulador
   const torre = 'Demo'
+
+  // Idempotencia para sandbox:
+  // si hubo intentos anteriores fallidos, puede quedar evidencia en `unidades`.
+  // Borramos solo unidades demo de esta organización y torre para evitar
+  // conflictos con el unique constraint `unique_unidad_torre_numero`.
+  await supabase
+    .from('unidades')
+    .delete()
+    .eq('organization_id', organizationId)
+    .eq('torre', torre)
+    .eq('is_demo', true)
+
   for (let i = 1; i <= 10; i++) {
     const numero = String(100 + i) // 101..110
     const emailDemo = `test${i}@asambleas.online`
+
     const { data: u, error: errU } = await supabase
       .from('unidades')
       .insert({
@@ -34,6 +47,7 @@ export async function createDemoData(
       })
       .select('id')
       .single()
+
     if (errU) throw new Error(`Error creando unidad demo: ${errU.message}`)
     if (u?.id) unidadesIds.push(u.id)
   }

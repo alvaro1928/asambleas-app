@@ -120,7 +120,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    await createDemoData(admin, asamblea.id, organizationId)
+    // Sandbox: crear datos demo debe ser tolerante a reintentos.
+    try {
+      await createDemoData(admin, asamblea.id, organizationId)
+    } catch (demoErr) {
+      // No bloquear la creación de la asamblea demo: los datos se pueden completar desde el panel.
+      console.error('crear-asamblea-demo createDemoData:', demoErr)
+    }
 
     const baseUrl = request.headers.get('origin') || request.nextUrl.origin
     // En sandbox puede ocurrir que el RPC falle por la configuración temporal
