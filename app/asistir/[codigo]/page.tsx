@@ -28,6 +28,7 @@ interface AsambleaInfo {
   sandbox_usar_unidades_reales: boolean
   participacion_timer_end_at?: string | null
   participacion_timer_default_minutes?: number
+  participacion_timer_enabled?: boolean
   verificacion_pregunta_id?: string | null
   verificacion_asistencia_activa?: boolean
 }
@@ -124,6 +125,9 @@ export default function AsistirPage() {
   const [participationTimerSecondsLeft, setParticipationTimerSecondsLeft] = useState<number>(participationTimerDefaultSeconds)
   const [participationTimerEnded, setParticipationTimerEnded] = useState(false)
 
+  // Si está deshabilitado en DB, el timer debe desaparecer totalmente.
+  const [participationTimerEnabled, setParticipationTimerEnabled] = useState<boolean>(true)
+
   // Controles de cronómetro (default + start) — solo para delegado.
   const [timerDefaultDraftMinutes, setTimerDefaultDraftMinutes] = useState<number>(5)
   const [timerStartDraftMinutes, setTimerStartDraftMinutes] = useState<number>(5)
@@ -171,6 +175,13 @@ export default function AsistirPage() {
         // Copia nueva para forzar re-render y que las pestañas se actualicen
         const { ok: _o, ...resto } = data
         setAsamblea(resto as AsambleaInfo)
+        setParticipationTimerEnabled((resto as { participacion_timer_enabled?: boolean | null }).participacion_timer_enabled ?? true)
+        if ('participacion_timer_end_at' in resto) {
+          setParticipationTimerEndAt(((resto as any).participacion_timer_end_at as string | null) ?? null)
+        }
+        if ('participacion_timer_default_minutes' in resto) {
+          setParticipationTimerDefaultMinutes(Number((resto as any).participacion_timer_default_minutes ?? 5) || 5)
+        }
       }
     } catch {
       // No cambiar step para no expulsar al delegado; solo no actualizar
@@ -197,6 +208,13 @@ export default function AsistirPage() {
         if (data.ok) {
           const { ok: _o, ...resto } = data
           setAsamblea(resto as AsambleaInfo)
+          setParticipationTimerEnabled((resto as { participacion_timer_enabled?: boolean | null }).participacion_timer_enabled ?? true)
+          if ('participacion_timer_end_at' in resto) {
+            setParticipationTimerEndAt(((resto as any).participacion_timer_end_at as string | null) ?? null)
+          }
+          if ('participacion_timer_default_minutes' in resto) {
+            setParticipationTimerDefaultMinutes(Number((resto as any).participacion_timer_default_minutes ?? 5) || 5)
+          }
           setStep('ok')
         } else {
           setErrorMsg(data.error || 'Acceso no autorizado')
@@ -217,7 +235,7 @@ export default function AsistirPage() {
       try {
         const { data, error } = await supabase
           .from('asambleas')
-          .select('participacion_timer_end_at, participacion_timer_default_minutes')
+          .select('participacion_timer_end_at, participacion_timer_default_minutes, participacion_timer_enabled')
           .eq('id', asamblea.asamblea_id)
           .single()
         if (error) return
@@ -225,6 +243,7 @@ export default function AsistirPage() {
 
         setParticipationTimerEndAt((data.participacion_timer_end_at as string | null) ?? null)
         setParticipationTimerDefaultMinutes(Number(data.participacion_timer_default_minutes ?? 5) || 5)
+        setParticipationTimerEnabled(!!(data.participacion_timer_enabled ?? true))
       } catch {
         // Ignorar
       }
@@ -241,6 +260,14 @@ export default function AsistirPage() {
 
     const tick = () => {
       const defaultSeconds = Math.max(0, Math.floor(participationTimerDefaultMinutes * 60))
+
+      if (!participationTimerEnabled) {
+        // Timer deshabilitado: indicador no debe avanzar (y la UI se oculta), pero mantenemos estado estable.
+        setParticipationTimerSecondsLeft(defaultSeconds)
+        setParticipationTimerEnded(false)
+        return
+      }
+
       if (!participationTimerEndAt) {
         setParticipationTimerSecondsLeft(defaultSeconds)
         setParticipationTimerEnded(false)
@@ -273,7 +300,7 @@ export default function AsistirPage() {
       return () => window.clearInterval(intervalId)
     }
     return
-  }, [participationTimerEndAt, participationTimerDefaultMinutes])
+  }, [participationTimerEnabled, participationTimerEndAt, participationTimerDefaultMinutes])
 
   // Ajustar defaults en controles cuando el backend actualiza el default.
   useEffect(() => {
@@ -757,7 +784,8 @@ export default function AsistirPage() {
         </div>
 
         {/* Cronómetro de intervención (indicador, no cierra preguntas) */}
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 px-4 py-3 space-y-3">
+        {participationTimerEnabled && (
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 px-4 py-3 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <Clock className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
@@ -820,7 +848,8 @@ export default function AsistirPage() {
           <p className="text-xs text-gray-500 dark:text-gray-400">
             No afecta la votación: solo es un indicador de tiempo para intervenciones.
           </p>
-        </div>
+          </div>
+        )}
 
         {/* Acceso rápido al panel: unidades y poderes (para actualizar datos o agregar poderes) */}
         {asamblea?.asamblea_id && asamblea?.organization_id && (

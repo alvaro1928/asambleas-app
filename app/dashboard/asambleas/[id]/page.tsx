@@ -77,6 +77,10 @@ interface Asamblea {
   activated_at?: string | null
   /** Cuando true, aparece popup de verificación en la página de votación */
   verificacion_asistencia_activa?: boolean
+  /** Cronómetro transversal de participación (indicador). */
+  participacion_timer_enabled?: boolean | null
+  /** Default del cronómetro (minutos) cuando está inactivo. */
+  participacion_timer_default_minutes?: number | null
   /** Si hay pregunta abierta, verificación asociada a esa pregunta; si no, null (general) */
   verificacion_pregunta_id?: string | null
   /** Token para enlace de asistente delegado (generar/revocar en Acceso Público) */
@@ -171,6 +175,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [openEnlaceAcceso, setOpenEnlaceAcceso] = useState(true)
   const [openDelegadoAcceso, setOpenDelegadoAcceso] = useState(false)
   const [openDesactivarAcceso, setOpenDesactivarAcceso] = useState(false)
+  const [openTimerConfig, setOpenTimerConfig] = useState(false)
+  const [timerDefaultDraftMinutes, setTimerDefaultDraftMinutes] = useState<number>(5)
+  const [timerSavingDefault, setTimerSavingDefault] = useState(false)
+  const [timerTogglingEnabled, setTimerTogglingEnabled] = useState(false)
   const [showModalAsistencia, setShowModalAsistencia] = useState(false)
   // Delegado (token enlace asistente)
   const [generandoToken, setGenerandoToken] = useState(false)
@@ -282,6 +290,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load when id changes
   }, [params.id])
+
+  // Sincroniza el default del cronómetro para que el input siempre refleje DB.
+  useEffect(() => {
+    const dm = Number(asamblea?.participacion_timer_default_minutes ?? 5) || 5
+    setTimerDefaultDraftMinutes(dm)
+  }, [asamblea?.participacion_timer_default_minutes])
 
   // Al volver a la pestaña o al dar foco a la ventana, refrescar (quórum y validaciones hechas en Acceso)
   useEffect(() => {
@@ -750,6 +764,63 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     } catch (error: any) {
       console.error('Error al desactivar votación:', error)
       toast.error('Error al desactivar votación: ' + error.message)
+    }
+  }
+
+  const handleToggleCronometro = async () => {
+    if (!asamblea) return
+    const enabledActual = asamblea.participacion_timer_enabled ?? true
+    const enabledNuevo = !enabledActual
+
+    if (!enabledNuevo) {
+      const ok = confirm('¿Desactivar el cronómetro transversal de participación? Se ocultará en Acceso, Asistir y Votar.')
+      if (!ok) return
+    }
+
+    setTimerTogglingEnabled(true)
+    try {
+      const res = await fetch('/api/dashboard/participacion-timer/set-enabled', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: asamblea.id, enabled: enabledNuevo }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Error al actualizar cronómetro')
+
+      setAsamblea((prev) => (prev ? { ...prev, participacion_timer_enabled: enabledNuevo } : prev))
+      toast.success(enabledNuevo ? 'Cronómetro activado' : 'Cronómetro desactivado')
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e?.message || 'Error al actualizar cronómetro')
+    } finally {
+      setTimerTogglingEnabled(false)
+    }
+  }
+
+  const handleGuardarCronometroDefault = async () => {
+    if (!asamblea) return
+    const minutos = Math.floor(Number(timerDefaultDraftMinutes))
+    if (!Number.isFinite(minutos) || minutos < 1) return
+
+    setTimerSavingDefault(true)
+    try {
+      const res = await fetch('/api/dashboard/participacion-timer/set-default', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: asamblea.id, minutes: minutos }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Error al guardar default')
+
+      if (typeof data?.participacion_timer_default_minutes === 'number') {
+        setAsamblea((prev) => (prev ? { ...prev, participacion_timer_default_minutes: data.participacion_timer_default_minutes } : prev))
+      }
+      toast.success('Default del cronómetro guardado')
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e?.message || 'Error al guardar default del cronómetro')
+    } finally {
+      setTimerSavingDefault(false)
     }
   }
 
@@ -1956,6 +2027,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const maxPreguntasParaUI = isDemo ? sandboxMaxPreguntas : planLimits.max_preguntas_por_asamblea
   // Sandbox: por defecto unidades demo; si sandbox_usar_unidades_reales entonces unidades reales del conjunto
   const soloUnidadesDemo = isDemo && !(asamblea.sandbox_usar_unidades_reales === true)
+  const timerEnabled = asamblea.participacion_timer_enabled ?? true
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -2682,6 +2754,62 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                               </Button>
                             </div>
                           )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Cronómetro de intervención (timer transversal) — colapsable */}
+                    <div className="rounded-2xl border border-indigo-200 dark:border-indigo-800 overflow-hidden bg-indigo-50/50 dark:bg-indigo-900/10">
+                      <button
+                        type="button"
+                        onClick={() => setOpenTimerConfig((v) => !v)}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-indigo-100/50 dark:hover:bg-indigo-900/20 transition-colors"
+                      >
+                        <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
+                          <Clock className="w-4 h-4 shrink-0" />
+                          Cronómetro transversal
+                          {timerEnabled ? <span className="text-indigo-600 dark:text-indigo-400 text-xs">Activo</span> : <span className="text-red-600 dark:text-red-400 text-xs">Inactivo</span>}
+                        </span>
+                        {openTimerConfig ? <ChevronUp className="w-4 h-4 text-indigo-500 shrink-0" /> : <ChevronDown className="w-4 h-4 text-indigo-500 shrink-0" />}
+                      </button>
+                      {openTimerConfig && (
+                        <div className="px-3 pb-3 pt-0 border-t border-indigo-200 dark:border-indigo-800 pt-2 space-y-2">
+                          <Button
+                            type="button"
+                            onClick={handleToggleCronometro}
+                            disabled={timerTogglingEnabled}
+                            className={`w-full ${timerEnabled ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white`}
+                          >
+                            <Clock className="w-4 h-4 mr-1.5" />
+                            {timerTogglingEnabled ? 'Actualizando…' : timerEnabled ? 'Desactivar timer' : 'Activar timer'}
+                          </Button>
+
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <div className="flex-1">
+                              <label className="text-xs text-gray-600 dark:text-gray-300 block mb-1.5">Default (minutos)</label>
+                              <input
+                                type="number"
+                                min={1}
+                                max={180}
+                                value={timerDefaultDraftMinutes}
+                                onChange={(e) => setTimerDefaultDraftMinutes(Number(e.target.value))}
+                                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200"
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleGuardarCronometroDefault}
+                              disabled={timerSavingDefault}
+                              className="sm:w-auto w-full rounded-xl bg-white hover:bg-slate-100 text-slate-800 dark:text-slate-200 font-semibold"
+                            >
+                              {timerSavingDefault ? 'Guardando…' : 'Guardar'}
+                            </Button>
+                          </div>
+
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Si el cronómetro está desactivado, desaparece en Acceso, Asistir y Votar y no se puede activar.
+                          </p>
                         </div>
                       )}
                     </div>

@@ -35,7 +35,8 @@ export default function NuevaAsambleaPage() {
     nombre: '',
     descripcion: '',
     fecha: '',
-    hora: ''
+    hora: '',
+    participacion_timer_default_minutes: 5,
   })
 
   useEffect(() => {
@@ -141,6 +142,13 @@ export default function NuevaAsambleaPage() {
         return
       }
 
+      const timerDefaultMinutes = Math.floor(Number(formData.participacion_timer_default_minutes))
+      if (!Number.isFinite(timerDefaultMinutes) || timerDefaultMinutes < 1 || timerDefaultMinutes > 180) {
+        setError('El cronómetro (default) debe ser un número entre 1 y 180 minutos')
+        setLoading(false)
+        return
+      }
+
       const fechaHora = formData.hora
         ? `${formData.fecha}T${formData.hora}:00`
         : `${formData.fecha}T10:00:00`
@@ -153,6 +161,7 @@ export default function NuevaAsambleaPage() {
           nombre: formData.nombre.trim(),
           descripcion: formData.descripcion.trim() || null,
           fecha: fechaHora,
+          participacion_timer_default_minutes: timerDefaultMinutes,
         }),
       })
 
@@ -370,6 +379,23 @@ export default function NuevaAsambleaPage() {
                   className="mt-2"
                 />
               </div>
+            </div>
+
+            {/* Cronómetro transversal (default) */}
+            <div>
+              <Label htmlFor="cronometro_default_minutes">Default del cronómetro (minutos)</Label>
+              <Input
+                id="cronometro_default_minutes"
+                type="number"
+                min={1}
+                max={180}
+                value={formData.participacion_timer_default_minutes}
+                onChange={(e) => setFormData({ ...formData, participacion_timer_default_minutes: Number(e.target.value) })}
+                className="mt-2"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Si no lo cambias, se usará 5 minutos por defecto.
+              </p>
             </div>
 
             {/* Información */}

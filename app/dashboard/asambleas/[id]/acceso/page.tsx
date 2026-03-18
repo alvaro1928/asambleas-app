@@ -59,6 +59,7 @@ interface Asamblea {
   verificacion_asistencia_activa?: boolean
   participacion_timer_end_at?: string | null
   participacion_timer_default_minutes?: number | null
+  participacion_timer_enabled?: boolean | null
 }
 
 function formatMMSS(totalSeconds: number) {
@@ -177,6 +178,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
   // Cronómetro de intervención (indicador, no cierra preguntas)
   const TIMER_DEFAULT_MINUTES_FALLBACK = 5
+  const participationTimerEnabled = asamblea?.participacion_timer_enabled ?? true
   const timerDefaultSecondsValue =
     (Number(asamblea?.participacion_timer_default_minutes ?? TIMER_DEFAULT_MINUTES_FALLBACK) || TIMER_DEFAULT_MINUTES_FALLBACK) * 60
   const [timerSecondsLeft, setTimerSecondsLeft] = useState<number>(timerDefaultSecondsValue)
@@ -241,7 +243,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       const { data, error } = await supabase
         .from('asambleas')
-        .select('id, nombre, codigo_acceso, estado, organization_id, is_demo, sandbox_usar_unidades_reales, verificacion_asistencia_activa, verificacion_pregunta_id, participacion_timer_end_at, participacion_timer_default_minutes')
+        .select('id, nombre, codigo_acceso, estado, organization_id, is_demo, sandbox_usar_unidades_reales, verificacion_asistencia_activa, verificacion_pregunta_id, participacion_timer_end_at, participacion_timer_default_minutes, participacion_timer_enabled')
         .eq('id', params.id)
         .eq('organization_id', selectedConjuntoId)
         .single()
@@ -274,6 +276,12 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       const defaultMinutes = Number(asamblea?.participacion_timer_default_minutes ?? TIMER_DEFAULT_MINUTES_FALLBACK) || TIMER_DEFAULT_MINUTES_FALLBACK
       const defaultSeconds = defaultMinutes * 60
 
+      if (!participationTimerEnabled) {
+        // Cronómetro deshabilitado: no debe contar.
+        setTimerSecondsLeft(defaultSeconds)
+        return
+      }
+
       if (!endIso) {
         setTimerSecondsLeft(defaultSeconds)
         return
@@ -297,12 +305,12 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
     const endIso = asamblea?.participacion_timer_end_at ?? null
     const endMs = endIso ? Date.parse(endIso) : null
-    if (endMs && Number.isFinite(endMs) && endMs > Date.now()) {
+    if (participationTimerEnabled && endMs && Number.isFinite(endMs) && endMs > Date.now()) {
       const intervalId = window.setInterval(tick, 1000)
       return () => window.clearInterval(intervalId)
     }
     return
-  }, [asamblea?.participacion_timer_end_at, asamblea?.participacion_timer_default_minutes])
+  }, [participationTimerEnabled, asamblea?.participacion_timer_end_at, asamblea?.participacion_timer_default_minutes])
 
   useEffect(() => {
     if (!asamblea) return
@@ -1085,7 +1093,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           </div>
 
           {/* Cronómetro de intervención (indicador global) */}
-          <div
+          {participationTimerEnabled && (
+            <div
             className="w-full mb-3 rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden"
             style={{
               backgroundColor:
@@ -1164,7 +1173,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 No cierra preguntas ni afecta la votación. Solo sincroniza un indicador de tiempo para intervenciones.
               </p>
             </div>
-          </div>
+            </div>
+          )}
 
           {/* Pregunta por la que están votando — en grande debajo del enlace */}
           {preguntasConResultados.length > 0 && (

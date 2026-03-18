@@ -35,11 +35,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { organization_id, nombre, descripcion, fecha } = body as {
+    const { organization_id, nombre, descripcion, fecha, participacion_timer_default_minutes } = body as {
       organization_id?: string
       nombre?: string
       descripcion?: string
       fecha?: string
+      participacion_timer_default_minutes?: number
     }
 
     if (!organization_id || !nombre?.trim() || !fecha) {
@@ -80,6 +81,10 @@ export async function POST(request: NextRequest) {
     )
 
     const fechaHora = fecha.length <= 10 ? `${fecha}T10:00:00` : fecha
+    const timerDefaultMinutes = Math.floor(Number(participacion_timer_default_minutes ?? 5))
+    if (!Number.isFinite(timerDefaultMinutes) || timerDefaultMinutes < 1 || timerDefaultMinutes > 180) {
+      return NextResponse.json({ error: 'participacion_timer_default_minutes debe ser entre 1 y 180' }, { status: 400 })
+    }
 
     const { data: asamblea, error: insertError } = await admin
       .from('asambleas')
@@ -89,6 +94,7 @@ export async function POST(request: NextRequest) {
         descripcion: (descripcion?.trim() || null) as string | null,
         fecha: fechaHora,
         estado: 'borrador',
+        participacion_timer_default_minutes: timerDefaultMinutes,
       })
       .select()
       .single()

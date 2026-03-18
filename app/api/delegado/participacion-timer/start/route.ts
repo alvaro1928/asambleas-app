@@ -39,12 +39,15 @@ export async function POST(request: NextRequest) {
     // Validar token
     const { data: asamblea } = await admin
       .from('asambleas')
-      .select('id, token_delegado')
+      .select('id, token_delegado, participacion_timer_enabled')
       .eq('id', asambleaId)
       .single()
 
     if (!asamblea) return NextResponse.json({ error: 'Asamblea no encontrada' }, { status: 404 })
     if (!asamblea.token_delegado || asamblea.token_delegado !== tokenStr) return NextResponse.json({ error: 'Token inválido' }, { status: 403 })
+    if ((asamblea as { participacion_timer_enabled?: boolean | null }).participacion_timer_enabled === false) {
+      return NextResponse.json({ error: 'Cronómetro desactivado para esta asamblea' }, { status: 403 })
+    }
 
     const endAt = new Date(Date.now() + minutesNum * 60 * 1000).toISOString()
 

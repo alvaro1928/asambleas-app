@@ -51,6 +51,7 @@ interface AsambleaInfo {
   mensaje: string
   participacion_timer_end_at?: string | null
   participacion_timer_default_minutes?: number
+  participacion_timer_enabled?: boolean | null
 }
 
 interface UnidadInfo {
@@ -173,6 +174,7 @@ export default function VotacionPublicaPage() {
   const participationTimerDefaultSeconds = participationTimerDefaultMinutes * 60
   const [participationTimerSecondsLeft, setParticipationTimerSecondsLeft] = useState<number>(DEFAULT_TIEMPO_PARTICIPACION_SECONDS)
   const [participationTimerEnded, setParticipationTimerEnded] = useState(false)
+  const [participationTimerEnabled, setParticipationTimerEnabled] = useState<boolean>(true)
 
   // Para marcar salida al cerrar/abandonar la página (solo sesiones activas en el registro)
   const salidaRef = useRef<{ asamblea_id: string; email: string } | null>(null)
@@ -236,6 +238,13 @@ export default function VotacionPublicaPage() {
 
     const tick = () => {
       const defaultSeconds = Math.max(0, Math.floor(participationTimerDefaultMinutes * 60))
+
+      if (!participationTimerEnabled) {
+        setParticipationTimerSecondsLeft(defaultSeconds)
+        setParticipationTimerEnded(false)
+        return
+      }
+
       if (!participationTimerEndAt) {
         setParticipationTimerSecondsLeft(defaultSeconds)
         setParticipationTimerEnded(false)
@@ -264,12 +273,12 @@ export default function VotacionPublicaPage() {
     tick()
 
     const endMs = participationTimerEndAt ? Date.parse(participationTimerEndAt) : null
-    if (endMs && Number.isFinite(endMs) && endMs > Date.now()) {
+    if (participationTimerEnabled && endMs && Number.isFinite(endMs) && endMs > Date.now()) {
       const intervalId = window.setInterval(tick, 1000)
       return () => window.clearInterval(intervalId)
     }
     return
-  }, [participationTimerEndAt, participationTimerDefaultMinutes])
+  }, [participationTimerEnabled, participationTimerEndAt, participationTimerDefaultMinutes])
 
   const validarCodigo = async () => {
     try {
@@ -294,6 +303,7 @@ export default function VotacionPublicaPage() {
       }
 
       setAsamblea(asambleaData)
+      setParticipationTimerEnabled(asambleaData.participacion_timer_enabled ?? true)
       setParticipationTimerEndAt(asambleaData.participacion_timer_end_at ?? null)
       setParticipationTimerDefaultMinutes(
         Number(asambleaData.participacion_timer_default_minutes ?? DEFAULT_TIEMPO_PARTICIPACION_SECONDS / 60) || 5
@@ -786,7 +796,9 @@ export default function VotacionPublicaPage() {
       try {
         const { data } = await supabase
           .from('asambleas')
-          .select('verificacion_asistencia_activa, verificacion_pregunta_id, participacion_timer_end_at, participacion_timer_default_minutes')
+          .select(
+            'verificacion_asistencia_activa, verificacion_pregunta_id, participacion_timer_end_at, participacion_timer_default_minutes, participacion_timer_enabled'
+          )
           .eq('id', asamblea.asamblea_id)
           .single()
         if (data) {
@@ -795,10 +807,12 @@ export default function VotacionPublicaPage() {
             verificacion_pregunta_id?: string | null
             participacion_timer_end_at?: string | null
             participacion_timer_default_minutes?: number | null
+            participacion_timer_enabled?: boolean | null
           }
           setVerificacionActiva(!!a.verificacion_asistencia_activa)
           setParticipationTimerEndAt(a.participacion_timer_end_at ?? null)
           setParticipationTimerDefaultMinutes(Number(a.participacion_timer_default_minutes ?? 5) || 5)
+          setParticipationTimerEnabled(a.participacion_timer_enabled ?? true)
           const pid = a.verificacion_pregunta_id ?? null
           if (!!a.verificacion_asistencia_activa && lastVerificacionPreguntaIdRef.current !== pid) {
             lastVerificacionPreguntaIdRef.current = pid
@@ -1068,12 +1082,14 @@ export default function VotacionPublicaPage() {
       <div className="min-h-screen bg-gradient-to-br from-primary-light to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 overflow-x-hidden">
         <div className="max-w-md w-full min-w-0 bg-surface dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-border dark:border-gray-700">
           <StepIndicator pasoActual="email" />
-          <div className="mt-3 flex items-center justify-center">
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium bg-slate-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700 text-slate-700 dark:text-gray-200">
-              <Clock className="w-3.5 h-3.5" />
-              {formatMMSS(participationTimerSecondsLeft)}
-            </span>
-          </div>
+          {participationTimerEnabled && (
+            <div className="mt-3 flex items-center justify-center">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium bg-slate-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700 text-slate-700 dark:text-gray-200">
+                <Clock className="w-3.5 h-3.5" />
+                {formatMMSS(participationTimerSecondsLeft)}
+              </span>
+            </div>
+          )}
           {/* Header */}
           <div className="text-center mb-6 sm:mb-8 min-w-0">
             <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center mb-3 sm:mb-4">
@@ -1169,12 +1185,14 @@ export default function VotacionPublicaPage() {
         {/* Sin aceptar el EULA no se puede verificar quórum: el popup de verificación solo aparece en step 'votar' */}
         <div className="max-w-md w-full min-w-0 bg-surface dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-border dark:border-gray-700">
           <StepIndicator pasoActual="consentimiento" />
-          <div className="mt-3 flex items-center justify-center">
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium bg-slate-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700 text-slate-700 dark:text-gray-200">
-              <Clock className="w-3.5 h-3.5" />
-              {formatMMSS(participationTimerSecondsLeft)}
-            </span>
-          </div>
+          {participationTimerEnabled && (
+            <div className="mt-3 flex items-center justify-center">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium bg-slate-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700 text-slate-700 dark:text-gray-200">
+                <Clock className="w-3.5 h-3.5" />
+                {formatMMSS(participationTimerSecondsLeft)}
+              </span>
+            </div>
+          )}
           <div className="text-center mb-4 sm:mb-6">
             <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center mb-3 sm:mb-4">
               <Vote className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
@@ -1432,16 +1450,18 @@ export default function VotacionPublicaPage() {
                 >
                   <HelpCircle className="w-5 h-5" />
                 </button>
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${
-                    participationTimerEnded
-                      ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
-                      : 'bg-slate-50 dark:bg-gray-800/40 border-gray-200 dark:border-gray-700 text-slate-700 dark:text-gray-200'
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  {formatMMSS(participationTimerSecondsLeft)}
-                </span>
+                {participationTimerEnabled && (
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${
+                      participationTimerEnded
+                        ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                        : 'bg-slate-50 dark:bg-gray-800/40 border-gray-200 dark:border-gray-700 text-slate-700 dark:text-gray-200'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    {formatMMSS(participationTimerSecondsLeft)}
+                  </span>
+                )}
                 {statsVerificacion && (
                   <QuorumChip pct={statsVerificacion.porcentaje_verificado} total={statsVerificacion.total_verificados} />
                 )}

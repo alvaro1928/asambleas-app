@@ -3,9 +3,9 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
- * POST /api/dashboard/participacion-timer/start
- * Inicia/reinicia el cronómetro de participación (solo indicador).
- * Body: { asamblea_id: string, minutes?: number }
+ * POST /api/dashboard/participacion-timer/set-enabled
+ * Habilita o deshabilita el cronómetro transversal de participación.
+ * Body: { asamblea_id: string, enabled: boolean }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -34,23 +34,16 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}))
     const asambleaId = typeof body?.asamblea_id === 'string' ? body.asamblea_id.trim() : ''
-    const minutesRaw = body?.minutes
-    const minutes = Number.isFinite(minutesRaw) ? Number(minutesRaw) : typeof minutesRaw === 'number' ? minutesRaw : null
+    const enabled = typeof body?.enabled === 'boolean' ? body.enabled : null
 
-    if (!asambleaId || minutes === null) {
-      return NextResponse.json({ error: 'Faltan asamblea_id o minutes (número)' }, { status: 400 })
+    if (!asambleaId || enabled === null) {
+      return NextResponse.json({ error: 'Faltan asamblea_id o enabled (boolean)' }, { status: 400 })
     }
 
-    const MIN_MINUTES = 1
-    const MAX_MINUTES = 180
-    if (!Number.isInteger(minutes) || minutes < MIN_MINUTES || minutes > MAX_MINUTES) {
-      return NextResponse.json({ error: `minutes debe ser entero entre ${MIN_MINUTES} y ${MAX_MINUTES}` }, { status: 400 })
-    }
-
-    // Validar ownership por organización (misma regla usada en otros endpoints admin).
+    // Validar ownership por organización
     const { data: asamblea, error: errAsamblea } = await supabase
       .from('asambleas')
-      .select('id, organization_id, participacion_timer_enabled')
+      .select('id, organization_id')
       .eq('id', asambleaId)
       .single()
 
@@ -70,27 +63,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sin permiso para esta asamblea' }, { status: 403 })
     }
 
-    if ((asamblea as { participacion_timer_enabled?: boolean | null }).participacion_timer_enabled === false) {
-      return NextResponse.json({ error: 'Cronómetro desactivado para esta asamblea' }, { status: 403 })
+    const updatePayload: Record<string, any> = {
+      participacion_timer_enabled: enabled,
     }
-
-    const now = Date.now()
-    const endAt = new Date(now + minutes * 60 * 1000).toISOString()
+    if (!enabled) {
+      updatePayload.participacion_timer_end_at = null
+    }
 
     const { error: updateError } = await supabase
       .from('asambleas')
-      .update({
-        participacion_timer_end_at: endAt,
-      })
+      .update(updatePayload)
       .eq('id', asambleaId)
 
     if (updateError) {
-      return NextResponse.json({ error: 'Error al iniciar cronómetro' }, { status: 500 })
+      return NextResponse.json({ error: 'Error al actualizar cronómetro' }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true, participacion_timer_end_at: endAt })
+    return NextResponse.json({ ok: true, participacion_timer_enabled: enabled })
   } catch (e) {
-    console.error('participacion-timer/start (admin):', e)
+    console.error('participacion-timer/set-enabled (admin):', e)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
