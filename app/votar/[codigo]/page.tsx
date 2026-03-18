@@ -24,7 +24,6 @@ const UMBRAL_APROBACION_DEFECTO = 51
 
 // Cronómetro visual de participación (solo UI, sin bloquear votaciones ni enviar cambios al backend)
 const DEFAULT_TIEMPO_PARTICIPACION_SECONDS = 5 * 60
-const PARTICIPATION_TIMER_STORAGE_PREFIX = 'asambleas_participation_timer_'
 
 function formatMMSS(totalSeconds: number) {
   const s = Math.max(0, Math.floor(totalSeconds))
@@ -50,6 +49,8 @@ interface AsambleaInfo {
   nombre_conjunto: string
   acceso_valido: boolean
   mensaje: string
+  participacion_timer_end_at?: string | null
+  participacion_timer_default_minutes?: number
 }
 
 interface UnidadInfo {
@@ -167,6 +168,9 @@ export default function VotacionPublicaPage() {
   const [tabActivo, setTabActivo] = useState<'votacion' | 'avance' | 'misdatos'>('votacion')
 
   // Cronómetro de participación: estado puramente visual (no cambia reglas reales)
+  const [participationTimerEndAt, setParticipationTimerEndAt] = useState<string | null>(null)
+  const [participationTimerDefaultMinutes, setParticipationTimerDefaultMinutes] = useState<number>(5)
+  const participationTimerDefaultSeconds = participationTimerDefaultMinutes * 60
   const [participationTimerSecondsLeft, setParticipationTimerSecondsLeft] = useState<number>(DEFAULT_TIEMPO_PARTICIPACION_SECONDS)
   const [participationTimerEnded, setParticipationTimerEnded] = useState(false)
 
@@ -224,41 +228,48 @@ export default function VotacionPublicaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run when codigo changes
   }, [codigo])
 
-  // Cronómetro visual: inicia al entrar a `step === 'votar'` y cuenta regresivo hasta 0.
-  // No bloquea la votación ni altera reglas del backend.
+  // Cronómetro visual: indicador sincronizado por backend.
+  // - Si `participationTimerEndAt` está NULL o venció: muestra default (sin contar).
+  // - Si está activo: cuenta regresivo hasta 00:00.
   useEffect(() => {
-    if (step !== 'votar') return
-    if (typeof window === 'undefined' || !codigo) return
-
-    const storageKey = `${PARTICIPATION_TIMER_STORAGE_PREFIX}${codigo}`
-    let endAt = 0
-    try {
-      endAt = Number(localStorage.getItem(storageKey) || '0')
-    } catch {
-      // Ignorar si localStorage no está disponible
-    }
-
-    const now = Date.now()
-    const defaultDurationMs = DEFAULT_TIEMPO_PARTICIPACION_SECONDS * 1000
-    if (!Number.isFinite(endAt) || endAt <= now) {
-      endAt = now + defaultDurationMs
-      try {
-        localStorage.setItem(storageKey, String(endAt))
-      } catch {
-        // Ignorar write errors
-      }
-    }
+    if (typeof window === 'undefined') return
 
     const tick = () => {
-      const diffSeconds = Math.max(0, Math.floor((endAt - Date.now()) / 1000))
-      setParticipationTimerSecondsLeft(diffSeconds)
-      setParticipationTimerEnded(diffSeconds === 0)
+      const defaultSeconds = Math.max(0, Math.floor(participationTimerDefaultMinutes * 60))
+      if (!participationTimerEndAt) {
+        setParticipationTimerSecondsLeft(defaultSeconds)
+        setParticipationTimerEnded(false)
+        return
+      }
+
+      const endMs = Date.parse(participationTimerEndAt)
+      if (!Number.isFinite(endMs)) {
+        setParticipationTimerSecondsLeft(defaultSeconds)
+        setParticipationTimerEnded(false)
+        return
+      }
+
+      const remaining = Math.floor((endMs - Date.now()) / 1000)
+      if (remaining <= 0) {
+        // Si llegó a 0: queda inactivo y vuelve a mostrar el default fijo.
+        setParticipationTimerSecondsLeft(defaultSeconds)
+        setParticipationTimerEnded(false)
+        return
+      }
+
+      setParticipationTimerSecondsLeft(remaining)
+      setParticipationTimerEnded(false)
     }
 
     tick()
-    const intervalId = window.setInterval(tick, 1000)
-    return () => window.clearInterval(intervalId)
-  }, [step, codigo])
+
+    const endMs = participationTimerEndAt ? Date.parse(participationTimerEndAt) : null
+    if (endMs && Number.isFinite(endMs) && endMs > Date.now()) {
+      const intervalId = window.setInterval(tick, 1000)
+      return () => window.clearInterval(intervalId)
+    }
+    return
+  }, [participationTimerEndAt, participationTimerDefaultMinutes])
 
   const validarCodigo = async () => {
     try {
@@ -283,6 +294,10 @@ export default function VotacionPublicaPage() {
       }
 
       setAsamblea(asambleaData)
+      setParticipationTimerEndAt(asambleaData.participacion_timer_end_at ?? null)
+      setParticipationTimerDefaultMinutes(
+        Number(asambleaData.participacion_timer_default_minutes ?? DEFAULT_TIEMPO_PARTICIPACION_SECONDS / 60) || 5
+      )
       setStep('email')
       try {
         const guardado = typeof window !== 'undefined' && localStorage.getItem(STORAGE_EMAIL_KEY(codigo))
@@ -771,12 +786,19 @@ export default function VotacionPublicaPage() {
       try {
         const { data } = await supabase
           .from('asambleas')
-          .select('verificacion_asistencia_activa, verificacion_pregunta_id')
+          .select('verificacion_asistencia_activa, verificacion_pregunta_id, participacion_timer_end_at, participacion_timer_default_minutes')
           .eq('id', asamblea.asamblea_id)
           .single()
         if (data) {
-          const a = data as { verificacion_asistencia_activa?: boolean; verificacion_pregunta_id?: string | null }
+          const a = data as {
+            verificacion_asistencia_activa?: boolean
+            verificacion_pregunta_id?: string | null
+            participacion_timer_end_at?: string | null
+            participacion_timer_default_minutes?: number | null
+          }
           setVerificacionActiva(!!a.verificacion_asistencia_activa)
+          setParticipationTimerEndAt(a.participacion_timer_end_at ?? null)
+          setParticipationTimerDefaultMinutes(Number(a.participacion_timer_default_minutes ?? 5) || 5)
           const pid = a.verificacion_pregunta_id ?? null
           if (!!a.verificacion_asistencia_activa && lastVerificacionPreguntaIdRef.current !== pid) {
             lastVerificacionPreguntaIdRef.current = pid
@@ -1046,6 +1068,12 @@ export default function VotacionPublicaPage() {
       <div className="min-h-screen bg-gradient-to-br from-primary-light to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 overflow-x-hidden">
         <div className="max-w-md w-full min-w-0 bg-surface dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-border dark:border-gray-700">
           <StepIndicator pasoActual="email" />
+          <div className="mt-3 flex items-center justify-center">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium bg-slate-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700 text-slate-700 dark:text-gray-200">
+              <Clock className="w-3.5 h-3.5" />
+              {formatMMSS(participationTimerSecondsLeft)}
+            </span>
+          </div>
           {/* Header */}
           <div className="text-center mb-6 sm:mb-8 min-w-0">
             <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center mb-3 sm:mb-4">
@@ -1141,6 +1169,12 @@ export default function VotacionPublicaPage() {
         {/* Sin aceptar el EULA no se puede verificar quórum: el popup de verificación solo aparece en step 'votar' */}
         <div className="max-w-md w-full min-w-0 bg-surface dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-border dark:border-gray-700">
           <StepIndicator pasoActual="consentimiento" />
+          <div className="mt-3 flex items-center justify-center">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium bg-slate-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700 text-slate-700 dark:text-gray-200">
+              <Clock className="w-3.5 h-3.5" />
+              {formatMMSS(participationTimerSecondsLeft)}
+            </span>
+          </div>
           <div className="text-center mb-4 sm:mb-6">
             <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-r from-primary to-purple-600 rounded-full flex items-center justify-center mb-3 sm:mb-4">
               <Vote className="w-7 h-7 sm:w-8 sm:h-8 text-white" />

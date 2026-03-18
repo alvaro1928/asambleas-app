@@ -26,6 +26,8 @@ interface AsambleaInfo {
   nombre_conjunto: string
   is_demo: boolean
   sandbox_usar_unidades_reales: boolean
+  participacion_timer_end_at?: string | null
+  participacion_timer_default_minutes?: number
   verificacion_pregunta_id?: string | null
   verificacion_asistencia_activa?: boolean
 }
@@ -93,7 +95,6 @@ function formatFecha(fecha: string) {
 
 // Cronómetro visual de participación (solo UI)
 const DEFAULT_TIEMPO_PARTICIPACION_SECONDS = 5 * 60
-const PARTICIPATION_TIMER_STORAGE_PREFIX = 'asambleas_participation_timer_'
 
 function formatMMSS(totalSeconds: number) {
   const s = Math.max(0, Math.floor(totalSeconds))
@@ -115,9 +116,19 @@ export default function AsistirPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [tab, setTab] = useState<'asistencia' | 'votacion'>('asistencia')
 
-  // Cronómetro visual de participación: solo UI (sin bloquear backend).
-  const [participationTimerSecondsLeft, setParticipationTimerSecondsLeft] = useState<number>(DEFAULT_TIEMPO_PARTICIPACION_SECONDS)
+  // Cronómetro visual de participación (sin afectar votación).
+  // Fuente de verdad: DB (participacion_timer_end_at y participacion_timer_default_minutes).
+  const [participationTimerEndAt, setParticipationTimerEndAt] = useState<string | null>(null)
+  const [participationTimerDefaultMinutes, setParticipationTimerDefaultMinutes] = useState<number>(DEFAULT_TIEMPO_PARTICIPACION_SECONDS / 60)
+  const participationTimerDefaultSeconds = participationTimerDefaultMinutes * 60
+  const [participationTimerSecondsLeft, setParticipationTimerSecondsLeft] = useState<number>(participationTimerDefaultSeconds)
   const [participationTimerEnded, setParticipationTimerEnded] = useState(false)
+
+  // Controles de cronómetro (default + start) — solo para delegado.
+  const [timerDefaultDraftMinutes, setTimerDefaultDraftMinutes] = useState<number>(5)
+  const [timerStartDraftMinutes, setTimerStartDraftMinutes] = useState<number>(5)
+  const [timerSavingDefault, setTimerSavingDefault] = useState(false)
+  const [timerStarting, setTimerStarting] = useState(false)
 
   // Asistencia
   const [unidades, setUnidades] = useState<Unidad[]>([])
@@ -198,41 +209,77 @@ export default function AsistirPage() {
       })
   }, [codigo, token])
 
-  // Cronómetro visual: inicia al entrar a la pestaña de votación.
+  // Poll independiente del estado de preguntas/asistencia: solo del cronómetro (DB).
   useEffect(() => {
-    if (step !== 'ok') return
-    if (tab !== 'votacion') return
-    if (typeof window === 'undefined' || !codigo) return
+    if (step !== 'ok' || !asamblea?.asamblea_id) return
 
-    const storageKey = `${PARTICIPATION_TIMER_STORAGE_PREFIX}${codigo}`
-    let endAt = 0
-    try {
-      endAt = Number(localStorage.getItem(storageKey) || '0')
-    } catch {
-      // Ignorar si localStorage no está disponible
-    }
-
-    const now = Date.now()
-    const defaultDurationMs = DEFAULT_TIEMPO_PARTICIPACION_SECONDS * 1000
-    if (!Number.isFinite(endAt) || endAt <= now) {
-      endAt = now + defaultDurationMs
+    const fetchTimer = async () => {
       try {
-        localStorage.setItem(storageKey, String(endAt))
+        const { data, error } = await supabase
+          .from('asambleas')
+          .select('participacion_timer_end_at, participacion_timer_default_minutes')
+          .eq('id', asamblea.asamblea_id)
+          .single()
+        if (error) return
+        if (!data) return
+
+        setParticipationTimerEndAt((data.participacion_timer_end_at as string | null) ?? null)
+        setParticipationTimerDefaultMinutes(Number(data.participacion_timer_default_minutes ?? 5) || 5)
       } catch {
-        // Ignorar write errors
+        // Ignorar
       }
     }
 
+    fetchTimer()
+    const intervalId = window.setInterval(fetchTimer, 5000)
+    return () => window.clearInterval(intervalId)
+  }, [step, asamblea?.asamblea_id])
+
+  // Contador local desde `participationTimerEndAt` (sin bloquear funcionalidades).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
     const tick = () => {
-      const diffSeconds = Math.max(0, Math.floor((endAt - Date.now()) / 1000))
-      setParticipationTimerSecondsLeft(diffSeconds)
-      setParticipationTimerEnded(diffSeconds === 0)
+      const defaultSeconds = Math.max(0, Math.floor(participationTimerDefaultMinutes * 60))
+      if (!participationTimerEndAt) {
+        setParticipationTimerSecondsLeft(defaultSeconds)
+        setParticipationTimerEnded(false)
+        return
+      }
+
+      const endMs = Date.parse(participationTimerEndAt)
+      if (!Number.isFinite(endMs)) {
+        setParticipationTimerSecondsLeft(defaultSeconds)
+        setParticipationTimerEnded(false)
+        return
+      }
+
+      const remaining = Math.floor((endMs - Date.now()) / 1000)
+      if (remaining <= 0) {
+        setParticipationTimerSecondsLeft(defaultSeconds)
+        setParticipationTimerEnded(false)
+        return
+      }
+
+      setParticipationTimerSecondsLeft(remaining)
+      setParticipationTimerEnded(false)
     }
 
     tick()
-    const intervalId = window.setInterval(tick, 1000)
-    return () => window.clearInterval(intervalId)
-  }, [step, tab, codigo])
+
+    const endMs = participationTimerEndAt ? Date.parse(participationTimerEndAt) : null
+    if (endMs && Number.isFinite(endMs) && endMs > Date.now()) {
+      const intervalId = window.setInterval(tick, 1000)
+      return () => window.clearInterval(intervalId)
+    }
+    return
+  }, [participationTimerEndAt, participationTimerDefaultMinutes])
+
+  // Ajustar defaults en controles cuando el backend actualiza el default.
+  useEffect(() => {
+    setTimerDefaultDraftMinutes(participationTimerDefaultMinutes)
+    setTimerStartDraftMinutes(participationTimerDefaultMinutes)
+  }, [participationTimerDefaultMinutes])
 
   // ── Cargar unidades (ya_verifico según sesión actual; es_poder para etiqueta). Sandbox: demo o reales según sandbox_usar_unidades_reales; misma UI y ayuda para real y sandbox. ──
   const cargarUnidades = useCallback(async () => {
@@ -421,6 +468,53 @@ export default function AsistirPage() {
     if (tab === 'asistencia' && !mostrarTabAsistencia) setTab('votacion')
     else if (tab === 'votacion' && !mostrarTabVotacion) setTab('asistencia')
   }, [tab, mostrarTabAsistencia, mostrarTabVotacion])
+
+  // ── Cronómetro de intervención (indicador) ─────────────────────────────
+  const iniciarCronometro = async () => {
+    if (!asamblea) return
+    const minutos = Math.floor(Number(timerStartDraftMinutes))
+    if (!Number.isFinite(minutos) || minutos < 1) return
+
+    setTimerStarting(true)
+    try {
+      const res = await fetch('/api/delegado/participacion-timer/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: asamblea.asamblea_id, token, minutes: minutos }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Error al iniciar cronómetro')
+      if (data.participacion_timer_end_at) setParticipationTimerEndAt(data.participacion_timer_end_at)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setTimerStarting(false)
+    }
+  }
+
+  const guardarDefaultCronometro = async () => {
+    if (!asamblea) return
+    const minutos = Math.floor(Number(timerDefaultDraftMinutes))
+    if (!Number.isFinite(minutos) || minutos < 1) return
+
+    setTimerSavingDefault(true)
+    try {
+      const res = await fetch('/api/delegado/participacion-timer/set-default', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: asamblea.asamblea_id, token, minutes: minutos }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Error al actualizar default')
+      if (typeof data.participacion_timer_default_minutes === 'number') {
+        setParticipationTimerDefaultMinutes(data.participacion_timer_default_minutes)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setTimerSavingDefault(false)
+    }
+  }
 
   // ── Asistencia ────────────────────────────────────────────────────────────
   const guardarAsistencia = async () => {
@@ -662,6 +756,72 @@ export default function AsistirPage() {
           <span>Los registros quedarán marcados como <strong>registrados por asistente delegado</strong> en el acta y auditoría.</span>
         </div>
 
+        {/* Cronómetro de intervención (indicador, no cierra preguntas) */}
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 px-4 py-3 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Clock className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">Cronómetro de intervención</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono tabular-nums text-sm sm:text-base font-bold text-indigo-700 dark:text-indigo-300">
+                {formatMMSS(participationTimerSecondsLeft)}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 px-3 py-2">
+              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">Default (por asamblea)</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={180}
+                  value={timerDefaultDraftMinutes}
+                  onChange={(e) => setTimerDefaultDraftMinutes(Number(e.target.value))}
+                  className="w-20 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm px-2 py-1"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-xl border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400"
+                  disabled={timerSavingDefault}
+                  onClick={guardarDefaultCronometro}
+                >
+                  {timerSavingDefault ? 'Guardando…' : 'Guardar'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 px-3 py-2">
+              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">Iniciar (esta vez)</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={180}
+                  value={timerStartDraftMinutes}
+                  onChange={(e) => setTimerStartDraftMinutes(Number(e.target.value))}
+                  className="w-20 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm px-2 py-1"
+                />
+                <Button
+                  size="sm"
+                  className="rounded-xl bg-indigo-600 hover:bg-indigo-700"
+                  disabled={timerStarting}
+                  onClick={iniciarCronometro}
+                >
+                  {timerStarting ? 'Iniciando…' : 'Iniciar'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            No afecta la votación: solo es un indicador de tiempo para intervenciones.
+          </p>
+        </div>
+
         {/* Acceso rápido al panel: unidades y poderes (para actualizar datos o agregar poderes) */}
         {asamblea?.asamblea_id && asamblea?.organization_id && (
           <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3">
@@ -843,14 +1003,6 @@ export default function AsistirPage() {
                 Registrar votos
               </h2>
               <p className="text-indigo-100 text-xs mt-0.5">Selecciona la pregunta, la opción y las unidades a votar.</p>
-              <div
-                className={`mt-2 flex items-center gap-2 text-xs font-medium ${
-                  participationTimerEnded ? 'text-red-100' : 'text-indigo-100'
-                }`}
-              >
-                <Clock className="w-4 h-4" />
-                Tiempo de participación: {formatMMSS(participationTimerSecondsLeft)}
-              </div>
             </div>
 
             <div className="p-4 space-y-4">

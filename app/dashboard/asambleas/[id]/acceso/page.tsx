@@ -57,6 +57,15 @@ interface Asamblea {
   is_demo?: boolean
   sandbox_usar_unidades_reales?: boolean
   verificacion_asistencia_activa?: boolean
+  participacion_timer_end_at?: string | null
+  participacion_timer_default_minutes?: number | null
+}
+
+function formatMMSS(totalSeconds: number) {
+  const s = Math.max(0, Math.floor(totalSeconds))
+  const mm = Math.floor(s / 60)
+  const ss = s % 60
+  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
 }
 
 interface Asistente {
@@ -165,6 +174,16 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [toggling, setToggling] = useState(false)
   const [showModalAvisoReabrirQuorum, setShowModalAvisoReabrirQuorum] = useState(false)
   const [noVolverMostrarAvisoQuorum, setNoVolverMostrarAvisoQuorum] = useState(false)
+
+  // Cronómetro de intervención (indicador, no cierra preguntas)
+  const TIMER_DEFAULT_MINUTES_FALLBACK = 5
+  const timerDefaultSecondsValue =
+    (Number(asamblea?.participacion_timer_default_minutes ?? TIMER_DEFAULT_MINUTES_FALLBACK) || TIMER_DEFAULT_MINUTES_FALLBACK) * 60
+  const [timerSecondsLeft, setTimerSecondsLeft] = useState<number>(timerDefaultSecondsValue)
+  const [timerDefaultDraftMinutes, setTimerDefaultDraftMinutes] = useState<number>(TIMER_DEFAULT_MINUTES_FALLBACK)
+  const [timerStartDraftMinutes, setTimerStartDraftMinutes] = useState<number>(TIMER_DEFAULT_MINUTES_FALLBACK)
+  const [timerSavingDefault, setTimerSavingDefault] = useState(false)
+  const [timerStarting, setTimerStarting] = useState(false)
   interface VerificacionStats {
     total_verificados: number
     coeficiente_verificado: number
@@ -222,7 +241,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       const { data, error } = await supabase
         .from('asambleas')
-        .select('id, nombre, codigo_acceso, estado, organization_id, is_demo, sandbox_usar_unidades_reales, verificacion_asistencia_activa, verificacion_pregunta_id')
+        .select('id, nombre, codigo_acceso, estado, organization_id, is_demo, sandbox_usar_unidades_reales, verificacion_asistencia_activa, verificacion_pregunta_id, participacion_timer_end_at, participacion_timer_default_minutes')
         .eq('id', params.id)
         .eq('organization_id', selectedConjuntoId)
         .single()
@@ -243,6 +262,105 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     } catch (error) {
       console.error('Error cargando asamblea:', error)
       router.push('/dashboard/asambleas')
+    }
+  }
+
+  // ── Cronómetro de intervención (indicador en UI) ──────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const tick = () => {
+      const endIso = asamblea?.participacion_timer_end_at ?? null
+      const defaultMinutes = Number(asamblea?.participacion_timer_default_minutes ?? TIMER_DEFAULT_MINUTES_FALLBACK) || TIMER_DEFAULT_MINUTES_FALLBACK
+      const defaultSeconds = defaultMinutes * 60
+
+      if (!endIso) {
+        setTimerSecondsLeft(defaultSeconds)
+        return
+      }
+
+      const endMs = Date.parse(endIso)
+      if (!Number.isFinite(endMs) || endMs <= Date.now()) {
+        setTimerSecondsLeft(defaultSeconds)
+        return
+      }
+
+      const remaining = Math.floor((endMs - Date.now()) / 1000)
+      if (!Number.isFinite(remaining) || remaining <= 0) {
+        setTimerSecondsLeft(defaultSeconds)
+        return
+      }
+      setTimerSecondsLeft(remaining)
+    }
+
+    tick()
+
+    const endIso = asamblea?.participacion_timer_end_at ?? null
+    const endMs = endIso ? Date.parse(endIso) : null
+    if (endMs && Number.isFinite(endMs) && endMs > Date.now()) {
+      const intervalId = window.setInterval(tick, 1000)
+      return () => window.clearInterval(intervalId)
+    }
+    return
+  }, [asamblea?.participacion_timer_end_at, asamblea?.participacion_timer_default_minutes])
+
+  useEffect(() => {
+    if (!asamblea) return
+    const dm = Number(asamblea.participacion_timer_default_minutes ?? TIMER_DEFAULT_MINUTES_FALLBACK) || TIMER_DEFAULT_MINUTES_FALLBACK
+    setTimerDefaultDraftMinutes(dm)
+    setTimerStartDraftMinutes(dm)
+  }, [asamblea?.participacion_timer_default_minutes])
+
+  const iniciarCronometroAdmin = async () => {
+    if (!asamblea) return
+    const minutes = Math.floor(Number(timerStartDraftMinutes))
+    if (!Number.isFinite(minutes) || minutes < 1) return
+
+    setTimerStarting(true)
+    try {
+      const res = await fetch('/api/dashboard/participacion-timer/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: params.id, minutes }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Error al iniciar cronómetro')
+
+      // Actualización inmediata: el polling de `loadAsamblea` refresca en segundos.
+      if (data.participacion_timer_end_at) {
+        setAsamblea((prev) => (prev ? { ...prev, participacion_timer_end_at: data.participacion_timer_end_at } : prev))
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Error al iniciar cronómetro')
+    } finally {
+      setTimerStarting(false)
+    }
+  }
+
+  const guardarDefaultCronometroAdmin = async () => {
+    if (!asamblea) return
+    const minutes = Math.floor(Number(timerDefaultDraftMinutes))
+    if (!Number.isFinite(minutes) || minutes < 1) return
+
+    setTimerSavingDefault(true)
+    try {
+      const res = await fetch('/api/dashboard/participacion-timer/set-default', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: params.id, minutes }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Error al guardar default')
+
+      if (typeof data.participacion_timer_default_minutes === 'number') {
+        setAsamblea((prev) =>
+          prev ? { ...prev, participacion_timer_default_minutes: data.participacion_timer_default_minutes } : prev
+        )
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Error al guardar default')
+    } finally {
+      setTimerSavingDefault(false)
     }
   }
 
@@ -964,6 +1082,88 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 )}
               </div>
             )}
+          </div>
+
+          {/* Cronómetro de intervención (indicador global) */}
+          <div
+            className="w-full mb-3 rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden"
+            style={{
+              backgroundColor:
+                asamblea?.participacion_timer_end_at && Date.parse(asamblea.participacion_timer_end_at) > Date.now()
+                  ? 'rgba(79,70,229,0.12)'
+                  : 'rgba(15,23,42,0.6)',
+            }}
+          >
+            <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Clock className="w-5 h-5 text-indigo-300" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-200">Cronómetro de intervención</p>
+                  <p className="text-xs text-slate-400">
+                    {asamblea?.participacion_timer_end_at && Date.parse(asamblea.participacion_timer_end_at) > Date.now()
+                      ? 'Activo (cuenta regresivo)'
+                      : 'Inactivo (muestra default, sin contar)'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <p className="font-mono text-xl sm:text-2xl font-bold text-indigo-200 tabular-nums">
+                  {formatMMSS(timerSecondsLeft)}
+                </p>
+              </div>
+            </div>
+
+            <div className="px-4 pb-4 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                  <label className="text-xs text-slate-300 block mb-2">Default (por asamblea)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={180}
+                      value={timerDefaultDraftMinutes}
+                      onChange={(e) => setTimerDefaultDraftMinutes(Number(e.target.value))}
+                      className="w-20 rounded-xl border border-white/20 bg-slate-900/30 text-slate-200 px-2 py-2"
+                    />
+                    <Button
+                      type="button"
+                      onClick={guardarDefaultCronometroAdmin}
+                      disabled={timerSavingDefault}
+                      className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                    >
+                      {timerSavingDefault ? 'Guardando…' : 'Guardar'}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                  <label className="text-xs text-slate-300 block mb-2">Iniciar (esta vez)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={180}
+                      value={timerStartDraftMinutes}
+                      onChange={(e) => setTimerStartDraftMinutes(Number(e.target.value))}
+                      className="w-20 rounded-xl border border-white/20 bg-slate-900/30 text-slate-200 px-2 py-2"
+                    />
+                    <Button
+                      type="button"
+                      onClick={iniciarCronometroAdmin}
+                      disabled={timerStarting}
+                      className="rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-semibold"
+                    >
+                      {timerStarting ? 'Iniciando…' : 'Activar'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-400">
+                No cierra preguntas ni afecta la votación. Solo sincroniza un indicador de tiempo para intervenciones.
+              </p>
+            </div>
           </div>
 
           {/* Pregunta por la que están votando — en grande debajo del enlace */}

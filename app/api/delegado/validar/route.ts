@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     const { data: asamblea } = await admin
       .from('asambleas')
-      .select('id, nombre, fecha, estado, organization_id, is_demo, sandbox_usar_unidades_reales, token_delegado, codigo_acceso, verificacion_pregunta_id, verificacion_asistencia_activa')
+      .select('id, nombre, fecha, estado, organization_id, is_demo, sandbox_usar_unidades_reales, token_delegado, codigo_acceso, verificacion_pregunta_id, verificacion_asistencia_activa, participacion_timer_end_at, participacion_timer_default_minutes')
       .eq('codigo_acceso', codigo_asamblea.trim().toUpperCase())
       .single()
 
@@ -73,6 +73,10 @@ export async function POST(request: NextRequest) {
       sandbox_usar_unidades_reales: !!asamblea.sandbox_usar_unidades_reales,
       verificacion_pregunta_id: (asamblea as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null,
       verificacion_asistencia_activa: !!(asamblea as { verificacion_asistencia_activa?: boolean }).verificacion_asistencia_activa,
+      participacion_timer_end_at: (asamblea as { participacion_timer_end_at?: string | null }).participacion_timer_end_at ?? null,
+      participacion_timer_default_minutes: Number(
+        (asamblea as { participacion_timer_default_minutes?: number | null }).participacion_timer_default_minutes ?? 5
+      ),
     })
   } catch (e) {
     console.error('delegado/validar:', e)

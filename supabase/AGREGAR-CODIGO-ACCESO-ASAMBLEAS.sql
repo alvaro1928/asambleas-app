@@ -138,7 +138,9 @@ RETURNS TABLE (
   organization_id UUID,
   nombre_conjunto TEXT,
   acceso_valido BOOLEAN,
-  mensaje TEXT
+  mensaje TEXT,
+  participacion_timer_end_at TIMESTAMPTZ,
+  participacion_timer_default_minutes INTEGER
 ) AS $$
 DECLARE
   v_asamblea RECORD;
@@ -150,7 +152,9 @@ BEGIN
     a.fecha,
     a.organization_id,
     a.acceso_publico,
-    o.name AS nombre_conjunto
+    o.name AS nombre_conjunto,
+    a.participacion_timer_end_at,
+    a.participacion_timer_default_minutes
   INTO v_asamblea
   FROM asambleas a
   JOIN organizations o ON a.organization_id = o.id
@@ -166,7 +170,9 @@ BEGIN
       NULL::UUID,
       NULL::TEXT,
       false AS acceso_valido,
-      'Código de acceso inválido o no existe' AS mensaje;
+      'Código de acceso inválido o no existe' AS mensaje,
+      NULL::TIMESTAMPTZ,
+      5;
     RETURN;
   END IF;
 
@@ -180,7 +186,9 @@ BEGIN
       v_asamblea.organization_id,
       v_asamblea.nombre_conjunto,
       false AS acceso_valido,
-      'El acceso público a esta asamblea está desactivado' AS mensaje;
+      'El acceso público a esta asamblea está desactivado' AS mensaje,
+      v_asamblea.participacion_timer_end_at,
+      COALESCE(v_asamblea.participacion_timer_default_minutes, 5);
     RETURN;
   END IF;
 
@@ -193,7 +201,9 @@ BEGIN
     v_asamblea.organization_id,
     v_asamblea.nombre_conjunto,
     true AS acceso_valido,
-    'Código válido. Acceso permitido.' AS mensaje;
+    'Código válido. Acceso permitido.' AS mensaje,
+    v_asamblea.participacion_timer_end_at,
+    COALESCE(v_asamblea.participacion_timer_default_minutes, 5);
 END;
 $$ LANGUAGE plpgsql;
 
