@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     // Si ya existe una asamblea demo en este conjunto, devolverla para redirigir
     const { data: existingDemo } = await admin
       .from('asambleas')
-      .select('id, nombre, estado, is_demo, pago_realizado')
+      .select('id, nombre, estado, is_demo, pago_realizado, activated_at')
       .eq('organization_id', organizationId)
       .eq('is_demo', true)
       .order('created_at', { ascending: false })
@@ -77,6 +77,14 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (existingDemo) {
+      // Asegurar que la demo quede editable en el panel (ventana de gracia basada en activated_at)
+      const nowIso = new Date().toISOString()
+      if (!existingDemo.activated_at || existingDemo.estado !== 'activa') {
+        await admin
+          .from('asambleas')
+          .update({ estado: 'activa', activated_at: nowIso })
+          .eq('id', existingDemo.id)
+      }
       return NextResponse.json({ asamblea: existingDemo })
     }
 
@@ -142,12 +150,14 @@ export async function POST(request: NextRequest) {
       console.error('crear-asamblea-demo activar_votacion_publica (exception):', rpcException)
     }
 
+    // Activar demo y setear activated_at para que NO quede como solo lectura en el panel
+    const nowIso = new Date().toISOString()
     await admin
       .from('asambleas')
-      .update({ estado: 'activa' })
+      .update({ estado: 'activa', activated_at: nowIso })
       .eq('id', asamblea.id)
 
-    return NextResponse.json({ asamblea: { ...asamblea, estado: 'activa' } })
+    return NextResponse.json({ asamblea: { ...asamblea, estado: 'activa', activated_at: nowIso } })
   } catch (e) {
     console.error('crear-asamblea-demo:', e)
     return NextResponse.json({ error: 'Error al crear la asamblea de demostración' }, { status: 500 })
