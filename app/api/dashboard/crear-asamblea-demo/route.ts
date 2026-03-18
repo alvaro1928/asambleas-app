@@ -123,12 +123,17 @@ export async function POST(request: NextRequest) {
     await createDemoData(admin, asamblea.id, organizationId)
 
     const baseUrl = request.headers.get('origin') || request.nextUrl.origin
-    const { error: rpcError } = await admin.rpc('activar_votacion_publica', {
-      p_asamblea_id: asamblea.id,
-      p_base_url: baseUrl,
-    })
-    if (rpcError) {
-      console.error('crear-asamblea-demo activar_votacion_publica:', rpcError)
+    // En sandbox puede ocurrir que el RPC falle por la configuración temporal
+    // (p.ej. si aún no hay preguntas). No debe impedir que se cree la asamblea
+    // demo; el admin podrá continuar luego en el panel.
+    try {
+      const { error: rpcError } = await admin.rpc('activar_votacion_publica', {
+        p_asamblea_id: asamblea.id,
+        p_base_url: baseUrl,
+      })
+      if (rpcError) console.error('crear-asamblea-demo activar_votacion_publica:', rpcError)
+    } catch (rpcException) {
+      console.error('crear-asamblea-demo activar_votacion_publica (exception):', rpcException)
     }
 
     await admin
