@@ -1488,20 +1488,6 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             <Button
               type="button"
               variant="outline"
-              className="justify-start text-left h-auto py-3 px-4 border-indigo-200 hover:bg-indigo-50 dark:border-indigo-600 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/30 dark:text-gray-100"
-              onClick={() => {
-                setShowModalTipoActa(false)
-                handleDescargarPdf(false, incluirAnexosPoderes)
-              }}
-            >
-              <span className="font-semibold block dark:text-white">Acta con auditoría completa</span>
-              <span className="text-xs text-gray-600 dark:text-gray-300 font-normal mt-0.5 block">
-                Incluye quién votó qué, transacciones, IP y datos para revisión del administrador. Solo uso interno/auditoría.
-              </span>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
               className="justify-start text-left h-auto py-3 px-4 border-slate-200 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900/60 dark:hover:bg-slate-800/70 dark:text-gray-100"
               onClick={() => {
                 setShowModalTipoActa(false)
@@ -1513,6 +1499,20 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               <span className="font-semibold block dark:text-white">Acta versión pública</span>
               <span className="text-xs text-gray-600 dark:text-gray-300 font-normal mt-0.5 block">
                 Quórums generales, preguntas con resultados (porcentaje y total en coeficiente), aprobado/no aprobado, cantidades de unidades que no votaron o no validaron y coeficiente total. Para compartir con participantes.
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="justify-start text-left h-auto py-3 px-4 border-indigo-200 hover:bg-indigo-50 dark:border-indigo-600 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/30 dark:text-gray-100"
+              onClick={() => {
+                setShowModalTipoActa(false)
+                handleDescargarPdf(false, incluirAnexosPoderes)
+              }}
+            >
+              <span className="font-semibold block dark:text-white">Acta con auditoría completa</span>
+              <span className="text-xs text-gray-600 dark:text-gray-300 font-normal mt-0.5 block">
+                Incluye quién votó qué, transacciones, IP y datos para revisión del administrador. Solo uso interno/auditoría.
               </span>
             </Button>
           </div>
