@@ -22,6 +22,17 @@ const STORAGE_EMAIL_KEY = (codigo: string) => `votar_email_${codigo}`
 /** Umbral por defecto según Ley 675: mayoría simple (>50%) — 51% para aprobación */
 const UMBRAL_APROBACION_DEFECTO = 51
 
+// Cronómetro visual de participación (solo UI, sin bloquear votaciones ni enviar cambios al backend)
+const DEFAULT_TIEMPO_PARTICIPACION_SECONDS = 5 * 60
+const PARTICIPATION_TIMER_STORAGE_PREFIX = 'asambleas_participation_timer_'
+
+function formatMMSS(totalSeconds: number) {
+  const s = Math.max(0, Math.floor(totalSeconds))
+  const mm = Math.floor(s / 60)
+  const ss = s % 60
+  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+}
+
 function mensajeErrorAmigable(msg: string): string {
   const m = msg.toLowerCase()
   if (m.includes('no se encontraron unidades') || m.includes('length === 0')) return 'Este correo o teléfono no está asociado a ninguna unidad en esta asamblea. Revisa el dato o contacta al administrador.'
@@ -155,6 +166,10 @@ export default function VotacionPublicaPage() {
   // --- Tabs ---
   const [tabActivo, setTabActivo] = useState<'votacion' | 'avance' | 'misdatos'>('votacion')
 
+  // Cronómetro de participación: estado puramente visual (no cambia reglas reales)
+  const [participationTimerSecondsLeft, setParticipationTimerSecondsLeft] = useState<number>(DEFAULT_TIEMPO_PARTICIPACION_SECONDS)
+  const [participationTimerEnded, setParticipationTimerEnded] = useState(false)
+
   // Para marcar salida al cerrar/abandonar la página (solo sesiones activas en el registro)
   const salidaRef = useRef<{ asamblea_id: string; email: string } | null>(null)
   useEffect(() => {
@@ -208,6 +223,42 @@ export default function VotacionPublicaPage() {
     validarCodigo()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run when codigo changes
   }, [codigo])
+
+  // Cronómetro visual: inicia al entrar a `step === 'votar'` y cuenta regresivo hasta 0.
+  // No bloquea la votación ni altera reglas del backend.
+  useEffect(() => {
+    if (step !== 'votar') return
+    if (typeof window === 'undefined' || !codigo) return
+
+    const storageKey = `${PARTICIPATION_TIMER_STORAGE_PREFIX}${codigo}`
+    let endAt = 0
+    try {
+      endAt = Number(localStorage.getItem(storageKey) || '0')
+    } catch {
+      // Ignorar si localStorage no está disponible
+    }
+
+    const now = Date.now()
+    const defaultDurationMs = DEFAULT_TIEMPO_PARTICIPACION_SECONDS * 1000
+    if (!Number.isFinite(endAt) || endAt <= now) {
+      endAt = now + defaultDurationMs
+      try {
+        localStorage.setItem(storageKey, String(endAt))
+      } catch {
+        // Ignorar write errors
+      }
+    }
+
+    const tick = () => {
+      const diffSeconds = Math.max(0, Math.floor((endAt - Date.now()) / 1000))
+      setParticipationTimerSecondsLeft(diffSeconds)
+      setParticipationTimerEnded(diffSeconds === 0)
+    }
+
+    tick()
+    const intervalId = window.setInterval(tick, 1000)
+    return () => window.clearInterval(intervalId)
+  }, [step, codigo])
 
   const validarCodigo = async () => {
     try {
@@ -1347,6 +1398,16 @@ export default function VotacionPublicaPage() {
                 >
                   <HelpCircle className="w-5 h-5" />
                 </button>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${
+                    participationTimerEnded
+                      ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                      : 'bg-slate-50 dark:bg-gray-800/40 border-gray-200 dark:border-gray-700 text-slate-700 dark:text-gray-200'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  {formatMMSS(participationTimerSecondsLeft)}
+                </span>
                 {statsVerificacion && (
                   <QuorumChip pct={statsVerificacion.porcentaje_verificado} total={statsVerificacion.total_verificados} />
                 )}

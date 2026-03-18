@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, UserCheck, Vote, Search, RefreshCw, AlertTriangle, Users, HelpCircle, Settings2, ExternalLink } from 'lucide-react'
+import { CheckCircle2, UserCheck, Vote, Search, RefreshCw, AlertTriangle, Users, HelpCircle, Settings2, ExternalLink, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import type { BarChartData } from '@/components/charts/VotacionBarChart'
@@ -91,6 +91,17 @@ function formatFecha(fecha: string) {
   } catch { return fecha }
 }
 
+// Cronómetro visual de participación (solo UI)
+const DEFAULT_TIEMPO_PARTICIPACION_SECONDS = 5 * 60
+const PARTICIPATION_TIMER_STORAGE_PREFIX = 'asambleas_participation_timer_'
+
+function formatMMSS(totalSeconds: number) {
+  const s = Math.max(0, Math.floor(totalSeconds))
+  const mm = Math.floor(s / 60)
+  const ss = s % 60
+  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function AsistirPage() {
@@ -103,6 +114,10 @@ export default function AsistirPage() {
   const [asamblea, setAsamblea] = useState<AsambleaInfo | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
   const [tab, setTab] = useState<'asistencia' | 'votacion'>('asistencia')
+
+  // Cronómetro visual de participación: solo UI (sin bloquear backend).
+  const [participationTimerSecondsLeft, setParticipationTimerSecondsLeft] = useState<number>(DEFAULT_TIEMPO_PARTICIPACION_SECONDS)
+  const [participationTimerEnded, setParticipationTimerEnded] = useState(false)
 
   // Asistencia
   const [unidades, setUnidades] = useState<Unidad[]>([])
@@ -182,6 +197,42 @@ export default function AsistirPage() {
         setStep('error')
       })
   }, [codigo, token])
+
+  // Cronómetro visual: inicia al entrar a la pestaña de votación.
+  useEffect(() => {
+    if (step !== 'ok') return
+    if (tab !== 'votacion') return
+    if (typeof window === 'undefined' || !codigo) return
+
+    const storageKey = `${PARTICIPATION_TIMER_STORAGE_PREFIX}${codigo}`
+    let endAt = 0
+    try {
+      endAt = Number(localStorage.getItem(storageKey) || '0')
+    } catch {
+      // Ignorar si localStorage no está disponible
+    }
+
+    const now = Date.now()
+    const defaultDurationMs = DEFAULT_TIEMPO_PARTICIPACION_SECONDS * 1000
+    if (!Number.isFinite(endAt) || endAt <= now) {
+      endAt = now + defaultDurationMs
+      try {
+        localStorage.setItem(storageKey, String(endAt))
+      } catch {
+        // Ignorar write errors
+      }
+    }
+
+    const tick = () => {
+      const diffSeconds = Math.max(0, Math.floor((endAt - Date.now()) / 1000))
+      setParticipationTimerSecondsLeft(diffSeconds)
+      setParticipationTimerEnded(diffSeconds === 0)
+    }
+
+    tick()
+    const intervalId = window.setInterval(tick, 1000)
+    return () => window.clearInterval(intervalId)
+  }, [step, tab, codigo])
 
   // ── Cargar unidades (ya_verifico según sesión actual; es_poder para etiqueta). Sandbox: demo o reales según sandbox_usar_unidades_reales; misma UI y ayuda para real y sandbox. ──
   const cargarUnidades = useCallback(async () => {
@@ -792,6 +843,14 @@ export default function AsistirPage() {
                 Registrar votos
               </h2>
               <p className="text-indigo-100 text-xs mt-0.5">Selecciona la pregunta, la opción y las unidades a votar.</p>
+              <div
+                className={`mt-2 flex items-center gap-2 text-xs font-medium ${
+                  participationTimerEnded ? 'text-red-100' : 'text-indigo-100'
+                }`}
+              >
+                <Clock className="w-4 h-4" />
+                Tiempo de participación: {formatMMSS(participationTimerSecondsLeft)}
+              </div>
             </div>
 
             <div className="p-4 space-y-4">

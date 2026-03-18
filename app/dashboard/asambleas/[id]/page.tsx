@@ -1946,6 +1946,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   if (!asamblea) return null
 
   const isDemo = asamblea.is_demo === true
+  const sandboxMaxPreguntas = 3
+  const maxPreguntasParaUI = isDemo ? sandboxMaxPreguntas : planLimits.max_preguntas_por_asamblea
   // Sandbox: por defecto unidades demo; si sandbox_usar_unidades_reales entonces unidades reales del conjunto
   const soloUnidadesDemo = isDemo && !(asamblea.sandbox_usar_unidades_reales === true)
 
@@ -2776,7 +2778,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                   Preguntas de Votación
                 </h2>
-                {preguntas.length < planLimits.max_preguntas_por_asamblea && !isDemo && !isReadOnlyStructure && (
+                {preguntas.length < maxPreguntasParaUI && !isReadOnlyStructure && (
                   asamblea.estado === 'activa' ? (
                     <Button
                       onClick={() => setShowNewPregunta(true)}
@@ -2826,7 +2828,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   <p className="text-gray-600 dark:text-gray-400 mb-4">
                     No hay preguntas creadas
                   </p>
-                  {preguntas.length < planLimits.max_preguntas_por_asamblea && !isDemo && !isReadOnlyStructure && (
+                  {preguntas.length < maxPreguntasParaUI && !isReadOnlyStructure && (
                     asamblea.estado === 'activa' ? (
                       <Button
                         onClick={() => setShowNewPregunta(true)}

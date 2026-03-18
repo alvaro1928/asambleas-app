@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 /**
  * Inserta datos de demostración para una asamblea de simulación (is_demo = true).
  * - 10 unidades: Apto 101..110, coeficiente 10% cada una (total 100%), is_demo = true.
- * - 2 preguntas con estado 'abierta' y opciones por defecto (A favor, En contra, Me abstengo).
+ * - Sin preguntas por defecto: en sandbox se crean desde la UI (p.ej. hasta 3).
  * Debe ejecutarse con cliente con permisos de escritura (p. ej. service role).
  */
 export async function createDemoData(
@@ -38,38 +38,9 @@ export async function createDemoData(
     if (u?.id) unidadesIds.push(u.id)
   }
 
-  const opcionesDefault = [
-    { texto_opcion: 'A favor', orden: 1, color: '#10b981' },
-    { texto_opcion: 'En contra', orden: 2, color: '#ef4444' },
-    { texto_opcion: 'Me abstengo', orden: 3, color: '#6b7280' },
-  ]
-
-  for (let i = 1; i <= 2; i++) {
-    const { data: pregunta, error: errP } = await supabase
-      .from('preguntas')
-      .insert({
-        asamblea_id: asambleaId,
-        orden: i,
-        texto_pregunta: `Pregunta de demostración ${i}`,
-        descripcion: 'Esta es una asamblea de simulación. Los datos son solo para prueba.',
-        tipo_votacion: 'coeficiente',
-        estado: 'abierta',
-      })
-      .select('id')
-      .single()
-    if (errP) throw new Error(`Error creando pregunta demo: ${errP.message}`)
-    if (!pregunta?.id) continue
-    preguntaIds.push(pregunta.id)
-
-    const opcionesInsert = opcionesDefault.map((o, idx) => ({
-      pregunta_id: pregunta.id,
-      texto_opcion: o.texto_opcion,
-      orden: idx + 1,
-      color: o.color,
-    }))
-    const { error: errO } = await supabase.from('opciones_pregunta').insert(opcionesInsert)
-    if (errO) throw new Error(`Error creando opciones demo: ${errO.message}`)
-  }
+  // Nota: intencionalmente NO insertamos preguntas por defecto.
+  // Así evitamos fallos puntuales al crear demo y dejamos que el admin
+  // cree hasta el máximo permitido desde la UI de sandbox.
 
   return { unidadesIds, preguntaIds }
 }

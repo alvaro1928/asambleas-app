@@ -6,7 +6,7 @@ import { createDemoData } from '@/lib/create-demo-data'
 
 /**
  * POST /api/dashboard/crear-asamblea-demo
- * Crea una asamblea de simulación (is_demo=true), inserta 10 unidades y 2 preguntas,
+ * Crea una asamblea de simulación (is_demo=true), inserta 10 unidades y 0 preguntas por defecto,
  * activa la votación pública sin descontar tokens y redirige al Centro de Control.
  */
 export async function POST(request: NextRequest) {
