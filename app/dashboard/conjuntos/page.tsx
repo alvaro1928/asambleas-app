@@ -310,7 +310,7 @@ export default function ConjuntosPage() {
                         <Edit className="w-4 h-4 mr-2" />
                         Editar
                       </Button>
-                    </Button>
+                    </Link>
                     <Button
                       variant="outline"
                       size="icon"
