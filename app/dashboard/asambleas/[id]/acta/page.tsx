@@ -1324,7 +1324,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                   </div>
                   )}
 
-                  {/* Unidades que no participaron en esta pregunta: en versión pública solo totales; en acta completa tabla con detalle */}
+                  {/* Unidades que no votaron en esta pregunta: en versión pública solo totales; en acta completa tabla con detalle */}
                   {(() => {
                     const noParticiparonPregunta = unidadesNoParticipationPorPregunta[pregunta.id] ?? []
                     if (noParticiparonPregunta.length === 0) return null
@@ -1332,7 +1332,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                     return (
                       <div className="ml-5 mt-2 break-inside-avoid">
                         <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">
-                          Unidades que no participaron en esta pregunta: <strong>{noParticiparonPregunta.length}</strong> unidad(es) · Coeficiente no participante: <strong>{Math.min(100, coefTotal).toFixed(2)}%</strong>
+                          Unidades que no votaron en esta pregunta: <strong>{noParticiparonPregunta.length}</strong> unidad(es) · Coeficiente no participante: <strong>{Math.min(100, coefTotal).toFixed(2)}%</strong>
                           {quorum && <> ({noParticiparonPregunta.length} de {quorum.total_unidades} unidades)</>}
                         </p>
                         {!actaModoSoporte && (
@@ -1370,15 +1370,15 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           </div>
         </section>
 
-        {/* ── RESUMEN: UNIDADES QUE NO VALIDARON ASISTENCIA (al final del acta). Versión pública: solo cantidades y coeficiente. */}
-        {resumenNoValidacionPorSesion.length > 0 && resumenNoValidacionPorSesion.some((r) => r.unidades.length > 0) && (
+        {/* ── RESUMEN: UNIDADES QUE NO VALIDARON ASISTENCIA (solo por pregunta; las generales ya figuran en Quórum). Versión pública: solo cantidades y coeficiente. */}
+        {resumenNoValidacionPorSesion.some((r) => r.unidades.length > 0 && r.titulo !== 'Verificación general') && (
           <section className="mt-4 pt-3 border-t-2 border-gray-200 break-inside-avoid">
             <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-1">Resumen de no participación en la verificación de asistencia</h2>
             <p className="text-xs text-gray-500 mb-2">
-              Unidades que no validaron su asistencia (no registraron en la verificación). Diferente a las que no votaron en una pregunta.
+              Unidades que no validaron su asistencia en cada sesión asociada a una pregunta. La verificación general ya figura en la sección Quórum y participación.
             </p>
             <div className="space-y-2">
-              {resumenNoValidacionPorSesion.filter((r) => r.unidades.length > 0).map((bloque, idx) => {
+              {resumenNoValidacionPorSesion.filter((r) => r.unidades.length > 0 && r.titulo !== 'Verificación general').map((bloque, idx) => {
                 const cierreStr = bloque.cierreAt
                   ? new Date(bloque.cierreAt).toLocaleString('es-CO', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })
                   : ''
