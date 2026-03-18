@@ -1495,8 +1495,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   }
 
   const GRACE_MS = 3 * 24 * 60 * 60 * 1000 // 72 horas
-  const withinGracePeriod = asamblea?.estado === 'activa' && asamblea.activated_at
-    ? (Date.now() - new Date(asamblea.activated_at).getTime() < GRACE_MS)
+  const withinGracePeriod = asamblea?.estado === 'activa'
+    ? (
+        // Para sandbox: si por algún motivo `activated_at` viene vacío,
+        // no bloquear edición; asumimos que está dentro de la gracia.
+        asamblea.is_demo === true && !asamblea.activated_at
+          ? true
+          : (asamblea.activated_at ? (Date.now() - new Date(asamblea.activated_at).getTime() < GRACE_MS) : false)
+      )
     : false
   // Solo lectura cuando está finalizada (o en demo según reglas). Mientras esté activa se puede editar; al pasar 72 h se cierra automáticamente.
   const isReadOnlyStructure = asamblea
