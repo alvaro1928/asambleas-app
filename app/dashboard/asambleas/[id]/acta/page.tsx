@@ -912,16 +912,63 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      <main ref={actaContentRef} className="max-w-4xl mx-auto px-8 py-10 print:py-6 bg-white text-gray-900 print:[&_section]:break-inside-avoid print:[&_table]:break-inside-avoid shadow-sm print:shadow-none rounded-lg print:rounded-none">
+      <style jsx global>{`
+        .acta-doc {
+          font-family: "Inter", "Segoe UI", Arial, sans-serif;
+          line-height: 1.4;
+          color: #111827;
+        }
+        .acta-doc h1,
+        .acta-doc h2,
+        .acta-doc h3 {
+          letter-spacing: -0.01em;
+        }
+        .acta-doc table {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: auto;
+        }
+        .acta-doc thead th {
+          background: #f3f4f6;
+          color: #111827;
+          font-weight: 700;
+        }
+        .acta-doc th,
+        .acta-doc td {
+          border: 1px solid #d1d5db;
+          padding: 7px 8px;
+          vertical-align: top;
+        }
+        .acta-doc tbody tr:nth-child(even) {
+          background: #fafafa;
+        }
+        .acta-section {
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          padding: 14px;
+          margin-bottom: 14px;
+        }
+        @media print {
+          .acta-doc {
+            font-size: 11.5px;
+          }
+          .acta-section {
+            border-color: #d1d5db;
+            box-shadow: none;
+          }
+        }
+      `}</style>
+
+      <main ref={actaContentRef} className="acta-doc max-w-5xl mx-auto px-10 py-10 print:py-6 bg-white text-gray-900 print:[&_section]:break-inside-avoid print:[&_table]:break-inside-avoid shadow-sm print:shadow-none rounded-lg print:rounded-none">
 
         {/* ── ENCABEZADO ── */}
         <header className="mb-5 break-inside-avoid">
-          <div className="flex items-start justify-between border-b-4 border-gray-900 pb-5">
+          <div className="flex items-start justify-between border-b-2 border-indigo-700 pb-5">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1">Votaciones de Asambleas Online</p>
-              <h1 className="text-3xl font-black uppercase tracking-tight text-gray-900 leading-tight">Acta de votación</h1>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-700 mb-1">Votaciones de Asambleas Online</p>
+              <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 leading-tight">Acta de votación</h1>
               {actaModoSoporte && (
-                <p className="text-sm font-semibold text-gray-600 mt-2">Versión pública</p>
+                <p className="text-sm font-semibold text-indigo-700 mt-2">Versión pública</p>
               )}
             </div>
             <div className="text-right text-xs text-gray-500 mt-1 shrink-0 ml-4">
@@ -929,7 +976,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               {isDemo && <p className="mt-1 text-red-600 font-semibold uppercase">Demo — sin validez legal</p>}
             </div>
           </div>
-          <div className="mt-5 grid grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
+          <div className="mt-5 grid grid-cols-2 gap-x-8 gap-y-2 text-sm bg-slate-50 border border-slate-200 rounded-xl p-4">
             <div>
               <span className="font-semibold text-gray-600">Asamblea:</span>{' '}
               <span className="text-gray-900 font-medium">{asamblea?.nombre}</span>
@@ -1033,7 +1080,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
         {/* ── QUÓRUM Y PARTICIPACIÓN (resumen general: solo total unidades, cantidad de preguntas, verificaciones; sin votación por pregunta) ── */}
         {(quorum || preguntas.length > 0) && (
-          <section className="mb-4 break-inside-avoid">
+          <section className="acta-section mb-4 break-inside-avoid">
             <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-2 pb-1 border-b border-gray-200">Quórum y participación</h2>
             <table className="w-full border-collapse text-sm">
               <tbody>
@@ -1112,6 +1159,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
         {/* ── RESULTADOS POR PREGUNTA ── */}
         <section>
+          <div className="acta-section">
           <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-2 pb-1 border-b border-gray-200">Resultados por pregunta</h2>
           <p className="text-xs text-gray-500 mb-3">
             Para cada pregunta se indican los resultados de votación y el registro de verificación de quórum al momento de esa votación. Las verificaciones de la asamblea en general figuran en la sección anterior.
@@ -1368,11 +1416,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               )
             })}
           </div>
+          </div>
         </section>
 
         {/* ── RESUMEN: UNIDADES QUE NO VALIDARON ASISTENCIA (solo por pregunta; las generales ya figuran en Quórum). Versión pública: solo cantidades y coeficiente. */}
         {resumenNoValidacionPorSesion.some((r) => r.unidades.length > 0 && r.titulo !== 'Verificación general') && (
-          <section className="mt-4 pt-3 border-t-2 border-gray-200 break-inside-avoid">
+          <section className="acta-section mt-4 pt-3 border-t-2 border-gray-200 break-inside-avoid">
             <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-1">Resumen de no participación en la verificación de asistencia</h2>
             <p className="text-xs text-gray-500 mb-2">
               Unidades que no validaron su asistencia en cada sesión asociada a una pregunta. La verificación general ya figura en la sección Quórum y participación.
@@ -1422,7 +1471,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         )}
 
         {/* ── FIRMAS ── */}
-        <section className="mt-5 pt-4 border-t-2 border-gray-900 break-inside-avoid">
+        <section className="acta-section mt-5 pt-4 border-t-2 border-gray-900 break-inside-avoid">
           <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-4">Firmas y aprobación del acta</h2>
           <div className="grid grid-cols-3 gap-8">
             <div>
