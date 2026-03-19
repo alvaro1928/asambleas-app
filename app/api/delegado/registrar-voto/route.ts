@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
  *   asamblea_id: string,
  *   token: string,
  *   unidad_id: string,
- *   votante_email: string,
+ *   votante_email?: string,
  *   votante_nombre: string,
  *   votos: Array<{ pregunta_id: string; opcion_id: string }>
  * }
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     const validUUID = /^[0-9a-f-]{36}$/i
     if (
-      !asamblea_id || !token || !unidad_id || !votante_email ||
+      !asamblea_id || !token || !unidad_id ||
       !Array.isArray(votos) || votos.length === 0 ||
       !validUUID.test(asamblea_id.trim()) ||
       !validUUID.test(token.trim()) ||
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     // Verificar que la unidad pertenece a la organización
     const { data: unidad } = await admin
       .from('unidades')
-      .select('id, organization_id')
+      .select('id, organization_id, email, email_propietario, nombre_propietario')
       .eq('id', unidad_id.trim())
       .eq('organization_id', asamblea.organization_id)
       .single()
@@ -93,8 +93,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const email = String(votante_email).toLowerCase().trim()
-    const nombre = (votante_nombre || 'Residente').trim()
+    const email = String(votante_email || unidad.email_propietario || unidad.email || `unidad-${unidad_id.trim()}@registro-delegado.local`)
+      .toLowerCase()
+      .trim()
+    const nombre = (votante_nombre || unidad.nombre_propietario || 'Residente').trim()
     const nombreAudit = `${nombre} (registrado por asistente delegado)`
     const userAgentAudit = '[Registrado por asistente delegado]'
     const ip =
