@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import Link from 'next/link'
-import { CreditCard, ChevronDown, ChevronUp, RefreshCw, User as UserIcon, Lock, Building2, Receipt, Users, Mail, Coins } from 'lucide-react'
+import { CreditCard, ChevronDown, ChevronUp, RefreshCw, User as UserIcon, Lock, Building2, Receipt, Users, Mail, Coins, Vote } from 'lucide-react'
 
 interface Profile {
   id: string
@@ -69,6 +69,14 @@ export default function ConfiguracionPage() {
   const [plantillaAdicionalCorreo, setPlantillaAdicionalCorreo] = useState('')
   const [savingConfigPoderes, setSavingConfigPoderes] = useState(false)
 
+  // Configuración asamblea (por usuario y conjunto)
+  const [mostrarQuorum, setMostrarQuorum] = useState(true)
+  const [mostrarDelegado, setMostrarDelegado] = useState(true)
+  const [mostrarCronometro, setMostrarCronometro] = useState(true)
+  const [mostrarPoderes, setMostrarPoderes] = useState(true)
+  const [participacionTimerDefaultMinutes, setParticipacionTimerDefaultMinutes] = useState<number>(5)
+  const [savingConfigAsamblea, setSavingConfigAsamblea] = useState(false)
+
   // Uso de tokens (billing_logs)
   interface UsoTokenItem {
     id: string
@@ -88,8 +96,9 @@ export default function ConfiguracionPage() {
     { id: 'contraseña', label: 'Contraseña', icon: Lock, orden: 2 },
     { id: 'conjunto', label: 'Datos del conjunto', icon: Building2, orden: 3 },
     { id: 'poderes-correo', label: 'Poderes y correo', icon: Users, orden: 4 },
-    { id: 'pagos', label: 'Mis pagos', icon: Receipt, orden: 5 },
-    { id: 'uso-tokens', label: 'Uso de tokens (créditos)', icon: Coins, orden: 6 },
+    { id: 'asamblea', label: 'Asamblea', icon: Vote, orden: 5 },
+    { id: 'pagos', label: 'Mis pagos', icon: Receipt, orden: 6 },
+    { id: 'uso-tokens', label: 'Uso de tokens (créditos)', icon: Coins, orden: 7 },
   ].sort((a, b) => (a.orden as number) - (b.orden as number))
 
   useEffect(() => {
@@ -129,6 +138,33 @@ export default function ConfiguracionPage() {
         })
     }
   }, [selectedConjuntoId, conjuntosList])
+
+  // Cargar configuración asamblea (por usuario y conjunto)
+  useEffect(() => {
+    if (!user?.id || !selectedConjuntoId) return
+    supabase
+      .from('configuracion_asamblea')
+      .select('mostrar_quorum, mostrar_delegado, mostrar_cronometro, mostrar_poderes, participacion_timer_default_minutes')
+      .eq('user_id', user.id)
+      .eq('organization_id', selectedConjuntoId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setMostrarQuorum(!!data.mostrar_quorum)
+          setMostrarDelegado(!!data.mostrar_delegado)
+          setMostrarCronometro(!!data.mostrar_cronometro)
+          setMostrarPoderes(!!data.mostrar_poderes)
+          const m = Number(data.participacion_timer_default_minutes)
+          setParticipacionTimerDefaultMinutes(Number.isFinite(m) && m >= 1 && m <= 180 ? m : 5)
+        } else {
+          setMostrarQuorum(true)
+          setMostrarDelegado(true)
+          setMostrarCronometro(true)
+          setMostrarPoderes(true)
+          setParticipacionTimerDefaultMinutes(5)
+        }
+      })
+  }, [user?.id, selectedConjuntoId])
 
   const loadData = async () => {
     try {
@@ -351,6 +387,43 @@ export default function ConfiguracionPage() {
       setError(err?.message || 'Error al guardar')
     } finally {
       setSavingConfigPoderes(false)
+    }
+  }
+
+  const handleSaveConfigAsamblea = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user?.id || !selectedConjuntoId) {
+      setError('Selecciona un conjunto')
+      return
+    }
+    setSavingConfigAsamblea(true)
+    setMessage('')
+    setError('')
+    try {
+      const minutes = Math.max(1, Math.min(180, participacionTimerDefaultMinutes || 5))
+      const { error: upsertError } = await supabase
+        .from('configuracion_asamblea')
+        .upsert(
+          {
+            user_id: user.id,
+            organization_id: selectedConjuntoId,
+            mostrar_quorum: mostrarQuorum,
+            mostrar_delegado: mostrarDelegado,
+            mostrar_cronometro: mostrarCronometro,
+            mostrar_poderes: mostrarPoderes,
+            participacion_timer_default_minutes: minutes,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id,organization_id' }
+        )
+      if (upsertError) throw upsertError
+      setMessage('Configuración de asamblea guardada')
+      setParticipacionTimerDefaultMinutes(minutes)
+      setTimeout(() => setMessage(''), 3000)
+    } catch (err: any) {
+      setError(err?.message || 'Error al guardar configuración de asamblea')
+    } finally {
+      setSavingConfigAsamblea(false)
     }
   }
 
@@ -850,6 +923,113 @@ export default function ConfiguracionPage() {
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-3xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {savingConfigPoderes ? 'Guardando...' : 'Guardar configuración'}
+              </button>
+            </form>
+            )}
+          </div>
+
+          {/* Asamblea */}
+          <div id="asamblea" className="scroll-mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="w-12 h-12 bg-violet-100 dark:bg-violet-900/30 rounded-3xl flex items-center justify-center">
+                <Vote className="w-6 h-6 text-violet-600 dark:text-violet-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Asamblea
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Funcionalidades que quieres ver en la página de cada asamblea. Si desactivas una, dejará de mostrarse solo para ti en las asambleas de este conjunto.
+                </p>
+              </div>
+            </div>
+
+            {conjuntosList.length === 0 ? (
+              <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 text-amber-800 dark:text-amber-200">
+                <p className="font-medium">Selecciona un conjunto primero</p>
+                <p className="text-sm mt-1">Configura datos del conjunto antes de ajustar preferencias de asamblea.</p>
+              </div>
+            ) : (
+            <form onSubmit={handleSaveConfigAsamblea} className="space-y-4">
+              {conjuntosList.length > 1 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Conjunto
+                  </label>
+                  <select
+                    value={selectedConjuntoId || ''}
+                    onChange={(e) => setSelectedConjuntoId(e.target.value || null)}
+                    className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  >
+                    {conjuntosList.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name || 'Sin nombre'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="space-y-3 rounded-xl border border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-900/50">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Mostrar en la página de asamblea</p>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={mostrarQuorum}
+                    onChange={(e) => setMostrarQuorum(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Verificación de quórum</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={mostrarDelegado}
+                    onChange={(e) => setMostrarDelegado(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Acceso de asistente delegado</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={mostrarCronometro}
+                    onChange={(e) => setMostrarCronometro(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Cronómetro transversal</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={mostrarPoderes}
+                    onChange={(e) => setMostrarPoderes(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Gestión de Poderes</span>
+                </label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Default del cronómetro (minutos)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={180}
+                  value={participacionTimerDefaultMinutes}
+                  onChange={(e) => setParticipacionTimerDefaultMinutes(Math.max(1, Math.min(180, parseInt(e.target.value, 10) || 5)))}
+                  className="w-full max-w-xs px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  En la página de asamblea solo podrás activar, pausar o reiniciar el cronómetro; el valor por defecto se configura aquí.
+                </p>
+              </div>
+              <button
+                type="submit"
+                disabled={savingConfigAsamblea}
+                className="w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold py-3 px-4 rounded-3xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {savingConfigAsamblea ? 'Guardando...' : 'Guardar configuración'}
               </button>
             </form>
             )}

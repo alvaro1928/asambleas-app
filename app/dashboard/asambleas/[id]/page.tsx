@@ -268,6 +268,22 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [billeteraColapsada, setBilleteraColapsada] = useState(true)
   const [openQuorumPanel, setOpenQuorumPanel] = useState(true)
 
+  // Preferencias de asamblea (Configuración → Asamblea); por defecto todo visible y cronómetro 5 min
+  interface PrefsAsamblea {
+    mostrar_quorum: boolean
+    mostrar_delegado: boolean
+    mostrar_cronometro: boolean
+    mostrar_poderes: boolean
+    participacion_timer_default_minutes: number
+  }
+  const [prefsAsamblea, setPrefsAsamblea] = useState<PrefsAsamblea>({
+    mostrar_quorum: true,
+    mostrar_delegado: true,
+    mostrar_cronometro: true,
+    mostrar_poderes: true,
+    participacion_timer_default_minutes: 5,
+  })
+
   // Edición de fecha y hora (solo borrador o activa; doble confirmación)
   const [showEditFechaModal, setShowEditFechaModal] = useState(false)
   const [editFechaValue, setEditFechaValue] = useState('')
@@ -291,11 +307,34 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load when id changes
   }, [params.id])
 
-  // Sincroniza el default del cronómetro para que el input siempre refleje DB.
+  // Sincroniza el default del cronómetro para que el input siempre refleje DB (solo si no usamos prefs; ahora el default viene de Config).
   useEffect(() => {
-    const dm = Number(asamblea?.participacion_timer_default_minutes ?? 5) || 5
+    const dm = Number(asamblea?.participacion_timer_default_minutes ?? prefsAsamblea.participacion_timer_default_minutes ?? 5) || 5
     setTimerDefaultDraftMinutes(dm)
-  }, [asamblea?.participacion_timer_default_minutes])
+  }, [asamblea?.participacion_timer_default_minutes, prefsAsamblea.participacion_timer_default_minutes])
+
+  // Cargar preferencias de asamblea (Configuración → Asamblea) para este usuario y conjunto
+  useEffect(() => {
+    if (!userId || !asamblea?.organization_id) return
+    supabase
+      .from('configuracion_asamblea')
+      .select('mostrar_quorum, mostrar_delegado, mostrar_cronometro, mostrar_poderes, participacion_timer_default_minutes')
+      .eq('user_id', userId)
+      .eq('organization_id', asamblea.organization_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const m = Number(data.participacion_timer_default_minutes)
+          setPrefsAsamblea({
+            mostrar_quorum: !!data.mostrar_quorum,
+            mostrar_delegado: !!data.mostrar_delegado,
+            mostrar_cronometro: !!data.mostrar_cronometro,
+            mostrar_poderes: !!data.mostrar_poderes,
+            participacion_timer_default_minutes: Number.isFinite(m) && m >= 1 && m <= 180 ? m : 5,
+          })
+        }
+      })
+  }, [userId, asamblea?.organization_id])
 
   // Al volver a la pestaña o al dar foco a la ventana, refrescar (quórum y validaciones hechas en Acceso)
   useEffect(() => {
@@ -779,6 +818,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
     setTimerTogglingEnabled(true)
     try {
+      // Al activar, sincronizar el default desde Config (Configuración → Asamblea) a la asamblea para uso en Acceso/Asistir/Votar
+      if (enabledNuevo) {
+        const defaultMin = Math.max(1, Math.min(180, prefsAsamblea.participacion_timer_default_minutes || 5))
+        await fetch('/api/dashboard/participacion-timer/set-default', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ asamblea_id: asamblea.id, minutes: defaultMin }),
+        })
+        setAsamblea((prev) => (prev ? { ...prev, participacion_timer_default_minutes: defaultMin } : prev))
+      }
       const res = await fetch('/api/dashboard/participacion-timer/set-enabled', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2270,7 +2319,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           </div>
         )}
 
-        {/* Panel de Quórum (colapsable; y Asistencia verificada cuando no hay preguntas abiertas y verificación activa) */}
+        {/* Panel de Quórum (colapsable; y Asistencia verificada cuando no hay preguntas abiertas y verificación activa) — visible según Config → Asamblea */}
+        {prefsAsamblea.mostrar_quorum !== false && (
         <div className="mb-6 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border-2 border-indigo-200 dark:border-indigo-800 overflow-hidden">
           {quorum || soloVerificacionActiva ? (
             <>
@@ -2453,6 +2503,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             </div>
           )}
         </div>
+        )}
 
         {/* Registrar voto a nombre de un residente — no consume tokens */}
         {preguntasAbiertas.length > 0 && (
@@ -2662,7 +2713,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   <div className="space-y-2">
                     <span className="inline-block px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">✓ Votación activa</span>
 
-                    {/* Verificación de quórum — siempre visible para no olvidar que está activa */}
+                    {/* Verificación de quórum — visible según Config → Asamblea */}
+                    {prefsAsamblea.mostrar_quorum !== false && (
                     <div className="flex flex-wrap items-center gap-2 py-2 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
                       <span className="text-xs font-semibold text-indigo-800 dark:text-indigo-200 flex items-center gap-1.5">
                         <UserCheck className="w-4 h-4 shrink-0" />
@@ -2687,6 +2739,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         </Button>
                       </div>
                     </div>
+                    )}
 
                     {/* 1. Enlace de votación — colapsable */}
                     <div className="rounded-2xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-900/50">
@@ -2719,7 +2772,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                       )}
                     </div>
 
-                    {/* 2. Acceso de asistente delegado — colapsable */}
+                    {/* 2. Acceso de asistente delegado — colapsable; visible según Config → Asamblea */}
+                    {prefsAsamblea.mostrar_delegado !== false && (
                     <div className="rounded-2xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-900/50">
                       <button type="button" onClick={() => setOpenDelegadoAcceso((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
                         <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
@@ -2757,8 +2811,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         </div>
                       )}
                     </div>
+                    )}
 
-                    {/* Cronómetro de intervención (timer transversal) — colapsable */}
+                    {/* Cronómetro de intervención (timer transversal) — colapsable; visible según Config → Asamblea */}
+                    {prefsAsamblea.mostrar_cronometro !== false && (
                     <div className="rounded-2xl border border-indigo-200 dark:border-indigo-800 overflow-hidden bg-indigo-50/50 dark:bg-indigo-900/10">
                       <button
                         type="button"
@@ -2784,28 +2840,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                             {timerTogglingEnabled ? 'Actualizando…' : timerEnabled ? 'Desactivar timer' : 'Activar timer'}
                           </Button>
 
-                          <div className="flex flex-col sm:flex-row gap-2">
-                            <div className="flex-1">
-                              <label className="text-xs text-gray-600 dark:text-gray-300 block mb-1.5">Default (minutos)</label>
-                              <input
-                                type="number"
-                                min={1}
-                                max={180}
-                                value={timerDefaultDraftMinutes}
-                                onChange={(e) => setTimerDefaultDraftMinutes(Number(e.target.value))}
-                                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-800 dark:text-gray-200"
-                              />
-                            </div>
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={handleGuardarCronometroDefault}
-                              disabled={timerSavingDefault}
-                              className="sm:w-auto w-full rounded-xl bg-white hover:bg-slate-100 text-slate-800 dark:text-slate-200 font-semibold"
-                            >
-                              {timerSavingDefault ? 'Guardando…' : 'Guardar'}
-                            </Button>
-                          </div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            Default: <strong>{prefsAsamblea.participacion_timer_default_minutes} min</strong> (configurado en Configuración → Asamblea). Aquí solo puedes activar, pausar o reiniciar.
+                          </p>
 
                           <p className="text-xs text-gray-500 dark:text-gray-400">
                             Si el cronómetro está desactivado, desaparece en Acceso, Asistir y Votar y no se puede activar.
@@ -2813,6 +2850,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                         </div>
                       )}
                     </div>
+                    )}
 
                     {/* 3. Desactivar votación — colapsable */}
                     <div className="rounded-2xl border border-red-200 dark:border-red-900/50 overflow-hidden bg-red-50/50 dark:bg-red-900/10">
@@ -2839,7 +2877,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 )}
               </div>
 
-              {/* 2. Gestión de Poderes */}
+              {/* 2. Gestión de Poderes — visible según Config → Asamblea */}
+              {prefsAsamblea.mostrar_poderes !== false && (
               <div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
                   <Users className="w-4 h-4 mr-2" />
@@ -2873,6 +2912,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   </>
                 )}
               </div>
+              )}
 
               {/* 3. Información (abajo) */}
               <div>
