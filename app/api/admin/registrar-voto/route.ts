@@ -150,18 +150,11 @@ export async function POST(request: NextRequest) {
 
     for (const unidadId of unidadIds) {
       const u = unidadesById.get(unidadId)
-      const emailUnidad = String(votante_email || u?.email_propietario || u?.email || '').toLowerCase().trim()
-      if (!emailUnidad) {
-        for (const v of votos) {
-          results.push({
-            unidad_id: unidadId,
-            pregunta_id: v.pregunta_id,
-            success: false,
-            error: 'La unidad no tiene email y no se indicó un email manual',
-          })
-        }
-        continue
-      }
+      // En modo masivo no excluimos unidades sin correo: usamos identificador técnico estable
+      // para mantener trazabilidad y permitir registrar todas las unidades seleccionadas.
+      const emailUnidad = String(votante_email || u?.email_propietario || u?.email || `unidad-${unidadId}@registro-admin.local`)
+        .toLowerCase()
+        .trim()
       const nombreUnidad = (u?.nombre_propietario || nombreBase || 'Residente').trim()
       const nombreAudit = `${nombreUnidad} (registrado por administrador)`
 
