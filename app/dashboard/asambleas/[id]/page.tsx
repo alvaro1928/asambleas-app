@@ -271,6 +271,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   // Preferencias de asamblea (Configuración → Asamblea); por defecto todo visible y cronómetro 5 min
   interface PrefsAsamblea {
     mostrar_quorum: boolean
+    mostrar_quorum_tarjetas: boolean
+    mostrar_quorum_historico: boolean
     mostrar_delegado: boolean
     mostrar_cronometro: boolean
     mostrar_poderes: boolean
@@ -278,6 +280,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   }
   const [prefsAsamblea, setPrefsAsamblea] = useState<PrefsAsamblea>({
     mostrar_quorum: true,
+    mostrar_quorum_tarjetas: true,
+    mostrar_quorum_historico: true,
     mostrar_delegado: true,
     mostrar_cronometro: true,
     mostrar_poderes: true,
@@ -318,7 +322,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!userId || !asamblea?.organization_id) return
     supabase
       .from('configuracion_asamblea')
-      .select('mostrar_quorum, mostrar_delegado, mostrar_cronometro, mostrar_poderes, participacion_timer_default_minutes')
+      .select('mostrar_quorum, mostrar_quorum_tarjetas, mostrar_quorum_historico, mostrar_delegado, mostrar_cronometro, mostrar_poderes, participacion_timer_default_minutes')
       .eq('user_id', userId)
       .eq('organization_id', asamblea.organization_id)
       .maybeSingle()
@@ -327,6 +331,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           const m = Number(data.participacion_timer_default_minutes)
           setPrefsAsamblea({
             mostrar_quorum: !!data.mostrar_quorum,
+            mostrar_quorum_tarjetas: data.mostrar_quorum_tarjetas !== false,
+            mostrar_quorum_historico: data.mostrar_quorum_historico !== false,
             mostrar_delegado: !!data.mostrar_delegado,
             mostrar_cronometro: !!data.mostrar_cronometro,
             mostrar_poderes: !!data.mostrar_poderes,
@@ -2352,6 +2358,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
               {openQuorumPanel && (
               <div className="px-4 sm:px-6 pb-6 pt-0">
+            {prefsAsamblea.mostrar_quorum_tarjetas !== false && (
             <div className={`grid grid-cols-1 gap-4 ${quorum ? 'md:grid-cols-3' : ''} ${quorum && statsVerificacion != null ? 'md:grid-cols-4' : ''} ${!quorum && statsVerificacion != null ? 'md:grid-cols-1' : ''}`}>
               {quorum && (
                 <>
@@ -2439,7 +2446,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 </div>
               )}
             </div>
+            )}
 
+            {prefsAsamblea.mostrar_quorum_tarjetas !== false && (
               <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   ⏱️ Datos actualizados en tiempo real cada 5 segundos
@@ -2456,9 +2465,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                   Actualizar
                 </Button>
               </div>
+            )}
 
-              {/* Historial de validaciones de quórum (asamblea en general: sin pregunta abierta o todas cerradas) */}
-              {sesionesQuorumGeneral.length > 0 && (
+              {/* Historial de validaciones de quórum (asamblea en general: sin pregunta abierta o todas cerradas) — visible según Config → Asamblea */}
+              {prefsAsamblea.mostrar_quorum_historico !== false && sesionesQuorumGeneral.length > 0 && (
                 <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
                   <button
                     type="button"

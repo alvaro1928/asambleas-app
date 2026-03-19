@@ -71,6 +71,8 @@ export default function ConfiguracionPage() {
 
   // Configuración asamblea (por usuario y conjunto)
   const [mostrarQuorum, setMostrarQuorum] = useState(true)
+  const [mostrarQuorumTarjetas, setMostrarQuorumTarjetas] = useState(true)
+  const [mostrarQuorumHistorico, setMostrarQuorumHistorico] = useState(true)
   const [mostrarDelegado, setMostrarDelegado] = useState(true)
   const [mostrarPoderes, setMostrarPoderes] = useState(true)
   const [participacionTimerDefaultMinutes, setParticipacionTimerDefaultMinutes] = useState<number>(5)
@@ -143,19 +145,23 @@ export default function ConfiguracionPage() {
     if (!user?.id || !selectedConjuntoId) return
     supabase
       .from('configuracion_asamblea')
-      .select('mostrar_quorum, mostrar_delegado, mostrar_cronometro, mostrar_poderes, participacion_timer_default_minutes')
+      .select('mostrar_quorum, mostrar_quorum_tarjetas, mostrar_quorum_historico, mostrar_delegado, mostrar_cronometro, mostrar_poderes, participacion_timer_default_minutes')
       .eq('user_id', user.id)
       .eq('organization_id', selectedConjuntoId)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setMostrarQuorum(!!data.mostrar_quorum)
+          setMostrarQuorumTarjetas(data.mostrar_quorum_tarjetas !== false)
+          setMostrarQuorumHistorico(data.mostrar_quorum_historico !== false)
           setMostrarDelegado(!!data.mostrar_delegado)
           setMostrarPoderes(!!data.mostrar_poderes)
           const m = Number(data.participacion_timer_default_minutes)
           setParticipacionTimerDefaultMinutes(Number.isFinite(m) && m >= 1 && m <= 180 ? m : 5)
         } else {
           setMostrarQuorum(true)
+          setMostrarQuorumTarjetas(true)
+          setMostrarQuorumHistorico(true)
           setMostrarDelegado(true)
           setMostrarPoderes(true)
           setParticipacionTimerDefaultMinutes(5)
@@ -405,6 +411,8 @@ export default function ConfiguracionPage() {
             user_id: user.id,
             organization_id: selectedConjuntoId,
             mostrar_quorum: mostrarQuorum,
+            mostrar_quorum_tarjetas: mostrarQuorumTarjetas,
+            mostrar_quorum_historico: mostrarQuorumHistorico,
             mostrar_delegado: mostrarDelegado,
             mostrar_cronometro: true,
             mostrar_poderes: mostrarPoderes,
@@ -976,6 +984,24 @@ export default function ConfiguracionPage() {
                     className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                   />
                   <span className="text-sm text-gray-700 dark:text-gray-300">Verificación de quórum</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer pl-6">
+                  <input
+                    type="checkbox"
+                    checked={mostrarQuorumTarjetas}
+                    onChange={(e) => setMostrarQuorumTarjetas(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Tarjetas de quórum (participación, coeficiente, pendientes, asistencia verificada)</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer pl-6">
+                  <input
+                    type="checkbox"
+                    checked={mostrarQuorumHistorico}
+                    onChange={(e) => setMostrarQuorumHistorico(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Historial de validaciones de quórum</span>
                 </label>
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input

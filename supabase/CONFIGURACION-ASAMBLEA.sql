@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS configuracion_asamblea (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   mostrar_quorum BOOLEAN DEFAULT true NOT NULL,
+  mostrar_quorum_tarjetas BOOLEAN DEFAULT true NOT NULL,
+  mostrar_quorum_historico BOOLEAN DEFAULT true NOT NULL,
   mostrar_delegado BOOLEAN DEFAULT true NOT NULL,
   mostrar_cronometro BOOLEAN DEFAULT true NOT NULL,
   mostrar_poderes BOOLEAN DEFAULT true NOT NULL,
@@ -24,6 +26,8 @@ CREATE INDEX IF NOT EXISTS idx_configuracion_asamblea_user_org
 
 COMMENT ON TABLE configuracion_asamblea IS 'Preferencias de visualización de asamblea por usuario y conjunto; default del cronómetro (minutos)';
 COMMENT ON COLUMN configuracion_asamblea.mostrar_quorum IS 'Mostrar panel Quórum y bloque Verificación de quórum en Acceso';
+COMMENT ON COLUMN configuracion_asamblea.mostrar_quorum_tarjetas IS 'Dentro del panel Quórum: mostrar tarjetas (participación, coeficiente, pendientes, asistencia verificada)';
+COMMENT ON COLUMN configuracion_asamblea.mostrar_quorum_historico IS 'Dentro del panel Quórum: mostrar historial de validaciones de quórum';
 COMMENT ON COLUMN configuracion_asamblea.mostrar_delegado IS 'Mostrar card Acceso de asistente delegado';
 COMMENT ON COLUMN configuracion_asamblea.mostrar_cronometro IS 'Mostrar card Cronómetro transversal';
 COMMENT ON COLUMN configuracion_asamblea.mostrar_poderes IS 'Mostrar bloque Gestión de Poderes';
