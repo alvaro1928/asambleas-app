@@ -321,9 +321,10 @@ Ya explicado en `GUIA-SISTEMA-VOTACION-PUBLICA.md`
 **Conjunto "Las Palmas" con 50 unidades**
 
 1. Admin crea asamblea → Estado: Borrador
-2. Admin agrega 3 preguntas
-3. Admin abre las preguntas → Estado: Abiertas
-4. Admin activa votación pública → Código: `M3P7-R9K2`
+2. Admin activa la asamblea → Estado: Activa
+3. Admin agrega 3 preguntas
+4. Admin abre las preguntas → Estado: Abiertas
+5. Admin activa votación pública → Código: `M3P7-R9K2`
 5. Admin comparte enlace por WhatsApp
 6. **María** (Apto 303) vota por sus 3 unidades (1 propia + 2 poderes)
 7. **Juan** (Apto 101) vota por su unidad

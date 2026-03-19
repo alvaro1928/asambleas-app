@@ -401,7 +401,7 @@ export default function NuevaAsambleaPage() {
             {/* Información */}
             <Alert>
               <AlertDescription>
-                La asamblea se creará en estado <strong>Borrador</strong>. Podrás agregar preguntas y activarla cuando estés listo.
+                La asamblea se creará en estado <strong>Borrador</strong>. Cuando la actives, podrás agregar preguntas y continuar con el proceso de votación.
               </AlertDescription>
             </Alert>
 

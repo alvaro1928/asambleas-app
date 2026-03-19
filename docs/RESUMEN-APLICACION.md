@@ -41,7 +41,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
   - Umbral de aprobación por pregunta.
   - Activar/desactivar **votación pública** (genera código de acceso y URL).
   - En la sección **Acceso Público**, botones de **Verificación de quórum**: **Activar/Desactivar verificación** y **Registrar asistencia** (enlace a la página de acceso para el modal de registro manual); se muestra el resumen de asistencia verificada y si se alcanzó quórum (Ley 675).
-  - Ver **quórum** (unidades que votaron, coeficiente, porcentaje nominal/coeficiente) y **historial de validaciones de quórum (asamblea en general)** en el panel colapsable.
+  - Ver **quórum** (unidades que votaron, coeficiente, porcentaje nominal/coeficiente) y **historial de validaciones de quórum (asamblea en general)** en el panel colapsable. La visibilidad de las tarjetas de quórum y del historial se configura en **Configuración → Asamblea** (para tu usuario y este conjunto).
   - Ver estadísticas por pregunta (votos por opción, porcentajes).
   - **Registrar voto a nombre de un residente** (admin): selección de unidad, email y votos por pregunta abierta.
   - Copiar código y enlace; enlace a pantalla de acceso/QR.

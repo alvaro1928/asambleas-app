@@ -21,6 +21,7 @@ Panel superior que muestra:
 - **Unidades pendientes**: Cuántas faltan
 - **Estado del quórum**: ✅ Alcanzado / ⚠️ Pendiente
 - **Actualización automática**: Cada 5 segundos
+- **Personalización (admin):** la visibilidad de las tarjetas de quórum y del historial de validaciones se configura en **Configuración → Asamblea** (por usuario y conjunto).
 
 ### ✅ 3. Sistema de Poderes (Preparado)
 

@@ -55,7 +55,7 @@ export function GuiaTokensModal({ open, onOpenChange, colorPrincipalHex = COLOR_
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>
-                <span><strong className="text-slate-300">Asambleas</strong> — Crear asambleas, definir preguntas y opciones de votación (Sí/No u otras).</span>
+                <span><strong className="text-slate-300">Asambleas</strong> — Crear asambleas y, una vez activadas, definir preguntas y opciones de votación (Sí/No u otras).</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>

@@ -4420,7 +4420,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 Quórum y participación
               </h4>
               <p className="mt-1">
-                Panel colapsable que muestra en tiempo real cuántas unidades han votado y el coeficiente acumulado (Ley 675). Necesitas al menos 50% del coeficiente para alcanzar quórum. Si activas la verificación de asistencia, aparece además la tarjeta <strong>Asistencia verificada</strong>, también cuando no hay preguntas abiertas.
+                Panel colapsable que muestra en tiempo real cuántas unidades han votado y el coeficiente acumulado (Ley 675). Necesitas al menos 50% del coeficiente para alcanzar quórum. Si activas la verificación de asistencia, aparece además la tarjeta <strong>Asistencia verificada</strong>, también cuando no hay preguntas abiertas. Puedes elegir qué mostrar (tarjetas de quórum e historial de validaciones) desde Configuración → Asamblea para este conjunto y tu usuario.
               </p>
             </div>
             <div>
@@ -4456,7 +4456,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                 Preguntas de votación
               </h4>
               <p className="mt-1">
-                Aquí creas y gestionas las preguntas. Puedes abrir o cerrar cada pregunta para que los residentes voten. Los resultados se actualizan en vivo.
+                Aquí creas y gestionas las preguntas. Puedes abrir o cerrar cada pregunta para que los residentes voten. Los resultados se actualizan en vivo. En <strong>borrador</strong> no se pueden crear preguntas: activa la asamblea primero (botón verde arriba) y luego podrás agregar preguntas.
               </p>
             </div>
             <div>
