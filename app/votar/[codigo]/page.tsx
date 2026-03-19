@@ -34,8 +34,8 @@ function formatMMSS(totalSeconds: number) {
 
 function mensajeErrorAmigable(msg: string): string {
   const m = msg.toLowerCase()
-  if (m.includes('no se encontraron unidades') || m.includes('length === 0')) return 'Este correo o teléfono no está asociado a ninguna unidad en esta asamblea. Revisa el dato o contacta al administrador.'
-  if (m.includes('no puede votar') || m.includes('puede_votar')) return 'No tienes permiso para votar en esta asamblea con este correo o teléfono. Verifica que tengas una unidad o poder asignado.'
+  if (m.includes('no se encontraron unidades') || m.includes('length === 0')) return 'Este correo, teléfono o identificación no está asociado a ninguna unidad en esta asamblea. Revisa el dato o contacta al administrador.'
+  if (m.includes('no puede votar') || m.includes('puede_votar')) return 'No tienes permiso para votar en esta asamblea con este correo, teléfono o identificación. Verifica que tengas una unidad o poder asignado.'
   if (m.includes('código') && m.includes('inválido')) return 'El código de acceso no es válido. Verifica que hayas escaneado correctamente el QR o que el enlace sea el indicado.'
   if (m.includes('acceso') && m.includes('cerrado')) return 'El acceso a esta votación está cerrado. Contacta al administrador si crees que es un error.'
   return msg
@@ -375,51 +375,23 @@ export default function VotacionPublicaPage() {
 
   const refrescarUnidades = async (): Promise<UnidadInfo[]> => {
     const identificador = email.trim()
-    const { data, error } = await supabase.rpc('validar_votante_asamblea', {
-      p_codigo_asamblea: codigo,
-      p_email_votante: identificador.includes('@') ? identificador.toLowerCase() : identificador
+    const res = await fetch('/api/votar/validar-identificador', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        codigo,
+        identificador,
+      }),
     })
-
-    if (error) throw error
-
-    if (!data || data.length === 0) {
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(data?.error || 'No se pudo validar el identificador')
+    }
+    if (!data?.puede_votar || !Array.isArray(data?.unidades)) {
       return []
     }
-
-    const resultado = data[0]
-
-    if (!resultado.puede_votar) {
-      throw new Error(resultado.mensaje || 'No puede votar')
-    }
-
-    // Obtener información detallada de las unidades
-    const unidadesIds = [
-      ...(resultado.unidades_propias || []),
-      ...(resultado.unidades_poderes || [])
-    ]
-
-    if (unidadesIds.length === 0) {
-      return []
-    }
-
-    const { data: unidadesData, error: unidadesError } = await supabase
-      .from('unidades')
-      .select('id, torre, numero, coeficiente, nombre_propietario')
-      .in('id', unidadesIds)
-
-    if (unidadesError) throw unidadesError
-
-    // Marcar cuáles son poderes
-    const unidadesPoderes = resultado.unidades_poderes || []
-
-    const unidadesConInfo: UnidadInfo[] = (unidadesData || []).map((u: any) => ({
-      id: u.id,
-      torre: u.torre,
-      numero: u.numero,
-      coeficiente: u.coeficiente,
-      es_poder: unidadesPoderes.includes(u.id),
-      nombre_otorgante: u.nombre_propietario
-    }))
+    const unidadesConInfo: UnidadInfo[] = data.unidades
 
     setUnidades(unidadesConInfo)
     return unidadesConInfo
@@ -1122,7 +1094,7 @@ export default function VotacionPublicaPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Email o teléfono registrado en la unidad
+                Email, teléfono o identificación registrada
               </label>
               <Input
                 type="text"
@@ -1130,12 +1102,12 @@ export default function VotacionPublicaPage() {
                 autoComplete="email tel"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com o 3001234567"
+                placeholder="tu@email.com, 3001234567 o 1234567890"
                 className="w-full text-lg"
                 onKeyPress={(e) => e.key === 'Enter' && handleValidarEmail()}
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                ℹ️ Ingresa el email o el número de teléfono registrado en tu unidad o con el que tienes poderes
+                ℹ️ Ingresa el email, teléfono o número de identificación registrado en tu unidad o en tu poder (si eres tercero)
               </p>
             </div>
 
@@ -1171,7 +1143,7 @@ export default function VotacionPublicaPage() {
           {/* Footer */}
           <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
             <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-              🔒 Solo podrás votar si tu email o teléfono está registrado en una unidad del conjunto.
+              🔒 Solo podrás votar si tu email, teléfono o identificación está registrado en una unidad o en un poder activo.
             </p>
           </div>
         </div>

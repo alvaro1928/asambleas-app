@@ -5,10 +5,11 @@ import { NextRequest, NextResponse } from 'next/server'
 /**
  * POST /api/admin/registrar-voto
  * Modelo Billetera de Tokens por Gestor.
- * Permite al administrador registrar uno o varios votos a nombre de un residente.
- * Requiere tokens_gestor >= unidades_del_conjunto (1 token = 1 unidad).
- * Tras éxito, descuenta el costo (unidades) del perfil del gestor.
- * Body: { asamblea_id, unidad_id, votante_email, votante_nombre, votos: [{ pregunta_id, opcion_id }] }
+ * Permite al administrador registrar votos individuales o masivos por unidad.
+ * No consume tokens; solo registra trazabilidad "registrado por administrador".
+ * Body:
+ * - Modo individual: { asamblea_id, unidad_id, votante_email?, votante_nombre?, votos: [{ pregunta_id, opcion_id }] }
+ * - Modo masivo:     { asamblea_id, unidad_ids: string[], votante_nombre?, votos: [{ pregunta_id, opcion_id }] }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -38,20 +39,26 @@ export async function POST(request: NextRequest) {
     const {
       asamblea_id,
       unidad_id,
+      unidad_ids,
       votante_email,
       votante_nombre,
       votos,
     } = body as {
       asamblea_id?: string
       unidad_id?: string
+      unidad_ids?: string[]
       votante_email?: string
       votante_nombre?: string
       votos?: Array<{ pregunta_id: string; opcion_id: string }>
     }
 
-    if (!asamblea_id || !unidad_id || !votante_email || !Array.isArray(votos) || votos.length === 0) {
+    const unidadIds = Array.isArray(unidad_ids)
+      ? unidad_ids.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim())
+      : (unidad_id ? [unidad_id] : [])
+
+    if (!asamblea_id || unidadIds.length === 0 || !Array.isArray(votos) || votos.length === 0) {
       return NextResponse.json(
-        { error: 'Faltan asamblea_id, unidad_id, votante_email o votos (array de { pregunta_id, opcion_id })' },
+        { error: 'Faltan asamblea_id, unidad_id/unidad_ids o votos (array de { pregunta_id, opcion_id })' },
         { status: 400 }
       )
     }
@@ -89,15 +96,18 @@ export async function POST(request: NextRequest) {
 
     // No se exigen tokens para registrar votos (solo para activar asamblea y generar acta).
 
-    // Verificar que la unidad pertenece al mismo conjunto
-    const { data: unidadRow } = await supabase
+    // Verificar que las unidades pertenecen al mismo conjunto
+    const { data: unidadesRows } = await supabase
       .from('unidades')
-      .select('id, organization_id')
-      .eq('id', unidad_id)
-      .single()
+      .select('id, organization_id, email, email_propietario, nombre_propietario')
+      .in('id', unidadIds)
 
-    if (!unidadRow || unidadRow.organization_id !== asambleaRow.organization_id) {
-      return NextResponse.json({ error: 'Unidad no válida para esta asamblea' }, { status: 400 })
+    if (!unidadesRows || unidadesRows.length !== unidadIds.length) {
+      return NextResponse.json({ error: 'Una o más unidades no son válidas para esta asamblea' }, { status: 400 })
+    }
+
+    if (unidadesRows.some((u) => u.organization_id !== asambleaRow.organization_id)) {
+      return NextResponse.json({ error: 'Una o más unidades no pertenecen al conjunto de la asamblea' }, { status: 400 })
     }
 
     // Verificar que cada pregunta pertenece a la asamblea y está abierta
@@ -125,9 +135,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const email = String(votante_email).toLowerCase().trim()
-    const nombre = (votante_nombre || 'Residente').trim()
-    const nombreAudit = nombre + ' (registrado por administrador)'
+    const nombreBase = (votante_nombre || 'Residente').trim()
     const userAgent = '[Registrado por administrador]'
     const adminIp =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -137,29 +145,49 @@ export async function POST(request: NextRequest) {
       request.headers.get('cf-connecting-ip') ||
       null
 
-    const results: Array<{ pregunta_id: string; success: boolean; error?: string }> = []
+    const results: Array<{ unidad_id: string; pregunta_id: string; success: boolean; error?: string }> = []
+    const unidadesById = new Map(unidadesRows.map((u) => [u.id, u]))
 
-    for (const v of votos) {
-      const { data, error } = await admin.rpc('registrar_voto_con_trazabilidad', {
-        p_pregunta_id: v.pregunta_id,
-        p_unidad_id: unidad_id,
-        p_opcion_id: v.opcion_id,
-        p_votante_email: email,
-        p_votante_nombre: nombreAudit,
-        p_es_poder: false,
-        p_poder_id: null,
-        p_ip_address: adminIp,
-        p_user_agent: userAgent,
-      })
+    for (const unidadId of unidadIds) {
+      const u = unidadesById.get(unidadId)
+      const emailUnidad = String(votante_email || u?.email_propietario || u?.email || '').toLowerCase().trim()
+      if (!emailUnidad) {
+        for (const v of votos) {
+          results.push({
+            unidad_id: unidadId,
+            pregunta_id: v.pregunta_id,
+            success: false,
+            error: 'La unidad no tiene email y no se indicó un email manual',
+          })
+        }
+        continue
+      }
+      const nombreUnidad = (u?.nombre_propietario || nombreBase || 'Residente').trim()
+      const nombreAudit = `${nombreUnidad} (registrado por administrador)`
 
-      if (error) {
-        results.push({ pregunta_id: v.pregunta_id, success: false, error: error.message })
-      } else {
-        results.push({ pregunta_id: v.pregunta_id, success: true })
+      for (const v of votos) {
+        const { error } = await admin.rpc('registrar_voto_con_trazabilidad', {
+          p_pregunta_id: v.pregunta_id,
+          p_unidad_id: unidadId,
+          p_opcion_id: v.opcion_id,
+          p_votante_email: emailUnidad,
+          p_votante_nombre: nombreAudit,
+          p_es_poder: false,
+          p_poder_id: null,
+          p_ip_address: adminIp,
+          p_user_agent: userAgent,
+        })
+
+        if (error) {
+          results.push({ unidad_id: unidadId, pregunta_id: v.pregunta_id, success: false, error: error.message })
+        } else {
+          results.push({ unidad_id: unidadId, pregunta_id: v.pregunta_id, success: true })
+        }
       }
     }
 
     const allOk = results.every((r) => r.success)
+    const okCount = results.filter((r) => r.success).length
 
     // No se restan tokens al administrador cuando registra votos por una unidad.
     // Los tokens solo se descuentan al activar la votación y al generar el acta.
@@ -167,9 +195,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: allOk,
       results,
+      total_intentos: results.length,
+      total_ok: okCount,
       message: allOk
         ? 'Votos registrados correctamente'
-        : 'Algunos votos no se pudieron registrar',
+        : `Registro parcial: ${okCount}/${results.length} votos`,
     }, { status: allOk ? 200 : 207 })
   } catch (e) {
     console.error('[api/admin/registrar-voto]', e)

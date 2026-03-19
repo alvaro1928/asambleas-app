@@ -74,6 +74,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Error al buscar registro' }, { status: 500 })
     }
 
+    const normalizarTelefono = (v: string) => v.replace(/\D/g, '')
+    const normalizarDoc = (v: string) => v.replace(/[^a-z0-9]/gi, '').toLowerCase()
+    const identificadorCoincide = (storedRaw: string | null | undefined, identRaw: string): boolean => {
+      if (!storedRaw) return false
+      const a = storedRaw.trim().toLowerCase()
+      const b = identRaw.trim().toLowerCase()
+      if (!a || !b) return false
+      if (a === b) return true
+      const telA = normalizarTelefono(a)
+      const telB = normalizarTelefono(b)
+      if (telA && telB && telA === telB) return true
+      const docA = normalizarDoc(a)
+      const docB = normalizarDoc(b)
+      return !!docA && !!docB && docA === docB
+    }
+
     let filas = (idRows ?? []).map((r) => ({ id: r.quorum_id }))
     if (filas.length === 0 && email.trim().includes('@')) {
       try {
@@ -88,6 +104,49 @@ export async function POST(request: NextRequest) {
         filas = (idRowsRetry ?? []).map((r: { quorum_id: string }) => ({ id: r.quorum_id }))
       } catch {
         // Si asegurar_quorum_para_identificador no existe o falla, se mantiene filas.length === 0
+      }
+    }
+    if (filas.length === 0 && !email.trim().includes('@')) {
+      const { data: poderesRows } = await admin
+        .from('poderes')
+        .select('unidad_otorgante_id, email_receptor')
+        .eq('asamblea_id', asamblea_id.trim())
+        .eq('estado', 'activo')
+
+      const unidadesPoder = (poderesRows ?? [])
+        .filter((p) => identificadorCoincide(p.email_receptor, email.trim()))
+        .map((p) => p.unidad_otorgante_id)
+        .filter(Boolean) as string[]
+
+      if (unidadesPoder.length > 0) {
+        // Si no existen filas de quorum para esas unidades, crearlas para permitir verificación inmediata.
+        const { data: filasQuorum } = await admin
+          .from('quorum_asamblea')
+          .select('id, unidad_id')
+          .eq('asamblea_id', asamblea_id.trim())
+          .in('unidad_id', unidadesPoder)
+
+        const unidadesConFila = new Set((filasQuorum ?? []).map((f) => f.unidad_id))
+        const unidadesSinFila = unidadesPoder.filter((uid) => !unidadesConFila.has(uid))
+        if (unidadesSinFila.length > 0) {
+          await admin
+            .from('quorum_asamblea')
+            .insert(
+              unidadesSinFila.map((uid) => ({
+                asamblea_id: asamblea_id.trim(),
+                unidad_id: uid,
+                email_propietario: email.trim(),
+                presente_virtual: true,
+              }))
+            )
+        }
+
+        const { data: filasRetry } = await admin
+          .from('quorum_asamblea')
+          .select('id')
+          .eq('asamblea_id', asamblea_id.trim())
+          .in('unidad_id', unidadesPoder)
+        filas = (filasRetry ?? []).map((r) => ({ id: r.id }))
       }
     }
     if (filas.length === 0) {

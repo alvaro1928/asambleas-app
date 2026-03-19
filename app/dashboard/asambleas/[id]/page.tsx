@@ -247,8 +247,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   // Registrar voto a nombre de un residente (admin)
   const [showRegistroVotoAdmin, setShowRegistroVotoAdmin] = useState(false)
   const [unidadesParaVoto, setUnidadesParaVoto] = useState<Array<{ id: string; torre: string; numero: string; email?: string | null; email_propietario?: string | null; nombre_propietario?: string | null }>>([])
-  const [unidadRegistroVoto, setUnidadRegistroVoto] = useState('')
-  const [votanteEmailRegistro, setVotanteEmailRegistro] = useState('')
+  const [unidadesRegistroSeleccionadas, setUnidadesRegistroSeleccionadas] = useState<string[]>([])
+  const [searchUnidadesRegistro, setSearchUnidadesRegistro] = useState('')
   const [votanteNombreRegistro, setVotanteNombreRegistro] = useState('')
   const [votosRegistroPorPregunta, setVotosRegistroPorPregunta] = useState<Record<string, string>>({})
   const [savingRegistroVoto, setSavingRegistroVoto] = useState(false)
@@ -896,8 +896,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!asamblea?.organization_id) return
     // No se exigen tokens para entrar ni para registrar votos; solo al activar o generar acta
     setShowRegistroVotoAdmin(true)
-    setUnidadRegistroVoto('')
-    setVotanteEmailRegistro('')
+    setUnidadesRegistroSeleccionadas([])
+    setSearchUnidadesRegistro('')
     setVotanteNombreRegistro('')
     setVotosRegistroPorPregunta({})
     try {
@@ -919,18 +919,30 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
-  const handleUnidadChangeRegistro = (unidadId: string) => {
-    setUnidadRegistroVoto(unidadId)
-    const u = unidadesParaVoto.find((x) => x.id === unidadId)
-    if (u) {
-      setVotanteEmailRegistro(u.email_propietario ?? u.email ?? '')
-      setVotanteNombreRegistro(u.nombre_propietario ?? '')
-    }
+  const toggleUnidadRegistro = (unidadId: string) => {
+    setUnidadesRegistroSeleccionadas((prev) =>
+      prev.includes(unidadId) ? prev.filter((x) => x !== unidadId) : [...prev, unidadId]
+    )
+  }
+
+  const toggleSeleccionarTodasRegistro = () => {
+    const visibles = unidadesParaVoto
+      .filter((u) =>
+        `${u.torre || ''} ${u.numero || ''} ${u.nombre_propietario || ''} ${u.email_propietario || u.email || ''}`
+          .toLowerCase()
+          .includes(searchUnidadesRegistro.trim().toLowerCase())
+      )
+      .map((u) => u.id)
+    const todasVisiblesSeleccionadas = visibles.length > 0 && visibles.every((id) => unidadesRegistroSeleccionadas.includes(id))
+    setUnidadesRegistroSeleccionadas((prev) => {
+      if (todasVisiblesSeleccionadas) return prev.filter((id) => !visibles.includes(id))
+      return Array.from(new Set([...prev, ...visibles]))
+    })
   }
 
   const handleRegistrarVotoAdmin = async () => {
-    if (!asamblea || !unidadRegistroVoto || !votanteEmailRegistro.trim()) {
-      toast.error('Selecciona una unidad e indica el email del residente.')
+    if (!asamblea || unidadesRegistroSeleccionadas.length === 0) {
+      toast.error('Selecciona al menos una unidad.')
       return
     }
     const votosPayload = preguntasAbiertas
@@ -948,8 +960,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         credentials: 'include',
         body: JSON.stringify({
           asamblea_id: asamblea.id,
-          unidad_id: unidadRegistroVoto,
-          votante_email: votanteEmailRegistro.trim(),
+          unidad_ids: unidadesRegistroSeleccionadas,
           votante_nombre: votanteNombreRegistro.trim() || undefined,
           votos: votosPayload,
         }),
@@ -2520,16 +2531,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           <div className="mb-6 flex justify-end">
             <div className="flex flex-col gap-1 items-end">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Registrar votos por unidad no consume tokens (créditos). Los tokens (créditos) solo se usan al activar la votación o generar el acta.
+                Registro masivo de votos por unidad no consume tokens (créditos). Los tokens (créditos) solo se usan al activar la votación o generar el acta.
               </p>
               <Button
                 variant="outline"
                 onClick={handleAbrirRegistroVotoAdmin}
                 className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                title="Registrar el voto de un residente que no puede votar en línea (p. ej. persona mayor)"
+                title="Registrar votos en lote para residentes que no pueden votar en línea"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
-                Registrar voto a nombre de un residente
+                Registrar votos masivos
               </Button>
             </div>
           </div>
@@ -3753,39 +3764,58 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-blue-600" />
-              Registrar voto a nombre de un residente
+              Registrar votos a nombre de residentes
             </DialogTitle>
             <DialogDescription>
-              Para personas que no pueden votar en línea (p. ej. mayores de edad sin acceso a tecnología). Los votos quedarán registrados con trazabilidad.
+              Flujo masivo para personas que no pueden votar en línea. Selecciona una o varias unidades y registra en lote los votos de las preguntas abiertas; todo queda con trazabilidad.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 pt-2">
             <div>
-              <Label className="text-gray-700 dark:text-gray-300">Torre y número</Label>
-              <select
-                value={unidadRegistroVoto}
-                onChange={(e) => handleUnidadChangeRegistro(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
-              >
-                <option value="">Selecciona torre y número</option>
-                {unidadesParaVoto.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.torre || '—'} - {u.numero}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label className="text-gray-700 dark:text-gray-300">Email del residente</Label>
-              <Input
-                type="email"
-                value={votanteEmailRegistro}
-                onChange={(e) => setVotanteEmailRegistro(e.target.value)}
-                placeholder="correo@ejemplo.com"
-                className="mt-1"
-              />
+              <Label className="text-gray-700 dark:text-gray-300">Seleccionar unidades (masivo)</Label>
+              <div className="mt-1 space-y-2">
+                <Input
+                  type="text"
+                  value={searchUnidadesRegistro}
+                  onChange={(e) => setSearchUnidadesRegistro(e.target.value)}
+                  placeholder="Buscar por torre, número, nombre o email"
+                />
+                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <span>{unidadesRegistroSeleccionadas.length} seleccionada(s)</span>
+                  <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={toggleSeleccionarTodasRegistro}>
+                    Seleccionar / quitar visibles
+                  </Button>
+                </div>
+                <div className="max-h-44 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 p-2 space-y-1">
+                  {unidadesParaVoto
+                    .filter((u) =>
+                      `${u.torre || ''} ${u.numero || ''} ${u.nombre_propietario || ''} ${u.email_propietario || u.email || ''}`
+                        .toLowerCase()
+                        .includes(searchUnidadesRegistro.trim().toLowerCase())
+                    )
+                    .map((u) => {
+                      const checked = unidadesRegistroSeleccionadas.includes(u.id)
+                      const email = (u.email_propietario || u.email || '').trim()
+                      return (
+                        <label key={u.id} className="flex items-start gap-2 rounded px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleUnidadRegistro(u.id)}
+                            className="mt-0.5 rounded border-gray-300"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            <strong>{u.torre || '—'} - {u.numero || '—'}</strong>
+                            <span className="block text-xs text-gray-500 dark:text-gray-400">
+                              {u.nombre_propietario || 'Sin nombre'}{email ? ` · ${email}` : ' · Sin email'}
+                            </span>
+                          </span>
+                        </label>
+                      )
+                    })}
+                </div>
+              </div>
             </div>
 
             <div>
@@ -3847,7 +3877,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               </Button>
               <Button
                 onClick={handleRegistrarVotoAdmin}
-                disabled={savingRegistroVoto || !unidadRegistroVoto || !votanteEmailRegistro.trim()}
+                disabled={savingRegistroVoto || unidadesRegistroSeleccionadas.length === 0}
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
               >
                 {savingRegistroVoto ? (

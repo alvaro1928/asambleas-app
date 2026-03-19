@@ -336,7 +336,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     }
 
     if (!emailReceptor.trim()) {
-      toast.error('Debes ingresar el email del apoderado')
+      toast.error('Debes ingresar el identificador del apoderado (email, teléfono o identificación)')
       return
     }
 
@@ -1130,18 +1130,18 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
                 <div>
                   <Label htmlFor="email-receptor">
-                    Email del apoderado <span className="text-red-500">*</span>
+                    {apoderadoEsTercero ? 'Identificador del apoderado' : 'Email del apoderado'} <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="email-receptor"
-                    type="email"
-                    placeholder="apoderado@ejemplo.com"
+                    type="text"
+                    placeholder={apoderadoEsTercero ? 'apoderado@ejemplo.com, 3001234567 o 1234567890' : 'apoderado@ejemplo.com'}
                     value={emailReceptor}
                     onChange={(e) => setEmailReceptor(e.target.value)}
                     className="mt-2"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {apoderadoEsTercero ? 'Correo con el que el tercero votará en la plataforma.' : 'Se autollena al elegir la unidad; puedes editarlo si hace falta.'}
+                    {apoderadoEsTercero ? 'Para tercero puedes usar email, teléfono o identificación. Ese dato será el que use para entrar a votar.' : 'Se autollena al elegir la unidad; puedes editarlo si hace falta.'}
                   </p>
                 </div>
 
