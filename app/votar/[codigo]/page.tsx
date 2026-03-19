@@ -761,7 +761,10 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  // Poll rápido solo del flag de verificación (cada 5 s) para que al activar en admin el popup aparezca pronto; el contexto (pregunta_id) se actualiza en refrescarVerificacion
+  // Poll del flag de verificación:
+  // - 5 s si la verificación está activa
+  // - 10 s en reposo
+  // Así reducimos carga sin perder reactividad cuando el quórum está en curso.
   useEffect(() => {
     if (!asamblea?.asamblea_id || step === 'validando' || step === 'error') return
     const fetchActiva = async () => {
@@ -797,9 +800,10 @@ export default function VotacionPublicaPage() {
       }
     }
     fetchActiva()
-    const interval = setInterval(fetchActiva, 5000)
+    const intervalMs = verificacionActiva ? 5000 : 10000
+    const interval = setInterval(fetchActiva, intervalMs)
     return () => clearInterval(interval)
-  }, [asamblea?.asamblea_id, step])
+  }, [asamblea?.asamblea_id, step, verificacionActiva])
 
   // Función auxiliar: refresca flag de verificación + stats por contexto (pregunta abierta o general) + si este votante ya verificó en ese contexto
   const refrescarVerificacion = async (asambleaId: string, emailVotante?: string) => {
@@ -925,7 +929,9 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  // Polling: en consentimiento y votar, cargar yaVerifico + stats cada 5 s; en votar además re-fetch unidades/preguntas cada 10 s
+  // Polling principal:
+  // - 5 s si hay verificación activa (respuesta rápida para popup/quórum)
+  // - 10 s en reposo (menos carga DB)
   useEffect(() => {
     const enPantallaVotacion = step === 'consentimiento' || step === 'votar'
     if (!enPantallaVotacion || !asamblea || !email.trim()) return
@@ -933,6 +939,7 @@ export default function VotacionPublicaPage() {
     // Carga inicial de verificación (incluye email para saber si ya verificó)
     refrescarVerificacion(asamblea.asamblea_id, email.trim())
 
+    const intervalMs = verificacionActiva ? 5000 : 10000
     const interval = setInterval(async () => {
       try {
         if (step === 'votar') {
@@ -948,11 +955,11 @@ export default function VotacionPublicaPage() {
         // Siempre actualizar verificación (verificacionActiva, yaVerifico) aunque falle el bloque anterior
         await refrescarVerificacion(asamblea.asamblea_id, email.trim())
       }
-    }, 5000)
+    }, intervalMs)
 
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when step or asamblea changes
-  }, [step, asamblea?.asamblea_id, email])
+  }, [step, asamblea?.asamblea_id, email, verificacionActiva])
 
   // Al volver a la pestaña, refrescar verificación de inmediato para que el popup aparezca si el admin acaba de activarla
   useEffect(() => {
