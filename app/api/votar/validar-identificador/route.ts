@@ -108,9 +108,10 @@ export async function POST(request: NextRequest) {
       .filter((p) => identificadorCoincide(p.email_receptor, identNorm))
       .map((p) => p.unidad_otorgante_id as string)
 
-    const propiasIds = new Set(unidadesPropias.map((u) => u.id))
-    const poderesIds = new Set(unidadesPoderesIds.filter((id) => !!id))
+    const propiasIds = unidadesPropias.map((u) => u.id).filter(Boolean)
+    const poderesIds = unidadesPoderesIds.filter((id) => !!id)
     const todasIds = Array.from(new Set([...propiasIds, ...poderesIds]))
+    const poderesIdsSet = new Set(poderesIds)
     if (todasIds.length === 0) {
       return NextResponse.json({
         puede_votar: false,
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
         torre: u.torre,
         numero: u.numero,
         coeficiente: Number(u.coeficiente) || 0,
-        es_poder: poderesIds.has(u.id),
+        es_poder: poderesIdsSet.has(u.id),
         nombre_otorgante: u.nombre_propietario ?? undefined,
       }))
 
