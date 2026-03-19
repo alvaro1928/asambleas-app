@@ -182,9 +182,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const timerDefaultSecondsValue =
     (Number(asamblea?.participacion_timer_default_minutes ?? TIMER_DEFAULT_MINUTES_FALLBACK) || TIMER_DEFAULT_MINUTES_FALLBACK) * 60
   const [timerSecondsLeft, setTimerSecondsLeft] = useState<number>(timerDefaultSecondsValue)
-  const [timerDefaultDraftMinutes, setTimerDefaultDraftMinutes] = useState<number>(TIMER_DEFAULT_MINUTES_FALLBACK)
   const [timerStartDraftMinutes, setTimerStartDraftMinutes] = useState<number>(TIMER_DEFAULT_MINUTES_FALLBACK)
-  const [timerSavingDefault, setTimerSavingDefault] = useState(false)
   const [timerStarting, setTimerStarting] = useState(false)
   interface VerificacionStats {
     total_verificados: number
@@ -315,7 +313,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   useEffect(() => {
     if (!asamblea) return
     const dm = Number(asamblea.participacion_timer_default_minutes ?? TIMER_DEFAULT_MINUTES_FALLBACK) || TIMER_DEFAULT_MINUTES_FALLBACK
-    setTimerDefaultDraftMinutes(dm)
     setTimerStartDraftMinutes(dm)
   }, [asamblea?.participacion_timer_default_minutes])
 
@@ -342,33 +339,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       toast.error(e?.message || 'Error al iniciar cronómetro')
     } finally {
       setTimerStarting(false)
-    }
-  }
-
-  const guardarDefaultCronometroAdmin = async () => {
-    if (!asamblea) return
-    const minutes = Math.floor(Number(timerDefaultDraftMinutes))
-    if (!Number.isFinite(minutes) || minutes < 1) return
-
-    setTimerSavingDefault(true)
-    try {
-      const res = await fetch('/api/dashboard/participacion-timer/set-default', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ asamblea_id: params.id, minutes }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data?.error || 'Error al guardar default')
-
-      if (typeof data.participacion_timer_default_minutes === 'number') {
-        setAsamblea((prev) =>
-          prev ? { ...prev, participacion_timer_default_minutes: data.participacion_timer_default_minutes } : prev
-        )
-      }
-    } catch (e: any) {
-      toast.error(e?.message || 'Error al guardar default')
-    } finally {
-      setTimerSavingDefault(false)
     }
   }
 
@@ -1123,49 +1093,25 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             </div>
 
             <div className="px-4 pb-4 space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                  <label className="text-xs text-slate-300 block mb-2">Default (por asamblea)</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={180}
-                      value={timerDefaultDraftMinutes}
-                      onChange={(e) => setTimerDefaultDraftMinutes(Number(e.target.value))}
-                      className="w-20 rounded-xl border border-white/20 bg-slate-900/30 text-slate-200 px-2 py-2"
-                    />
-                    <Button
-                      type="button"
-                      onClick={guardarDefaultCronometroAdmin}
-                      disabled={timerSavingDefault}
-                      className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
-                    >
-                      {timerSavingDefault ? 'Guardando…' : 'Guardar'}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                  <label className="text-xs text-slate-300 block mb-2">Iniciar (esta vez)</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={180}
-                      value={timerStartDraftMinutes}
-                      onChange={(e) => setTimerStartDraftMinutes(Number(e.target.value))}
-                      className="w-20 rounded-xl border border-white/20 bg-slate-900/30 text-slate-200 px-2 py-2"
-                    />
-                    <Button
-                      type="button"
-                      onClick={iniciarCronometroAdmin}
-                      disabled={timerStarting}
-                      className="rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-semibold"
-                    >
-                      {timerStarting ? 'Iniciando…' : 'Activar'}
-                    </Button>
-                  </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3 max-w-md">
+                <label className="text-xs text-slate-300 block mb-2">Iniciar (esta vez)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={180}
+                    value={timerStartDraftMinutes}
+                    onChange={(e) => setTimerStartDraftMinutes(Number(e.target.value))}
+                    className="w-20 rounded-xl border border-white/20 bg-slate-900/30 text-slate-200 px-2 py-2"
+                  />
+                  <Button
+                    type="button"
+                    onClick={iniciarCronometroAdmin}
+                    disabled={timerStarting}
+                    className="rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-semibold"
+                  >
+                    {timerStarting ? 'Iniciando…' : 'Activar'}
+                  </Button>
                 </div>
               </div>
 
