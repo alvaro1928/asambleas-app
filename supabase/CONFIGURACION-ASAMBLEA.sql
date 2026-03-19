@@ -35,14 +35,17 @@ COMMENT ON COLUMN configuracion_asamblea.participacion_timer_default_minutes IS 
 
 ALTER TABLE configuracion_asamblea ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS configuracion_asamblea_select_own ON configuracion_asamblea;
 CREATE POLICY configuracion_asamblea_select_own
   ON configuracion_asamblea FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS configuracion_asamblea_insert_own ON configuracion_asamblea;
 CREATE POLICY configuracion_asamblea_insert_own
   ON configuracion_asamblea FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS configuracion_asamblea_update_own ON configuracion_asamblea;
 CREATE POLICY configuracion_asamblea_update_own
   ON configuracion_asamblea FOR UPDATE
   USING (auth.uid() = user_id)
