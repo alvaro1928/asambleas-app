@@ -72,7 +72,6 @@ export default function ConfiguracionPage() {
   // Configuración asamblea (por usuario y conjunto)
   const [mostrarQuorum, setMostrarQuorum] = useState(true)
   const [mostrarDelegado, setMostrarDelegado] = useState(true)
-  const [mostrarCronometro, setMostrarCronometro] = useState(true)
   const [mostrarPoderes, setMostrarPoderes] = useState(true)
   const [participacionTimerDefaultMinutes, setParticipacionTimerDefaultMinutes] = useState<number>(5)
   const [savingConfigAsamblea, setSavingConfigAsamblea] = useState(false)
@@ -152,14 +151,12 @@ export default function ConfiguracionPage() {
         if (data) {
           setMostrarQuorum(!!data.mostrar_quorum)
           setMostrarDelegado(!!data.mostrar_delegado)
-          setMostrarCronometro(!!data.mostrar_cronometro)
           setMostrarPoderes(!!data.mostrar_poderes)
           const m = Number(data.participacion_timer_default_minutes)
           setParticipacionTimerDefaultMinutes(Number.isFinite(m) && m >= 1 && m <= 180 ? m : 5)
         } else {
           setMostrarQuorum(true)
           setMostrarDelegado(true)
-          setMostrarCronometro(true)
           setMostrarPoderes(true)
           setParticipacionTimerDefaultMinutes(5)
         }
@@ -409,7 +406,7 @@ export default function ConfiguracionPage() {
             organization_id: selectedConjuntoId,
             mostrar_quorum: mostrarQuorum,
             mostrar_delegado: mostrarDelegado,
-            mostrar_cronometro: mostrarCronometro,
+            mostrar_cronometro: true,
             mostrar_poderes: mostrarPoderes,
             participacion_timer_default_minutes: minutes,
             updated_at: new Date().toISOString(),
@@ -992,15 +989,6 @@ export default function ConfiguracionPage() {
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={mostrarCronometro}
-                    onChange={(e) => setMostrarCronometro(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Cronómetro transversal</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
                     checked={mostrarPoderes}
                     onChange={(e) => setMostrarPoderes(e.target.checked)}
                     className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
@@ -1021,7 +1009,7 @@ export default function ConfiguracionPage() {
                   className="w-full max-w-xs px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  En la página de asamblea solo podrás activar, pausar o reiniciar el cronómetro; el valor por defecto se configura aquí.
+                  Valor por defecto (minutos) del cronómetro de participación. Se usa al activar el cronómetro desde Acceso, Asistir o Votar.
                 </p>
               </div>
               <button

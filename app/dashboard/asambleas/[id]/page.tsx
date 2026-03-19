@@ -2813,45 +2813,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
                     </div>
                     )}
 
-                    {/* Cronómetro de intervención (timer transversal) — colapsable; visible según Config → Asamblea */}
-                    {prefsAsamblea.mostrar_cronometro !== false && (
-                    <div className="rounded-2xl border border-indigo-200 dark:border-indigo-800 overflow-hidden bg-indigo-50/50 dark:bg-indigo-900/10">
-                      <button
-                        type="button"
-                        onClick={() => setOpenTimerConfig((v) => !v)}
-                        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-indigo-100/50 dark:hover:bg-indigo-900/20 transition-colors"
-                      >
-                        <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
-                          <Clock className="w-4 h-4 shrink-0" />
-                          Cronómetro transversal
-                          {timerEnabled ? <span className="text-indigo-600 dark:text-indigo-400 text-xs">Activo</span> : <span className="text-red-600 dark:text-red-400 text-xs">Inactivo</span>}
-                        </span>
-                        {openTimerConfig ? <ChevronUp className="w-4 h-4 text-indigo-500 shrink-0" /> : <ChevronDown className="w-4 h-4 text-indigo-500 shrink-0" />}
-                      </button>
-                      {openTimerConfig && (
-                        <div className="px-3 pb-3 pt-0 border-t border-indigo-200 dark:border-indigo-800 pt-2 space-y-2">
-                          <Button
-                            type="button"
-                            onClick={handleToggleCronometro}
-                            disabled={timerTogglingEnabled}
-                            className={`w-full ${timerEnabled ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white`}
-                          >
-                            <Clock className="w-4 h-4 mr-1.5" />
-                            {timerTogglingEnabled ? 'Actualizando…' : timerEnabled ? 'Desactivar timer' : 'Activar timer'}
-                          </Button>
-
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
-                            Default: <strong>{prefsAsamblea.participacion_timer_default_minutes} min</strong> (configurado en Configuración → Asamblea). Aquí solo puedes activar, pausar o reiniciar.
-                          </p>
-
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Si el cronómetro está desactivado, desaparece en Acceso, Asistir y Votar y no se puede activar.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    )}
-
                     {/* 3. Desactivar votación — colapsable */}
                     <div className="rounded-2xl border border-red-200 dark:border-red-900/50 overflow-hidden bg-red-50/50 dark:bg-red-900/10">
                       <button type="button" onClick={() => setOpenDesactivarAcceso((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors">
