@@ -127,6 +127,57 @@ export async function POST(request: NextRequest) {
       return res
     }
 
+    // Seguridad adicional: validar que la unidad realmente está autorizada para este votante
+    // en la asamblea dueña de la pregunta (evita votos forjados con unidad_id ajena).
+    const { data: preguntaRow, error: preguntaErr } = await supabase
+      .from('preguntas')
+      .select('id, asamblea_id')
+      .eq('id', pregunta_id)
+      .single()
+    if (preguntaErr || !preguntaRow?.asamblea_id) {
+      const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startMs)
+      const resErr = NextResponse.json({ error: 'Pregunta no válida' }, { status: 400 })
+      resErr.headers.set('X-Response-Time-Ms', String(elapsed))
+      return resErr
+    }
+
+    const { data: asambleaRow, error: asambleaErr } = await supabase
+      .from('asambleas')
+      .select('id, codigo_acceso')
+      .eq('id', preguntaRow.asamblea_id)
+      .single()
+    if (asambleaErr || !asambleaRow?.codigo_acceso) {
+      const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startMs)
+      const resErr = NextResponse.json({ error: 'Asamblea no válida para la pregunta' }, { status: 400 })
+      resErr.headers.set('X-Response-Time-Ms', String(elapsed))
+      return resErr
+    }
+
+    const { data: validarData, error: validarErr } = await supabase.rpc('validar_votante_asamblea', {
+      p_codigo_asamblea: asambleaRow.codigo_acceso,
+      p_email_votante: emailNorm.includes('@') ? emailNorm : String(votante_email).trim(),
+    })
+    if (validarErr || !Array.isArray(validarData) || validarData.length === 0 || !validarData[0]?.puede_votar) {
+      const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startMs)
+      const resErr = NextResponse.json({ error: 'No autorizado para votar en esta asamblea' }, { status: 403 })
+      resErr.headers.set('X-Response-Time-Ms', String(elapsed))
+      return resErr
+    }
+
+    const unidadesAutorizadas = new Set<string>([
+      ...(Array.isArray(validarData[0].unidades_propias) ? validarData[0].unidades_propias : []),
+      ...(Array.isArray(validarData[0].unidades_poderes) ? validarData[0].unidades_poderes : []),
+    ])
+    if (!unidadesAutorizadas.has(unidad_id)) {
+      const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startMs)
+      const resErr = NextResponse.json(
+        { error: 'La unidad enviada no está autorizada para este votante en esta asamblea' },
+        { status: 403 }
+      )
+      resErr.headers.set('X-Response-Time-Ms', String(elapsed))
+      return resErr
+    }
+
     // Votos reales: un solo roundtrip RPC (valida pregunta abierta, INSERT/UPDATE + historial)
     const { data, error } = await supabase.rpc('registrar_voto_con_trazabilidad', {
       p_pregunta_id: pregunta_id,
