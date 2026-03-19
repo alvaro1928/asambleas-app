@@ -23,6 +23,7 @@ interface Asamblea {
 
 interface Conjunto {
   name: string
+  logoUrl?: string | null
 }
 
 interface Pregunta {
@@ -146,6 +147,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [poderesConDocumento, setPoderesConDocumento] = useState<PoderConDocumento[]>([])
   const [incluirAnexosPoderes, setIncluirAnexosPoderes] = useState(false)
   const descargarSoporteConAnexosRef = useRef(false)
+  const [fechaGeneracionActa] = useState(() => new Date())
 
   useEffect(() => {
     loadData()
@@ -187,11 +189,26 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
       const { data: orgData } = await supabase
         .from('organizations')
-        .select('name')
+        .select('*')
         .eq('id', asambleaData.organization_id)
         .single()
-      const org = orgData as { name?: string } | null
-      setConjunto(org && typeof org.name === 'string' ? { name: org.name } : null)
+      const org = orgData as Record<string, unknown> | null
+      if (org && typeof org.name === 'string') {
+        const logoCandidates = [
+          org.logo_url,
+          org.logo,
+          org.imagen_url,
+          org.image_url,
+          org.logo_path,
+        ]
+        const logoUrl = logoCandidates.find((v) => typeof v === 'string' && v.trim().length > 0) as string | undefined
+        setConjunto({
+          name: org.name,
+          logoUrl: logoUrl ?? null,
+        })
+      } else {
+        setConjunto(null)
+      }
 
       // Billetera por gestor: acceso si tiene tokens, asamblea ya pagada, o asamblea activa/finalizada (acta gratuita)
       const orgId = asambleaData.organization_id
@@ -964,15 +981,24 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         {/* ── ENCABEZADO ── */}
         <header className="mb-5 break-inside-avoid">
           <div className="flex items-start justify-between border-b-2 border-indigo-700 pb-5">
-            <div className="min-w-0">
+            <div className="min-w-0 flex items-start gap-4">
+              {conjunto?.logoUrl ? (
+                <img
+                  src={conjunto.logoUrl}
+                  alt="Logo del conjunto"
+                  className="h-14 w-14 object-contain rounded-md border border-gray-200 bg-white p-1 shrink-0"
+                />
+              ) : null}
+              <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-700 mb-1">Votaciones de Asambleas Online</p>
               <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 leading-tight">Acta de votación</h1>
               {actaModoSoporte && (
                 <p className="text-sm font-semibold text-indigo-700 mt-2">Versión pública</p>
               )}
+              </div>
             </div>
             <div className="text-right text-xs text-gray-500 mt-1 shrink-0 ml-4">
-              <p className="font-medium text-gray-600">Generada: {new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p className="font-medium text-gray-600">Generada: {fechaGeneracionActa.toLocaleString('es-CO', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
               {isDemo && <p className="mt-1 text-red-600 font-semibold uppercase">Demo — sin validez legal</p>}
             </div>
           </div>
@@ -986,8 +1012,12 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               <span className="text-gray-900">{conjunto?.name}</span>
             </div>
             <div>
-              <span className="font-semibold text-gray-600">Fecha:</span>{' '}
+              <span className="font-semibold text-gray-600">Fecha de inicio:</span>{' '}
               <span className="text-gray-900">{asamblea?.fecha && formatFecha(asamblea.fecha)}</span>
+            </div>
+            <div>
+              <span className="font-semibold text-gray-600">Fecha de generación:</span>{' '}
+              <span className="text-gray-900">{fechaGeneracionActa.toLocaleString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
             </div>
             <div>
               <span className="font-semibold text-gray-600">Estado:</span>{' '}
