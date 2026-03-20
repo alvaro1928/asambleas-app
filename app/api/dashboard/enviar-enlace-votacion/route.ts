@@ -227,17 +227,18 @@ export async function POST(request: NextRequest) {
       ? `<p style="margin: 1rem 0; padding: 0.75rem; background: #f3f4f6; border-radius: 8px;">${esc(textoAdicional).replace(/\n/g, '<br>')}</p>`
       : ''
 
-    const defaultTemplate = `VOTACION VIRTUAL ACTIVA
+    const defaultTemplate = `🗳️ VOTACION VIRTUAL ACTIVA
 
 Asamblea: {asamblea}
+Conjunto: {conjunto}
 Fecha: {fecha}
 
-Vota aqui:
+👉 Vota aqui:
 {url}
 
-Necesitas tu email registrado en el conjunto.
+⚠️ Necesitas tu email registrado en el conjunto.
 
-Tu participacion es importante.`
+Tu participacion es importante. 🏠`
     const renderPlantilla = (tplRaw: string): string =>
       tplRaw
         .replace(/\{asamblea\}/gi, String(asamblea.nombre ?? 'Asamblea'))

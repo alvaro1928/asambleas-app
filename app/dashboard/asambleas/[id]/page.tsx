@@ -2051,17 +2051,18 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!asamblea) return ''
     const url = asamblea.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea.url_publica || '')
     if (!url) return ''
-    const defaultTemplate = `VOTACION VIRTUAL ACTIVA
+    const defaultTemplate = `🗳️ VOTACION VIRTUAL ACTIVA
 
 Asamblea: {asamblea}
+Conjunto: {conjunto}
 Fecha: {fecha}
 
-Vota aqui:
+👉 Vota aqui:
 {url}
 
-Necesitas tu email registrado en el conjunto.
+⚠️ Necesitas tu email registrado en el conjunto.
 
-Tu participacion es importante.`
+Tu participacion es importante. 🏠`
     const t = (plantillaMensajeInvitacion || defaultTemplate)
     return t
       .replace(/\{asamblea\}/gi, asamblea.nombre || 'Asamblea')

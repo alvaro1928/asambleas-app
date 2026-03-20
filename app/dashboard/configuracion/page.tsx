@@ -105,17 +105,18 @@ export default function ConfiguracionPage() {
   ].sort((a, b) => (a.orden as number) - (b.orden as number))
 
   const mensajeInvitacionPreview = (() => {
-    const defaultTemplate = `VOTACION VIRTUAL ACTIVA
+    const defaultTemplate = `🗳️ VOTACION VIRTUAL ACTIVA
 
 Asamblea: {asamblea}
+Conjunto: {conjunto}
 Fecha: {fecha}
 
-Vota aqui:
+👉 Vota aqui:
 {url}
 
-Necesitas tu email registrado en el conjunto.
+⚠️ Necesitas tu email registrado en el conjunto.
 
-Tu participacion es importante.`
+Tu participacion es importante. 🏠`
     const template = (plantillaMensajeInvitacion || defaultTemplate).trim()
     return template
       .replace(/\{asamblea\}/gi, 'Asamblea Ordinaria 2026')
