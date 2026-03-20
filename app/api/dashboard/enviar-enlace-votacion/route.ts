@@ -198,12 +198,13 @@ export async function POST(request: NextRequest) {
       ? `${siteUrl}/votar/${asamblea.codigo_acceso}`
       : (asamblea.url_publica ?? '')
     const fechaStr = asamblea.fecha
-      ? new Date(asamblea.fecha).toLocaleDateString('es-CO', {
+      ? new Date(asamblea.fecha).toLocaleString('es-CO', {
           year: 'numeric',
           month: 'long',
           day: 'numeric',
           hour: '2-digit',
           minute: '2-digit',
+          timeZone: 'America/Bogota',
         })
       : ''
 
