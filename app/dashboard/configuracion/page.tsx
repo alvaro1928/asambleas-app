@@ -74,6 +74,7 @@ export default function ConfiguracionPage() {
   const [mostrarQuorumTarjetas, setMostrarQuorumTarjetas] = useState(true)
   const [mostrarQuorumHistorico, setMostrarQuorumHistorico] = useState(true)
   const [mostrarDelegado, setMostrarDelegado] = useState(true)
+  const [mostrarCronometro, setMostrarCronometro] = useState(true)
   const [mostrarPoderes, setMostrarPoderes] = useState(true)
   const [participacionTimerDefaultMinutes, setParticipacionTimerDefaultMinutes] = useState<number>(5)
   const [savingConfigAsamblea, setSavingConfigAsamblea] = useState(false)
@@ -155,6 +156,7 @@ export default function ConfiguracionPage() {
           setMostrarQuorumTarjetas(data.mostrar_quorum_tarjetas !== false)
           setMostrarQuorumHistorico(data.mostrar_quorum_historico !== false)
           setMostrarDelegado(!!data.mostrar_delegado)
+          setMostrarCronometro(data.mostrar_cronometro !== false)
           setMostrarPoderes(!!data.mostrar_poderes)
           const m = Number(data.participacion_timer_default_minutes)
           setParticipacionTimerDefaultMinutes(Number.isFinite(m) && m >= 1 && m <= 180 ? m : 5)
@@ -163,6 +165,7 @@ export default function ConfiguracionPage() {
           setMostrarQuorumTarjetas(true)
           setMostrarQuorumHistorico(true)
           setMostrarDelegado(true)
+          setMostrarCronometro(true)
           setMostrarPoderes(true)
           setParticipacionTimerDefaultMinutes(5)
         }
@@ -414,7 +417,7 @@ export default function ConfiguracionPage() {
             mostrar_quorum_tarjetas: mostrarQuorumTarjetas,
             mostrar_quorum_historico: mostrarQuorumHistorico,
             mostrar_delegado: mostrarDelegado,
-            mostrar_cronometro: true,
+            mostrar_cronometro: mostrarCronometro,
             mostrar_poderes: mostrarPoderes,
             participacion_timer_default_minutes: minutes,
             updated_at: new Date().toISOString(),
@@ -1011,6 +1014,15 @@ export default function ConfiguracionPage() {
                     className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                   />
                   <span className="text-sm text-gray-700 dark:text-gray-300">Acceso de asistente delegado</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={mostrarCronometro}
+                    onChange={(e) => setMostrarCronometro(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Cronómetro de participación</span>
                 </label>
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
