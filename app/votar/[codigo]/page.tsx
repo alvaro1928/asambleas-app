@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle, UserCheck, HelpCircle, QrCode, Copy } from 'lucide-react'
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { StepIndicator } from '@/components/ui/StepIndicator'
 import { useToast } from '@/components/providers/ToastProvider'
 import { buildPublicVotarUrl } from '@/lib/publicVotarUrl'
+import { normalizeCodigoAccesoFromUrl } from '@/lib/codigoAcceso'
 import dynamic from 'next/dynamic'
 
 const QRCodeSVG = dynamic(
@@ -116,7 +117,10 @@ function pctRelevante(r: { porcentaje_nominal_total?: number; porcentaje_votos_e
 
 export default function VotacionPublicaPage() {
   const params = useParams()
-  const codigo = params.codigo as string
+  const codigo = useMemo(
+    () => normalizeCodigoAccesoFromUrl(params.codigo as string | undefined),
+    [params.codigo]
+  )
   const toast = useToast()
 
   const [step, setStep] = useState<'validando' | 'email' | 'verificando' | 'consentimiento' | 'rechazo_consentimiento' | 'votar' | 'error'>('validando')
@@ -227,6 +231,11 @@ export default function VotacionPublicaPage() {
   }, [step])
 
   useEffect(() => {
+    if (!codigo) {
+      setError('Enlace incompleto o código no válido en la URL.')
+      setStep('error')
+      return
+    }
     validarCodigo()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run when codigo changes
   }, [codigo])
@@ -1049,6 +1058,9 @@ export default function VotacionPublicaPage() {
                 <li>• El código ha expirado o fue desactivado</li>
                 <li>• El código es incorrecto</li>
                 <li>• El acceso público está cerrado</li>
+                <li>
+                  • En celular: abre el enlace en <strong>Chrome o Safari</strong> (no en el navegador interno de WhatsApp u otras apps); algunos lectores de QR alteran el código
+                </li>
               </ul>
             </div>
           </div>

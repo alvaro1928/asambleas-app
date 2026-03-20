@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
@@ -9,6 +9,7 @@ import { CheckCircle2, UserCheck, Vote, Search, RefreshCw, AlertTriangle, Users,
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import type { BarChartData } from '@/components/charts/VotacionBarChart'
+import { normalizeCodigoAccesoFromUrl } from '@/lib/codigoAcceso'
 
 const VotacionBarChart = dynamic(
   () => import('@/components/charts/VotacionBarChart'),
@@ -109,7 +110,10 @@ function formatMMSS(totalSeconds: number) {
 export default function AsistirPage() {
   const params = useParams()
   const searchParams = useSearchParams()
-  const codigo = (params?.codigo as string || '').toUpperCase()
+  const codigo = useMemo(
+    () => normalizeCodigoAccesoFromUrl(params?.codigo as string | undefined),
+    [params?.codigo]
+  )
   const token = searchParams?.get('t') || ''
 
   const [step, setStep] = useState<'validando' | 'ok' | 'error'>('validando')
