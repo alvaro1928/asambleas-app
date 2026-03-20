@@ -175,7 +175,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [toggling, setToggling] = useState(false)
   const [showModalAvisoReabrirQuorum, setShowModalAvisoReabrirQuorum] = useState(false)
   const [noVolverMostrarAvisoQuorum, setNoVolverMostrarAvisoQuorum] = useState(false)
-  const [configUserId, setConfigUserId] = useState<string | null>(null)
   const [mostrarCronometroConfig, setMostrarCronometroConfig] = useState(true)
 
   // Cronómetro de intervención (indicador, no cierra preguntas)
@@ -207,14 +206,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
   // Enlace delegado
   const [showModalAsistencia, setShowModalAsistencia] = useState(false)
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setConfigUserId(data.user?.id ?? null)
-    }).catch(() => {
-      setConfigUserId(null)
-    })
-  }, [])
 
   useEffect(() => {
     loadAsamblea()
@@ -259,11 +250,13 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       if (error) throw error
       setAsamblea(data)
       setVerificacionActiva(!!(data as any).verificacion_asistencia_activa)
-      if (configUserId && data.organization_id) {
+      const { data: authData } = await supabase.auth.getUser()
+      const currentUserId = authData.user?.id ?? null
+      if (currentUserId && data.organization_id) {
         const { data: cfg } = await supabase
           .from('configuracion_asamblea')
           .select('mostrar_cronometro')
-          .eq('user_id', configUserId)
+          .eq('user_id', currentUserId)
           .eq('organization_id', data.organization_id)
           .maybeSingle()
         setMostrarCronometroConfig(cfg?.mostrar_cronometro !== false)
