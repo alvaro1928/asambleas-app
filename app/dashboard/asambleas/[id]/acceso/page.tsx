@@ -175,6 +175,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [toggling, setToggling] = useState(false)
   const [showModalAvisoReabrirQuorum, setShowModalAvisoReabrirQuorum] = useState(false)
   const [noVolverMostrarAvisoQuorum, setNoVolverMostrarAvisoQuorum] = useState(false)
+  const [configUserId, setConfigUserId] = useState<string | null>(null)
+  const [mostrarCronometroConfig, setMostrarCronometroConfig] = useState(true)
 
   // Cronómetro de intervención (indicador, no cierra preguntas)
   const TIMER_DEFAULT_MINUTES_FALLBACK = 5
@@ -205,6 +207,14 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
   // Enlace delegado
   const [showModalAsistencia, setShowModalAsistencia] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setConfigUserId(data.user?.id ?? null)
+    }).catch(() => {
+      setConfigUserId(null)
+    })
+  }, [])
 
   useEffect(() => {
     loadAsamblea()
@@ -249,6 +259,17 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       if (error) throw error
       setAsamblea(data)
       setVerificacionActiva(!!(data as any).verificacion_asistencia_activa)
+      if (configUserId && data.organization_id) {
+        const { data: cfg } = await supabase
+          .from('configuracion_asamblea')
+          .select('mostrar_cronometro')
+          .eq('user_id', configUserId)
+          .eq('organization_id', data.organization_id)
+          .maybeSingle()
+        setMostrarCronometroConfig(cfg?.mostrar_cronometro !== false)
+      } else {
+        setMostrarCronometroConfig(true)
+      }
       const siteUrl = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL) ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '') : 'https://www.asamblea.online'
       setUrlPublica(`${siteUrl}/votar/${data.codigo_acceso}`)
       if (data.organization_id) {
@@ -1063,7 +1084,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           </div>
 
           {/* Cronómetro de intervención (indicador global) */}
-          {participationTimerEnabled && (
+          {mostrarCronometroConfig && participationTimerEnabled && (
             <div
             className="w-full mb-3 rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden"
             style={{
