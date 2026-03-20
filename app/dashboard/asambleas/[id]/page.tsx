@@ -264,6 +264,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   /** Correo adicional (email no registrado en ninguna unidad) */
   const [emailAdicionalEnvio, setEmailAdicionalEnvio] = useState('')
   const [enviandoCorreoAdicional, setEnviandoCorreoAdicional] = useState(false)
+  const [plantillaMensajeInvitacion, setPlantillaMensajeInvitacion] = useState('')
 
   const [billeteraColapsada, setBilleteraColapsada] = useState(true)
   const [openQuorumPanel, setOpenQuorumPanel] = useState(true)
@@ -477,6 +478,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       const configData = configRes.ok ? await configRes.json() : null
       if (configData?.precio_por_token_cop != null) setPrecioProCop(Number(configData.precio_por_token_cop))
       if (configData?.whatsapp_number != null && typeof configData.whatsapp_number === 'string') setWhatsappNumber(configData.whatsapp_number)
+      const { data: configPoderes } = await supabase
+        .from('configuracion_poderes')
+        .select('plantilla_mensaje_invitacion')
+        .eq('organization_id', orgId)
+        .maybeSingle()
+      setPlantillaMensajeInvitacion((configPoderes as { plantilla_mensaje_invitacion?: string | null } | null)?.plantilla_mensaje_invitacion?.trim() || '')
 
       // Cargar preguntas
       const { data: preguntasData, error: preguntasError } = await supabase
@@ -2044,7 +2051,23 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (!asamblea) return ''
     const url = asamblea.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea.url_publica || '')
     if (!url) return ''
-    return `🗳️ VOTACIÓN VIRTUAL ACTIVA\n\n📋 ${asamblea.nombre}\n📅 ${formatFecha(asamblea.fecha)}\n\n👉 Vota aquí:\n${url}\n\n⚠️ Necesitas tu email registrado en el conjunto\n\n¡Tu participación es importante! 🏠`
+    const defaultTemplate = `VOTACION VIRTUAL ACTIVA
+
+Asamblea: {asamblea}
+Fecha: {fecha}
+
+Vota aqui:
+{url}
+
+Necesitas tu email registrado en el conjunto.
+
+Tu participacion es importante.`
+    const t = (plantillaMensajeInvitacion || defaultTemplate)
+    return t
+      .replace(/\{asamblea\}/gi, asamblea.nombre || 'Asamblea')
+      .replace(/\{fecha\}/gi, formatFecha(asamblea.fecha))
+      .replace(/\{url\}/gi, url)
+      .replace(/\{conjunto\}/gi, organization?.name || 'Conjunto')
   }
 
   const getEstadoBadge = (estado: string) => {

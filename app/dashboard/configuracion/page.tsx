@@ -67,6 +67,7 @@ export default function ConfiguracionPage() {
   // Configuración poderes y correo (por conjunto)
   const [maxPoderesPorApoderado, setMaxPoderesPorApoderado] = useState<number>(3)
   const [plantillaAdicionalCorreo, setPlantillaAdicionalCorreo] = useState('')
+  const [plantillaMensajeInvitacion, setPlantillaMensajeInvitacion] = useState('')
   const [savingConfigPoderes, setSavingConfigPoderes] = useState(false)
 
   // Configuración asamblea (por usuario y conjunto)
@@ -103,6 +104,26 @@ export default function ConfiguracionPage() {
     { id: 'uso-tokens', label: 'Uso de tokens (créditos)', icon: Coins, orden: 7 },
   ].sort((a, b) => (a.orden as number) - (b.orden as number))
 
+  const mensajeInvitacionPreview = (() => {
+    const defaultTemplate = `VOTACION VIRTUAL ACTIVA
+
+Asamblea: {asamblea}
+Fecha: {fecha}
+
+Vota aqui:
+{url}
+
+Necesitas tu email registrado en el conjunto.
+
+Tu participacion es importante.`
+    const template = (plantillaMensajeInvitacion || defaultTemplate).trim()
+    return template
+      .replace(/\{asamblea\}/gi, 'Asamblea Ordinaria 2026')
+      .replace(/\{fecha\}/gi, new Date().toLocaleString('es-CO'))
+      .replace(/\{url\}/gi, 'https://www.asamblea.online/votar/ABC123')
+      .replace(/\{conjunto\}/gi, orgName?.trim() || 'Conjunto Demo')
+  })()
+
   useEffect(() => {
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
@@ -126,16 +147,18 @@ export default function ConfiguracionPage() {
     if (selectedConjuntoId) {
       supabase
         .from('configuracion_poderes')
-        .select('max_poderes_por_apoderado, plantilla_adicional_correo')
+        .select('max_poderes_por_apoderado, plantilla_adicional_correo, plantilla_mensaje_invitacion')
         .eq('organization_id', selectedConjuntoId)
         .maybeSingle()
         .then(({ data }) => {
           if (data) {
             setMaxPoderesPorApoderado(Number(data.max_poderes_por_apoderado) || 3)
             setPlantillaAdicionalCorreo(data.plantilla_adicional_correo ?? '')
+            setPlantillaMensajeInvitacion(data.plantilla_mensaje_invitacion ?? '')
           } else {
             setMaxPoderesPorApoderado(3)
             setPlantillaAdicionalCorreo('')
+            setPlantillaMensajeInvitacion('')
           }
         })
     }
@@ -382,6 +405,7 @@ export default function ConfiguracionPage() {
             organization_id: selectedConjuntoId,
             max_poderes_por_apoderado: Math.max(1, Math.min(10, maxPoderesPorApoderado)),
             plantilla_adicional_correo: plantillaAdicionalCorreo.trim() || null,
+            plantilla_mensaje_invitacion: plantillaMensajeInvitacion.trim() || null,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'organization_id' }
@@ -876,7 +900,7 @@ export default function ConfiguracionPage() {
                   Poderes y plantilla de correo
                 </h2>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Límite de poderes por apoderado y texto adicional para los correos de votación
+                  Límite de poderes por apoderado y plantillas para WhatsApp/correo de votación
                 </p>
               </div>
             </div>
@@ -921,6 +945,34 @@ export default function ConfiguracionPage() {
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   Según Ley 675, típico 2–3. Limita cuántos poderes puede recibir una misma persona.
                 </p>
+              </div>
+              <label className="flex items-center gap-3 cursor-pointer rounded-xl border border-gray-200 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-900/50">
+                <input
+                  type="checkbox"
+                  checked={mostrarPoderes}
+                  onChange={(e) => setMostrarPoderes(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Mostrar Gestión de Poderes en la página de asamblea</span>
+              </label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Plantilla del mensaje de invitación (WhatsApp y correo) <span className="text-gray-500 font-normal">(opcional)</span>
+                </label>
+                <textarea
+                  value={plantillaMensajeInvitacion}
+                  onChange={(e) => setPlantillaMensajeInvitacion(e.target.value)}
+                  placeholder={'Ejemplo:\nVOTACION VIRTUAL ACTIVA\n\nAsamblea: {asamblea}\nFecha: {fecha}\n\nVota aqui:\n{url}\n\nTu participacion es importante.'}
+                  rows={6}
+                  className="w-full px-4 py-3 rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Variables disponibles: <code>{'{asamblea}'}</code>, <code>{'{fecha}'}</code>, <code>{'{url}'}</code>, <code>{'{conjunto}'}</code>. Si lo dejas vacío se usa el mensaje por defecto.
+                </p>
+                <div className="mt-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-3">
+                  <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Vista previa</p>
+                  <pre className="whitespace-pre-wrap text-xs text-gray-700 dark:text-gray-300 font-sans leading-relaxed">{mensajeInvitacionPreview}</pre>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1035,15 +1087,6 @@ export default function ConfiguracionPage() {
                     className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                   />
                   <span className="text-sm text-gray-700 dark:text-gray-300">Cronómetro de participación</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={mostrarPoderes}
-                    onChange={(e) => setMostrarPoderes(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Gestión de Poderes</span>
                 </label>
               </div>
               <div>

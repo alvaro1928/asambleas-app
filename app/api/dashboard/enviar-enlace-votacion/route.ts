@@ -207,41 +207,57 @@ export async function POST(request: NextRequest) {
         })
       : ''
 
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('name')
+      .eq('id', orgId)
+      .maybeSingle()
+    const nombreConjunto = ((org as { name?: string } | null)?.name ?? 'Conjunto').trim() || 'Conjunto'
+
     const { data: configPoderes } = await supabase
       .from('configuracion_poderes')
-      .select('plantilla_adicional_correo')
+      .select('plantilla_adicional_correo, plantilla_mensaje_invitacion')
       .eq('organization_id', orgId)
       .maybeSingle()
     const textoAdicional = (configPoderes as { plantilla_adicional_correo?: string | null } | null)?.plantilla_adicional_correo?.trim() || ''
+    const plantillaMensaje = (configPoderes as { plantilla_mensaje_invitacion?: string | null } | null)?.plantilla_mensaje_invitacion?.trim() || ''
     const bloqueAdicionalTexto = textoAdicional ? `\n\n${textoAdicional}\n\n` : '\n\n'
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
     const bloqueAdicionalHtml = textoAdicional
       ? `<p style="margin: 1rem 0; padding: 0.75rem; background: #f3f4f6; border-radius: 8px;">${esc(textoAdicional).replace(/\n/g, '<br>')}</p>`
       : ''
 
+    const defaultTemplate = `VOTACION VIRTUAL ACTIVA
+
+Asamblea: {asamblea}
+Fecha: {fecha}
+
+Vota aqui:
+{url}
+
+Necesitas tu email registrado en el conjunto.
+
+Tu participacion es importante.`
+    const renderPlantilla = (tplRaw: string): string =>
+      tplRaw
+        .replace(/\{asamblea\}/gi, String(asamblea.nombre ?? 'Asamblea'))
+        .replace(/\{fecha\}/gi, fechaStr)
+        .replace(/\{url\}/gi, urlVotacion)
+        .replace(/\{conjunto\}/gi, nombreConjunto)
+
     const subject = `Votación: ${asamblea.nombre ?? 'Asamblea'}`
-    const textBody = `🗳️ VOTACIÓN VIRTUAL ACTIVA
-
-📋 ${asamblea.nombre ?? 'Asamblea'}
-📅 ${fechaStr}
-
-👉 Vota aquí:
-${urlVotacion}
-
-⚠️ Necesitas tu email registrado en el conjunto
-${bloqueAdicionalTexto}¡Tu participación es importante! 🏠`
+    const textBase = renderPlantilla(plantillaMensaje || defaultTemplate)
+    const textBody = `${textBase}${bloqueAdicionalTexto}`
+    const htmlBase = esc(textBase).replace(/\n/g, '<br>')
     const htmlBody = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
 <body style="font-family: system-ui, sans-serif; max-width: 560px; margin: 0 auto; padding: 1rem;">
-  <h2 style="color: #4338ca;">🗳️ Votación virtual activa</h2>
-  <p><strong>${asamblea.nombre ?? 'Asamblea'}</strong></p>
-  <p>📅 ${fechaStr}</p>
+  <h2 style="color: #4338ca;">Votacion virtual activa</h2>
+  <p style="line-height:1.6;">${htmlBase}</p>
   <p><a href="${urlVotacion}" style="display: inline-block; background: #4f46e5; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 8px;">👉 Ir a votar</a></p>
-  <p style="color: #6b7280; font-size: 0.9rem;">Necesitas tu email registrado en el conjunto.</p>
   ${bloqueAdicionalHtml}
-  <p>¡Tu participación es importante! 🏠</p>
 </body>
 </html>`
 
