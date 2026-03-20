@@ -8,6 +8,7 @@ import {
   ArrowLeft, 
   Plus, 
   Trash2,
+  Pencil,
   Search,
   FileText,
   Users,
@@ -80,6 +81,8 @@ interface ConfigPoderes {
   requiere_documento: boolean
 }
 
+type PoderModalState = { type: 'none' } | { type: 'create' } | { type: 'edit'; poder: Poder }
+
 function ChecklistPoderLey675() {
   const [abierto, setAbierto] = useState(false)
   const items = [
@@ -148,8 +151,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true)
   const [successMessage, setSuccessMessage] = useState('')
 
-  // Estados para el modal de nuevo poder
-  const [showNewPoder, setShowNewPoder] = useState(false)
+  // Modal crear / editar poder
+  const [poderModal, setPoderModal] = useState<PoderModalState>({ type: 'none' })
   const [searchOtorgante, setSearchOtorgante] = useState('')
   const [searchReceptor, setSearchReceptor] = useState('')
   const [selectedOtorgante, setSelectedOtorgante] = useState<Unidad | null>(null)
@@ -210,6 +213,50 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       })
     return () => { cancelled = true }
   }, [selectedReceptor?.id])
+
+  const resetPoderForm = () => {
+    setSelectedOtorgante(null)
+    setSelectedReceptor(null)
+    setApoderadoEsTercero(false)
+    setEmailReceptor('')
+    setNombreReceptor('')
+    setObservaciones('')
+    setArchivoPoder(null)
+    setSearchOtorgante('')
+    setSearchReceptor('')
+  }
+
+  const closePoderModal = () => {
+    setPoderModal({ type: 'none' })
+    resetPoderForm()
+  }
+
+  const openCreatePoderModal = () => {
+    resetPoderForm()
+    setPoderModal({ type: 'create' })
+  }
+
+  // Rellenar formulario al abrir edición
+  useEffect(() => {
+    if (poderModal.type !== 'edit') return
+    const p = poderModal.poder
+    const uo = unidades.find((u) => u.id === p.unidad_otorgante_id)
+    setSelectedOtorgante(uo ?? null)
+    const isTercero = !p.unidad_receptor_id
+    setApoderadoEsTercero(isTercero)
+    if (p.unidad_receptor_id) {
+      const ur = unidades.find((u) => u.id === p.unidad_receptor_id)
+      setSelectedReceptor(ur ?? null)
+    } else {
+      setSelectedReceptor(null)
+    }
+    setEmailReceptor(p.email_receptor)
+    setNombreReceptor(p.nombre_receptor)
+    setObservaciones(p.observaciones ?? '')
+    setSearchOtorgante('')
+    setSearchReceptor('')
+    setArchivoPoder(null)
+  }, [poderModal, unidades])
 
   const loadData = async () => {
     try {
@@ -406,16 +453,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
       setSuccessMessage('Poder registrado exitosamente')
       setTimeout(() => setSuccessMessage(''), 3000)
-      setShowNewPoder(false)
-      setSelectedOtorgante(null)
-      setSelectedReceptor(null)
-      setApoderadoEsTercero(false)
-      setEmailReceptor('')
-      setNombreReceptor('')
-      setObservaciones('')
-      setArchivoPoder(null)
-      setSearchOtorgante('')
-      setSearchReceptor('')
+      closePoderModal()
       
       await loadPoderes()
       await loadResumen()
@@ -425,6 +463,111 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     } finally {
       setSavingPoder(false)
     }
+  }
+
+  const handleUpdatePoder = async () => {
+    if (poderModal.type !== 'edit') return
+    const poderExistente = poderModal.poder
+
+    if (!selectedOtorgante) {
+      toast.error('Debes seleccionar la unidad que otorga el poder')
+      return
+    }
+
+    if (!apoderadoEsTercero && !selectedReceptor) {
+      toast.error('Debes seleccionar la unidad del apoderado o marcar "Apoderado es tercero"')
+      return
+    }
+
+    if (!emailReceptor.trim()) {
+      toast.error('Debes ingresar el identificador del apoderado (email, teléfono o identificación)')
+      return
+    }
+
+    if (!nombreReceptor.trim()) {
+      toast.error('Debes ingresar el nombre del apoderado')
+      return
+    }
+
+    const emailTrim = emailReceptor.trim()
+    const emailAnterior = poderExistente.email_receptor.trim()
+    if (emailTrim.toLowerCase() !== emailAnterior.toLowerCase()) {
+      try {
+        const { data: validacion, error: validacionError } = await supabase.rpc('validar_limite_poderes', {
+          p_asamblea_id: params.id,
+          p_email_receptor: emailTrim,
+          p_organization_id: asamblea?.organization_id,
+        })
+        if (validacionError) {
+          console.error('Error validando límite:', validacionError)
+        } else if (validacion && validacion.length > 0) {
+          const resultado = validacion[0]
+          if (!resultado.puede_recibir_poder) {
+            toast.error(
+              `${resultado.mensaje}. El apoderado ya tiene ${resultado.poderes_actuales} poderes activos (límite: ${resultado.limite_maximo})`
+            )
+            return
+          }
+        }
+      } catch (e) {
+        console.error('Error en validación:', e)
+      }
+    }
+
+    if (selectedOtorgante.id !== poderExistente.unidad_otorgante_id) {
+      const { count, error: cntErr } = await supabase
+        .from('poderes')
+        .select('*', { count: 'exact', head: true })
+        .eq('asamblea_id', params.id)
+        .eq('unidad_otorgante_id', selectedOtorgante.id)
+        .eq('estado', 'activo')
+        .neq('id', poderExistente.id)
+      if (cntErr) {
+        console.error('Error comprobando duplicado otorgante:', cntErr)
+      } else if (count && count > 0) {
+        toast.error('Ya existe un poder activo otorgado desde esa unidad en esta asamblea.')
+        return
+      }
+    }
+
+    const emailOtorgante =
+      (selectedOtorgante as { email?: string; email_propietario?: string }).email_propietario ??
+      (selectedOtorgante as { email?: string }).email ??
+      ''
+
+    setSavingPoder(true)
+    try {
+      const { error } = await supabase
+        .from('poderes')
+        .update({
+          unidad_otorgante_id: selectedOtorgante.id,
+          unidad_receptor_id: apoderadoEsTercero ? null : (selectedReceptor?.id ?? null),
+          email_otorgante: emailOtorgante,
+          nombre_otorgante: selectedOtorgante.nombre_propietario,
+          email_receptor: emailTrim,
+          nombre_receptor: nombreReceptor.trim(),
+          observaciones: observaciones.trim() || null,
+        })
+        .eq('id', poderExistente.id)
+
+      if (error) throw error
+
+      setSuccessMessage('Poder actualizado correctamente')
+      setTimeout(() => setSuccessMessage(''), 3000)
+      closePoderModal()
+      await loadPoderes()
+      await loadResumen()
+    } catch (error: any) {
+      console.error('Error updating poder:', error)
+      toast.error('Error al actualizar el poder: ' + error.message)
+    } finally {
+      setSavingPoder(false)
+    }
+  }
+
+  const handleSavePoder = async () => {
+    if (poderModal.type === 'create') await handleCreatePoder()
+    else if (poderModal.type === 'edit') await handleUpdatePoder()
   }
 
   const handleRevocarPoder = async (poderId: string) => {
@@ -617,7 +760,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                 </Link>
               )}
               <Button
-                onClick={() => asamblea?.estado !== 'finalizada' && setShowNewPoder(true)}
+                onClick={() => asamblea?.estado !== 'finalizada' && openCreatePoderModal()}
                 disabled={asamblea?.estado === 'finalizada'}
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
               >
@@ -694,7 +837,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
             <br />
             • El voto del apoderado representa la suma de su coeficiente más el de todas las unidades que representa
             <br />
-            • Los poderes se pueden revocar antes de la votación
+            • Los poderes activos se pueden <strong>editar</strong> (corregir apoderado o unidad) o revocar antes de la votación
           </AlertDescription>
         </Alert>
 
@@ -728,7 +871,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               </p>
               {!searchTerm && (
                 <Button
-                  onClick={() => setShowNewPoder(true)}
+                  onClick={() => openCreatePoderModal()}
                   variant="outline"
                   className="mt-4"
                 >
@@ -873,17 +1016,32 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         {poder.estado === 'activo' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => asamblea?.estado !== 'finalizada' && handleRevocarPoder(poder.id)}
-                            disabled={asamblea?.estado === 'finalizada'}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            title={asamblea?.estado === 'finalizada' ? 'Asamblea cerrada' : 'Revocar este poder'}
-                          >
-                            <XCircle className="w-4 h-4 mr-1" />
-                            Revocar
-                          </Button>
+                          <div className="flex flex-wrap gap-2 justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                asamblea?.estado !== 'finalizada' && setPoderModal({ type: 'edit', poder })
+                              }
+                              disabled={asamblea?.estado === 'finalizada'}
+                              className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                              title={asamblea?.estado === 'finalizada' ? 'Asamblea cerrada' : 'Corregir apoderado, unidad o datos'}
+                            >
+                              <Pencil className="w-4 h-4 mr-1" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => asamblea?.estado !== 'finalizada' && handleRevocarPoder(poder.id)}
+                              disabled={asamblea?.estado === 'finalizada'}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              title={asamblea?.estado === 'finalizada' ? 'Asamblea cerrada' : 'Revocar este poder'}
+                            >
+                              <XCircle className="w-4 h-4 mr-1" />
+                              Revocar
+                            </Button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -896,12 +1054,21 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       </main>
 
       {/* Modal: Nuevo Poder */}
-      <Dialog open={showNewPoder} onOpenChange={setShowNewPoder}>
+      <Dialog
+        open={poderModal.type !== 'none'}
+        onOpenChange={(open) => {
+          if (!open) closePoderModal()
+        }}
+      >
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Registrar Nuevo Poder</DialogTitle>
+            <DialogTitle>
+              {poderModal.type === 'edit' ? 'Editar poder registrado' : 'Registrar Nuevo Poder'}
+            </DialogTitle>
             <DialogDescription>
-              Selecciona la unidad que otorga el poder y los datos del apoderado
+              {poderModal.type === 'edit'
+                ? 'Puedes pasar el apoderado de tercero a una unidad del conjunto (o al revés), corregir correo/nombre o cambiar la unidad que otorga, sin revocar el poder.'
+                : 'Selecciona la unidad que otorga el poder y los datos del apoderado'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1206,38 +1373,30 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
             {/* Botones */}
             <div className="flex justify-end space-x-3 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowNewPoder(false)
-                  setSelectedOtorgante(null)
-                  setSelectedReceptor(null)
-                  setApoderadoEsTercero(false)
-                  setEmailReceptor('')
-                  setNombreReceptor('')
-                  setObservaciones('')
-                  setArchivoPoder(null)
-                  setSearchOtorgante('')
-                  setSearchReceptor('')
-                }}
-                disabled={savingPoder}
-              >
+              <Button variant="outline" onClick={() => closePoderModal()} disabled={savingPoder}>
                 Cancelar
               </Button>
               <Button
-                onClick={handleCreatePoder}
-                disabled={savingPoder || asamblea?.estado === 'finalizada' || !selectedOtorgante || !emailReceptor.trim() || !nombreReceptor.trim() || (!apoderadoEsTercero && !selectedReceptor)}
+                onClick={handleSavePoder}
+                disabled={
+                  savingPoder ||
+                  asamblea?.estado === 'finalizada' ||
+                  !selectedOtorgante ||
+                  !emailReceptor.trim() ||
+                  !nombreReceptor.trim() ||
+                  (!apoderadoEsTercero && !selectedReceptor)
+                }
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
               >
                 {savingPoder ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    Registrando...
+                    {poderModal.type === 'edit' ? 'Guardando...' : 'Registrando...'}
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Registrar Poder
+                    {poderModal.type === 'edit' ? 'Guardar cambios' : 'Registrar Poder'}
                   </>
                 )}
               </Button>
