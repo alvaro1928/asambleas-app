@@ -31,6 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/components/providers/ToastProvider'
 import type { BarChartData } from '@/components/charts/VotacionBarChart'
 import { ModalRegistroAsistencia } from '@/components/ModalRegistroAsistencia'
+import { buildPublicVotarUrl } from '@/lib/publicVotarUrl'
 
 const QRCodeSVG = dynamic(
   () => import('qrcode.react').then((m) => ({ default: m.QRCodeSVG })),
@@ -263,8 +264,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       } else {
         setMostrarCronometroConfig(true)
       }
-      const siteUrl = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL) ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '') : 'https://www.asamblea.online'
-      setUrlPublica(`${siteUrl}/votar/${data.codigo_acceso}`)
+      setUrlPublica(buildPublicVotarUrl(data.codigo_acceso))
       if (data.organization_id) {
         const res = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(data.organization_id)}`, { credentials: 'include' })
         if (res.ok) {

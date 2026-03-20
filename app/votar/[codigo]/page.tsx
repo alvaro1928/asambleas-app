@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { StepIndicator } from '@/components/ui/StepIndicator'
 import { useToast } from '@/components/providers/ToastProvider'
+import { buildPublicVotarUrl } from '@/lib/publicVotarUrl'
 import dynamic from 'next/dynamic'
 
 const QRCodeSVG = dynamic(
@@ -150,7 +151,7 @@ export default function VotacionPublicaPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && codigo) {
-      setUrlVotacionCompartir(`${window.location.origin}/votar/${codigo}`)
+      setUrlVotacionCompartir(buildPublicVotarUrl(codigo))
     }
   }, [codigo])
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -48,6 +48,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { getEffectivePlanLimits } from '@/lib/plan-limits'
 import { useToast } from '@/components/providers/ToastProvider'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
+import { buildPublicAsistirUrl, buildPublicVotarUrl } from '@/lib/publicVotarUrl'
 
 /** URL canónica del sitio para enlaces de votación (WhatsApp, correo, copiar). Ver https://www.asamblea.online */
 const SITE_URL = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL)
@@ -185,8 +186,19 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [copiadoToken, setCopiadoToken] = useState(false)
   const urlDelegado =
     asamblea?.token_delegado && asamblea?.codigo_acceso
-      ? `${typeof window !== 'undefined' ? window.location.origin : ''}/asistir/${asamblea.codigo_acceso}?t=${asamblea.token_delegado}`
+      ? buildPublicAsistirUrl(asamblea.codigo_acceso, asamblea.token_delegado)
       : ''
+
+  /** Misma URL que el QR (origen + prefijo real del sitio), no solo NEXT_PUBLIC_SITE_URL */
+  const [votarUrlPublica, setVotarUrlPublica] = useState('')
+  const asambleaUrlPublicaLegacy = (asamblea as { url_publica?: string } | null)?.url_publica ?? ''
+  useLayoutEffect(() => {
+    if (!asamblea?.codigo_acceso) {
+      setVotarUrlPublica(asambleaUrlPublicaLegacy)
+      return
+    }
+    setVotarUrlPublica(buildPublicVotarUrl(asamblea.codigo_acceso))
+  }, [asamblea?.codigo_acceso, asambleaUrlPublicaLegacy])
 
   // Dialog de eliminar pregunta
   const [deletingPregunta, setDeletingPregunta] = useState<Pregunta | null>(null)
@@ -2049,7 +2061,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const getMensajeVotacion = (): string => {
     if (!asamblea) return ''
-    const url = asamblea.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea.url_publica || '')
+    const url = asamblea.codigo_acceso ? buildPublicVotarUrl(asamblea.codigo_acceso) : (asamblea.url_publica || '')
     if (!url) return ''
     const defaultTemplate = `🗳️ VOTACION VIRTUAL ACTIVA
 
@@ -2798,8 +2810,8 @@ Tu participacion es importante. 🏠`
                       {openEnlaceAcceso && (
                         <div className="px-3 pb-3 pt-0 border-t border-gray-200 dark:border-gray-600 space-y-2">
                           <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                            <input type="text" value={asamblea.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea.url_publica || '')} readOnly className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-xs text-gray-700 dark:text-gray-300" />
-                            <Button onClick={() => handleCopiarTexto(asamblea.codigo_acceso ? `${SITE_URL}/votar/${asamblea.codigo_acceso}` : (asamblea.url_publica || ''), 'URL')} variant="outline" size="sm" title="Copiar enlace" className="shrink-0">
+                            <input type="text" value={asamblea.codigo_acceso ? votarUrlPublica : (asamblea.url_publica || '')} readOnly className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-xs text-gray-700 dark:text-gray-300" />
+                            <Button onClick={() => handleCopiarTexto(asamblea.codigo_acceso ? votarUrlPublica : (asamblea.url_publica || ''), 'URL')} variant="outline" size="sm" title="Copiar enlace" className="shrink-0">
                               <Copy className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">Copiar</span>
                             </Button>
                           </div>
