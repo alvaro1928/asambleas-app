@@ -14,7 +14,7 @@ function variantesIdentificadorManual(raw: string): string[] {
   out.add(t)
   const digits = t.replace(/\D/g, '')
   if (digits.length >= 6) out.add(digits)
-  return [...out]
+  return Array.from(out)
 }
 
 function identificadoresDesdeUnidad(u: {
@@ -42,7 +42,7 @@ function identificadoresDesdeUnidad(u: {
   }
   addPhone(u.telefono_propietario)
   addPhone(u.telefono)
-  return [...out]
+  return Array.from(out)
 }
 
 async function usuarioTieneAccesoConjunto(

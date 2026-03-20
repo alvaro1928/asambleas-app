@@ -953,7 +953,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     for (const u of [...yaVotaron, ...faltantes]) {
       m.set(u.id, u)
     }
-    return [...m.values()].sort((a, b) => {
+    return Array.from(m.values()).sort((a, b) => {
       const ta = `${a.torre}-${a.numero}`
       const tb = `${b.torre}-${b.numero}`
       return ta.localeCompare(tb, 'es', { numeric: true })
