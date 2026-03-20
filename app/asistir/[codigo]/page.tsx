@@ -463,7 +463,7 @@ export default function AsistirPage() {
       cargarUnidades()
       cargarPreguntas()
     }
-  }, [step, asamblea])
+  }, [step, asamblea, cargarUnidades, cargarPreguntas])
 
   // Cuando no hay pestañas, revalidar una vez (2 s) por si el admin acaba de activar verificación. No depender de asamblea completo para evitar bucle: revalidar actualiza asamblea y re-ejecutaba el efecto.
   useEffect(() => {
@@ -471,7 +471,7 @@ export default function AsistirPage() {
     if (asamblea.verificacion_asistencia_activa || preguntas.length > 0) return
     const t = setTimeout(() => revalidar(), 2000)
     return () => clearTimeout(t)
-  }, [step, asamblea?.verificacion_asistencia_activa, preguntas.length, revalidar])
+  }, [step, asamblea, preguntas.length, revalidar])
 
   // Refresco automático cada 1 min: revalidar en segundo plano (sin mostrar carga para que la tabla no desaparezca)
   useEffect(() => {

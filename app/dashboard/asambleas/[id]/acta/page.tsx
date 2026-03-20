@@ -543,6 +543,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   }, [params.id])
 
   /** Tras elegir "versión pública", el DOM debe re-renderizar sin auditoría; delay y layout aplican igual para asambleas reales y sandbox/demo. */
+  /* eslint-disable react-hooks/exhaustive-deps -- handleDescargarPdf se define más abajo y su lógica se usa con estado capturado en este flujo controlado */
   useEffect(() => {
     if (!actaModoSoporte || !descargarSoportePendiente) return
     const conAnexos = descargarSoporteConAnexosRef.current
@@ -558,6 +559,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     }, 1400)
     return () => clearTimeout(t)
   }, [actaModoSoporte, descargarSoportePendiente])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   /** Descontar tokens y marcar acta como generada; luego se puede descargar PDF sin volver a cobrar. */
   const handleGenerarActa = async () => {
@@ -983,6 +985,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
           <div className="flex items-start justify-between border-b-2 border-indigo-700 pb-5">
             <div className="min-w-0 flex items-start gap-4">
               {conjunto?.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- se usa <img> para máxima compatibilidad en captura HTML->PDF
                 <img
                   src={conjunto.logoUrl}
                   alt="Logo del conjunto"

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle2, Search, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -58,7 +58,7 @@ export function ModalRegistroAsistencia({
   const [cargandoUnidadesAsistencia, setCargandoUnidadesAsistencia] = useState(false)
   const [mensajeAsistencia, setMensajeAsistencia] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
 
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     setCargandoUnidadesAsistencia(true)
     setSeleccionadas(new Set())
     setBusquedaAsistencia('')
@@ -109,12 +109,11 @@ export function ModalRegistroAsistencia({
     } finally {
       setCargandoUnidadesAsistencia(false)
     }
-  }
+  }, [asambleaId])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- cargarDatos al abrir; no incluir en deps
   useEffect(() => {
     if (open && asambleaId) cargarDatos()
-  }, [open, asambleaId])
+  }, [open, asambleaId, cargarDatos])
 
   const handleOpenChange = (v: boolean) => {
     if (!guardandoAsistencia) {

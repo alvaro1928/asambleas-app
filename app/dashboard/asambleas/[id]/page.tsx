@@ -221,7 +221,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   // Al abrir el modal de sin tokens, prellenar cantidad sugerida (necesaria para esta asamblea o 20)
   useEffect(() => {
     if (sinTokensModalOpen) setCantidadCompraSinTokens(Math.max(MIN_TOKENS_COMPRA, costoOperacion))
-  }, [sinTokensModalOpen])
+  }, [sinTokensModalOpen, costoOperacion])
 
   // Preguntas archivadas: sección colapsable
   const [showPreguntasArchivadas, setShowPreguntasArchivadas] = useState(false)

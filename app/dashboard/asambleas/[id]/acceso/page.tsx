@@ -325,8 +325,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   }, [participationTimerEnabled, asamblea?.participacion_timer_end_at, asamblea?.participacion_timer_default_minutes])
 
   useEffect(() => {
-    if (!asamblea) return
-    const dm = Number(asamblea.participacion_timer_default_minutes ?? TIMER_DEFAULT_MINUTES_FALLBACK) || TIMER_DEFAULT_MINUTES_FALLBACK
+    const dm = Number(asamblea?.participacion_timer_default_minutes ?? TIMER_DEFAULT_MINUTES_FALLBACK) || TIMER_DEFAULT_MINUTES_FALLBACK
     setTimerStartDraftMinutes(dm)
   }, [asamblea?.participacion_timer_default_minutes])
 
