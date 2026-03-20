@@ -2067,7 +2067,7 @@ Tu participacion es importante.`
       .replace(/\{asamblea\}/gi, asamblea.nombre || 'Asamblea')
       .replace(/\{fecha\}/gi, formatFecha(asamblea.fecha))
       .replace(/\{url\}/gi, url)
-      .replace(/\{conjunto\}/gi, organization?.name || 'Conjunto')
+      .replace(/\{conjunto\}/gi, 'Conjunto')
   }
 
   const getEstadoBadge = (estado: string) => {
