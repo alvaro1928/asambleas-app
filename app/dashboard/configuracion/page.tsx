@@ -425,6 +425,18 @@ export default function ConfiguracionPage() {
           { onConflict: 'user_id,organization_id' }
         )
       if (upsertError) throw upsertError
+
+      // Sincronizar visibilidad funcional del cronómetro a nivel de asambleas del conjunto.
+      // Esto permite que páginas públicas (/votar y /asistir) respeten el toggle de Configuración.
+      const { error: syncTimerError } = await supabase
+        .from('asambleas')
+        .update({
+          participacion_timer_enabled: mostrarCronometro,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('organization_id', selectedConjuntoId)
+      if (syncTimerError) throw syncTimerError
+
       setMessage('Configuración de asamblea guardada')
       setParticipacionTimerDefaultMinutes(minutes)
       setTimeout(() => setMessage(''), 3000)
