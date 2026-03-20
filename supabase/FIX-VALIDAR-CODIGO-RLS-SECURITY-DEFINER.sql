@@ -9,6 +9,14 @@
 --
 -- Esta función debe validar el código de forma independiente del rol del llamador:
 -- SECURITY DEFINER + search_path fijo.
+--
+-- Alcance / no afecta:
+-- • Votación: solo el paso 1 (validar código). registrar_voto_con_trazabilidad,
+--   validar_votante_*, estadísticas, etc. siguen con RLS del invocador (sin cambio).
+-- • Asistencia delegado (/asistir + token): usa POST /api/delegado/validar con
+--   service_role; no llama a validar_codigo_acceso → sin impacto.
+-- • La lógica de negocio (acceso_publico, mensajes, timers) es la misma que en
+--   AGREGAR-CODIGO-ACCESO-ASAMBLEAS.sql; solo cambia quién puede leer la fila por código.
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION public.validar_codigo_acceso(p_codigo TEXT)
