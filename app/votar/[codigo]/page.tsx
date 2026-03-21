@@ -27,6 +27,9 @@ const UMBRAL_APROBACION_DEFECTO = 51
 // Cronómetro visual de participación (solo UI, sin bloquear votaciones ni enviar cambios al backend)
 const DEFAULT_TIEMPO_PARTICIPACION_SECONDS = 5 * 60
 
+/** Un solo ritmo de sondeo en vivo (5 s). Evita dos `setInterval` de 5 s duplicando llamadas a la API. */
+const POLL_MS_LIVE = 5000
+
 function formatMMSS(totalSeconds: number) {
   const s = Math.max(0, Math.floor(totalSeconds))
   const mm = Math.floor(s / 60)
@@ -798,9 +801,14 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  // Poll del flag de verificación (siempre 5 s: las preguntas nuevas deben verse al instante para los votantes).
+  // Poll ligero (solo flags + cronómetro): solo cuando NO corre el polling principal (consentimiento/votar + email).
+  // Si corrieran ambos a la vez, duplicaríamos /api/votar/estado-verificacion cada 5 s.
   useEffect(() => {
     if (!asamblea?.asamblea_id || step === 'validando' || step === 'error') return
+    const enPantallaConEmail =
+      (step === 'consentimiento' || step === 'votar') && !!email.trim()
+    if (enPantallaConEmail) return
+
     const fetchActiva = async () => {
       try {
         const res = await fetch('/api/votar/estado-verificacion', {
@@ -846,9 +854,9 @@ export default function VotacionPublicaPage() {
       }
     }
     fetchActiva()
-    const interval = setInterval(fetchActiva, 5000)
+    const interval = setInterval(fetchActiva, POLL_MS_LIVE)
     return () => clearInterval(interval)
-  }, [asamblea?.asamblea_id, codigo, step, verificacionActiva])
+  }, [asamblea?.asamblea_id, codigo, step, email])
 
   // Función auxiliar: refresca flag de verificación + stats por contexto (pregunta abierta o general) + si este votante ya verificó en ese contexto
   const refrescarVerificacion = async (asambleaId: string, emailVotante?: string) => {
@@ -856,12 +864,19 @@ export default function VotacionPublicaPage() {
       asamblea: {
         verificacion_asistencia_activa?: boolean
         verificacion_pregunta_id?: string | null
+        participacion_timer_end_at?: string | null
+        participacion_timer_default_minutes?: number | null
+        participacion_timer_enabled?: boolean | null
       }
       vData?: StatsVerif[] | null
       yaVerificoRaw?: boolean | null
       statsVerificacionPorPregunta?: Record<string, StatsVerif>
     }) => {
       const aData = json.asamblea
+      setParticipationTimerEndAt(aData.participacion_timer_end_at ?? null)
+      setParticipationTimerDefaultMinutes(Number(aData.participacion_timer_default_minutes ?? 5) || 5)
+      setParticipationTimerEnabled(aData.participacion_timer_enabled ?? true)
+
       const activa = !!aData.verificacion_asistencia_activa
       const prevActiva = verificacionActivaRef.current
       const preguntaId = aData.verificacion_pregunta_id ?? null
@@ -917,6 +932,9 @@ export default function VotacionPublicaPage() {
           asamblea: {
             verificacion_asistencia_activa?: boolean
             verificacion_pregunta_id?: string | null
+            participacion_timer_end_at?: string | null
+            participacion_timer_default_minutes?: number | null
+            participacion_timer_enabled?: boolean | null
           }
           vData?: StatsVerif[] | null
           yaVerificoRaw?: boolean | null
@@ -1069,11 +1087,11 @@ export default function VotacionPublicaPage() {
         // Siempre actualizar verificación (verificacionActiva, yaVerifico) aunque falle el bloque anterior
         await refrescarVerificacion(asamblea.asamblea_id, email.trim())
       }
-    }, 5000)
+    }, POLL_MS_LIVE)
 
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when step or asamblea changes
-  }, [step, asamblea?.asamblea_id, email, verificacionActiva])
+  }, [step, asamblea?.asamblea_id, email])
 
   // Al volver a la pestaña o al foco: iOS/Safari pausan setInterval en segundo plano; recargar preguntas al instante
   useEffect(() => {
