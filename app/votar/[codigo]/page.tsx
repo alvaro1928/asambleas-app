@@ -771,10 +771,7 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  // Poll del flag de verificación:
-  // - 5 s si la verificación está activa
-  // - 10 s en reposo
-  // Así reducimos carga sin perder reactividad cuando el quórum está en curso.
+  // Poll del flag de verificación (siempre 5 s: las preguntas nuevas deben verse al instante para los votantes).
   useEffect(() => {
     if (!asamblea?.asamblea_id || step === 'validando' || step === 'error') return
     const fetchActiva = async () => {
@@ -810,8 +807,7 @@ export default function VotacionPublicaPage() {
       }
     }
     fetchActiva()
-    const intervalMs = verificacionActiva ? 5000 : 10000
-    const interval = setInterval(fetchActiva, intervalMs)
+    const interval = setInterval(fetchActiva, 5000)
     return () => clearInterval(interval)
   }, [asamblea?.asamblea_id, step, verificacionActiva])
 
@@ -939,9 +935,7 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  // Polling principal:
-  // - 5 s si hay verificación activa (respuesta rápida para popup/quórum)
-  // - 10 s en reposo (menos carga DB)
+  // Polling principal cada 5 s: quórum + preguntas nuevas (siempre recargar preguntas aunque no cambie el número de unidades).
   useEffect(() => {
     const enPantallaVotacion = step === 'consentimiento' || step === 'votar'
     if (!enPantallaVotacion || !asamblea || !email.trim()) return
@@ -949,15 +943,14 @@ export default function VotacionPublicaPage() {
     // Carga inicial de verificación (incluye email para saber si ya verificó)
     refrescarVerificacion(asamblea.asamblea_id, email.trim())
 
-    const intervalMs = verificacionActiva ? 5000 : 10000
     const interval = setInterval(async () => {
       try {
         if (step === 'votar') {
           const nuevasUnidades = await refrescarUnidades()
-          if (nuevasUnidades.length > 0) {
-            await cargarPreguntas(nuevasUnidades)
-            await cargarHistorial(nuevasUnidades)
-          }
+          // Importante: siempre recargar preguntas/opciones; el admin puede abrir una nueva sin tocar unidades.
+          await cargarPreguntas(nuevasUnidades.length > 0 ? nuevasUnidades : undefined)
+          const u = nuevasUnidades.length > 0 ? nuevasUnidades : undefined
+          if (u && u.length > 0) await cargarHistorial(u)
         }
       } catch {
         // Ignorar errores de red o validación en background
@@ -965,7 +958,7 @@ export default function VotacionPublicaPage() {
         // Siempre actualizar verificación (verificacionActiva, yaVerifico) aunque falle el bloque anterior
         await refrescarVerificacion(asamblea.asamblea_id, email.trim())
       }
-    }, intervalMs)
+    }, 5000)
 
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when step or asamblea changes

@@ -477,15 +477,16 @@ export default function AsistirPage() {
     return () => clearTimeout(t)
   }, [step, asamblea, preguntas.length, revalidar])
 
-  // Refresco automático cada 1 min: revalidar en segundo plano (sin mostrar carga para que la tabla no desaparezca)
+  // Refresco cada 5 s: estado de asamblea + preguntas abiertas (mismo ritmo que /votar)
   useEffect(() => {
     if (step !== 'ok' || !asamblea) return
     const t = setInterval(() => {
       isBackgroundRefreshRef.current = true
       revalidar()
-    }, 60000)
+      cargarPreguntas()
+    }, 5000)
     return () => clearInterval(t)
-  }, [step, asamblea, revalidar])
+  }, [step, asamblea, revalidar, cargarPreguntas])
 
   // Pestaña por defecto y validez: asistencia solo si verificación activa, votación solo si hay pregunta abierta
   const mostrarTabAsistencia = !!asamblea?.verificacion_asistencia_activa

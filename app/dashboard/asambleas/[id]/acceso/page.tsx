@@ -217,7 +217,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       loadAsamblea()
       loadAsistentes(true)
       loadAvanceVotaciones()
-    }, 10000)
+    }, 5000)
 
     const onVisibility = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
