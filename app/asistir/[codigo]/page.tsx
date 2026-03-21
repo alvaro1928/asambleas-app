@@ -162,6 +162,8 @@ export default function AsistirPage() {
 
   const [revalidando, setRevalidando] = useState(false)
   const isBackgroundRefreshRef = useRef(false)
+  /** Evita que una respuesta lenta de cargarPreguntas pise una lista ya actualizada (pregunta borrada/cerrada). */
+  const cargarPreguntasGenerationRef = useRef(0)
 
   // Revalidar estado de la asamblea (verificación activa, pregunta_id) para actualizar pestañas sin recargar
   const revalidar = useCallback(async () => {
@@ -363,6 +365,9 @@ export default function AsistirPage() {
   // ── Cargar preguntas ─────────────────────────────────────────────────────
   const cargarPreguntas = useCallback(async () => {
     if (!asamblea) return
+    const myGen = ++cargarPreguntasGenerationRef.current
+    const isStale = () => myGen !== cargarPreguntasGenerationRef.current
+
     const silent = isBackgroundRefreshRef.current
     if (!silent) setCargandoPreguntas(true)
     try {
@@ -372,6 +377,8 @@ export default function AsistirPage() {
         .eq('asamblea_id', asamblea.asamblea_id)
         .eq('estado', 'abierta')
         .order('orden', { ascending: true })
+
+      if (isStale()) return
 
       const pregIds = (pregData || []).map((p: any) => p.id)
       let opcMap: Record<string, Opcion[]> = {}
@@ -387,6 +394,8 @@ export default function AsistirPage() {
         })
       }
 
+      if (isStale()) return
+
       const nuevasPreguntas: Pregunta[] = (pregData || []).map((p: any) => ({
         id: p.id,
         texto_pregunta: p.texto_pregunta,
@@ -395,6 +404,7 @@ export default function AsistirPage() {
         umbral_aprobacion: p.umbral_aprobacion,
         opciones: opcMap[p.id] || [],
       }))
+      if (isStale()) return
       setPreguntas(nuevasPreguntas)
 
       // Cargar votos ya registrados para esta asamblea (con es_poder para etiqueta "Poder")
@@ -403,16 +413,21 @@ export default function AsistirPage() {
           .from('votos')
           .select('unidad_id, pregunta_id, es_poder')
           .in('pregunta_id', pregIds)
+        if (isStale()) return
         setVotosRegistrados((votosData || []).map((v: any) => ({
           unidad_id: v.unidad_id,
           pregunta_id: v.pregunta_id,
           es_poder: !!v.es_poder,
         })))
+      } else {
+        if (isStale()) return
+        setVotosRegistrados([])
       }
 
       // Cargar avance de votaciones (estadísticas por pregunta para la gráfica)
       const conResultados: PreguntaConResultados[] = []
       for (const p of nuevasPreguntas) {
+        if (isStale()) return
         const { data: statsData } = await supabase.rpc('calcular_estadisticas_pregunta', {
           p_pregunta_id: p.id,
         })
@@ -451,9 +466,11 @@ export default function AsistirPage() {
           resultados,
         })
       }
+      if (isStale()) return
       setAvanceVotaciones(conResultados)
 
       if (nuevasPreguntas.length > 0 && !preguntaActiva) {
+        if (isStale()) return
         setPreguntaActiva(nuevasPreguntas[0].id)
       }
     } finally {

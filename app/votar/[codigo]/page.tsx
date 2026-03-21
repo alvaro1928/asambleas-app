@@ -160,6 +160,12 @@ export default function VotacionPublicaPage() {
   const stepRef = useRef(step)
   stepRef.current = step
 
+  /**
+   * Varias llamadas concurrentes a cargarPreguntas (polling + refresco manual) pueden completar fuera de orden;
+   * una respuesta vieja no debe volver a pintar una pregunta ya borrada/cerrada en el servidor.
+   */
+  const cargarPreguntasGenerationRef = useRef(0)
+
   useEffect(() => {
     if (typeof window !== 'undefined' && codigo) {
       setUrlVotacionCompartir(buildPublicVotarUrl(codigo))
@@ -447,6 +453,9 @@ export default function VotacionPublicaPage() {
   const cargarPreguntas = async (unidadesParam?: UnidadInfo[]) => {
     if (!asamblea) return
 
+    const myGen = ++cargarPreguntasGenerationRef.current
+    const isStale = () => myGen !== cargarPreguntasGenerationRef.current
+
     try {
       // Usar unidades del parámetro o del estado
       const unidadesParaUsar = unidadesParam || unidades
@@ -471,6 +480,8 @@ export default function VotacionPublicaPage() {
         // red u offline → intentar fallback
       }
 
+      if (isStale()) return
+
       if (!cargadoPorApi) {
         const { data: preguntasData, error: preguntasError } = await supabase
           .from('preguntas')
@@ -482,8 +493,12 @@ export default function VotacionPublicaPage() {
 
         if (preguntasError) throw preguntasError
 
+        if (isStale()) return
+
         if (!preguntasData || preguntasData.length === 0) {
           setPreguntas([])
+          setEstadisticas({})
+          setVotosActuales([])
           return
         }
 
@@ -493,6 +508,8 @@ export default function VotacionPublicaPage() {
           .select('id, pregunta_id, texto_opcion, color, orden')
           .in('pregunta_id', preguntaIds)
           .order('orden', { ascending: true })
+
+        if (isStale()) return
 
         const opcionesPorPregunta: Record<string, { id: string; texto: string; color: string }[]> = {}
         for (const p of preguntasData) {
@@ -515,6 +532,8 @@ export default function VotacionPublicaPage() {
         }))
       }
 
+      if (isStale()) return
+
       if (!preguntasConOpciones || preguntasConOpciones.length === 0) {
         setPreguntas([])
         setEstadisticas({})
@@ -526,11 +545,13 @@ export default function VotacionPublicaPage() {
 
       // Cargar votos actuales del votante usando las unidades correctas
       if (unidadesParaUsar && unidadesParaUsar.length > 0) {
-        await cargarVotosActuales(preguntasConOpciones.map(p => p.id), unidadesParaUsar)
+        await cargarVotosActuales(preguntasConOpciones.map(p => p.id), unidadesParaUsar, isStale)
       }
 
+      if (isStale()) return
+
       // Cargar estadísticas
-      await cargarEstadisticas(preguntasConOpciones.map(p => p.id))
+      await cargarEstadisticas(preguntasConOpciones.map(p => p.id), isStale)
 
     } catch (error: any) {
       // Ignorar errores de AbortError (son normales cuando hay cancelaciones)
@@ -621,7 +642,11 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  const cargarVotosActuales = async (preguntaIds: string[], unidadesParam?: UnidadInfo[]) => {
+  const cargarVotosActuales = async (
+    preguntaIds: string[],
+    unidadesParam?: UnidadInfo[],
+    isStale?: () => boolean
+  ) => {
     const unidadesParaUsar = unidadesParam || unidades
     
     if (!unidadesParaUsar || unidadesParaUsar.length === 0) return
@@ -634,6 +659,8 @@ export default function VotacionPublicaPage() {
         .select('pregunta_id, unidad_id, opcion_id, opciones_pregunta(texto_opcion)')
         .in('pregunta_id', preguntaIds)
         .in('unidad_id', unidadIds)
+
+      if (isStale?.()) return
 
       if (votosData && votosData.length > 0) {
         const votosMap: any[] = votosData.map((v: any) => ({
@@ -653,11 +680,13 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  const cargarEstadisticas = async (preguntaIds: string[]) => {
+  const cargarEstadisticas = async (preguntaIds: string[], isStale?: () => boolean) => {
     try {
       const estadisticasMap: Record<string, EstadisticasPregunta> = {}
 
       for (const preguntaId of preguntaIds) {
+        if (isStale?.()) return
+
         const { data, error } = await supabase.rpc('calcular_estadisticas_pregunta', {
           p_pregunta_id: preguntaId
         })
@@ -681,8 +710,6 @@ export default function VotacionPublicaPage() {
             resultados = statsData.resultados || []
           }
 
-          console.log('📈 Resultados procesados:', resultados)
-
           estadisticasMap[preguntaId] = {
             total_votos: parseInt(statsData.total_votos) || 0,
             total_coeficiente: parseFloat(statsData.total_coeficiente) || 0,
@@ -701,6 +728,8 @@ export default function VotacionPublicaPage() {
           }
         }
       }
+
+      if (isStale?.()) return
 
       setEstadisticas(estadisticasMap)
     } catch (error: any) {
