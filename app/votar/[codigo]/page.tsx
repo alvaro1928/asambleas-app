@@ -468,13 +468,17 @@ export default function VotacionPublicaPage() {
       let preguntasConOpciones: Pregunta[] = []
       let cargadoPorApi = false
       try {
-        const res = await fetch(
-          `/api/votar/preguntas-abiertas?codigo=${encodeURIComponent(codigo)}&_=${Date.now()}`,
-          {
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
-          }
-        )
+        /** POST evita caché de GET en CDN/proxy; misma lógica que GET en el servidor. */
+        const res = await fetch('/api/votar/preguntas-abiertas', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+          },
+          cache: 'no-store',
+          body: JSON.stringify({ codigo }),
+        })
         const json = (await res.json().catch(() => ({}))) as { preguntas?: Pregunta[] }
         if (res.ok && Array.isArray(json.preguntas)) {
           preguntasConOpciones = json.preguntas
@@ -560,6 +564,46 @@ export default function VotacionPublicaPage() {
       }
     }
   }
+
+  const cargarPreguntasRef = useRef(cargarPreguntas)
+  cargarPreguntasRef.current = cargarPreguntas
+
+  /**
+   * Cuando el admin abre/cierra/archiva una pregunta, refrescar al instante (no solo cada POLL_MS_LIVE).
+   * Requiere que `preguntas` esté en la publicación supabase_realtime (ver supabase/REALTIME-PREGUNTAS-VOTACION.sql).
+   */
+  useEffect(() => {
+    if (!asamblea?.asamblea_id) return
+    const enLive = step === 'consentimiento' || step === 'votar'
+    if (!enLive) return
+
+    let debounceTimer: ReturnType<typeof setTimeout> | undefined
+    const debounced = () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        void cargarPreguntasRef.current()
+      }, 250)
+    }
+
+    const channel = supabase
+      .channel(`public:preguntas:asamblea:${asamblea.asamblea_id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'preguntas',
+          filter: `asamblea_id=eq.${asamblea.asamblea_id}`,
+        },
+        debounced
+      )
+      .subscribe()
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      void supabase.removeChannel(channel)
+    }
+  }, [asamblea?.asamblea_id, step])
 
   const cargarHistorial = async (unidadesParam?: UnidadInfo[]) => {
     if (!asamblea) return
