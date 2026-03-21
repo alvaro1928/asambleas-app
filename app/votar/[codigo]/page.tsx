@@ -153,6 +153,10 @@ export default function VotacionPublicaPage() {
   const [urlVotacionCompartir, setUrlVotacionCompartir] = useState('')
   const [copiandoEnlace, setCopiandoEnlace] = useState(false)
 
+  /** Evita closure obsoleto en setInterval (móvil/Safari) y permite saber el paso actual al volver a la pestaña */
+  const stepRef = useRef(step)
+  stepRef.current = step
+
   useEffect(() => {
     if (typeof window !== 'undefined' && codigo) {
       setUrlVotacionCompartir(buildPublicVotarUrl(codigo))
@@ -444,48 +448,71 @@ export default function VotacionPublicaPage() {
       // Usar unidades del parámetro o del estado
       const unidadesParaUsar = unidadesParam || unidades
 
-      // Cargar preguntas abiertas
-      const { data: preguntasData, error: preguntasError } = await supabase
-        .from('preguntas')
-        .select('id, texto_pregunta, descripcion, tipo_votacion, estado, umbral_aprobacion')
-        .eq('asamblea_id', asamblea.asamblea_id)
-        .eq('estado', 'abierta')
-        .eq('is_archived', false)
-        .order('created_at', { ascending: true })
+      /** Lectura vía API (service role): no depende del JWT del navegador; evita RLS que deja 0 filas con sesión de otra org (móvil). */
+      let preguntasConOpciones: Pregunta[] = []
+      let cargadoPorApi = false
+      try {
+        const res = await fetch(
+          `/api/votar/preguntas-abiertas?codigo=${encodeURIComponent(codigo)}`,
+          { cache: 'no-store' }
+        )
+        const json = (await res.json().catch(() => ({}))) as { preguntas?: Pregunta[] }
+        if (res.ok && Array.isArray(json.preguntas)) {
+          preguntasConOpciones = json.preguntas
+          cargadoPorApi = true
+        }
+      } catch {
+        // red u offline → intentar fallback
+      }
 
-      if (preguntasError) throw preguntasError
+      if (!cargadoPorApi) {
+        const { data: preguntasData, error: preguntasError } = await supabase
+          .from('preguntas')
+          .select('id, texto_pregunta, descripcion, tipo_votacion, estado, umbral_aprobacion')
+          .eq('asamblea_id', asamblea.asamblea_id)
+          .eq('estado', 'abierta')
+          .eq('is_archived', false)
+          .order('created_at', { ascending: true })
 
-      if (!preguntasData || preguntasData.length === 0) {
+        if (preguntasError) throw preguntasError
+
+        if (!preguntasData || preguntasData.length === 0) {
+          setPreguntas([])
+          return
+        }
+
+        const preguntaIds = preguntasData.map((p: { id: string }) => p.id)
+        const { data: opcionesData } = await supabase
+          .from('opciones_pregunta')
+          .select('id, pregunta_id, texto_opcion, color, orden')
+          .in('pregunta_id', preguntaIds)
+          .order('orden', { ascending: true })
+
+        const opcionesPorPregunta: Record<string, { id: string; texto: string; color: string }[]> = {}
+        for (const p of preguntasData) {
+          opcionesPorPregunta[p.id] = []
+        }
+        for (const o of opcionesData || []) {
+          const pid = (o as { pregunta_id: string }).pregunta_id
+          if (opcionesPorPregunta[pid]) {
+            opcionesPorPregunta[pid].push({
+              id: o.id,
+              texto: o.texto_opcion,
+              color: o.color
+            })
+          }
+        }
+
+        preguntasConOpciones = preguntasData.map((p: any) => ({
+          ...p,
+          opciones: opcionesPorPregunta[p.id] || []
+        }))
+      }
+
+      if (!preguntasConOpciones || preguntasConOpciones.length === 0) {
         setPreguntas([])
         return
       }
-
-      const preguntaIds = preguntasData.map((p: { id: string }) => p.id)
-      const { data: opcionesData } = await supabase
-        .from('opciones_pregunta')
-        .select('id, pregunta_id, texto_opcion, color, orden')
-        .in('pregunta_id', preguntaIds)
-        .order('orden', { ascending: true })
-
-      const opcionesPorPregunta: Record<string, { id: string; texto: string; color: string }[]> = {}
-      for (const p of preguntasData) {
-        opcionesPorPregunta[p.id] = []
-      }
-      for (const o of opcionesData || []) {
-        const pid = (o as { pregunta_id: string }).pregunta_id
-        if (opcionesPorPregunta[pid]) {
-          opcionesPorPregunta[pid].push({
-            id: o.id,
-            texto: o.texto_opcion,
-            color: o.color
-          })
-        }
-      }
-
-      const preguntasConOpciones: Pregunta[] = preguntasData.map((p: any) => ({
-        ...p,
-        opciones: opcionesPorPregunta[p.id] || []
-      }))
 
       setPreguntas(preguntasConOpciones)
 
@@ -945,11 +972,17 @@ export default function VotacionPublicaPage() {
 
     const interval = setInterval(async () => {
       try {
-        if (step === 'votar') {
-          const nuevasUnidades = await refrescarUnidades()
+        // stepRef: en móvil los timers pueden quedar desfasados respecto al estado de React
+        if (stepRef.current === 'votar') {
+          let nuevasUnidades: UnidadInfo[] | undefined
+          try {
+            nuevasUnidades = await refrescarUnidades()
+          } catch {
+            nuevasUnidades = undefined
+          }
           // Importante: siempre recargar preguntas/opciones; el admin puede abrir una nueva sin tocar unidades.
-          await cargarPreguntas(nuevasUnidades.length > 0 ? nuevasUnidades : undefined)
-          const u = nuevasUnidades.length > 0 ? nuevasUnidades : undefined
+          await cargarPreguntas(nuevasUnidades && nuevasUnidades.length > 0 ? nuevasUnidades : undefined)
+          const u = nuevasUnidades && nuevasUnidades.length > 0 ? nuevasUnidades : undefined
           if (u && u.length > 0) await cargarHistorial(u)
         }
       } catch {
@@ -964,17 +997,47 @@ export default function VotacionPublicaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when step or asamblea changes
   }, [step, asamblea?.asamblea_id, email, verificacionActiva])
 
-  // Al volver a la pestaña, refrescar verificación de inmediato para que el popup aparezca si el admin acaba de activarla
+  // Al volver a la pestaña o al foco: iOS/Safari pausan setInterval en segundo plano; recargar preguntas al instante
   useEffect(() => {
     const enPantallaVotacion = step === 'consentimiento' || step === 'votar'
     if (!enPantallaVotacion || !asamblea || !email.trim()) return
-    const onVisibility = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        refrescarVerificacion(asamblea.asamblea_id, email.trim())
+
+    const recargarSiVotando = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+      await refrescarVerificacion(asamblea.asamblea_id, email.trim())
+      if (stepRef.current !== 'votar') return
+      try {
+        let nuevasUnidades: UnidadInfo[] | undefined
+        try {
+          nuevasUnidades = await refrescarUnidades()
+        } catch {
+          nuevasUnidades = undefined
+        }
+        await cargarPreguntas(nuevasUnidades && nuevasUnidades.length > 0 ? nuevasUnidades : undefined)
+        if (nuevasUnidades && nuevasUnidades.length > 0) await cargarHistorial(nuevasUnidades)
+      } catch {
+        // ignorar
       }
     }
+
+    const onVisibility = () => {
+      void recargarSiVotando()
+    }
+    const onFocus = () => {
+      void recargarSiVotando()
+    }
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) void recargarSiVotando()
+    }
+
     document.addEventListener('visibilitychange', onVisibility)
-    return () => document.removeEventListener('visibilitychange', onVisibility)
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('pageshow', onPageShow)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, asamblea?.asamblea_id, email])
 
