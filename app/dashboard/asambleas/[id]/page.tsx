@@ -35,6 +35,7 @@ import {
   Mail,
   UserCheck,
   ShieldCheck,
+  ShieldAlert,
   Link2,
   Link2Off,
   RefreshCw
@@ -277,6 +278,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [emailAdicionalEnvio, setEmailAdicionalEnvio] = useState('')
   const [enviandoCorreoAdicional, setEnviandoCorreoAdicional] = useState(false)
   const [plantillaMensajeInvitacion, setPlantillaMensajeInvitacion] = useState('')
+  /** Config conjunto: mostrar botón reset masivo LOPD */
+  const [permitirResetConsentimientoGeneral, setPermitirResetConsentimientoGeneral] = useState(true)
+  const [resettingConsentimientoLo, setResettingConsentimientoLo] = useState(false)
 
   const [billeteraColapsada, setBilleteraColapsada] = useState(true)
   const [openQuorumPanel, setOpenQuorumPanel] = useState(true)
@@ -492,10 +496,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       if (configData?.whatsapp_number != null && typeof configData.whatsapp_number === 'string') setWhatsappNumber(configData.whatsapp_number)
       const { data: configPoderes } = await supabase
         .from('configuracion_poderes')
-        .select('plantilla_mensaje_invitacion')
+        .select('plantilla_mensaje_invitacion, permitir_reset_consentimiento_general')
         .eq('organization_id', orgId)
         .maybeSingle()
       setPlantillaMensajeInvitacion((configPoderes as { plantilla_mensaje_invitacion?: string | null } | null)?.plantilla_mensaje_invitacion?.trim() || '')
+      setPermitirResetConsentimientoGeneral(
+        (configPoderes as { permitir_reset_consentimiento_general?: boolean | null } | null)
+          ?.permitir_reset_consentimiento_general !== false
+      )
 
       // Cargar preguntas
       const { data: preguntasData, error: preguntasError } = await supabase
@@ -787,6 +795,43 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     } catch {
       setSesionesQuorumGeneral([])
       setSesionesPorPregunta({})
+    }
+  }
+
+  const handleResetConsentimientoTodaAsamblea = async () => {
+    if (!asamblea?.id || !permitirResetConsentimientoGeneral) return
+    if (
+      !window.confirm(
+        '¿Seguro? Se eliminarán TODAS las aceptaciones de tratamiento de datos personales (LOPD) registradas para esta asamblea. Cada votante deberá volver a aceptar al entrar a votar. Esta acción no se puede deshacer.'
+      )
+    ) {
+      return
+    }
+    setResettingConsentimientoLo(true)
+    try {
+      const res = await fetch('/api/dashboard/reset-consentimiento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ asamblea_id: params.id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(typeof data?.error === 'string' ? data.error : 'No se pudo resetear el consentimiento')
+        return
+      }
+      if (data.deleted === 0) {
+        toast.success('No había registros de consentimiento para esta asamblea.')
+      } else {
+        toast.success(
+          `Se eliminaron ${data.deleted} registro(s). Los votantes deberán aceptar de nuevo el tratamiento de datos al entrar.`
+        )
+      }
+    } catch (e) {
+      console.error(e)
+      toast.error('Error de red al resetear consentimiento')
+    } finally {
+      setResettingConsentimientoLo(false)
     }
   }
 
@@ -2930,6 +2975,32 @@ Tu participacion es importante. 🏠`
                   </>
                 )}
               </div>
+              )}
+
+              {permitirResetConsentimientoGeneral && (
+                <div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center">
+                    <ShieldAlert className="w-4 h-4 mr-2 text-amber-600 dark:text-amber-400" />
+                    Consentimiento de datos (LOPD)
+                  </h3>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                    Borra todas las aceptaciones de tratamiento de datos guardadas para esta asamblea. No afecta votos ni acta; solo hace que, al entrar a votar, todos deban volver a marcar la casilla de aceptación.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                    size="lg"
+                    disabled={resettingConsentimientoLo}
+                    onClick={handleResetConsentimientoTodaAsamblea}
+                  >
+                    <ShieldAlert className="w-4 h-4 mr-2 shrink-0" />
+                    {resettingConsentimientoLo ? 'Procesando…' : 'Resetear consentimiento (toda la asamblea)'}
+                  </Button>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                    Puedes desactivar este botón en Configuración → Poderes y plantilla de correo.
+                  </p>
+                </div>
               )}
 
               {/* 3. Información (abajo) */}

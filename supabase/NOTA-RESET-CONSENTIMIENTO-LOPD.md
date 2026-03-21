@@ -1,10 +1,20 @@
 # Reset de consentimiento LOPD
 
-La tabla `consentimiento_tratamiento_datos` guarda una fila por par `(asamblea_id, identificador)` cuando el votante acepta el tratamiento de datos en la pantalla de votación.
+## Tabla
 
-No requiere migración adicional: el reset se hace desde el panel **Acceso** de la asamblea (sección colapsable «Consentimiento de datos») o vía API:
+`consentimiento_tratamiento_datos`: una fila por `(asamblea_id, identificador)` cuando el votante acepta el tratamiento de datos en la votación pública.
 
-- `POST /api/dashboard/reset-consentimiento` (sesión de administrador del conjunto)
-- Cuerpo: `asamblea_id`, `tipo` (`identificador` | `unidad`), `alcance` (`esta_asamblea` | `todo_el_conjunto`), y según el caso `identificador` o `unidad_id`.
+## Reset masivo (toda la asamblea)
 
-El `service_role` elimina filas; no hace falta cambiar RLS si ya usáis el backend con clave de servicio.
+- **Panel:** página de la asamblea (`/dashboard/asambleas/[id]`), sección **Consentimiento de datos (LOPD)** → botón **Resetear consentimiento (toda la asamblea)**.
+- **API:** `POST /api/dashboard/reset-consentimiento` con body `{ "asamblea_id": "<uuid>" }` (sesión de administrador del conjunto).
+- Elimina **todas** las filas de consentimiento de esa asamblea. No requiere migración adicional salvo la columna de configuración (ver abajo).
+
+## Desactivar el botón
+
+En **Configuración → Poderes y plantilla de correo**, desmarca **«Permitir reset masivo de consentimiento de datos (LOPD)…»**.  
+Eso guarda `permitir_reset_consentimiento_general = false` en `configuracion_poderes` y la API responde 403 si alguien intenta resetear.
+
+## SQL en Supabase
+
+Ejecutar una vez: `AGREGAR-PERMITIR-RESET-CONSENTIMIENTO.sql` (columna `permitir_reset_consentimiento_general`).

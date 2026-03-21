@@ -24,7 +24,6 @@ import {
   Link2,
   ChevronDown,
   ChevronUp,
-  ShieldAlert,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -151,14 +150,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [searchFaltanVerificar, setSearchFaltanVerificar] = useState('')
   const [openVerificacion, setOpenVerificacion] = useState(false)
   const [openEnlace, setOpenEnlace] = useState(true)
-  /** Reset consentimiento LOPD (votación pública) */
-  const [openConsentReset, setOpenConsentReset] = useState(false)
-  const [consentTipo, setConsentTipo] = useState<'identificador' | 'unidad'>('identificador')
-  const [consentAlcance, setConsentAlcance] = useState<'esta' | 'conjunto'>('esta')
-  const [consentIdentificador, setConsentIdentificador] = useState('')
-  const [consentUnidadId, setConsentUnidadId] = useState('')
-  const [consentSearchUnidad, setConsentSearchUnidad] = useState('')
-  const [resettingConsent, setResettingConsent] = useState(false)
   const [loading, setLoading] = useState(true)
   const [recargando, setRecargando] = useState(false)
   const [urlPublica, setUrlPublica] = useState('')
@@ -948,73 +939,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     return faltanVerificar.filter((u) => matchUnidadAsistencia(u, searchFaltanVerificar))
   }, [faltanVerificar, searchFaltanVerificar])
 
-  const unidadesParaConsent = useMemo(() => {
-    const m = new Map<string, UnidadFila>()
-    for (const u of [...yaVotaron, ...faltantes]) {
-      m.set(u.id, u)
-    }
-    return Array.from(m.values()).sort((a, b) => {
-      const ta = `${a.torre}-${a.numero}`
-      const tb = `${b.torre}-${b.numero}`
-      return ta.localeCompare(tb, 'es', { numeric: true })
-    })
-  }, [yaVotaron, faltantes])
-
-  const unidadesConsentFiltradas = useMemo(() => {
-    if (!consentSearchUnidad.trim()) return unidadesParaConsent
-    return unidadesParaConsent.filter((u) => matchUnidadAsistencia(u, consentSearchUnidad))
-  }, [unidadesParaConsent, consentSearchUnidad])
-
-  const handleResetConsentimiento = async () => {
-    if (!asamblea?.id) return
-    if (consentTipo === 'identificador' && !consentIdentificador.trim()) {
-      toast.error('Indica el email o teléfono del votante')
-      return
-    }
-    if (consentTipo === 'unidad' && !consentUnidadId) {
-      toast.error('Selecciona una unidad')
-      return
-    }
-    const mensaje =
-      consentAlcance === 'conjunto'
-        ? '¿Seguro? Se eliminará el consentimiento de datos para este criterio en TODAS las asambleas de este conjunto. El votante deberá aceptar de nuevo al entrar.'
-        : '¿Seguro? Se eliminará solo el consentimiento de esta asamblea. El votante deberá aceptar de nuevo al entrar a votar aquí.'
-    if (!window.confirm(mensaje)) return
-
-    setResettingConsent(true)
-    try {
-      const res = await fetch('/api/dashboard/reset-consentimiento', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          asamblea_id: params.id,
-          tipo: consentTipo,
-          alcance: consentAlcance === 'esta' ? 'esta_asamblea' : 'todo_el_conjunto',
-          identificador: consentTipo === 'identificador' ? consentIdentificador : undefined,
-          unidad_id: consentTipo === 'unidad' ? consentUnidadId : undefined,
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        toast.error(typeof data?.error === 'string' ? data.error : 'No se pudo resetear el consentimiento')
-        return
-      }
-      if (data.deleted === 0) {
-        toast.error('No había registros de consentimiento con ese criterio.')
-      } else {
-        toast.success(
-          `Se eliminaron ${data.deleted} registro(s). Deberá aceptar de nuevo el tratamiento de datos al votar.`
-        )
-      }
-    } catch (e) {
-      console.error(e)
-      toast.error('Error de red al resetear consentimiento')
-    } finally {
-      setResettingConsent(false)
-    }
-  }
-
   if (loading && !asamblea) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0B0E14' }}>
@@ -1089,124 +1013,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 <input type="text" readOnly value={urlPublica} className="flex-1 min-w-0 px-4 py-3 text-base bg-white/5 border border-[rgba(255,255,255,0.1)] rounded-2xl text-slate-200 truncate font-sans" style={{ color: '#e2e8f0' }} aria-label="URL de votación" />
                 <Button onClick={copiarEnlace} className="shrink-0 rounded-2xl font-semibold bg-white text-slate-800 hover:bg-slate-100 border border-[rgba(255,255,255,0.1)] flex items-center justify-center gap-2 py-2.5 px-4" title="Copiar enlace al portapapeles">
                   <Copy className="w-4 h-4" /> {copiado ? '¡Copiado!' : 'Copiar Enlace'}
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Consentimiento LOPD (reset si alguien aceptó por error o desde otro dispositivo/cuenta) */}
-          <div className="w-full mb-3 rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
-            <button
-              type="button"
-              onClick={() => setOpenConsentReset((v) => !v)}
-              className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-white/5 transition-colors"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400" />
-                <span className="text-sm font-semibold text-slate-200">Consentimiento de datos (LOPD)</span>
-                <span className="text-xs text-slate-500 truncate">Resetear aceptación del votante</span>
-              </div>
-              {openConsentReset ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
-            </button>
-            {openConsentReset && (
-              <div className="px-4 pb-4 pt-0 space-y-3 border-t border-white/10">
-                <p className="text-xs text-slate-400 pt-2">
-                  Si alguien aceptó el tratamiento de datos por error (p. ej. entraste tú por él), puedes borrar ese registro.
-                  La próxima vez que entre con el mismo email o teléfono deberá marcar de nuevo la casilla de aceptación.
-                </p>
-                <div className="flex flex-wrap gap-4 text-sm">
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                    <input
-                      type="radio"
-                      name="consent-tipo"
-                      checked={consentTipo === 'identificador'}
-                      onChange={() => {
-                        setConsentTipo('identificador')
-                        setConsentUnidadId('')
-                        setConsentSearchUnidad('')
-                      }}
-                      className="rounded-full border-slate-500 text-amber-500"
-                    />
-                    Por email / teléfono
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                    <input
-                      type="radio"
-                      name="consent-tipo"
-                      checked={consentTipo === 'unidad'}
-                      onChange={() => setConsentTipo('unidad')}
-                      className="rounded-full border-slate-500 text-amber-500"
-                    />
-                    Por unidad (borra todas las variantes de correo/tel. de esa unidad)
-                  </label>
-                </div>
-                <div className="flex flex-wrap gap-4 text-sm">
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                    <input
-                      type="radio"
-                      name="consent-alcance"
-                      checked={consentAlcance === 'esta'}
-                      onChange={() => setConsentAlcance('esta')}
-                      className="rounded-full border-slate-500 text-amber-500"
-                    />
-                    Solo esta asamblea
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                    <input
-                      type="radio"
-                      name="consent-alcance"
-                      checked={consentAlcance === 'conjunto'}
-                      onChange={() => setConsentAlcance('conjunto')}
-                      className="rounded-full border-slate-500 text-amber-500"
-                    />
-                    Todo el conjunto (todas las asambleas)
-                  </label>
-                </div>
-                {consentTipo === 'identificador' ? (
-                  <div>
-                    <label className="text-xs text-slate-500 block mb-1">Email o teléfono (como lo usa para entrar a votar)</label>
-                    <input
-                      type="text"
-                      value={consentIdentificador}
-                      onChange={(e) => setConsentIdentificador(e.target.value)}
-                      placeholder="correo@ejemplo.com o 3001234567"
-                      className="w-full max-w-md px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 text-sm"
-                    />
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <label className="text-xs text-slate-500 block">Buscar unidad</label>
-                    <input
-                      type="text"
-                      value={consentSearchUnidad}
-                      onChange={(e) => setConsentSearchUnidad(e.target.value)}
-                      placeholder="Torre, apto, propietario o email…"
-                      className="w-full max-w-md px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 text-sm"
-                    />
-                    <select
-                      value={consentUnidadId}
-                      onChange={(e) => setConsentUnidadId(e.target.value)}
-                      className="w-full max-w-md px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-200 text-sm"
-                    >
-                      <option value="">— Selecciona unidad —</option>
-                      {unidadesConsentFiltradas.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.torre} - {u.numero} · {u.nombre_propietario}
-                        </option>
-                      ))}
-                    </select>
-                    {unidadesParaConsent.length === 0 && (
-                      <p className="text-xs text-amber-400">Cargando unidades del conjunto…</p>
-                    )}
-                  </div>
-                )}
-                <Button
-                  type="button"
-                  onClick={handleResetConsentimiento}
-                  disabled={resettingConsent}
-                  className="rounded-2xl bg-amber-600 hover:bg-amber-700 text-white text-sm"
-                >
-                  {resettingConsent ? 'Procesando…' : 'Resetear consentimiento'}
                 </Button>
               </div>
             )}
