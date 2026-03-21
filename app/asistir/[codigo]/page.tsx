@@ -162,8 +162,9 @@ export default function AsistirPage() {
 
   const [revalidando, setRevalidando] = useState(false)
   const isBackgroundRefreshRef = useRef(false)
-  /** Evita que una respuesta lenta de cargarPreguntas pise una lista ya actualizada (pregunta borrada/cerrada). */
-  const cargarPreguntasGenerationRef = useRef(0)
+  /** Una carga a la vez; si llegan más, se programa un repaso al terminar (evita listas cruzadas). */
+  const cargarPreguntasInFlightRef = useRef(false)
+  const cargarPreguntasPendienteRef = useRef(false)
 
   // Revalidar estado de la asamblea (verificación activa, pregunta_id) para actualizar pestañas sin recargar
   const revalidar = useCallback(async () => {
@@ -365,8 +366,11 @@ export default function AsistirPage() {
   // ── Cargar preguntas ─────────────────────────────────────────────────────
   const cargarPreguntas = useCallback(async () => {
     if (!asamblea) return
-    const myGen = ++cargarPreguntasGenerationRef.current
-    const isStale = () => myGen !== cargarPreguntasGenerationRef.current
+    if (cargarPreguntasInFlightRef.current) {
+      cargarPreguntasPendienteRef.current = true
+      return
+    }
+    cargarPreguntasInFlightRef.current = true
 
     const silent = isBackgroundRefreshRef.current
     if (!silent) setCargandoPreguntas(true)
@@ -376,9 +380,8 @@ export default function AsistirPage() {
         .select('id, texto_pregunta, estado, tipo_votacion, umbral_aprobacion')
         .eq('asamblea_id', asamblea.asamblea_id)
         .eq('estado', 'abierta')
+        .eq('is_archived', false)
         .order('orden', { ascending: true })
-
-      if (isStale()) return
 
       const pregIds = (pregData || []).map((p: any) => p.id)
       let opcMap: Record<string, Opcion[]> = {}
@@ -394,8 +397,6 @@ export default function AsistirPage() {
         })
       }
 
-      if (isStale()) return
-
       const nuevasPreguntas: Pregunta[] = (pregData || []).map((p: any) => ({
         id: p.id,
         texto_pregunta: p.texto_pregunta,
@@ -404,7 +405,6 @@ export default function AsistirPage() {
         umbral_aprobacion: p.umbral_aprobacion,
         opciones: opcMap[p.id] || [],
       }))
-      if (isStale()) return
       setPreguntas(nuevasPreguntas)
 
       // Cargar votos ya registrados para esta asamblea (con es_poder para etiqueta "Poder")
@@ -413,21 +413,18 @@ export default function AsistirPage() {
           .from('votos')
           .select('unidad_id, pregunta_id, es_poder')
           .in('pregunta_id', pregIds)
-        if (isStale()) return
         setVotosRegistrados((votosData || []).map((v: any) => ({
           unidad_id: v.unidad_id,
           pregunta_id: v.pregunta_id,
           es_poder: !!v.es_poder,
         })))
       } else {
-        if (isStale()) return
         setVotosRegistrados([])
       }
 
       // Cargar avance de votaciones (estadísticas por pregunta para la gráfica)
       const conResultados: PreguntaConResultados[] = []
       for (const p of nuevasPreguntas) {
-        if (isStale()) return
         const { data: statsData } = await supabase.rpc('calcular_estadisticas_pregunta', {
           p_pregunta_id: p.id,
         })
@@ -466,16 +463,21 @@ export default function AsistirPage() {
           resultados,
         })
       }
-      if (isStale()) return
       setAvanceVotaciones(conResultados)
 
       if (nuevasPreguntas.length > 0 && !preguntaActiva) {
-        if (isStale()) return
         setPreguntaActiva(nuevasPreguntas[0].id)
       }
     } finally {
       if (!silent) setCargandoPreguntas(false)
       isBackgroundRefreshRef.current = false
+      cargarPreguntasInFlightRef.current = false
+      if (cargarPreguntasPendienteRef.current) {
+        cargarPreguntasPendienteRef.current = false
+        queueMicrotask(() => {
+          void cargarPreguntas()
+        })
+      }
     }
   }, [asamblea, preguntaActiva])
 
@@ -494,14 +496,14 @@ export default function AsistirPage() {
     return () => clearTimeout(t)
   }, [step, asamblea, preguntas.length, revalidar])
 
-  // Refresco cada 5 s: estado de asamblea + preguntas abiertas (mismo ritmo que /votar)
+  // Refresco cada 3 s: estado de asamblea + preguntas abiertas (alineado con /votar)
   useEffect(() => {
     if (step !== 'ok' || !asamblea) return
     const t = setInterval(() => {
       isBackgroundRefreshRef.current = true
       revalidar()
       cargarPreguntas()
-    }, 5000)
+    }, 3000)
     return () => clearInterval(t)
   }, [step, asamblea, revalidar, cargarPreguntas])
 
