@@ -803,21 +803,33 @@ export default function VotacionPublicaPage() {
     if (!asamblea?.asamblea_id || step === 'validando' || step === 'error') return
     const fetchActiva = async () => {
       try {
-        const { data } = await supabase
-          .from('asambleas')
-          .select(
-            'verificacion_asistencia_activa, verificacion_pregunta_id, participacion_timer_end_at, participacion_timer_default_minutes, participacion_timer_enabled'
-          )
-          .eq('id', asamblea.asamblea_id)
-          .single()
-        if (data) {
-          const a = data as {
-            verificacion_asistencia_activa?: boolean
-            verificacion_pregunta_id?: string | null
-            participacion_timer_end_at?: string | null
-            participacion_timer_default_minutes?: number | null
-            participacion_timer_enabled?: boolean | null
-          }
+        const res = await fetch('/api/votar/estado-verificacion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codigo, soloFlags: true }),
+        })
+        const json = await res.json().catch(() => ({} as { ok?: boolean; asamblea?: Record<string, unknown> }))
+        type FlagsAsamblea = {
+          verificacion_asistencia_activa?: boolean
+          verificacion_pregunta_id?: string | null
+          participacion_timer_end_at?: string | null
+          participacion_timer_default_minutes?: number | null
+          participacion_timer_enabled?: boolean | null
+        }
+        let a: FlagsAsamblea | null = null
+        if (res.ok && json.ok && json.asamblea) {
+          a = json.asamblea as FlagsAsamblea
+        } else {
+          const { data } = await supabase
+            .from('asambleas')
+            .select(
+              'verificacion_asistencia_activa, verificacion_pregunta_id, participacion_timer_end_at, participacion_timer_default_minutes, participacion_timer_enabled'
+            )
+            .eq('id', asamblea.asamblea_id)
+            .single()
+          if (data) a = data as FlagsAsamblea
+        }
+        if (a) {
           setVerificacionActiva(!!a.verificacion_asistencia_activa)
           setParticipationTimerEndAt(a.participacion_timer_end_at ?? null)
           setParticipationTimerDefaultMinutes(Number(a.participacion_timer_default_minutes ?? 5) || 5)
@@ -836,11 +848,83 @@ export default function VotacionPublicaPage() {
     fetchActiva()
     const interval = setInterval(fetchActiva, 5000)
     return () => clearInterval(interval)
-  }, [asamblea?.asamblea_id, step, verificacionActiva])
+  }, [asamblea?.asamblea_id, codigo, step, verificacionActiva])
 
   // Función auxiliar: refresca flag de verificación + stats por contexto (pregunta abierta o general) + si este votante ya verificó en ese contexto
   const refrescarVerificacion = async (asambleaId: string, emailVotante?: string) => {
+    const aplicarDesdeApi = (json: {
+      asamblea: {
+        verificacion_asistencia_activa?: boolean
+        verificacion_pregunta_id?: string | null
+      }
+      vData?: StatsVerif[] | null
+      yaVerificoRaw?: boolean | null
+      statsVerificacionPorPregunta?: Record<string, StatsVerif>
+    }) => {
+      const aData = json.asamblea
+      const activa = !!aData.verificacion_asistencia_activa
+      const prevActiva = verificacionActivaRef.current
+      const preguntaId = aData.verificacion_pregunta_id ?? null
+      const preguntaIdStr = preguntaId ?? null
+
+      setVerificacionActiva(activa)
+      if (activa && !prevActiva) setYaVerifico(false)
+      if (activa) {
+        if (lastVerificacionPreguntaIdRef.current !== preguntaIdStr) setYaVerifico(false)
+        lastVerificacionPreguntaIdRef.current = preguntaIdStr
+      } else {
+        lastVerificacionPreguntaIdRef.current = null
+      }
+      verificacionActivaRef.current = activa
+
+      const vData = json.vData
+      if (vData?.length) {
+        const v = vData[0]
+        setStatsVerificacion({
+          total_verificados: Number(v.total_verificados) || 0,
+          coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
+          porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
+          quorum_alcanzado: !!v.quorum_alcanzado,
+        })
+      } else {
+        setStatsVerificacion(null)
+      }
+
+      setStatsVerificacionPorPregunta(json.statsVerificacionPorPregunta || {})
+
+      const yaVerificoB = json.yaVerificoRaw === true
+      if (emailVotante) {
+        if (!activa) {
+          setYaVerifico(!!yaVerificoB)
+        } else {
+          setYaVerifico((prev) => (yaVerificoB === false ? false : prev))
+        }
+      }
+    }
+
     try {
+      const res = await fetch('/api/votar/estado-verificacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          codigo,
+          email: emailVotante?.trim() || undefined,
+        }),
+      })
+      const json = await res.json().catch(() => ({} as Record<string, unknown>))
+      if (res.ok && json.ok && json.asamblea) {
+        aplicarDesdeApi(json as {
+          asamblea: {
+            verificacion_asistencia_activa?: boolean
+            verificacion_pregunta_id?: string | null
+          }
+          vData?: StatsVerif[] | null
+          yaVerificoRaw?: boolean | null
+          statsVerificacionPorPregunta?: Record<string, StatsVerif>
+        })
+        return
+      }
+
       const { data: aData } = await supabase
         .from('asambleas')
         .select('verificacion_asistencia_activa, verificacion_pregunta_id')
@@ -854,9 +938,7 @@ export default function VotacionPublicaPage() {
         const preguntaIdStr = preguntaId ?? null
 
         setVerificacionActiva(activa)
-        // Al reabrir la verificación (inactiva → activa), forzar mostrar popup de nuevo
         if (activa && !prevActiva) setYaVerifico(false)
-        // Al pasar de verificación general a por pregunta (o cambiar de pregunta), mostrar popup de nuevo
         if (activa) {
           if (lastVerificacionPreguntaIdRef.current !== preguntaIdStr) setYaVerifico(false)
           lastVerificacionPreguntaIdRef.current = preguntaIdStr
@@ -874,7 +956,6 @@ export default function VotacionPublicaPage() {
           })
           vData = vRes.data
         } else {
-          // Verificación cerrada: mostrar última sesión GENERAL cerrada (igual que asamblea/acceso), no acumulado histórico
           const { data: ultimaSesion } = await supabase
             .from('verificacion_asamblea_sesiones')
             .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
@@ -912,7 +993,6 @@ export default function VotacionPublicaPage() {
           setStatsVerificacion(null)
         }
 
-        // Quórum por pregunta (para tab Avance): sesiones cerradas por pregunta_id + si hay verificación activa para una pregunta, esa pregunta usa los stats en vivo
         const { data: sesionesPorPregunta } = await supabase
           .from('verificacion_asamblea_sesiones')
           .select('pregunta_id, total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
@@ -943,8 +1023,6 @@ export default function VotacionPublicaPage() {
         }
         setStatsVerificacionPorPregunta(porPregunta)
 
-        // Mientras la verificación está activa no cerramos el popup con el valor del servidor
-        // (evita que se cierre solo al refrescar o por verificación anterior); solo se cierra al clic o al desactivar
         const yaVerificoVal = yaRes.data
         const yaVerificoB = Array.isArray(yaVerificoVal)
           ? (yaVerificoVal as unknown[])[0] === true
