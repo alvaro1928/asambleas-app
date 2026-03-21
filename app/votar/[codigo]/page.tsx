@@ -456,8 +456,11 @@ export default function VotacionPublicaPage() {
       let cargadoPorApi = false
       try {
         const res = await fetch(
-          `/api/votar/preguntas-abiertas?codigo=${encodeURIComponent(codigo)}`,
-          { cache: 'no-store' }
+          `/api/votar/preguntas-abiertas?codigo=${encodeURIComponent(codigo)}&_=${Date.now()}`,
+          {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+          }
         )
         const json = (await res.json().catch(() => ({}))) as { preguntas?: Pregunta[] }
         if (res.ok && Array.isArray(json.preguntas)) {
@@ -514,6 +517,8 @@ export default function VotacionPublicaPage() {
 
       if (!preguntasConOpciones || preguntasConOpciones.length === 0) {
         setPreguntas([])
+        setEstadisticas({})
+        setVotosActuales([])
         return
       }
 
@@ -1068,18 +1073,22 @@ export default function VotacionPublicaPage() {
 
     const interval = setInterval(async () => {
       try {
-        // stepRef: en móvil los timers pueden quedar desfasados respecto al estado de React
-        if (stepRef.current === 'votar') {
-          let nuevasUnidades: UnidadInfo[] | undefined
-          try {
-            nuevasUnidades = await refrescarUnidades()
-          } catch {
-            nuevasUnidades = undefined
+        const s = stepRef.current
+        // consentimiento + votar: lista de abiertas debe actualizarse (admin cierra/borra sin recargar la página).
+        if (s === 'consentimiento' || s === 'votar') {
+          if (s === 'votar') {
+            let nuevasUnidades: UnidadInfo[] | undefined
+            try {
+              nuevasUnidades = await refrescarUnidades()
+            } catch {
+              nuevasUnidades = undefined
+            }
+            await cargarPreguntas(nuevasUnidades && nuevasUnidades.length > 0 ? nuevasUnidades : undefined)
+            const u = nuevasUnidades && nuevasUnidades.length > 0 ? nuevasUnidades : undefined
+            if (u && u.length > 0) await cargarHistorial(u)
+          } else {
+            await cargarPreguntas()
           }
-          // Importante: siempre recargar preguntas/opciones; el admin puede abrir una nueva sin tocar unidades.
-          await cargarPreguntas(nuevasUnidades && nuevasUnidades.length > 0 ? nuevasUnidades : undefined)
-          const u = nuevasUnidades && nuevasUnidades.length > 0 ? nuevasUnidades : undefined
-          if (u && u.length > 0) await cargarHistorial(u)
         }
       } catch {
         // Ignorar errores de red o validación en background
@@ -1101,8 +1110,13 @@ export default function VotacionPublicaPage() {
     const recargarSiVotando = async () => {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
       await refrescarVerificacion(asamblea.asamblea_id, email.trim())
-      if (stepRef.current !== 'votar') return
+      const s = stepRef.current
+      if (s !== 'votar' && s !== 'consentimiento') return
       try {
+        if (s === 'consentimiento') {
+          await cargarPreguntas()
+          return
+        }
         let nuevasUnidades: UnidadInfo[] | undefined
         try {
           nuevasUnidades = await refrescarUnidades()

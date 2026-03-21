@@ -40,7 +40,8 @@ export async function GET(request: NextRequest) {
         { preguntas: [] },
         {
           headers: {
-            'Cache-Control': 'no-store, max-age=0',
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            Pragma: 'no-cache',
           },
         }
       )
@@ -67,7 +68,8 @@ export async function GET(request: NextRequest) {
         { preguntas: [] },
         {
           headers: {
-            'Cache-Control': 'no-store, max-age=0',
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            Pragma: 'no-cache',
           },
         }
       )
@@ -115,7 +117,8 @@ export async function GET(request: NextRequest) {
       { preguntas: preguntasConOpciones },
       {
         headers: {
-          'Cache-Control': 'no-store, max-age=0',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          Pragma: 'no-cache',
         },
       }
     )
