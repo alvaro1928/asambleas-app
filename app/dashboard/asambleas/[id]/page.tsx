@@ -176,7 +176,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [statsVerificacion, setStatsVerificacion] = useState<VerifStats | null>(null)
   const [togglingVerif, setTogglingVerif] = useState(false)
   /** Sesiones cerradas de verificación con pregunta_id null (asamblea en general), para historial y persistencia de asistencia */
-  interface SesionQuorumGeneral { cierre_at: string; total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
+  interface SesionQuorumGeneral {
+    id: string
+    cierre_at: string
+    total_verificados: number
+    coeficiente_verificado: number
+    porcentaje_verificado: number
+    quorum_alcanzado: boolean
+  }
   const [sesionesQuorumGeneral, setSesionesQuorumGeneral] = useState<SesionQuorumGeneral[]>([])
   const [openHistorialQuorumGeneral, setOpenHistorialQuorumGeneral] = useState(false)
   // Abrir historial de quórum general cuando hay sesiones cerradas (p. ej. al reabrir la asamblea) para que sea visible
@@ -184,6 +191,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (sesionesQuorumGeneral.length > 0) setOpenHistorialQuorumGeneral(true)
   }, [sesionesQuorumGeneral.length])
   const [refrescandoAvance, setRefrescandoAvance] = useState(false)
+  const [eliminandoSesionQuorumId, setEliminandoSesionQuorumId] = useState<string | null>(null)
 
   // Acceso Público: secciones colapsables
   const [openEnlaceAcceso, setOpenEnlaceAcceso] = useState(true)
@@ -766,11 +774,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     try {
       const { data: todasSesiones } = await supabase
         .from('verificacion_asamblea_sesiones')
-        .select('pregunta_id, cierre_at, total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
+        .select('id, pregunta_id, cierre_at, total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
         .eq('asamblea_id', params.id)
         .not('cierre_at', 'is', null)
         .order('cierre_at', { ascending: false })
       const lista = (todasSesiones || []).map((s: any) => ({
+        id: String(s.id),
         pregunta_id: s.pregunta_id as string | null,
         cierre_at: s.cierre_at,
         total_verificados: Number(s.total_verificados) ?? 0,
@@ -778,7 +787,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
         quorum_alcanzado: !!s.quorum_alcanzado,
       }))
-      const generales = lista.filter((s: { pregunta_id: string | null }) => s.pregunta_id == null)
+      const generales = lista
+        .filter((s: { pregunta_id: string | null }) => s.pregunta_id == null)
+        .map((s: { id: string; cierre_at: string; total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }) => ({
+          id: s.id,
+          cierre_at: s.cierre_at,
+          total_verificados: s.total_verificados,
+          coeficiente_verificado: s.coeficiente_verificado,
+          porcentaje_verificado: s.porcentaje_verificado,
+          quorum_alcanzado: s.quorum_alcanzado,
+        }))
       setSesionesQuorumGeneral(generales)
       // Rellenar tarjeta "Asistencia verificada": última sesión GENERAL cuando la verificación no está activa
       if (!verifActiva) {
@@ -1961,6 +1979,39 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
+  const eliminarEntradaHistorialQuorum = async (sesionId: string) => {
+    if (!asamblea?.id || asamblea.estado !== 'activa') return
+    if (
+      !window.confirm(
+        '¿Eliminar esta entrada del historial de quórum? No se puede deshacer. Al volver a cerrar la verificación de asistencia se registrará una nueva lectura (por ejemplo con mejor porcentaje).'
+      )
+    ) {
+      return
+    }
+    setEliminandoSesionQuorumId(sesionId)
+    try {
+      const res = await fetch('/api/dashboard/eliminar-sesion-quorum-historial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ asamblea_id: asamblea.id, sesion_id: sesionId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(typeof data?.error === 'string' ? data.error : 'No se pudo eliminar la entrada')
+        return
+      }
+      toast.success('Entrada eliminada del historial')
+      await loadQuorum()
+      await cargarStatsVerificacion()
+    } catch (e) {
+      console.error(e)
+      toast.error('Error de red al eliminar')
+    } finally {
+      setEliminandoSesionQuorumId(null)
+    }
+  }
+
   const AVISO_REABRIR_QUORUM_OMITIR_KEY = 'asambleas_quorum_reabrir_aviso_omitir'
 
   const handleToggleVerificacion = async () => {
@@ -2593,14 +2644,40 @@ Tu participacion es importante. 🏠`
                   </button>
                   {openHistorialQuorumGeneral && (
                     <ul className="mt-2 space-y-2">
-                      {sesionesQuorumGeneral.map((sesion, idx) => (
-                        <li key={idx} className="flex items-center justify-between text-sm py-2 px-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+                      {sesionesQuorumGeneral.map((sesion) => (
+                        <li
+                          key={sesion.id}
+                          className="flex flex-wrap items-center justify-between gap-2 text-sm py-2 px-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700"
+                        >
                           <span className="text-gray-600 dark:text-gray-400">
                             {new Date(sesion.cierre_at).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}
                           </span>
-                          <span className={`font-semibold ${sesion.quorum_alcanzado ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                            {sesion.porcentaje_verificado.toFixed(1)}% ({sesion.total_verificados} un.) — {sesion.quorum_alcanzado ? 'Quórum' : 'Sin quórum'}
-                          </span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className={`font-semibold text-right ${sesion.quorum_alcanzado ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}
+                            >
+                              {sesion.porcentaje_verificado.toFixed(1)}% ({sesion.total_verificados} un.) —{' '}
+                              {sesion.quorum_alcanzado ? 'Quórum' : 'Sin quórum'}
+                            </span>
+                            {asamblea.estado === 'activa' && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 shrink-0 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                title="Quitar esta entrada del historial (solo asamblea activa)"
+                                disabled={eliminandoSesionQuorumId === sesion.id}
+                                onClick={() => void eliminarEntradaHistorialQuorum(sesion.id)}
+                                aria-label="Eliminar entrada del historial"
+                              >
+                                {eliminandoSesionQuorumId === sesion.id ? (
+                                  <RefreshCw className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>
