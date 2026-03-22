@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { ToastProvider } from '@/components/providers/ToastProvider'
 import LoginPage from './page'
+
+function renderLogin() {
+  return render(
+    <ToastProvider>
+      <LoginPage />
+    </ToastProvider>
+  )
+}
 
 const mockPush = vi.fn()
 vi.mock('next/navigation', () => ({
@@ -23,29 +32,29 @@ describe('LoginPage', () => {
   })
 
   it('renderiza el título Entrar a Asambleas', () => {
-    render(<LoginPage />)
+    renderLogin()
     expect(screen.getByRole('heading', { name: /entrar a asambleas/i })).toBeInTheDocument()
   })
 
   it('muestra selector Contraseña y Magic Link', () => {
-    render(<LoginPage />)
+    renderLogin()
     expect(screen.getByRole('button', { name: /^contraseña$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^magic link$/i })).toBeInTheDocument()
   })
 
   it('muestra campo email y contraseña en modo Contraseña', () => {
-    render(<LoginPage />)
+    renderLogin()
     expect(screen.getByPlaceholderText(/tu@email\.com/i)).toBeInTheDocument()
     expect(screen.getByPlaceholderText(/tu contraseña/i)).toBeInTheDocument()
   })
 
   it('muestra enlace ¿Olvidaste tu contraseña?', () => {
-    render(<LoginPage />)
+    renderLogin()
     expect(screen.getByRole('button', { name: /olvidaste tu contraseña/i })).toBeInTheDocument()
   })
 
   it('al hacer clic en Olvidaste contraseña muestra formulario de recuperación', () => {
-    render(<LoginPage />)
+    renderLogin()
     fireEvent.click(screen.getByRole('button', { name: /olvidaste tu contraseña/i }))
     expect(screen.getByRole('heading', { name: /restablecer contraseña/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /enviar enlace de recuperación/i })).toBeInTheDocument()

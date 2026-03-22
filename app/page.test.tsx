@@ -17,9 +17,9 @@ describe('Home (landing)', () => {
 
   it('muestra las secciones de features', () => {
     render(<Home />)
-    expect(screen.getAllByText(/Quórum en tiempo real/i).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Actas y auditoría/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/Seguro y multi-conjunto/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Quórum y resultados en tiempo real/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Actas y trazabilidad/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Datos aislados por conjunto y acceso seguro/i)).toBeInTheDocument()
   })
 
   it('muestra valor: acta, quórum y blockchain', () => {
@@ -29,10 +29,10 @@ describe('Home (landing)', () => {
     expect(screen.getAllByText(/blockchain/i).length).toBeGreaterThan(0)
   })
 
-  it('muestra la tabla de precios', () => {
+  it('muestra sello blockchain y mención gratuita', () => {
     render(<Home />)
     expect(screen.getAllByText(/Gratis/i).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Pro/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/Personalizado/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/blockchain/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/OpenTimestamps/i).length).toBeGreaterThan(0)
   })
 })

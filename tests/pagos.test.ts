@@ -78,13 +78,18 @@ const createChain = (config: {
         error: null,
       })
     ),
-    update: vi.fn(function (this: Record<string, unknown>) {
-      return {
-        eq: vi.fn(() =>
+    update: vi.fn(() => {
+      const afterFilter = {
+        select: vi.fn(() =>
           Promise.resolve({
+            data: [{ id: 'profile-row' }],
             error: config.updateError ?? null,
           })
         ),
+      }
+      return {
+        eq: vi.fn(() => afterFilter),
+        or: vi.fn(() => afterFilter),
       }
     }),
   }
@@ -103,10 +108,15 @@ const mockFrom = vi.fn((table: string) => {
   if (table === 'planes') {
     return createChain({ maybeSingleData: { precio_por_asamblea_cop: 10000 } })
   }
+  if (table === 'configuracion_global') {
+    return createChain({ maybeSingleData: { precio_por_token_cop: 100 } })
+  }
   if (table === 'profiles') {
     return createChain({
       maybeSingleData: null,
-      selectEqData: [{ tokens_disponibles: 50, organization_id: 'org-123' }],
+      selectEqData: [
+        { id: TEST_USER_ID, tokens_disponibles: 50, organization_id: 'org-123' },
+      ],
       updateError: null,
     })
   }
@@ -211,10 +221,15 @@ describe('POST /api/pagos/webhook', () => {
       if (table === 'planes') {
         return createChain({ maybeSingleData: { precio_por_asamblea_cop: 10000 } })
       }
+      if (table === 'configuracion_global') {
+        return createChain({ maybeSingleData: { precio_por_token_cop: 100 } })
+      }
       if (table === 'profiles') {
         const chain = createChain({
           maybeSingleData: { tokens_disponibles: 51 },
-          selectEqData: [{ tokens_disponibles: 50, organization_id: 'org-123' }],
+          selectEqData: [
+            { id: TEST_USER_ID, tokens_disponibles: 50, organization_id: 'org-123' },
+          ],
           updateError: null,
         })
         chain.then = (resolve: (v: unknown) => void) => {

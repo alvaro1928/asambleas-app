@@ -4,14 +4,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { registrarTransaccionPago } from '@/lib/super-admin'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+/** Misma forma que UUID_REGEX pero sin anclas, para encontrar el UUID dentro de REF_<uuid>_<timestamp>. */
+const UUID_IN_TEXT_REGEX = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i
 
 /** Referencia Wompi (modelo Billetera por Gestor): REF_<user_id>_<timestamp> */
 function extractUserIdFromReference(reference: string | null | undefined): string | null {
   if (!reference || typeof reference !== 'string') return null
-  const parts = reference.trim().split('_')
-  if (parts.length < 2) return null
-  const maybeUuid = parts[1]
-  return UUID_REGEX.test(maybeUuid) ? maybeUuid : null
+  const trimmed = reference.trim()
+  // No usar split('_'): el UUID lleva guiones y quedaría solo el primer segmento (p. ej. 550e8400).
+  const m = trimmed.match(UUID_IN_TEXT_REGEX)
+  return m ? m[0] : null
 }
 
 /** Obtener valor anidado en objeto por path "transaction.id" -> data.transaction.id */

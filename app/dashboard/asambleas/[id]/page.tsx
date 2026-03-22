@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -135,6 +135,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const toast = useToast()
   const [asamblea, setAsamblea] = useState<Asamblea | null>(null)
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
+  /** Evita closure obsoleto en el polling de 5s cuando cambia el estado de una pregunta sin cambiar la cantidad. */
+  const preguntasRef = useRef<Pregunta[]>([])
+  preguntasRef.current = preguntas
   const [loading, setLoading] = useState(true)
   const [successMessage, setSuccessMessage] = useState('')
 
@@ -370,8 +373,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     if (preguntas.length === 0 || !asamblea?.id) return
 
     const tick = async () => {
-      if (!preguntas.some(p => p.estado === 'abierta')) return
-      loadEstadisticas()
+      const lista = preguntasRef.current
+      if (!lista.some((p) => p.estado === 'abierta')) return
+      await loadEstadisticas(lista)
       const { data: verifData } = await supabase
         .from('asambleas')
         .select('verificacion_asistencia_activa, verificacion_pregunta_id')

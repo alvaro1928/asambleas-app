@@ -17,6 +17,6 @@ describe('Button', () => {
     render(<Button variant="destructive">Eliminar</Button>)
     const btn = screen.getByRole('button', { name: /eliminar/i })
     expect(btn).toBeInTheDocument()
-    expect(btn).toHaveClass('bg-red-600')
+    expect(btn.className).toMatch(/bg-(red-600|error)\b/)
   })
 })

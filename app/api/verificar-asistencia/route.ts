@@ -157,28 +157,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Registrar verificación por contexto (general o pregunta abierta) en verificacion_asistencia_registro
-    let insertadas = 0
-    for (const row of filas) {
-      const { error: upsertErr } = await admin
-        .from('verificacion_asistencia_registro')
-        .upsert(
-          {
-            asamblea_id: asamblea_id.trim(),
-            quorum_asamblea_id: row.id,
-            pregunta_id: preguntaId,
-            creado_en: new Date().toISOString(),
-          },
-          {
-            onConflict: 'quorum_asamblea_id,pregunta_id',
-            ignoreDuplicates: false,
-          }
-        )
-      if (!upsertErr) insertadas++
+    const MAX_FILAS_VERIFICACION = 100
+    if (filas.length > MAX_FILAS_VERIFICACION) {
+      return NextResponse.json(
+        { error: 'Demasiados registros asociados a este identificador. Contacta al administrador.' },
+        { status: 400 }
+      )
     }
 
-    // Mantener quorum_asamblea.verifico_asistencia/hora para compatibilidad (cualquier verificación = presente)
     const now = new Date().toISOString()
+
+    // Un solo upsert en bloque (evita N round-trips y posibles timeouts con varios poderes / filas).
+    const registros = filas.map((row) => ({
+      asamblea_id: asamblea_id.trim(),
+      quorum_asamblea_id: row.id,
+      pregunta_id: preguntaId,
+      creado_en: now,
+    }))
+    const { error: upsertRegErr } = await admin
+      .from('verificacion_asistencia_registro')
+      .upsert(registros, {
+        onConflict: 'quorum_asamblea_id,pregunta_id',
+        ignoreDuplicates: false,
+      })
+    if (upsertRegErr) {
+      console.error('verificar-asistencia upsert registros:', upsertRegErr)
+      return NextResponse.json({ error: 'Error al registrar verificación' }, { status: 500 })
+    }
+
+    const insertadas = filas.length
+
+    // Mantener quorum_asamblea.verifico_asistencia/hora para compatibilidad (cualquier verificación = presente)
     const ids = filas.map((f) => f.id)
     await admin
       .from('quorum_asamblea')
