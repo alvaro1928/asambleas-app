@@ -515,74 +515,38 @@ export default function VotacionPublicaPage() {
       // Usar unidades del parámetro o del estado
       const unidadesParaUsar = unidadesParam || unidades
 
-      /** Lectura vía API (service role): no depende del JWT del navegador; evita RLS que deja 0 filas con sesión de otra org (móvil). */
+      /** Solo vía API (service role). El fallback con supabase.from() en el cliente fallaba tras RLS/hardening si había sesión authenticated de otra organización en el mismo navegador. */
       let preguntasConOpciones: Pregunta[] = []
       let cargadoPorApi = false
-      try {
-        /** POST evita caché de GET en CDN/proxy; misma lógica que GET en el servidor. */
-        const res = await fetch('/api/votar/preguntas-abiertas', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-            Pragma: 'no-cache',
-          },
-          cache: 'no-store',
-          body: JSON.stringify({ codigo }),
-        })
-        const json = (await res.json().catch(() => ({}))) as { preguntas?: Pregunta[] }
-        if (res.ok && Array.isArray(json.preguntas)) {
-          preguntasConOpciones = json.preguntas
-          cargadoPorApi = true
+      for (let attempt = 0; attempt < 2 && !cargadoPorApi; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 450))
+        try {
+          const res = await fetch('/api/votar/preguntas-abiertas', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache',
+              Pragma: 'no-cache',
+            },
+            cache: 'no-store',
+            body: JSON.stringify({ codigo }),
+          })
+          const json = (await res.json().catch(() => ({}))) as { preguntas?: Pregunta[] }
+          if (res.ok && Array.isArray(json.preguntas)) {
+            preguntasConOpciones = json.preguntas
+            cargadoPorApi = true
+          }
+        } catch {
+          // reintento en siguiente iteración
         }
-      } catch {
-        // red u offline → intentar fallback
       }
 
       if (!cargadoPorApi) {
-        const { data: preguntasData, error: preguntasError } = await supabase
-          .from('preguntas')
-          .select('id, texto_pregunta, descripcion, tipo_votacion, estado, umbral_aprobacion')
-          .eq('asamblea_id', asamblea.asamblea_id)
-          .eq('estado', 'abierta')
-          .eq('is_archived', false)
-          .order('created_at', { ascending: true })
-
-        if (preguntasError) throw preguntasError
-
-        if (!preguntasData || preguntasData.length === 0) {
-          setPreguntas([])
-          setEstadisticas({})
-          setVotosActuales([])
-          return
-        }
-
-        const preguntaIds = preguntasData.map((p: { id: string }) => p.id)
-        const { data: opcionesData } = await supabase
-          .from('opciones_pregunta')
-          .select('id, pregunta_id, texto_opcion, color, orden')
-          .in('pregunta_id', preguntaIds)
-          .order('orden', { ascending: true })
-
-        const opcionesPorPregunta: Record<string, { id: string; texto: string; color: string }[]> = {}
-        for (const p of preguntasData) {
-          opcionesPorPregunta[p.id] = []
-        }
-        for (const o of opcionesData || []) {
-          const pid = (o as { pregunta_id: string }).pregunta_id
-          if (opcionesPorPregunta[pid]) {
-            opcionesPorPregunta[pid].push({
-              id: o.id,
-              texto: o.texto_opcion,
-              color: o.color
-            })
-          }
-        }
-
-        preguntasConOpciones = preguntasData.map((p: any) => ({
-          ...p,
-          opciones: opcionesPorPregunta[p.id] || []
-        }))
+        console.warn('[votar] No se pudieron cargar preguntas (API). Reintenta o recarga; sin lectura directa por cliente para evitar RLS cruzado.')
+        setPreguntas([])
+        setEstadisticas({})
+        setVotosActuales([])
+        return
       }
 
       if (!preguntasConOpciones || preguntasConOpciones.length === 0) {

@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { supabase } from '@/lib/supabase'
 import { CheckCircle2, UserCheck, Vote, Search, RefreshCw, AlertTriangle, Users, HelpCircle, Settings2, ExternalLink, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
@@ -234,32 +233,7 @@ export default function AsistirPage() {
       })
   }, [codigo, token])
 
-  // Poll independiente del estado de preguntas/asistencia: solo del cronómetro (DB).
-  useEffect(() => {
-    if (step !== 'ok' || !asamblea?.asamblea_id) return
-
-    const fetchTimer = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('asambleas')
-          .select('participacion_timer_end_at, participacion_timer_default_minutes, participacion_timer_enabled')
-          .eq('id', asamblea.asamblea_id)
-          .single()
-        if (error) return
-        if (!data) return
-
-        setParticipationTimerEndAt((data.participacion_timer_end_at as string | null) ?? null)
-        setParticipationTimerDefaultMinutes(Number(data.participacion_timer_default_minutes ?? 5) || 5)
-        setParticipationTimerEnabled(!!(data.participacion_timer_enabled ?? true))
-      } catch {
-        // Ignorar
-      }
-    }
-
-    fetchTimer()
-    const intervalId = window.setInterval(fetchTimer, 5000)
-    return () => window.clearInterval(intervalId)
-  }, [step, asamblea?.asamblea_id])
+  // Cronómetro: se actualiza vía /api/delegado/validar en revalidar (intervalo 3 s) — sin supabase en cliente (RLS / hardening).
 
   // Contador local desde `participationTimerEndAt` (sin bloquear funcionalidades).
   useEffect(() => {
@@ -317,54 +291,31 @@ export default function AsistirPage() {
 
   // ── Cargar unidades (ya_verifico según sesión actual; es_poder para etiqueta). Sandbox: demo o reales según sandbox_usar_unidades_reales; misma UI y ayuda para real y sandbox. ──
   const cargarUnidades = useCallback(async () => {
-    if (!asamblea) return
+    if (!asamblea || !codigo || !token) return
     const silent = isBackgroundRefreshRef.current
     if (!silent) setCargandoUnidades(true)
     try {
-      const soloDemo = asamblea.is_demo && !asamblea.sandbox_usar_unidades_reales
-      let q = supabase
-        .from('unidades')
-        .select('id, torre, numero, nombre_propietario, email_propietario, coeficiente')
-        .eq('organization_id', asamblea.organization_id)
-        .order('torre', { ascending: true })
-        .order('numero', { ascending: true })
-      q = soloDemo ? q.eq('is_demo', true) : q.or('is_demo.eq.false,is_demo.is.null')
-      const { data: todas } = await q
-
-      const { data: idsSesion } = await supabase.rpc('unidad_ids_verificados_sesion_actual', {
-        p_asamblea_id: asamblea.asamblea_id,
-        p_pregunta_id: null,
+      const res = await fetch('/api/delegado/unidades-y-verificacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo_asamblea: codigo, token }),
+        cache: 'no-store',
       })
-      const verificadasSet = new Set<string>()
-      const esPoderVerificados = new Map<string, boolean>()
-      ;(idsSesion || []).forEach((r: { unidad_id?: string; es_poder?: boolean }) => {
-        if (r.unidad_id) {
-          verificadasSet.add(r.unidad_id)
-          if (r.es_poder === true) esPoderVerificados.set(r.unidad_id, true)
-        }
-      })
-
-      setUnidades(
-        (todas || []).map((u: any) => ({
-          id: u.id,
-          torre: u.torre || 'S/T',
-          numero: u.numero || 'S/N',
-          nombre_propietario: u.nombre_propietario || 'S/N',
-          email_propietario: u.email_propietario || '',
-          coeficiente: Number(u.coeficiente) || 0,
-          ya_verifico: verificadasSet.has(u.id),
-          es_poder: esPoderVerificados.get(u.id) ?? false,
-        }))
-      )
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok || !Array.isArray(data.unidades)) {
+        console.error('[asistir] unidades-y-verificacion:', data?.error || res.status)
+        return
+      }
+      setUnidades(data.unidades as Unidad[])
     } finally {
       if (!silent) setCargandoUnidades(false)
       isBackgroundRefreshRef.current = false
     }
-  }, [asamblea])
+  }, [asamblea, codigo, token])
 
   // ── Cargar preguntas ─────────────────────────────────────────────────────
   const cargarPreguntas = useCallback(async () => {
-    if (!asamblea) return
+    if (!asamblea || !codigo || !token) return
     if (cargarPreguntasInFlightRef.current) {
       cargarPreguntasPendienteRef.current = true
       return
@@ -374,99 +325,48 @@ export default function AsistirPage() {
     const silent = isBackgroundRefreshRef.current
     if (!silent) setCargandoPreguntas(true)
     try {
-      const { data: pregData } = await supabase
-        .from('preguntas')
-        .select('id, texto_pregunta, estado, tipo_votacion, umbral_aprobacion')
-        .eq('asamblea_id', asamblea.asamblea_id)
-        .eq('estado', 'abierta')
-        .eq('is_archived', false)
-        .order('orden', { ascending: true })
-
-      const pregIds = (pregData || []).map((p: any) => p.id)
-      let opcMap: Record<string, Opcion[]> = {}
-      if (pregIds.length > 0) {
-        const { data: opcs } = await supabase
-          .from('opciones_pregunta')
-          .select('id, pregunta_id, texto_opcion, color, orden')
-          .in('pregunta_id', pregIds)
-          .order('orden', { ascending: true })
-        ;(opcs || []).forEach((o: any) => {
-          if (!opcMap[o.pregunta_id]) opcMap[o.pregunta_id] = []
-          opcMap[o.pregunta_id].push(o)
-        })
+      const res = await fetch('/api/delegado/estado-votacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo_asamblea: codigo, token }),
+        cache: 'no-store',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        console.error('[asistir] estado-votacion:', data?.error || res.status)
+        return
       }
 
-      const nuevasPreguntas: Pregunta[] = (pregData || []).map((p: any) => ({
-        id: p.id,
-        texto_pregunta: p.texto_pregunta,
-        estado: p.estado,
-        tipo_votacion: p.tipo_votacion,
-        umbral_aprobacion: p.umbral_aprobacion,
-        opciones: opcMap[p.id] || [],
+      const nuevasPreguntas: Pregunta[] = (data.preguntas || []).map((p: Record<string, unknown>) => ({
+        id: p.id as string,
+        texto_pregunta: p.texto_pregunta as string,
+        estado: (p.estado as string) || 'abierta',
+        tipo_votacion: p.tipo_votacion as string,
+        umbral_aprobacion: (p.umbral_aprobacion as number | null) ?? null,
+        opciones: ((p.opciones as Opcion[]) || []).map((o) => ({
+          id: o.id,
+          texto_opcion: o.texto_opcion,
+          color: o.color,
+          orden: typeof o.orden === 'number' ? o.orden : 0,
+        })),
       }))
       setPreguntas(nuevasPreguntas)
 
-      // Cargar votos ya registrados para esta asamblea (con es_poder para etiqueta "Poder")
-      if (pregIds.length > 0) {
-        const { data: votosData } = await supabase
-          .from('votos')
-          .select('unidad_id, pregunta_id, es_poder')
-          .in('pregunta_id', pregIds)
-        setVotosRegistrados((votosData || []).map((v: any) => ({
-          unidad_id: v.unidad_id,
-          pregunta_id: v.pregunta_id,
+      setVotosRegistrados(
+        (data.votosRegistrados || []).map((v: Record<string, unknown>) => ({
+          unidad_id: v.unidad_id as string,
+          pregunta_id: v.pregunta_id as string,
           es_poder: !!v.es_poder,
-        })))
-      } else {
-        setVotosRegistrados([])
-      }
+        }))
+      )
 
-      // Cargar avance de votaciones (estadísticas por pregunta para la gráfica)
-      const conResultados: PreguntaConResultados[] = []
-      for (const p of nuevasPreguntas) {
-        const { data: statsData } = await supabase.rpc('calcular_estadisticas_pregunta', {
-          p_pregunta_id: p.id,
-        })
-        const rows = (statsData as Record<string, unknown>[] | null) ?? []
-        const s = rows[0] as { resultados?: unknown } | undefined
-        let resultados: ResultadoOpcionGrafica[] = []
-        if (s?.resultados) {
-          const raw = typeof s.resultados === 'string' ? JSON.parse(s.resultados as string || '[]') : s.resultados
-          const arr = Array.isArray(raw) ? raw : []
-          resultados = arr.map((r: Record<string, unknown>) => ({
-            opcion_id: String(r.opcion_id ?? ''),
-            opcion_texto: String(r.opcion_texto ?? r.texto_opcion ?? 'Opción'),
-            color: String(r.color ?? '#6366f1'),
-            votos_cantidad: Number(r.votos_cantidad ?? r.votos_count ?? 0),
-            votos_coeficiente: Number(r.votos_coeficiente ?? 0),
-            porcentaje_coeficiente_total: Number(r.porcentaje_coeficiente_total ?? r.porcentaje_coeficiente ?? 0),
-            porcentaje_nominal_total: Number(r.porcentaje_nominal_total ?? r.porcentaje_nominal ?? 0),
-          }))
-        } else if (rows.length > 0) {
-          // RPC devuelve una fila por opción (opcion_id, texto_opcion, color, votos_count, votos_coeficiente, porcentaje_nominal, porcentaje_coeficiente)
-          resultados = rows.map((r: Record<string, unknown>) => ({
-            opcion_id: String(r.opcion_id ?? ''),
-            opcion_texto: String(r.texto_opcion ?? r.opcion_texto ?? 'Opción'),
-            color: String(r.color ?? '#6366f1'),
-            votos_cantidad: Number(r.votos_count ?? r.votos_cantidad ?? 0),
-            votos_coeficiente: Number(r.votos_coeficiente ?? 0),
-            porcentaje_coeficiente_total: Number(r.porcentaje_coeficiente ?? r.porcentaje_coeficiente_total ?? 0),
-            porcentaje_nominal_total: Number(r.porcentaje_nominal ?? r.porcentaje_nominal_total ?? 0),
-          }))
-        }
-        conResultados.push({
-          id: p.id,
-          texto_pregunta: p.texto_pregunta,
-          tipo_votacion: p.tipo_votacion ?? 'coeficiente',
-          umbral_aprobacion: p.umbral_aprobacion ?? null,
-          resultados,
-        })
-      }
-      setAvanceVotaciones(conResultados)
+      setAvanceVotaciones((data.avanceVotaciones || []) as PreguntaConResultados[])
 
-      if (nuevasPreguntas.length > 0 && !preguntaActiva) {
-        setPreguntaActiva(nuevasPreguntas[0].id)
-      }
+      setPreguntaActiva((prev) => {
+        if (nuevasPreguntas.length === 0) return ''
+        if (prev && nuevasPreguntas.some((p) => p.id === prev)) return prev
+        return nuevasPreguntas[0].id
+      })
     } finally {
       if (!silent) setCargandoPreguntas(false)
       isBackgroundRefreshRef.current = false
@@ -478,7 +378,7 @@ export default function AsistirPage() {
         })
       }
     }
-  }, [asamblea, preguntaActiva])
+  }, [asamblea, codigo, token])
 
   useEffect(() => {
     if (step === 'ok' && asamblea) {
@@ -495,16 +395,17 @@ export default function AsistirPage() {
     return () => clearTimeout(t)
   }, [step, asamblea, preguntas.length, revalidar])
 
-  // Refresco cada 3 s: estado de asamblea + preguntas abiertas (alineado con /votar)
+  // Refresco cada 3 s: flags de asamblea + unidades/verificación + preguntas (service role; sin RLS en cliente)
   useEffect(() => {
     if (step !== 'ok' || !asamblea) return
     const t = setInterval(() => {
       isBackgroundRefreshRef.current = true
       revalidar()
-      cargarPreguntas()
+      void cargarUnidades()
+      void cargarPreguntas()
     }, 3000)
     return () => clearInterval(t)
-  }, [step, asamblea, revalidar, cargarPreguntas])
+  }, [step, asamblea, revalidar, cargarUnidades, cargarPreguntas])
 
   // Pestaña por defecto y validez: asistencia solo si verificación activa, votación solo si hay pregunta abierta
   const mostrarTabAsistencia = !!asamblea?.verificacion_asistencia_activa
