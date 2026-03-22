@@ -3315,17 +3315,23 @@ Tu participacion es importante. 🏠`
                                     {pregunta.tipo_votacion === 'coeficiente' ? (
                                       <>
                                         {' · '}
-                                        coeficiente total emitido:{' '}
-                                        <span className="font-bold tabular-nums">
-                                          {estadisticasMeta[pregunta.id].total_coeficiente.toFixed(2)}%
-                                        </span>
-                                        {' '}
-                                        del conjunto (100% = todo el coeficiente del conjunto)
-                                        {' · '}
-                                        participación{' '}
+                                        coeficiente emitido en esta pregunta:{' '}
                                         <span className="font-bold tabular-nums">
                                           {estadisticasMeta[pregunta.id].porcentaje_participacion.toFixed(2)}%
                                         </span>
+                                        {' '}
+                                        del conjunto (100% = total del coeficiente)
+                                        {' · '}
+                                        pendiente:{' '}
+                                        <span className="font-bold tabular-nums">
+                                          {Math.max(
+                                            0,
+                                            100 - estadisticasMeta[pregunta.id].porcentaje_participacion
+                                          ).toFixed(2)}
+                                          %
+                                        </span>
+                                        {' '}
+                                        del coeficiente
                                       </>
                                     ) : (
                                       <>
