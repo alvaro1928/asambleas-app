@@ -1529,14 +1529,24 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   }
 
   const addEditOpcion = () => {
+    const maxOrden = editOpciones.length > 0 ? Math.max(...editOpciones.map((o) => o.orden)) : 0
     setEditOpciones([
       ...editOpciones,
-      { texto_opcion: '', orden: editOpciones.length + 1, color: '#6366f1' }
+      { texto_opcion: '', orden: maxOrden + 1, color: '#6366f1' },
     ])
   }
 
   const removeEditOpcion = (index: number) => {
-    if (editOpciones.length <= 2) {
+    const op = editOpciones[index]
+    if (
+      editingPregunta &&
+      (editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada') &&
+      op.id
+    ) {
+      toast.error('No puedes eliminar opciones que ya están en la votación. Solo puedes añadir nuevas.')
+      return
+    }
+    if (editingPregunta?.estado === 'pendiente' && editOpciones.length <= 2) {
       toast.error('Debes tener al menos 2 opciones')
       return
     }
@@ -1552,7 +1562,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       umbral_aprobacion: (pregunta as Pregunta & { umbral_aprobacion?: number | null }).umbral_aprobacion ?? null
     })
 
-    // Cargar opciones actuales (solo editables si la pregunta está pendiente)
+    // Cargar opciones actuales (pendiente: todas editables; abierta/cerrada: existentes solo lectura, se pueden añadir nuevas)
     const opcionesActuales = opcionesPreguntas[pregunta.id] || []
     setEditOpciones(opcionesActuales.map(op => ({
       id: op.id,
@@ -1570,78 +1580,109 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       return
     }
 
-    const esSoloTexto = editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada'
-    const opcionesValidas = editOpciones.filter(o => o.texto_opcion.trim())
-    if (!esSoloTexto && opcionesValidas.length < 2) {
+    const estadoP = editingPregunta.estado
+    const esPendiente = estadoP === 'pendiente'
+    const esAbiertaOCerrada = estadoP === 'abierta' || estadoP === 'cerrada'
+    const opcionesValidas = editOpciones.filter((o) => o.texto_opcion.trim())
+    const nuevasSinId = opcionesValidas.filter((o) => !o.id)
+
+    if (esPendiente && opcionesValidas.length < 2) {
       toast.error('Debes tener al menos 2 opciones de respuesta')
       return
     }
 
     setSavingEdit(true)
     try {
-      // Siempre permitir actualizar texto, descripción, tipo y umbral (incluso si la pregunta está abierta o cerrada)
       const { error: updateError } = await supabase
         .from('preguntas')
         .update({
           texto_pregunta: editForm.texto_pregunta.trim(),
           descripcion: editForm.descripcion.trim() || null,
           tipo_votacion: editForm.tipo_votacion,
-          umbral_aprobacion: editForm.umbral_aprobacion ?? null
+          umbral_aprobacion: editForm.umbral_aprobacion ?? null,
         })
         .eq('id', editingPregunta.id)
 
       if (updateError) throw updateError
 
-      if (esSoloTexto) {
-        const actualizadas = preguntas.map(p => p.id === editingPregunta.id
-          ? { ...p, texto_pregunta: editForm.texto_pregunta.trim(), descripcion: editForm.descripcion.trim() || '', tipo_votacion: editForm.tipo_votacion, umbral_aprobacion: editForm.umbral_aprobacion ?? null }
-          : p)
-        setPreguntas(actualizadas)
+      const actualizadasMeta = preguntas.map((p) =>
+        p.id === editingPregunta.id
+          ? {
+              ...p,
+              texto_pregunta: editForm.texto_pregunta.trim(),
+              descripcion: editForm.descripcion.trim() || '',
+              tipo_votacion: editForm.tipo_votacion,
+              umbral_aprobacion: editForm.umbral_aprobacion ?? null,
+            }
+          : p
+      )
+      setPreguntas(actualizadasMeta)
+
+      if (esPendiente) {
+        const { error: deleteError } = await supabase
+          .from('opciones_pregunta')
+          .delete()
+          .eq('pregunta_id', editingPregunta.id)
+
+        if (deleteError) throw deleteError
+
+        const opcionesInsert = opcionesValidas.map((opcion, index) => ({
+          pregunta_id: editingPregunta.id,
+          texto_opcion: opcion.texto_opcion.trim(),
+          orden: index + 1,
+          color: opcion.color,
+        }))
+
+        const { data: opcionesCreadas, error: opcionesError } = await supabase
+          .from('opciones_pregunta')
+          .insert(opcionesInsert)
+          .select()
+
+        if (opcionesError) throw opcionesError
+
+        setOpcionesPreguntas({
+          ...opcionesPreguntas,
+          [editingPregunta.id]: opcionesCreadas || [],
+        })
+
         setEditingPregunta(null)
-        setSavingEdit(false)
-        toast.success('Pregunta actualizada. La gráfica reflejará el nuevo tipo de votación.')
-        await loadEstadisticas(actualizadas) // Refrescar con tipo actualizado
+        setSuccessMessage('Pregunta actualizada exitosamente')
+        setTimeout(() => setSuccessMessage(''), 3000)
+        toast.success('Pregunta y opciones guardadas.')
+        await loadEstadisticas(actualizadasMeta)
         return
       }
 
-      // Eliminar opciones anteriores (solo cuando la pregunta está pendiente)
-      const { error: deleteError } = await supabase
-        .from('opciones_pregunta')
-        .delete()
-        .eq('pregunta_id', editingPregunta.id)
+      if (esAbiertaOCerrada && nuevasSinId.length > 0) {
+        const conId = editOpciones.filter((o) => o.id)
+        const maxOrden = conId.length > 0 ? Math.max(...conId.map((o) => o.orden)) : 0
+        const inserts = nuevasSinId.map((o, i) => ({
+          pregunta_id: editingPregunta.id,
+          texto_opcion: o.texto_opcion.trim(),
+          orden: maxOrden + i + 1,
+          color: o.color || '#6366f1',
+        }))
 
-      if (deleteError) throw deleteError
+        const { data: creadas, error: insErr } = await supabase.from('opciones_pregunta').insert(inserts).select()
 
-      // Insertar nuevas opciones
-      const opcionesInsert = opcionesValidas.map((opcion, index) => ({
-        pregunta_id: editingPregunta.id,
-        texto_opcion: opcion.texto_opcion.trim(),
-        orden: index + 1,
-        color: opcion.color
-      }))
+        if (insErr) throw insErr
 
-      const { data: opcionesCreadas, error: opcionesError } = await supabase
-        .from('opciones_pregunta')
-        .insert(opcionesInsert)
-        .select()
-
-      if (opcionesError) throw opcionesError
-
-      // Actualizar estado local
-      setPreguntas(preguntas.map(p =>
-        p.id === editingPregunta.id
-          ? { ...p, ...editForm }
-          : p
-      ))
-
-      setOpcionesPreguntas({
-        ...opcionesPreguntas,
-        [editingPregunta.id]: opcionesCreadas || []
-      })
+        const prevList = opcionesPreguntas[editingPregunta.id] || []
+        setOpcionesPreguntas({
+          ...opcionesPreguntas,
+          [editingPregunta.id]: [...prevList, ...(creadas || [])] as OpcionPregunta[],
+        })
+        toast.success(
+          creadas?.length === 1
+            ? 'Se añadió 1 nueva opción de respuesta.'
+            : `Se añadieron ${creadas?.length ?? 0} nuevas opciones de respuesta.`
+        )
+      } else if (esAbiertaOCerrada) {
+        toast.success('Pregunta actualizada. La gráfica reflejará el nuevo tipo de votación.')
+      }
 
       setEditingPregunta(null)
-      setSuccessMessage('Pregunta actualizada exitosamente')
-      setTimeout(() => setSuccessMessage(''), 3000)
+      await loadEstadisticas(actualizadasMeta)
     } catch (error: any) {
       console.error('Error updating pregunta:', error)
       toast.error('Error al actualizar la pregunta: ' + error.message)
@@ -3693,8 +3734,8 @@ Tu participacion es importante. 🏠`
             <DialogTitle>Editar Pregunta</DialogTitle>
             <DialogDescription>
               {editingPregunta && (editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada')
-                ? 'Puedes editar el texto, descripción, tipo de votación y umbral. Las opciones de respuesta no se pueden modificar si ya hay votos.'
-                : 'Modifica los datos de la pregunta.'}
+                ? 'Puedes editar el texto, descripción, tipo y umbral. Las opciones ya publicadas no se pueden borrar ni cambiar aquí; puedes añadir nuevas opciones abajo (útil si olvidaste una alternativa).'
+                : 'Modifica los datos de la pregunta y sus opciones.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -3763,59 +3804,79 @@ Tu participacion es importante. 🏠`
               </p>
             </div>
 
-            {editingPregunta && editingPregunta.estado === 'pendiente' && (
-            <>
-            {/* Opciones de Respuesta */}
-            <div className="border-t pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <Label>Opciones de Respuesta <span className="text-red-500">*</span></Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={addEditOpcion}
-                >
-                  <Plus className="w-3 h-3 mr-1" />
-                  Agregar Opción
-                </Button>
-              </div>
-              
-              <div className="space-y-2">
-                {editOpciones.map((opcion, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <Input
-                      value={opcion.texto_opcion}
-                      onChange={(e) => updateEditOpcion(index, 'texto_opcion', e.target.value)}
-                      placeholder={`Opción ${index + 1}`}
-                      className="flex-1"
-                    />
-                    <input
-                      type="color"
-                      value={opcion.color}
-                      onChange={(e) => updateEditOpcion(index, 'color', e.target.value)}
-                      className="w-10 h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
-                      title="Color de la opción"
-                    />
-                    {editOpciones.length > 2 && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => removeEditOpcion(index)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="w-4 h-4" />
+            {editingPregunta &&
+              (editingPregunta.estado === 'pendiente' ||
+                editingPregunta.estado === 'abierta' ||
+                editingPregunta.estado === 'cerrada') && (
+                <>
+                  <div className="border-t pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <Label>
+                        Opciones de respuesta{' '}
+                        {editingPregunta.estado === 'pendiente' && <span className="text-red-500">*</span>}
+                      </Label>
+                      <Button type="button" size="sm" variant="outline" onClick={addEditOpcion}>
+                        <Plus className="w-3 h-3 mr-1" />
+                        Agregar opción
                       </Button>
+                    </div>
+
+                    {(editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada') && (
+                      <p className="text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 mb-3">
+                        Las opciones que ya estaban publicadas aparecen bloqueadas. Las filas nuevas (sin guardar aún) puedes editarlas o quitarlas antes de guardar.
+                      </p>
                     )}
+
+                    <div className="space-y-2">
+                      {editOpciones.map((opcion, index) => {
+                        const opcionBloqueada =
+                          !!opcion.id &&
+                          (editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada')
+                        const puedeQuitarFila =
+                          (editingPregunta.estado === 'pendiente' && editOpciones.length > 2) ||
+                          ((editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada') &&
+                            !opcion.id)
+                        return (
+                          <div key={opcion.id ?? `nueva-${index}`} className="flex items-center space-x-2">
+                            <Input
+                              value={opcion.texto_opcion}
+                              onChange={(e) => updateEditOpcion(index, 'texto_opcion', e.target.value)}
+                              placeholder={`Opción ${index + 1}`}
+                              className="flex-1"
+                              disabled={opcionBloqueada}
+                              readOnly={opcionBloqueada}
+                            />
+                            <input
+                              type="color"
+                              value={opcion.color}
+                              onChange={(e) => updateEditOpcion(index, 'color', e.target.value)}
+                              className="w-10 h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer disabled:opacity-50"
+                              title="Color de la opción"
+                              disabled={opcionBloqueada}
+                            />
+                            {puedeQuitarFila && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => removeEditOpcion(index)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      {editingPregunta.estado === 'pendiente'
+                        ? 'Mínimo 2 opciones. Puedes personalizar textos y colores.'
+                        : 'Añade tantas opciones nuevas como necesites; se guardarán al pulsar «Guardar cambios».'}
+                    </p>
                   </div>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Mínimo 2 opciones. Puedes personalizar los textos y colores.
-              </p>
-            </div>
-            </>
-            )}
+                </>
+              )}
 
             <div className="flex space-x-3 pt-4">
               <Button
