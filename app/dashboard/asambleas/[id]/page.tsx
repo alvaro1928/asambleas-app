@@ -162,10 +162,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   /** Sesiones cerradas de verificación con pregunta_id null (asamblea en general), para historial y persistencia de asistencia */
   interface SesionQuorumGeneral { cierre_at: string; total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
   const [sesionesQuorumGeneral, setSesionesQuorumGeneral] = useState<SesionQuorumGeneral[]>([])
-  /** Sesiones cerradas por pregunta_id (para mostrar en cada pregunta cerrada su quórum asociado, no el general) */
-  const [sesionesPorPregunta, setSesionesPorPregunta] = useState<Record<string, SesionQuorumGeneral[]>>({})
-  /** Cuando la verificación está activa por pregunta: stats en vivo de esa pregunta (no mezclar con general) */
-  const [statsVerificacionPreguntaActiva, setStatsVerificacionPreguntaActiva] = useState<VerifStats | null>(null)
   const [openHistorialQuorumGeneral, setOpenHistorialQuorumGeneral] = useState(false)
   // Abrir historial de quórum general cuando hay sesiones cerradas (p. ej. al reabrir la asamblea) para que sea visible
   useEffect(() => {
@@ -247,10 +243,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   /** Modal aviso al reabrir quórum (activar verificación): qué pasa y qué queda en el acta */
   const [showModalAvisoReabrirQuorum, setShowModalAvisoReabrirQuorum] = useState(false)
   const [noVolverMostrarAvisoQuorum, setNoVolverMostrarAvisoQuorum] = useState(false)
-  /** Modal: hay verificación de asistencia activa (general); al abrir pregunta preguntar si cerrar quórum antes o abrir con quórum asociado */
-  const [showModalQuorumAntesAbrirPregunta, setShowModalQuorumAntesAbrirPregunta] = useState(false)
-  const [preguntaIdAbrirConQuorum, setPreguntaIdAbrirConQuorum] = useState<string | null>(null)
-  const [ejecutandoOpcionQuorumAbrir, setEjecutandoOpcionQuorumAbrir] = useState(false)
   const [finalizando, setFinalizando] = useState(false)
   const [reiniciandoDemo, setReiniciandoDemo] = useState(false)
   const [reabriendo, setReabriendo] = useState(false)
@@ -613,8 +605,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     verificacionOverride?: { verificacion_asistencia_activa?: boolean; verificacion_pregunta_id?: string | null }
   ) => {
     const verifActiva = verificacionOverride?.verificacion_asistencia_activa ?? !!(asamblea?.verificacion_asistencia_activa)
-    const esModoGeneral = (verificacionOverride?.verificacion_pregunta_id ?? asamblea?.verificacion_pregunta_id) == null
-    const preguntaIdVerif = verificacionOverride?.verificacion_pregunta_id ?? asamblea?.verificacion_pregunta_id
     try {
       const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
       if (!selectedConjuntoId) return
@@ -649,7 +639,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         }
         return null
       }
-      if (verifActiva && esModoGeneral) {
+      // Solo verificación general (nunca por pregunta)
+      if (verifActiva) {
         const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
           p_asamblea_id: params.id,
           p_pregunta_id: null,
@@ -673,29 +664,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           }
         }
       }
-      // Si verificación activa por pregunta: cargar stats de esa pregunta para el chip (no usar general)
-      if (verifActiva && !esModoGeneral && preguntaIdVerif) {
-        const { data: verPregData } = await supabase.rpc('calcular_verificacion_quorum', {
-          p_asamblea_id: params.id,
-          p_pregunta_id: preguntaIdVerif,
-          p_solo_sesion_actual: true,
-        })
-        if (verPregData?.length) {
-          const v = verPregData[0] as VerifStats
-          setStatsVerificacionPreguntaActiva({
-            total_verificados: Number(v.total_verificados) || 0,
-            coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
-            porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
-            quorum_alcanzado: !!v.quorum_alcanzado,
-          })
-        } else {
-          setStatsVerificacionPreguntaActiva({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
-        }
-      } else {
-        setStatsVerificacionPreguntaActiva(null)
-      }
 
-      // No hacer return aquí: siempre hay que cargar sesiones cerradas (sesionesPorPregunta) para que el chip muestre los datos al cerrar verificación/pregunta
+      // Sesiones cerradas (general) para historial
       if (rpcError || !rpcData || rpcData.length === 0) {
       // Si falla la función RPC (no existe aún), calcular manualmente con mismo criterio que el RPC
       const isDemoAsam = asambleaOverride?.is_demo ?? asamblea?.is_demo
@@ -745,7 +715,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       console.error('Error loading quorum:', error)
     }
 
-    // Sesiones cerradas de verificación: general (pregunta_id null) y por pregunta (para quórum en cada tarjeta)
     try {
       const { data: todasSesiones } = await supabase
         .from('verificacion_asamblea_sesiones')
@@ -763,22 +732,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       }))
       const generales = lista.filter((s: { pregunta_id: string | null }) => s.pregunta_id == null)
       setSesionesQuorumGeneral(generales)
-      const porPregunta: Record<string, SesionQuorumGeneral[]> = {}
-      lista.filter((s: { pregunta_id: string | null }) => s.pregunta_id != null).forEach((s: any) => {
-        const id = s.pregunta_id
-        if (!porPregunta[id]) porPregunta[id] = []
-        porPregunta[id].push({
-          cierre_at: s.cierre_at,
-          total_verificados: s.total_verificados,
-          coeficiente_verificado: s.coeficiente_verificado,
-          porcentaje_verificado: s.porcentaje_verificado,
-          quorum_alcanzado: s.quorum_alcanzado,
-        })
-      })
-      setSesionesPorPregunta(porPregunta)
-      // Rellenar tarjeta "Asistencia verificada": SOLO última sesión GENERAL (pregunta_id null). Nunca usar sesiones por pregunta.
-      const cuandoInactivaOPorPregunta = !verifActiva || !esModoGeneral
-      if (cuandoInactivaOPorPregunta) {
+      // Rellenar tarjeta "Asistencia verificada": última sesión GENERAL cuando la verificación no está activa
+      if (!verifActiva) {
         if (generales.length > 0) {
           const ultima = generales[0]
           setStatsVerificacion({
@@ -794,7 +749,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       }
     } catch {
       setSesionesQuorumGeneral([])
-      setSesionesPorPregunta({})
     }
   }
 
@@ -1396,77 +1350,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
-  /** Al hacer clic en "Abrir Pregunta" o "Reabrir Pregunta": si hay verificación de asistencia activa en general, mostrar modal para elegir cerrar quórum antes o abrir con quórum asociado. */
+  /** Abrir o reabrir pregunta: la verificación de asistencia es solo general (no se asocia a la pregunta). */
   const handleAbrirPreguntaClick = (preguntaId: string) => {
-    const verifActivaGeneral = asamblea?.verificacion_asistencia_activa && (asamblea?.verificacion_pregunta_id == null)
-    if (verifActivaGeneral) {
-      setPreguntaIdAbrirConQuorum(preguntaId)
-      setShowModalQuorumAntesAbrirPregunta(true)
-      return
-    }
     handleChangeEstadoPregunta(preguntaId, 'abierta')
-  }
-
-  /** Opción del modal: cerrar primero la verificación de quórum (queda en acta como general) y luego abrir la pregunta. */
-  const confirmarQuorumAntesAbrirCerrarPrimero = async () => {
-    const preguntaId = preguntaIdAbrirConQuorum
-    if (!preguntaId || !asamblea || ejecutandoOpcionQuorumAbrir) return
-    setEjecutandoOpcionQuorumAbrir(true)
-    setShowModalQuorumAntesAbrirPregunta(false)
-    setPreguntaIdAbrirConQuorum(null)
-    try {
-      const { error: errVer } = await supabase
-        .from('asambleas')
-        .update({ verificacion_asistencia_activa: false, verificacion_pregunta_id: null })
-        .eq('id', asamblea.id)
-      if (errVer) {
-        toast.error('No se pudo cerrar la verificación: ' + (errVer.message ?? 'Error'))
-        return
-      }
-      setAsamblea({ ...asamblea, verificacion_asistencia_activa: false, verificacion_pregunta_id: null })
-      await handleChangeEstadoPregunta(preguntaId, 'abierta')
-      await loadQuorum(undefined, { verificacion_asistencia_activa: false, verificacion_pregunta_id: null })
-      toast.success('Verificación cerrada (quedó en acta como general). Pregunta abierta.')
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error')
-    } finally {
-      setEjecutandoOpcionQuorumAbrir(false)
-    }
-  }
-
-  /** Opción del modal: abrir la pregunta y asociar la verificación de quórum actual a esta pregunta. */
-  const confirmarQuorumAntesAbrirConQuorum = async () => {
-    const preguntaId = preguntaIdAbrirConQuorum
-    if (!preguntaId || !asamblea || ejecutandoOpcionQuorumAbrir) return
-    setEjecutandoOpcionQuorumAbrir(true)
-    setShowModalQuorumAntesAbrirPregunta(false)
-    setPreguntaIdAbrirConQuorum(null)
-    try {
-      const { error: errAsamblea } = await supabase
-        .from('asambleas')
-        .update({ verificacion_pregunta_id: preguntaId })
-        .eq('id', asamblea.id)
-      if (errAsamblea) {
-        toast.error('No se pudo asociar la verificación: ' + (errAsamblea.message ?? 'Error'))
-        return
-      }
-      const { error: errPregunta } = await supabase
-        .from('preguntas')
-        .update({ estado: 'abierta' })
-        .eq('id', preguntaId)
-      if (errPregunta) throw errPregunta
-      setAsamblea({ ...asamblea, verificacion_pregunta_id: preguntaId })
-      setPreguntas((prev) => prev.map((p) => (p.id === preguntaId ? { ...p, estado: 'abierta' } : p)))
-      setSuccessMessage('Votación abierta - La verificación de asistencia queda asociada a esta pregunta')
-      setTimeout(() => setSuccessMessage(''), 3000)
-      await loadEstadisticas()
-      await loadQuorum()
-      toast.success('Pregunta abierta con la verificación de quórum asociada.')
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Error')
-    } finally {
-      setEjecutandoOpcionQuorumAbrir(false)
-    }
   }
 
   const handleArchivarPregunta = async (preguntaId: string) => {
@@ -1919,8 +1805,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const cargarStatsVerificacion = async (override?: { verificacion_asistencia_activa: boolean; verificacion_pregunta_id: string | null }) => {
     if (!asamblea?.id) return
     const verifActiva = override ? !!override.verificacion_asistencia_activa : !!asamblea.verificacion_asistencia_activa
-    const esModoGeneral = override ? override.verificacion_pregunta_id == null : asamblea.verificacion_pregunta_id == null
-    if (verifActiva && esModoGeneral) {
+    if (verifActiva) {
       const { data } = await supabase.rpc('calcular_verificacion_quorum', {
         p_asamblea_id: asamblea.id,
         p_pregunta_id: null,
@@ -1935,7 +1820,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           quorum_alcanzado: !!v.quorum_alcanzado,
         })
       } else {
-        // Sesión recién cerrada o sin sesión abierta: mostrar última general cerrada para no volver a 0%
         const { data: sesionesData } = await supabase
           .from('verificacion_asamblea_sesiones')
           .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
@@ -1957,7 +1841,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         }
       }
     } else {
-      // Verificación cerrada o activa por pregunta: tarjeta general = SOLO última sesión general cerrada (nunca por pregunta)
       const { data: sesionesData } = await supabase
         .from('verificacion_asamblea_sesiones')
         .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
@@ -1977,28 +1860,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       } else {
         setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
       }
-    }
-    // Cuando la verificación está activa por pregunta: cargar stats de esa pregunta para el chip
-    const preguntaIdActiva = override?.verificacion_pregunta_id ?? asamblea.verificacion_pregunta_id
-    if (verifActiva && preguntaIdActiva) {
-      const { data: dataPreg } = await supabase.rpc('calcular_verificacion_quorum', {
-        p_asamblea_id: asamblea.id,
-        p_pregunta_id: preguntaIdActiva,
-        p_solo_sesion_actual: true,
-      })
-      if (dataPreg?.length) {
-        const v = dataPreg[0]
-        setStatsVerificacionPreguntaActiva({
-          total_verificados: Number(v.total_verificados) || 0,
-          coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
-          porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
-          quorum_alcanzado: !!v.quorum_alcanzado,
-        })
-      } else {
-        setStatsVerificacionPreguntaActiva({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
-      }
-    } else {
-      setStatsVerificacionPreguntaActiva(null)
     }
   }
 
@@ -3420,46 +3281,6 @@ Tu participacion es importante. 🏠`
                                   </div>
                                 )
                               })()}
-                              {/* Chip de quórum verificado: siempre visible; datos de esta pregunta (en vivo o última sesión cerrada) o 0% si no hay */}
-                              {(() => {
-                                const raw: VerifStats | null =
-                                  pregunta.estado === 'cerrada'
-                                    ? (sesionesPorPregunta[pregunta.id]?.[0] ?? null)
-                                    : asamblea?.verificacion_pregunta_id === pregunta.id
-                                      ? statsVerificacionPreguntaActiva
-                                      : (sesionesPorPregunta[pregunta.id]?.[0] ?? null)
-                                const statsForPregunta: VerifStats = raw ?? {
-                                  total_verificados: 0,
-                                  coeficiente_verificado: 0,
-                                  porcentaje_verificado: 0,
-                                  quorum_alcanzado: false,
-                                }
-                                return (
-                                  <div className={`mt-3 flex flex-wrap items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${
-                                    statsForPregunta.quorum_alcanzado
-                                      ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                                      : statsForPregunta.porcentaje_verificado >= 30
-                                      ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
-                                      : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                                  }`}>
-                                    <span className={`font-medium flex items-center gap-1 ${
-                                      statsForPregunta.quorum_alcanzado ? 'text-green-700 dark:text-green-400' :
-                                      statsForPregunta.porcentaje_verificado >= 30 ? 'text-amber-700 dark:text-amber-400' :
-                                      'text-gray-600 dark:text-gray-400'
-                                    }`}>
-                                      ✓ Quórum verificado: {statsForPregunta.porcentaje_verificado.toFixed(1)}%
-                                      ({statsForPregunta.total_verificados} unidades)
-                                    </span>
-                                    <span className={`px-1.5 py-0.5 rounded-full font-semibold ${
-                                      statsForPregunta.quorum_alcanzado
-                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                                        : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                                    }`}>
-                                      {statsForPregunta.quorum_alcanzado ? '✓ Ley 675 >50%' : '✗ Sin quórum'}
-                                    </span>
-                                  </div>
-                                )
-                              })()}
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
                                 {pregunta.tipo_votacion === 'coeficiente'
                                   ? '📊 Votación ponderada por coeficiente (Ley 675)'
@@ -4407,9 +4228,7 @@ Tu participacion es importante. 🏠`
             </DialogDescription>
             <div className="space-y-2 text-left text-sm text-gray-600 dark:text-gray-400 mt-2">
               <p>
-                {preguntas.some((p) => p.estado === 'abierta')
-                  ? 'Al cerrar la verificación, el resultado quedará registrado en el acta: asociado a la(s) pregunta(s) abierta(s) en ese momento (si hay varias abiertas, el mismo quórum figura para todas).'
-                  : 'Al cerrar la verificación, el resultado quedará registrado en el acta como "Asamblea en general" (para que el administrador sepa si puede continuar).'}
+                Al cerrar la verificación, el resultado quedará registrado en el acta como asistencia general de la asamblea (no se asocia a preguntas concretas).
               </p>
               <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300 mt-3">
                 <input
@@ -4428,49 +4247,6 @@ Tu participacion es importante. 🏠`
             </Button>
             <Button onClick={confirmarAvisoReabrirQuorum} className="w-full sm:flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">
               Entendido, activar verificación
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal: Verificación de asistencia activa (general) — al abrir pregunta, elegir si cerrar quórum antes o abrir con quórum asociado */}
-      <Dialog open={showModalQuorumAntesAbrirPregunta} onOpenChange={(open) => { if (!open) { setShowModalQuorumAntesAbrirPregunta(false); setPreguntaIdAbrirConQuorum(null) } }}>
-        <DialogContent className="max-w-lg rounded-3xl" showCloseButton={!ejecutandoOpcionQuorumAbrir}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-indigo-800 dark:text-indigo-200">
-              <UserCheck className="w-5 h-5" />
-              Verificación de asistencia (quórum) activa
-            </DialogTitle>
-            <DialogDescription>
-              Hay una validación de asistencia activa en general (sin pregunta abierta). Si abres la pregunta ahora, puedes cerrar antes la verificación para que quede en el acta como «asamblea en general», o abrir la pregunta y asociar esta verificación a la nueva pregunta.
-            </DialogDescription>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-              ¿Qué deseas hacer?
-            </p>
-          </DialogHeader>
-          <div className="mt-4 flex flex-col gap-3">
-            <Button
-              variant="outline"
-              onClick={confirmarQuorumAntesAbrirCerrarPrimero}
-              disabled={ejecutandoOpcionQuorumAbrir}
-              className="w-full justify-start text-left h-auto py-3"
-            >
-              Cerrar primero la verificación de quórum (queda en acta como general) y luego abrir la pregunta
-            </Button>
-            <Button
-              onClick={confirmarQuorumAntesAbrirConQuorum}
-              disabled={ejecutandoOpcionQuorumAbrir}
-              className="w-full justify-start text-left h-auto py-3 bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              Abrir la pregunta con la verificación de quórum actual asociada a esta pregunta
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => { setShowModalQuorumAntesAbrirPregunta(false); setPreguntaIdAbrirConQuorum(null) }}
-              disabled={ejecutandoOpcionQuorumAbrir}
-              className="w-full"
-            >
-              Cancelar
             </Button>
           </div>
         </DialogContent>

@@ -1180,10 +1180,13 @@ export default function VotacionPublicaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, asamblea?.asamblea_id, email])
 
-  // Cargar historial al cambiar al tab de avance
+  // Cargar historial al cambiar al tab de avance; refrescar verificación general para ver el avance en vivo
   useEffect(() => {
     if (tabActivo === 'avance' && step === 'votar' && unidades.length > 0 && preguntasCerradas.length === 0) {
       cargarHistorial(unidades)
+    }
+    if (tabActivo === 'avance' && step === 'votar' && asamblea?.asamblea_id && verificacionActiva) {
+      void refrescarVerificacion(asamblea.asamblea_id, email?.trim())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabActivo])
@@ -1954,28 +1957,34 @@ export default function VotacionPublicaPage() {
           {tabActivo === 'avance' && (
             <div className="space-y-4">
               {/* Chip de quórum verificado global */}
-              {statsVerificacion && (
+              {(verificacionActiva || statsVerificacion) && (
                 <div className={`flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl border text-sm ${
-                  statsVerificacion.quorum_alcanzado
+                  statsVerificacion?.quorum_alcanzado
                     ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                    : statsVerificacion.porcentaje_verificado >= 30
+                    : (statsVerificacion?.porcentaje_verificado ?? 0) >= 30
                     ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
                     : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                 }`}>
-                  <UserCheck className={`w-4 h-4 shrink-0 ${pctColor(statsVerificacion.porcentaje_verificado)}`} />
-                  <span className="font-medium text-gray-800 dark:text-gray-200">
-                    Quórum verificado: <span className={`font-bold ${pctColor(statsVerificacion.porcentaje_verificado)}`}>{statsVerificacion.porcentaje_verificado.toFixed(1)}%</span>
-                  </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    ({statsVerificacion.total_verificados} unidades · coef. {statsVerificacion.coeficiente_verificado.toFixed(4)}%)
-                  </span>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                    statsVerificacion.quorum_alcanzado
-                      ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                      : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                  }`}>
-                    {statsVerificacion.quorum_alcanzado ? '✓ Quórum Ley 675 Art. 45' : '✗ Sin quórum (>50%)'}
-                  </span>
+                  <UserCheck className={`w-4 h-4 shrink-0 ${statsVerificacion ? pctColor(statsVerificacion.porcentaje_verificado) : 'text-slate-400'}`} />
+                  {statsVerificacion ? (
+                    <>
+                      <span className="font-medium text-gray-800 dark:text-gray-200">
+                        Asistencia general: <span className={`font-bold ${pctColor(statsVerificacion.porcentaje_verificado)}`}>{statsVerificacion.porcentaje_verificado.toFixed(1)}%</span>
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        ({statsVerificacion.total_verificados} unidades · coef. {statsVerificacion.coeficiente_verificado.toFixed(4)}%)
+                      </span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                        statsVerificacion.quorum_alcanzado
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                          : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                      }`}>
+                        {statsVerificacion.quorum_alcanzado ? '✓ Quórum Ley 675 Art. 45' : '✗ Sin quórum (>50%)'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-sm text-gray-600 dark:text-gray-300">Cargando avance de verificación de asistencia…</span>
+                  )}
                 </div>
               )}
 
@@ -2030,12 +2039,6 @@ export default function VotacionPublicaPage() {
                             P{index + 1}: {pregunta.texto_pregunta}
                           </h4>
                           <div className="flex items-center gap-2 shrink-0">
-                            {statsVerificacion ? (
-                              <span className="flex items-center gap-1.5 text-xs font-medium" title="Quórum verificado (asamblea)">
-                                <QuorumChip pct={statsVerificacion.porcentaje_verificado} total={statsVerificacion.total_verificados} small />
-                                <span className="text-gray-500 dark:text-gray-400 hidden sm:inline">Quórum</span>
-                              </span>
-                            ) : null}
                             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${algunaAprobada ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'}`}>
                               {algunaAprobada ? '✓ Aprobada' : '○ Pendiente'}
                             </span>
@@ -2119,11 +2122,6 @@ export default function VotacionPublicaPage() {
                               P{index + 1}: {pregunta.texto_pregunta}
                             </h4>
                             <div className="flex items-center gap-2 shrink-0">
-                              {statsVerificacion && (
-                                <span className="flex items-center gap-1.5 text-xs" title="Quórum verificado (asamblea)">
-                                  <QuorumChip pct={statsVerificacion.porcentaje_verificado} total={statsVerificacion.total_verificados} small />
-                                </span>
-                              )}
                               <span className="text-xs font-bold bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">CERRADA</span>
                             </div>
                           </div>

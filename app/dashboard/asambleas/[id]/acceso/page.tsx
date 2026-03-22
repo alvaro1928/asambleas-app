@@ -127,14 +127,6 @@ interface PreguntaConResultados {
   estado?: string
 }
 
-/** Quórum de la sesión cerrada asociada a cada pregunta (para mostrar en la gráfica cuando la pregunta está cerrada) */
-interface QuorumPorPregunta {
-  porcentaje_verificado: number
-  total_verificados: number
-  quorum_alcanzado: boolean
-  coeficiente_verificado?: number
-}
-
 export default function AsambleaAccesoPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -156,7 +148,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const [quorum, setQuorum] = useState<QuorumData | null>(null)
   const [preguntasAvance, setPreguntasAvance] = useState<PreguntaAvance[]>([])
   const [preguntasConResultados, setPreguntasConResultados] = useState<PreguntaConResultados[]>([])
-  const [quorumPorPregunta, setQuorumPorPregunta] = useState<Record<string, QuorumPorPregunta>>({})
   const [searchSesion, setSearchSesion] = useState('')
   const [searchYaVotaron, setSearchYaVotaron] = useState('')
   const [searchFaltantes, setSearchFaltantes] = useState('')
@@ -200,9 +191,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     quorum_alcanzado: boolean
   }
   const [statsVerificacion, setStatsVerificacion] = useState<VerificacionStats | null>(null)
-  /** Quórum de la pregunta en votación: en vivo si verificación activa por pregunta, o última sesión cerrada para esa pregunta (persiste al cerrar) */
-  const [statsVerificacionPregunta, setStatsVerificacionPregunta] = useState<VerificacionStats | null>(null)
-  const [nombrePreguntaEnVotacion, setNombrePreguntaEnVotacion] = useState<string>('')
   const [statsDesglose, setStatsDesglose] = useState<VerificacionDesglose | null>(null)
 
   // Enlace delegado
@@ -478,33 +466,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       setPreguntasAvance(avances)
       setPreguntasConResultados(conResultados)
 
-      const { data: sesionesData } = await supabase
-        .from('verificacion_asamblea_sesiones')
-        .select('pregunta_id, total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
-        .eq('asamblea_id', params.id)
-        .not('pregunta_id', 'is', null)
-        .not('cierre_at', 'is', null)
-        .order('cierre_at', { ascending: false })
-      const porPregunta: Record<string, QuorumPorPregunta> = {}
-      ;(sesionesData || []).forEach((s: { pregunta_id: string; total_verificados?: number; coeficiente_verificado?: number; porcentaje_verificado?: number; quorum_alcanzado?: boolean }) => {
-        const id = s.pregunta_id
-        if (!id || porPregunta[id]) return
-        porPregunta[id] = {
-          total_verificados: Number(s.total_verificados) ?? 0,
-          porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
-          quorum_alcanzado: !!s.quorum_alcanzado,
-          coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0
-        }
-      })
-      setQuorumPorPregunta(porPregunta)
-      // Pregunta cuya última sesión cerrada es la más reciente (para mostrar "pregunta en votación" al cerrar verificación)
-      const ultimaSesionPorPregunta = (sesionesData || []).find((s: { pregunta_id?: string | null }) => s.pregunta_id != null)
-      const preguntaIdUltimaSesionCerrada = ultimaSesionPorPregunta ? (ultimaSesionPorPregunta as { pregunta_id: string }).pregunta_id : null
-
-      // Tarjeta "Asistencia verificada": solo GENERAL (pregunta_id null). No mezclar con quórum por pregunta.
+      // Tarjeta "Asistencia verificada": solo GENERAL (pregunta_id null).
       const verifActiva = !!asambleaFresh?.verificacion_asistencia_activa
-      const esModoGeneral = (asambleaFresh as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id == null
-      if (verifActiva && esModoGeneral) {
+      if (verifActiva) {
         const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
           p_asamblea_id: params.id,
           p_pregunta_id: null,
@@ -561,51 +525,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         }
       }
 
-      // Quórum de la pregunta en votación: en vivo si verificación activa por pregunta; al cerrar, la que tiene la última sesión cerrada (mantiene 8 un.)
-      const preguntaIdEnVotacion = (asambleaFresh as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id ?? preguntaIdUltimaSesionCerrada ?? conResultados[0]?.id
-      if (preguntaIdEnVotacion) {
-        const nombrePregunta = conResultados.find((p: { id: string }) => p.id === preguntaIdEnVotacion)?.texto_pregunta ?? conResultados[0]?.texto_pregunta ?? 'Pregunta en votación'
-        setNombrePreguntaEnVotacion(nombrePregunta)
-        if (verifActiva && (asambleaFresh as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id) {
-          const { data: verPregData } = await supabase.rpc('calcular_verificacion_quorum', {
-            p_asamblea_id: params.id,
-            p_pregunta_id: preguntaIdEnVotacion,
-            p_solo_sesion_actual: true,
-          })
-          if (verPregData?.length) {
-            const v = verPregData[0] as VerificacionStats
-            setStatsVerificacionPregunta({
-              total_verificados: Number(v.total_verificados) || 0,
-              coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
-              porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
-              quorum_alcanzado: !!v.quorum_alcanzado,
-            })
-          } else {
-            setStatsVerificacionPregunta({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
-          }
-        } else {
-          const ultimaPreg = porPregunta[preguntaIdEnVotacion]
-          if (ultimaPreg) {
-            setStatsVerificacionPregunta({
-              total_verificados: ultimaPreg.total_verificados,
-              coeficiente_verificado: ultimaPreg.coeficiente_verificado ?? 0,
-              porcentaje_verificado: ultimaPreg.porcentaje_verificado,
-              quorum_alcanzado: ultimaPreg.quorum_alcanzado,
-            })
-          } else {
-            setStatsVerificacionPregunta(null)
-          }
-        }
-      } else {
-        setStatsVerificacionPregunta(null)
-        setNombrePreguntaEnVotacion('')
-      }
-
       try {
-        // Desglose para el panel "Ya verificaron": mismo contexto que la tarjeta (general o pregunta en votación)
-        const preguntaIdDesglose = verifActiva && (asambleaFresh as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id
-          ? (asambleaFresh as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id
-          : null
+        // Desglose para el panel "Ya verificaron": siempre sesión general
+        const preguntaIdDesglose = null
         const { data: desgloseData } = await supabase.rpc('calcular_verificacion_quorum_desglose', {
           p_asamblea_id: params.id,
           p_pregunta_id: preguntaIdDesglose,
@@ -1013,7 +935,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               <div className="px-4 pb-4 pt-0 space-y-2 border-t border-white/10">
                 <p className="text-xs text-slate-400 pt-2">
                   {verificacionActiva
-                    ? 'Activa — Los votantes ven el popup para confirmar asistencia. Sin preguntas abiertas = general; con preguntas abiertas = asociada a todas. Al desactivar, el resultado queda en el acta.'
+                    ? 'Activa — Los votantes ven el popup para confirmar asistencia (sesión general de la asamblea). Al desactivar, el resultado queda en el acta.'
                     : 'Inactiva — Al activar, los votantes verán el popup en la página de votación. Cada vez que activas se inicia una nueva sesión (quórum a cero).'}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -1033,15 +955,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       {statsVerificacion.porcentaje_verificado.toFixed(1)}%
                     </span>
                     <span className="text-slate-400">({statsVerificacion.total_verificados} un. · coef. {statsVerificacion.coeficiente_verificado.toFixed(4)}%)</span>
-                  </div>
-                )}
-                {statsVerificacionPregunta != null && nombrePreguntaEnVotacion && (
-                  <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
-                    <span className="text-slate-400">Asistencia (pregunta en votación):</span>
-                    <span className={`font-bold ${statsVerificacionPregunta.quorum_alcanzado ? 'text-green-400' : statsVerificacionPregunta.porcentaje_verificado >= 30 ? 'text-amber-400' : 'text-red-400'}`}>
-                      {statsVerificacionPregunta.porcentaje_verificado.toFixed(1)}%
-                    </span>
-                    <span className="text-slate-400">({statsVerificacionPregunta.total_verificados} un. · coef. {statsVerificacionPregunta.coeficiente_verificado.toFixed(4)}%)</span>
                   </div>
                 )}
               </div>
@@ -1489,23 +1402,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     }
                   })
                   const umbral = preg.umbral_aprobacion ?? 51
-                  const preguntaIdVerif = (asamblea as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id
-                  const quorumPreg = preguntaIdVerif === preg.id && statsVerificacionPregunta
-                    ? { porcentaje_verificado: statsVerificacionPregunta.porcentaje_verificado, total_verificados: statsVerificacionPregunta.total_verificados, quorum_alcanzado: statsVerificacionPregunta.quorum_alcanzado }
-                    : quorumPorPregunta[preg.id]
                   return (
                     <div key={preg.id} className="space-y-3 min-w-0">
                       <p className="text-base font-semibold text-slate-200 line-clamp-2">
                         {preg.texto_pregunta}
                       </p>
-                      {quorumPreg && (
-                        <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                          <span className={quorumPreg.quorum_alcanzado ? 'text-green-400' : 'text-amber-400'}>
-                            Quórum verificado: {quorumPreg.porcentaje_verificado.toFixed(1)}% ({quorumPreg.total_verificados} un.)
-                          </span>
-                          {quorumPreg.quorum_alcanzado ? '✓ Ley 675' : '✗ Sin quórum'}
-                        </p>
-                      )}
                       <div className="h-[320px] min-h-[240px] w-full overflow-x-auto overflow-y-hidden -mx-1 px-1">
                         <div className="h-full min-w-[260px] w-full">
                           <VotacionBarChart
@@ -1554,7 +1455,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             </DialogDescription>
             <div className="space-y-2 text-left text-sm text-slate-400 mt-2">
               <p>
-                Al cerrar la verificación, el resultado quedará registrado en el acta: si hay pregunta(s) abierta(s), asociado a todas; si no hay ninguna abierta, como {'"'}Asamblea en general{'"'}.
+                Al cerrar la verificación, el resultado quedará registrado en el acta como asistencia general de la asamblea (no se asocia a preguntas concretas).
               </p>
               <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-400 mt-3">
                 <input
@@ -1635,23 +1536,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 }
               })
               const umbral = preg.umbral_aprobacion ?? 51
-              const preguntaIdVerifModal = (asamblea as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id
-              const quorumPregModal = preguntaIdVerifModal === preg.id && statsVerificacionPregunta
-                ? { porcentaje_verificado: statsVerificacionPregunta.porcentaje_verificado, total_verificados: statsVerificacionPregunta.total_verificados, quorum_alcanzado: statsVerificacionPregunta.quorum_alcanzado }
-                : quorumPorPregunta[preg.id]
               return (
                 <div key={preg.id} className="space-y-4">
                   <p className="text-xl sm:text-2xl font-bold text-slate-100 leading-snug">
                     {preg.texto_pregunta}
                   </p>
-                  {quorumPregModal && (
-                    <p className="text-sm text-slate-400 flex items-center gap-2">
-                      <span className={quorumPregModal.quorum_alcanzado ? 'text-green-400' : 'text-amber-400'}>
-                        Quórum verificado: {quorumPregModal.porcentaje_verificado.toFixed(1)}% ({quorumPregModal.total_verificados} un.)
-                      </span>
-                      {quorumPregModal.quorum_alcanzado ? '✓ Ley 675' : '✗ Sin quórum'}
-                    </p>
-                  )}
                   <div className="min-h-[50vh] h-[55vh] w-full">
                     <VotacionBarChart
                       data={data}
