@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { logRouteError, publicErrorMessage } from '@/lib/route-errors'
 
 /**
  * Cierra sesión solo en el servidor (borra cookies de sesión).
@@ -36,7 +37,14 @@ export async function POST() {
     }
   )
 
-  await supabase.auth.signOut()
-
-  return NextResponse.json({ success: true })
+  try {
+    await supabase.auth.signOut()
+    return NextResponse.json({ success: true })
+  } catch (e) {
+    logRouteError('api/auth/signout', e)
+    return NextResponse.json(
+      { error: publicErrorMessage(e, 'No se pudo cerrar la sesión') },
+      { status: 500 }
+    )
+  }
 }

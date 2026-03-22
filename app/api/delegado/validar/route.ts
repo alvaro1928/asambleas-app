@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { logRouteError, publicErrorMessage } from '@/lib/route-errors'
 
 /**
  * POST /api/delegado/validar
@@ -80,7 +81,10 @@ export async function POST(request: NextRequest) {
       participacion_timer_enabled: !(asamblea as { participacion_timer_enabled?: boolean | null }).participacion_timer_enabled ? false : true,
     })
   } catch (e) {
-    console.error('delegado/validar:', e)
-    return NextResponse.json({ error: 'Error al validar acceso' }, { status: 500 })
+    logRouteError('api/delegado/validar', e)
+    return NextResponse.json(
+      { error: publicErrorMessage(e, 'Error al validar acceso') },
+      { status: 500 }
+    )
   }
 }

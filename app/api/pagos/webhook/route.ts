@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createHash, timingSafeEqual } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
+import { logRouteError } from '@/lib/route-errors'
 import { registrarTransaccionPago } from '@/lib/super-admin'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -175,6 +176,16 @@ export async function GET() {
  * - DECLINED/ERROR/PENDING/VOIDED/otros: { received: true, status }. Se registra en pagos_log (sin acreditar tokens).
  */
 export async function POST(request: NextRequest) {
+  try {
+    return await processWompiWebhookPost(request)
+  } catch (e) {
+    logRouteError('api/pagos/webhook', e)
+    // 200 para que Wompi no reintente en bucle ante fallos internos; el error queda en logs.
+    return NextResponse.json({ received: true, skipped: 'internal_error' }, { status: 200 })
+  }
+}
+
+async function processWompiWebhookPost(request: NextRequest): Promise<NextResponse> {
   const secret = process.env.WOMPI_EVENTS_SECRET || process.env.WEBHOOK_PAGOS_SECRET
   if (!secret) {
     return NextResponse.json({ error: 'WOMPI_EVENTS_SECRET o WEBHOOK_PAGOS_SECRET no configurado (usa el secreto Eventos de Wompi)' }, { status: 500 })
@@ -421,12 +432,14 @@ export async function POST(request: NextRequest) {
             if (retry2) perfilesGestor = [retry2 as { tokens_disponibles?: number; organization_id?: string }]
             else {
               await logPaymentError(supabase, null, reference, txId, amountInCents, status, insertError.message)
-              return NextResponse.json({ error: 'Error al crear perfil', details: insertError.message }, { status: 500 })
+              logRouteError('api/pagos/webhook', insertError, { phase: 'insert_profile_duplicate_branch' })
+              return NextResponse.json({ error: 'Error al crear perfil' }, { status: 500 })
             }
           }
         } else {
           await logPaymentError(supabase, null, reference, txId, amountInCents, status, insertError.message)
-          return NextResponse.json({ error: 'Error al crear perfil', details: insertError.message }, { status: 500 })
+          logRouteError('api/pagos/webhook', insertError, { phase: 'insert_profile' })
+          return NextResponse.json({ error: 'Error al crear perfil' }, { status: 500 })
         }
       } else {
         console.log('[webhook pagos] Perfil creado para user_id (sin fila previa):', userId)
@@ -484,12 +497,14 @@ export async function POST(request: NextRequest) {
         .select('id')
       if (errById) {
         await logPaymentError(supabase, orgIdForLog, reference, txId, amountInCents, status, errById.message)
-        return NextResponse.json({ error: 'Error al actualizar tokens', details: errById.message }, { status: 500 })
+        logRouteError('api/pagos/webhook', errById, { phase: 'update_tokens_by_id' })
+        return NextResponse.json({ error: 'Error al actualizar tokens' }, { status: 500 })
       }
       updatedCount = Array.isArray(rowsById) ? rowsById.length : rowsById ? 1 : 0
     } else {
       await logPaymentError(supabase, orgIdForLog, reference, txId, amountInCents, status, updateError.message)
-      return NextResponse.json({ error: 'Error al actualizar tokens', details: updateError.message }, { status: 500 })
+      logRouteError('api/pagos/webhook', updateError, { phase: 'update_tokens' })
+      return NextResponse.json({ error: 'Error al actualizar tokens' }, { status: 500 })
     }
     if (updatedCount === 0) {
       await logPaymentError(supabase, orgIdForLog, reference, txId, amountInCents, status, 'Update tokens: 0 filas afectadas')

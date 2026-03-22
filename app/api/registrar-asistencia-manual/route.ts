@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { logRouteError, publicErrorMessage } from '@/lib/route-errors'
 
 /**
  * POST /api/registrar-asistencia-manual
@@ -170,7 +171,10 @@ export async function POST(request: NextRequest) {
       ignoradas: unidad_ids.length - unidadesValidadas.length,
     })
   } catch (e) {
-    console.error('registrar-asistencia-manual:', e)
-    return NextResponse.json({ error: 'Error al registrar asistencia' }, { status: 500 })
+    logRouteError('api/registrar-asistencia-manual', e)
+    return NextResponse.json(
+      { error: publicErrorMessage(e, 'Error al registrar asistencia') },
+      { status: 500 }
+    )
   }
 }

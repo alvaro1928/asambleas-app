@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { logRouteError, publicErrorMessage } from '@/lib/route-errors'
 
 /**
  * POST /api/votar
@@ -208,9 +209,9 @@ export async function POST(request: NextRequest) {
     return res
   } catch (e) {
     const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startMs)
-    console.error('[api/votar]', elapsed, 'ms', e)
+    logRouteError('api/votar', e, { elapsed_ms: elapsed })
     const errRes = NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Error al registrar voto' },
+      { error: publicErrorMessage(e, 'Error al registrar voto') },
       { status: 500 }
     )
     errRes.headers.set('X-Response-Time-Ms', String(elapsed))

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCostoEnTokens } from '@/lib/costo-tokens'
+import { logRouteError, publicErrorMessage } from '@/lib/route-errors'
 
 /** Porcentaje del costo inicial que se cobra al reabrir (10%) */
 const PORCENTAJE_REAPERTURA = 0.1
@@ -169,7 +170,7 @@ export async function POST(request: NextRequest) {
         metadata: { unidades, costo_inicial: costoInicial, porcentaje: PORCENTAJE_REAPERTURA },
       })
     } catch (e) {
-      console.error('billing_logs insert:', e)
+      logRouteError('api/dashboard/reabrir-asamblea', e, { phase: 'billing_logs' })
     }
 
     return NextResponse.json({
@@ -180,7 +181,10 @@ export async function POST(request: NextRequest) {
       costo_reapertura: costoReapertura,
     })
   } catch (e) {
-    console.error('reabrir-asamblea:', e)
-    return NextResponse.json({ error: 'Error al reabrir la asamblea' }, { status: 500 })
+    logRouteError('api/dashboard/reabrir-asamblea', e)
+    return NextResponse.json(
+      { error: publicErrorMessage(e, 'Error al reabrir la asamblea') },
+      { status: 500 }
+    )
   }
 }

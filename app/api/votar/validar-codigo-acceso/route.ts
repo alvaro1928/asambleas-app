@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { logRouteError, publicErrorMessage } from '@/lib/route-errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,8 +40,11 @@ export async function POST(request: NextRequest) {
     })
 
     if (codigoError) {
-      console.error('[validar-codigo-acceso] rpc:', codigoError)
-      return NextResponse.json({ ok: false, error: codigoError.message }, { status: 500, headers: noStoreHeaders })
+      logRouteError('api/votar/validar-codigo-acceso', codigoError, { rpc: 'validar_codigo_acceso' })
+      return NextResponse.json(
+        { ok: false, error: publicErrorMessage(codigoError, 'No se pudo validar el código. Intenta de nuevo.') },
+        { status: 500, headers: noStoreHeaders }
+      )
     }
 
     if (!codigoData || codigoData.length === 0) {
@@ -65,8 +69,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, asamblea: codigoData[0] }, { status: 200, headers: noStoreHeaders })
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Error interno'
-    console.error('[validar-codigo-acceso]', e)
-    return NextResponse.json({ ok: false, error: msg }, { status: 500, headers: noStoreHeaders })
+    logRouteError('api/votar/validar-codigo-acceso', e)
+    return NextResponse.json(
+      { ok: false, error: publicErrorMessage(e, 'Error al validar el código. Intenta de nuevo.') },
+      { status: 500, headers: noStoreHeaders }
+    )
   }
 }

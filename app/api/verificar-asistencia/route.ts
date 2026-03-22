@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { logRouteError, publicErrorMessage } from '@/lib/route-errors'
 
 /**
  * POST /api/verificar-asistencia
@@ -196,7 +197,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, filas_actualizadas: insertadas })
   } catch (e) {
-    console.error('verificar-asistencia:', e)
-    return NextResponse.json({ error: 'Error al registrar verificación' }, { status: 500 })
+    logRouteError('api/verificar-asistencia', e)
+    return NextResponse.json(
+      { error: publicErrorMessage(e, 'Error al registrar verificación') },
+      { status: 500 }
+    )
   }
 }

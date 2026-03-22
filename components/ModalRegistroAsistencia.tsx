@@ -86,6 +86,13 @@ export function ModalRegistroAsistencia({
           ya_verifico: verificadasSet.has(u.id as string),
         }))
       )
+      setMensajeAsistencia(null)
+    } catch {
+      setUnidadesParaAsistencia([])
+      setMensajeAsistencia({
+        tipo: 'error',
+        texto: 'No se pudieron cargar las unidades. Revisa la conexión e intenta de nuevo.',
+      })
     } finally {
       setCargandoUnidadesAsistencia(false)
     }
