@@ -84,20 +84,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Asamblea no encontrada' }, { status: 404 })
     }
 
-    const { data: profiles } = await supabase
+    /** profiles puede usar user_id o id = auth.uid() según migración */
+    const { data: profilesByUserId } = await admin
       .from('profiles')
       .select('organization_id')
       .eq('user_id', session.user.id)
-
-    const userOrgIds = (profiles ?? []).map((p) => p.organization_id).filter(Boolean)
-    if (!userOrgIds.includes(asambleaRow.organization_id)) {
+    const { data: profilesById } = await admin
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', session.user.id)
+    const userOrgIds = [
+      ...((profilesByUserId ?? []) as { organization_id?: string }[]),
+      ...((profilesById ?? []) as { organization_id?: string }[]),
+    ]
+      .map((p) => p.organization_id)
+      .filter(Boolean) as string[]
+    const orgSet = new Set(userOrgIds)
+    if (!orgSet.has(asambleaRow.organization_id)) {
       return NextResponse.json({ error: 'No tienes acceso a esta asamblea' }, { status: 403 })
     }
 
     // No se exigen tokens para registrar votos (solo para activar asamblea y generar acta).
 
-    // Verificar que las unidades pertenecen al mismo conjunto
-    const { data: unidadesRows } = await supabase
+    // Unidades con service_role (evita RLS incompleto con sesión del gestor)
+    const { data: unidadesRows } = await admin
       .from('unidades')
       .select('id, organization_id, email, email_propietario, nombre_propietario')
       .in('id', unidadIds)
@@ -111,7 +121,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar que cada pregunta pertenece a la asamblea y está abierta
-    const { data: preguntas } = await supabase
+    const { data: preguntas } = await admin
       .from('preguntas')
       .select('id, estado')
       .eq('asamblea_id', asamblea_id)
@@ -145,38 +155,56 @@ export async function POST(request: NextRequest) {
       request.headers.get('cf-connecting-ip') ||
       null
 
-    const results: Array<{ unidad_id: string; pregunta_id: string; success: boolean; error?: string }> = []
+    type RpcResult = { unidad_id: string; pregunta_id: string; success: boolean; error?: string }
     const unidadesById = new Map(unidadesRows.map((u) => [u.id, u]))
 
+    const tareas: Array<{ unidadId: string; v: { pregunta_id: string; opcion_id: string } }> = []
     for (const unidadId of unidadIds) {
-      const u = unidadesById.get(unidadId)
-      // En modo masivo no excluimos unidades sin correo: usamos identificador técnico estable
-      // para mantener trazabilidad y permitir registrar todas las unidades seleccionadas.
-      const emailUnidad = String(votante_email || u?.email_propietario || u?.email || `unidad-${unidadId}@registro-admin.local`)
-        .toLowerCase()
-        .trim()
-      const nombreUnidad = (u?.nombre_propietario || nombreBase || 'Residente').trim()
-      const nombreAudit = `${nombreUnidad} (registrado por administrador)`
-
       for (const v of votos) {
-        const { error } = await admin.rpc('registrar_voto_con_trazabilidad', {
-          p_pregunta_id: v.pregunta_id,
-          p_unidad_id: unidadId,
-          p_opcion_id: v.opcion_id,
-          p_votante_email: emailUnidad,
-          p_votante_nombre: nombreAudit,
-          p_es_poder: false,
-          p_poder_id: null,
-          p_ip_address: adminIp,
-          p_user_agent: userAgent,
-        })
-
-        if (error) {
-          results.push({ unidad_id: unidadId, pregunta_id: v.pregunta_id, success: false, error: error.message })
-        } else {
-          results.push({ unidad_id: unidadId, pregunta_id: v.pregunta_id, success: true })
-        }
+        tareas.push({ unidadId, v })
       }
+    }
+
+    /** Varios RPC en paralelo (misma asamblea) para no bloquear minutos en lotes grandes */
+    const CONCURRENCY = 12
+    const results: RpcResult[] = []
+    for (let i = 0; i < tareas.length; i += CONCURRENCY) {
+      const chunk = tareas.slice(i, i + CONCURRENCY)
+      const chunkOut = await Promise.all(
+        chunk.map(async ({ unidadId, v }) => {
+          const u = unidadesById.get(unidadId)
+          const emailUnidad = String(
+            votante_email || u?.email_propietario || u?.email || `unidad-${unidadId}@registro-admin.local`
+          )
+            .toLowerCase()
+            .trim()
+          const nombreUnidad = (u?.nombre_propietario || nombreBase || 'Residente').trim()
+          const nombreAudit = `${nombreUnidad} (registrado por administrador)`
+
+          const { error } = await admin.rpc('registrar_voto_con_trazabilidad', {
+            p_pregunta_id: v.pregunta_id,
+            p_unidad_id: unidadId,
+            p_opcion_id: v.opcion_id,
+            p_votante_email: emailUnidad,
+            p_votante_nombre: nombreAudit,
+            p_es_poder: false,
+            p_poder_id: null,
+            p_ip_address: adminIp,
+            p_user_agent: userAgent,
+          })
+
+          if (error) {
+            return {
+              unidad_id: unidadId,
+              pregunta_id: v.pregunta_id,
+              success: false,
+              error: error.message,
+            } as RpcResult
+          }
+          return { unidad_id: unidadId, pregunta_id: v.pregunta_id, success: true } as RpcResult
+        })
+      )
+      results.push(...chunkOut)
     }
 
     const allOk = results.every((r) => r.success)

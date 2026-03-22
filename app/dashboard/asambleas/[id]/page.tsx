@@ -1023,11 +1023,15 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       return
     }
     setSavingRegistroVoto(true)
+    const controller = new AbortController()
+    const timeoutMs = 180000
+    const timeoutId = typeof window !== 'undefined' ? window.setTimeout(() => controller.abort(), timeoutMs) : undefined
     try {
       const res = await fetch('/api/admin/registrar-voto', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        signal: controller.signal,
         body: JSON.stringify({
           asamblea_id: asamblea.id,
           unidad_ids: unidadesRegistroSeleccionadas,
@@ -1035,32 +1039,58 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           votos: votosPayload,
         }),
       })
-      const data = await res.json().catch(() => ({}))
+      const data = await res.json().catch(() => ({} as Record<string, unknown>))
       if (!res.ok) {
         if (res.status === 402) {
           setShowRegistroVotoAdmin(false)
           setSinTokensModalOpen(true)
           toast.error(
-            data.error ||
+            (data.error as string) ||
               `Saldo insuficiente: Necesitas ${costoOperacion} tokens (créditos) para procesar ${costoOperacion} unidades.`
           )
           return
         }
-        const msg = res.status === 403
-          ? 'No tienes permiso para registrar votos en esta asamblea. Verifica que pertenezcas al conjunto.'
-          : (data.error || 'Error al registrar votos')
+        const msg =
+          res.status === 403
+            ? 'No tienes permiso para registrar votos en esta asamblea. Verifica que pertenezcas al conjunto.'
+            : ((data.error as string) || 'Error al registrar votos')
         toast.error(msg)
         return
       }
-      setSuccessMessage(data.message || 'Votos registrados correctamente')
+      const results = Array.isArray(data.results) ? (data.results as { success?: boolean; error?: string }[]) : []
+      const fallos = results.filter((r) => r && r.success === false)
+      if (fallos.length > 0) {
+        const primeros = fallos
+          .slice(0, 3)
+          .map((r) => r.error || 'Error desconocido')
+          .join(' · ')
+        toast.error(
+          `Algunos votos no se registraron (${fallos.length}/${results.length}). ${primeros}${fallos.length > 3 ? '…' : ''}`
+        )
+      } else {
+        toast.success((data.message as string) || 'Votos registrados correctamente')
+      }
+      setSuccessMessage((data.message as string) || 'Votos registrados correctamente')
       setShowRegistroVotoAdmin(false)
-      loadEstadisticas()
-      loadQuorum()
-      loadData()
-    } catch (e) {
-      console.error('Error registrando votos:', e)
-      toast.error('Error al registrar votos')
+      try {
+        loadEstadisticas()
+        loadQuorum()
+        loadData()
+      } catch {
+        // refrescos en background
+      }
+    } catch (e: unknown) {
+      const name = e && typeof e === 'object' && 'name' in e ? (e as { name?: string }).name : ''
+      if (name === 'AbortError') {
+        toast.error(
+          `La operación superó ${Math.round(timeoutMs / 1000)} s. Reintenta con menos unidades o revisa tu conexión.`
+        )
+      } else {
+        console.error('Error registrando votos:', e)
+        toast.error('Error al registrar votos')
+      }
     } finally {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId)
       setSavingRegistroVoto(false)
     }
   }

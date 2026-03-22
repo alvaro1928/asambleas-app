@@ -140,6 +140,29 @@ function getDocExtension(file: File): string {
   return '.docx'
 }
 
+/** Mensaje legible ante duplicado / constraint en poderes */
+function mensajeErrorInsertPoder(err: { message?: string; code?: string }): string {
+  const m = String(err.message || '').toLowerCase()
+  const code = String(err.code || '')
+  if (code === '23505' || m.includes('duplicate key') || m.includes('poderes_activo') || m.includes('unique')) {
+    return 'Ya hay un poder activo con esta misma unidad que otorga y este apoderado (o el registro está duplicado). Revoca el anterior, edita el existente o cambia el apoderado.'
+  }
+  return String(err.message || 'Error al guardar el poder')
+}
+
+/** Entrada en cola para registrar varios poderes seguidos (misma sesión) */
+interface ColaPoderItem {
+  id: string
+  unidad_otorgante_id: string
+  unidad_receptor_id: string | null
+  email_otorgante: string
+  nombre_otorgante: string
+  email_receptor: string
+  nombre_receptor: string
+  observaciones: string | null
+  archivo: File | null
+}
+
 export default function PoderesPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const toast = useToast()
@@ -164,6 +187,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   const [savingPoder, setSavingPoder] = useState(false)
   /** true = apoderado es tercero (no es propietario de una unidad); false = apoderado es otra unidad del conjunto */
   const [apoderadoEsTercero, setApoderadoEsTercero] = useState(false)
+  /** Varios poderes para guardar en un solo flujo (sin cerrar el modal entre uno y otro) */
+  const [colaPoderes, setColaPoderes] = useState<ColaPoderItem[]>([])
 
   // Reemplazar documento
   const [reemplazandoPoderId, setReemplazandoPoderId] = useState<string | null>(null)
@@ -233,10 +258,12 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   const closePoderModal = () => {
     setPoderModal({ type: 'none' })
     resetPoderForm()
+    setColaPoderes([])
   }
 
   const openCreatePoderModal = () => {
     resetPoderForm()
+    setColaPoderes([])
     setPoderModal({ type: 'create' })
   }
 
@@ -375,95 +402,187 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     }
   }
 
-  const handleCreatePoder = async () => {
-    if (!selectedOtorgante) {
-      toast.error('Debes seleccionar la unidad que otorga el poder')
-      return
+  const buildColaItemFromForm = (): ColaPoderItem | null => {
+    if (!selectedOtorgante) return null
+    if (!apoderadoEsTercero && !selectedReceptor) return null
+    if (!emailReceptor.trim() || !nombreReceptor.trim()) return null
+    const emailOtorgante =
+      (selectedOtorgante as { email?: string; email_propietario?: string }).email_propietario ??
+      (selectedOtorgante as { email?: string }).email ??
+      ''
+    return {
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `tmp-${Date.now()}`,
+      unidad_otorgante_id: selectedOtorgante.id,
+      unidad_receptor_id: apoderadoEsTercero ? null : (selectedReceptor?.id ?? null),
+      email_otorgante: emailOtorgante,
+      nombre_otorgante: selectedOtorgante.nombre_propietario,
+      email_receptor: emailReceptor.trim(),
+      nombre_receptor: nombreReceptor.trim(),
+      observaciones: observaciones.trim() || null,
+      archivo: archivoPoder,
     }
+  }
 
-    if (!apoderadoEsTercero && !selectedReceptor) {
-      toast.error('Debes seleccionar la unidad que recibe el poder (apoderado) o marcar "Apoderado es tercero"')
-      return
-    }
-
-    if (!emailReceptor.trim()) {
-      toast.error('Debes ingresar el identificador del apoderado (email, teléfono o identificación)')
-      return
-    }
-
-    if (!nombreReceptor.trim()) {
-      toast.error('Debes ingresar el nombre del apoderado')
-      return
-    }
-
-    // Validar límite de poderes
+  const validarLimiteReceptor = async (emailReceptorRaw: string) => {
     try {
       const { data: validacion, error: validacionError } = await supabase.rpc('validar_limite_poderes', {
         p_asamblea_id: params.id,
-        p_email_receptor: emailReceptor.trim(),
-        p_organization_id: asamblea?.organization_id
+        p_email_receptor: emailReceptorRaw.trim(),
+        p_organization_id: asamblea?.organization_id,
       })
-
       if (validacionError) {
         console.error('Error validando límite:', validacionError)
-      } else if (validacion && validacion.length > 0) {
-        const resultado = validacion[0]
+        return true
+      }
+      if (validacion && validacion.length > 0) {
+        const resultado = validacion[0] as {
+          puede_recibir_poder?: boolean
+          mensaje?: string
+          poderes_actuales?: number
+          limite_maximo?: number
+        }
         if (!resultado.puede_recibir_poder) {
-          toast.error(`${resultado.mensaje}. El apoderado ya tiene ${resultado.poderes_actuales} poderes activos (límite: ${resultado.limite_maximo})`)
-          return
+          toast.error(
+            `${resultado.mensaje}. El apoderado ya tiene ${resultado.poderes_actuales} poderes activos (límite: ${resultado.limite_maximo})`
+          )
+          return false
         }
       }
     } catch (error) {
       console.error('Error en validación:', error)
     }
+    return true
+  }
 
+  /** Añade el formulario actual a la cola sin guardar aún (puedes registrar varios seguidos y guardar una vez). */
+  const agregarPoderALaCola = async () => {
+    if (poderModal.type !== 'create') return
+    const item = buildColaItemFromForm()
+    if (!item) {
+      toast.error('Completa unidad otorgante, apoderado, correo/identificación y nombre para añadir a la cola.')
+      return
+    }
     if (archivoPoder && !isValidDocFile(archivoPoder)) {
       toast.error('El documento debe ser PDF o Word (.doc, .docx) y máximo 2MB')
       return
     }
+    const okLim = await validarLimiteReceptor(item.email_receptor)
+    if (!okLim) return
+    const dup = colaPoderes.some(
+      (c) =>
+        c.unidad_otorgante_id === item.unidad_otorgante_id &&
+        c.email_receptor.trim().toLowerCase() === item.email_receptor.trim().toLowerCase()
+    )
+    if (dup) {
+      toast.error('Ya hay en la cola un poder con la misma unidad que otorga y el mismo apoderado.')
+      return
+    }
+    setColaPoderes((prev) => [...prev, item])
+    setSelectedReceptor(null)
+    setEmailReceptor('')
+    setNombreReceptor('')
+    setObservaciones('')
+    setArchivoPoder(null)
+    setSearchReceptor('')
+    toast.success(`Añadido a la cola (${colaPoderes.length + 1} en total). Completa el siguiente apoderado y vuelve a añadir, o pulsa «Registrar todo».`)
+  }
 
-    const emailOtorgante = (selectedOtorgante as { email?: string; email_propietario?: string }).email_propietario ?? (selectedOtorgante as { email?: string }).email ?? ''
+  const insertarUnPoderItem = async (item: ColaPoderItem) => {
+    const { data: newPoder, error } = await supabase
+      .from('poderes')
+      .insert({
+        asamblea_id: params.id,
+        unidad_otorgante_id: item.unidad_otorgante_id,
+        unidad_receptor_id: item.unidad_receptor_id,
+        email_otorgante: item.email_otorgante,
+        nombre_otorgante: item.nombre_otorgante,
+        email_receptor: item.email_receptor,
+        nombre_receptor: item.nombre_receptor,
+        observaciones: item.observaciones,
+        estado: 'activo',
+      })
+      .select('id')
+      .single()
+
+    if (error) throw error
+
+    if (item.archivo && newPoder?.id && isValidDocFile(item.archivo)) {
+      const ext = getDocExtension(item.archivo)
+      const path = `${params.id}/${newPoder.id}/doc${ext}`
+      const { error: uploadError } = await supabase.storage.from('poderes-docs').upload(path, item.archivo, { upsert: true })
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage.from('poderes-docs').getPublicUrl(path)
+        await supabase.from('poderes').update({ archivo_poder: urlData.publicUrl }).eq('id', newPoder.id)
+      }
+    }
+  }
+
+  const handleCreatePoder = async () => {
+    if (poderModal.type !== 'create') return
+
+    const desdeCola = [...colaPoderes]
+    const desdeForm = buildColaItemFromForm()
+    if (desdeForm && archivoPoder && !isValidDocFile(archivoPoder)) {
+      toast.error('El documento debe ser PDF o Word (.doc, .docx) y máximo 2MB')
+      return
+    }
+
+    const items: ColaPoderItem[] = [...desdeCola]
+    if (desdeForm) {
+      const dupForm = desdeCola.some(
+        (c) =>
+          c.unidad_otorgante_id === desdeForm.unidad_otorgante_id &&
+          c.email_receptor.trim().toLowerCase() === desdeForm.email_receptor.trim().toLowerCase()
+      )
+      if (!dupForm) items.push(desdeForm)
+    }
+
+    if (items.length === 0) {
+      toast.error('Añade poderes a la cola o completa el formulario para registrar.')
+      return
+    }
+
+    const emailsUnicos = [...new Set(items.map((i) => i.email_receptor.trim().toLowerCase()))]
+    for (const em of emailsUnicos) {
+      const okLim = await validarLimiteReceptor(em)
+      if (!okLim) return
+    }
+
     setSavingPoder(true)
+    const errores: string[] = []
+    let ok = 0
     try {
-      const { data: newPoder, error } = await supabase
-        .from('poderes')
-        .insert({
-          asamblea_id: params.id,
-          unidad_otorgante_id: selectedOtorgante.id,
-          unidad_receptor_id: apoderadoEsTercero ? null : (selectedReceptor?.id ?? null),
-          email_otorgante: emailOtorgante,
-          nombre_otorgante: selectedOtorgante.nombre_propietario,
-          email_receptor: emailReceptor.trim(),
-          nombre_receptor: nombreReceptor.trim(),
-          observaciones: observaciones.trim() || null,
-          estado: 'activo'
-        })
-        .select('id')
-        .single()
-
-      if (error) throw error
-
-      if (archivoPoder && newPoder) {
-        const ext = getDocExtension(archivoPoder)
-        const path = `${params.id}/${newPoder.id}/doc${ext}`
-        const { error: uploadError } = await supabase.storage
-          .from('poderes-docs')
-          .upload(path, archivoPoder, { upsert: true })
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage.from('poderes-docs').getPublicUrl(path)
-          await supabase.from('poderes').update({ archivo_poder: urlData.publicUrl }).eq('id', newPoder.id)
+      for (const item of items) {
+        try {
+          await insertarUnPoderItem(item)
+          ok++
+        } catch (err: unknown) {
+          const e = err as { message?: string; code?: string }
+          errores.push(mensajeErrorInsertPoder(e))
         }
       }
 
-      setSuccessMessage('Poder registrado exitosamente')
-      setTimeout(() => setSuccessMessage(''), 3000)
-      closePoderModal()
-      
-      await loadPoderes()
-      await loadResumen()
-    } catch (error: any) {
+      if (ok > 0) {
+        const msg =
+          ok === items.length
+            ? `Se registraron ${ok} poder(es).`
+            : `Registrados ${ok} de ${items.length} poder(es). Revisa los errores.`
+        setSuccessMessage(msg)
+        setTimeout(() => setSuccessMessage(''), 5000)
+        toast.success(msg)
+        if (errores.length) {
+          toast.error(errores.slice(0, 4).join(' · ') + (errores.length > 4 ? '…' : ''))
+        }
+        closePoderModal()
+        await loadPoderes()
+        await loadResumen()
+      } else {
+        toast.error(errores[0] || 'No se pudo registrar ningún poder')
+      }
+    } catch (error: unknown) {
       console.error('Error creating poder:', error)
-      toast.error('Error al crear el poder: ' + error.message)
+      const e = error as { message?: string; code?: string }
+      toast.error('Error al crear el poder: ' + mensajeErrorInsertPoder(e))
     } finally {
       setSavingPoder(false)
     }
@@ -563,7 +682,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       await loadResumen()
     } catch (error: any) {
       console.error('Error updating poder:', error)
-      toast.error('Error al actualizar el poder: ' + error.message)
+      toast.error('Error al actualizar el poder: ' + mensajeErrorInsertPoder(error))
     } finally {
       setSavingPoder(false)
     }
@@ -1102,9 +1221,34 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
             <DialogDescription>
               {poderModal.type === 'edit'
                 ? 'Puedes pasar el apoderado de tercero a una unidad del conjunto (o al revés), corregir correo/nombre o cambiar la unidad que otorga, sin revocar el poder.'
-                : 'Selecciona la unidad que otorga el poder y los datos del apoderado'}
+                : 'Usa «Añadir a la cola» para preparar varios poderes seguidos y «Registrar todo» al final. Así no pierdes tiempo guardando de uno en uno.'}
             </DialogDescription>
           </DialogHeader>
+
+          {poderModal.type === 'create' && colaPoderes.length > 0 && (
+            <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 px-3 py-2 text-sm">
+              <p className="font-medium text-indigo-900 dark:text-indigo-100 mb-1">En cola ({colaPoderes.length})</p>
+              <ul className="max-h-28 overflow-y-auto space-y-1 text-xs text-indigo-800 dark:text-indigo-200">
+                {colaPoderes.map((c) => {
+                  const uo = unidades.find((u) => u.id === c.unidad_otorgante_id)
+                  return (
+                    <li key={c.id} className="flex justify-between gap-2 items-start">
+                      <span>
+                        {uo ? `${uo.torre}-${uo.numero}` : 'Unidad'} → {c.nombre_receptor} ({c.email_receptor})
+                      </span>
+                      <button
+                        type="button"
+                        className="text-red-600 dark:text-red-400 shrink-0 hover:underline"
+                        onClick={() => setColaPoderes((prev) => prev.filter((x) => x.id !== c.id))}
+                      >
+                        Quitar
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
 
           <div className="space-y-6 mt-4">
             {/* Selección de Unidad Otorgante */}
@@ -1406,19 +1550,44 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
             </div>
 
             {/* Botones */}
-            <div className="flex justify-end space-x-3 pt-4 border-t">
+            <div className="flex flex-col sm:flex-row sm:justify-end sm:items-center gap-2 pt-4 border-t">
               <Button variant="outline" onClick={() => closePoderModal()} disabled={savingPoder}>
                 Cancelar
               </Button>
+              {poderModal.type === 'create' && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void agregarPoderALaCola()}
+                  disabled={
+                    savingPoder ||
+                    asamblea?.estado === 'finalizada' ||
+                    !selectedOtorgante ||
+                    !emailReceptor.trim() ||
+                    !nombreReceptor.trim() ||
+                    (!apoderadoEsTercero && !selectedReceptor)
+                  }
+                  className="border-indigo-300 dark:border-indigo-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Añadir a la cola
+                </Button>
+              )}
               <Button
-                onClick={handleSavePoder}
+                onClick={() => void handleSavePoder()}
                 disabled={
                   savingPoder ||
                   asamblea?.estado === 'finalizada' ||
-                  !selectedOtorgante ||
-                  !emailReceptor.trim() ||
-                  !nombreReceptor.trim() ||
-                  (!apoderadoEsTercero && !selectedReceptor)
+                  (poderModal.type === 'create'
+                    ? colaPoderes.length === 0 &&
+                      (!selectedOtorgante ||
+                        !emailReceptor.trim() ||
+                        !nombreReceptor.trim() ||
+                        (!apoderadoEsTercero && !selectedReceptor))
+                    : !selectedOtorgante ||
+                      !emailReceptor.trim() ||
+                      !nombreReceptor.trim() ||
+                      (!apoderadoEsTercero && !selectedReceptor))
                 }
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
               >
@@ -1430,7 +1599,11 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4 mr-2" />
-                    {poderModal.type === 'edit' ? 'Guardar cambios' : 'Registrar Poder'}
+                    {poderModal.type === 'edit'
+                      ? 'Guardar cambios'
+                      : colaPoderes.length > 0
+                        ? `Registrar todo (${colaPoderes.length + (buildColaItemFromForm() ? 1 : 0)})`
+                        : 'Registrar poder'}
                   </>
                 )}
               </Button>
