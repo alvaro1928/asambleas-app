@@ -399,6 +399,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         p_asamblea_id: params.id
       })
 
+      // No borrar el quórum si el RPC falla o viene vacío en un poll (evita parpadeo cada 5 s).
       if (!rpcError && rpcData?.length) {
         const q = rpcData[0] as QuorumData
         setQuorum({
@@ -409,7 +410,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           porcentaje_participacion_coeficiente: q.porcentaje_participacion_coeficiente ?? 0,
           quorum_alcanzado: q.quorum_alcanzado ?? false
         })
-      } else setQuorum(null)
+      }
 
       // En Acceso solo se muestran preguntas ABIERTAS en la gráfica (las cerradas no se votan ni se ven aquí)
       const { data: preguntasData } = await supabase
@@ -1346,7 +1347,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     Avance de votaciones
                   </CardTitle>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Línea vertical = Mayoría necesaria (51%). Se actualiza cada 10 s.
+                    Línea vertical = mayoría necesaria (umbral de cada pregunta). Participación y gráficas se actualizan cada 5 s.
                   </p>
                 </div>
                 <Button
@@ -1362,25 +1363,12 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </Button>
               </CardHeader>
               <CardContent className="p-6 space-y-8">
-                {statsVerificacion != null && (
-                  <div className="flex flex-col gap-0.5 text-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 dark:text-gray-400">Verificación de asistencia</span>
-                      <span className={`font-bold ${statsVerificacion.quorum_alcanzado ? 'text-green-400' : 'text-amber-400'}`}>
-                        {statsVerificacion.porcentaje_verificado.toFixed(1)}% ({statsVerificacion.total_verificados} un.)
-                      </span>
-                    </div>
-                    {statsDesglose && (statsDesglose.porcentaje_directo > 0 || statsDesglose.porcentaje_poder > 0) && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {statsDesglose.porcentaje_directo.toFixed(1)}% directos · {statsDesglose.porcentaje_poder.toFixed(1)}% por poder
-                      </p>
-                    )}
-                  </div>
-                )}
                 {quorum && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Unidades que ya votaron</span>
-                    <span className="font-bold">{quorum.unidades_votantes} / {quorum.total_unidades}</span>
+                  <div className="flex justify-between text-sm border-b border-[rgba(255,255,255,0.08)] pb-4">
+                    <span className="text-gray-600 dark:text-gray-400">Participación en votación (unidades con al menos un voto)</span>
+                    <span className="font-bold tabular-nums">
+                      {quorum.unidades_votantes} / {quorum.total_unidades}
+                    </span>
                   </div>
                 )}
                 {preguntasConResultados.map((preg) => {
@@ -1499,25 +1487,10 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             </Button>
           </DialogHeader>
           <div className="space-y-10 pt-4">
-            {statsVerificacion != null && (
-              <div className="flex flex-col gap-1 text-base">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">Verificación de asistencia</span>
-                  <span className={`font-bold text-lg ${statsVerificacion.quorum_alcanzado ? 'text-green-400' : 'text-amber-400'}`}>
-                    {statsVerificacion.porcentaje_verificado.toFixed(1)}% ({statsVerificacion.total_verificados} un.)
-                  </span>
-                </div>
-                {statsDesglose && (statsDesglose.porcentaje_directo > 0 || statsDesglose.porcentaje_poder > 0) && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {statsDesglose.porcentaje_directo.toFixed(1)}% directos · {statsDesglose.porcentaje_poder.toFixed(1)}% por poder
-                  </p>
-                )}
-              </div>
-            )}
             {quorum && (
-              <div className="flex justify-between text-lg">
-                <span className="text-gray-600 dark:text-gray-400">Unidades que ya votaron</span>
-                <span className="font-bold text-xl">
+              <div className="flex justify-between text-lg border-b border-[rgba(255,255,255,0.1)] pb-4">
+                <span className="text-gray-600 dark:text-gray-400">Participación en votación (unidades con al menos un voto)</span>
+                <span className="font-bold text-xl tabular-nums">
                   {quorum.unidades_votantes} / {quorum.total_unidades}
                 </span>
               </div>
