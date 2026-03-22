@@ -205,7 +205,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       loadAsamblea()
       loadAsistentes(true)
       loadAvanceVotaciones()
-    }, 5000)
+    }, 10000)
 
     const onVisibility = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
@@ -399,7 +399,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         p_asamblea_id: params.id
       })
 
-      // No borrar el quórum si el RPC falla o viene vacío en un poll (evita parpadeo cada 5 s).
+      // No borrar el quórum si el RPC falla o viene vacío en un poll (evita parpadeo cada 10 s).
       if (!rpcError && rpcData?.length) {
         const q = rpcData[0] as QuorumData
         setQuorum({
@@ -1347,7 +1347,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     Avance de votaciones
                   </CardTitle>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Línea vertical = mayoría necesaria (umbral de cada pregunta). Participación y gráficas se actualizan cada 5 s.
+                    Línea vertical = mayoría necesaria (umbral de cada pregunta). Participación y gráficas se actualizan cada 10 s.
                   </p>
                 </div>
                 <Button
