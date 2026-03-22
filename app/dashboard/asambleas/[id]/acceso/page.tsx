@@ -1458,9 +1458,18 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                               className="inline-flex items-center px-3 py-1.5 rounded-3xl text-sm font-bold text-emerald-200 bg-emerald-900/40 border border-emerald-600"
                               style={{ boxShadow: '0 0 12px rgba(16, 185, 129, 0.4)' }}
                             >
-                              MAYORÍA ALCANZADA — {d.name}: {d.porcentaje}% · {d.votosCantidad}{' '}
-                              {d.votosCantidad !== 1 ? 'unidades' : 'unidad'} · Σ coef.{' '}
-                              {(d.coeficienteSum ?? 0).toFixed(2)}%
+                              MAYORÍA ALCANZADA — {d.name}:{' '}
+                              {preg.tipo_votacion === 'nominal' ? (
+                                <>
+                                  {d.porcentaje}% · {d.votosCantidad}{' '}
+                                  {d.votosCantidad !== 1 ? 'unidades' : 'unidad'}
+                                </>
+                              ) : (
+                                <>
+                                  {d.porcentaje}% del conjunto · {d.votosCantidad}{' '}
+                                  {d.votosCantidad !== 1 ? 'unidades' : 'unidad'}
+                                </>
+                              )}
                             </span>
                           ))}
                         </div>
@@ -1579,8 +1588,18 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                           className="inline-flex items-center px-4 py-2 rounded-3xl text-base font-bold text-emerald-200 bg-emerald-900/40 border border-emerald-600"
                           style={{ boxShadow: '0 0 16px rgba(16, 185, 129, 0.5)' }}
                         >
-                          MAYORÍA ALCANZADA — {d.fullName}: {d.porcentaje}% · {d.votosCantidad}{' '}
-                          {d.votosCantidad !== 1 ? 'unidades' : 'unidad'} · Σ coef. {(d.coeficienteSum ?? 0).toFixed(2)}%
+                          MAYORÍA ALCANZADA — {d.fullName}:{' '}
+                          {preg.tipo_votacion === 'nominal' ? (
+                            <>
+                              {d.porcentaje}% · {d.votosCantidad}{' '}
+                              {d.votosCantidad !== 1 ? 'unidades' : 'unidad'}
+                            </>
+                          ) : (
+                            <>
+                              {d.porcentaje}% del conjunto · {d.votosCantidad}{' '}
+                              {d.votosCantidad !== 1 ? 'unidades' : 'unidad'}
+                            </>
+                          )}
                         </span>
                       ))}
                     </div>

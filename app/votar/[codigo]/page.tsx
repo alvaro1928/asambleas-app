@@ -2142,7 +2142,6 @@ export default function VotacionPublicaPage() {
                               const pct = pctRelevante(r, tipoVot)
                               const pasaUmbral = pct >= umbral
                               const nUnid = r.votos_cantidad ?? 0
-                              const sumCoef = Number(r.votos_coeficiente ?? 0)
                               return (
                                 <div key={r.opcion_id ?? `opt-${index}-${ri}`} className="flex items-center gap-2">
                                   <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: r.color || '#6366f1' }} />
@@ -2154,7 +2153,7 @@ export default function VotacionPublicaPage() {
                                       </span>
                                     </div>
                                     <div className="flex justify-end text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
-                                      {nUnid} {nUnid === 1 ? 'unidad' : 'unidades'} · Σ coef. {sumCoef.toFixed(2)}%
+                                      {nUnid} {nUnid === 1 ? 'unidad' : 'unidades'}
                                     </div>
                                     <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden relative">
                                       <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: r.color || '#6366f1' }} />
@@ -2246,8 +2245,9 @@ export default function VotacionPublicaPage() {
                                           <div className="h-full transition-all duration-500 rounded-full" style={{ width: `${Math.min(porcentaje, 100)}%`, backgroundColor: resultado.color || '#6366f1' }} />
                                         </div>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                          {(resultado.votos_cantidad || 0) === 1 ? '1 unidad' : `${resultado.votos_cantidad || 0} unidades`} · Σ coef.{' '}
-                                          {Number(resultado.votos_coeficiente ?? 0).toFixed(2)}%
+                                          {(resultado.votos_cantidad || 0) === 1
+                                            ? '1 unidad'
+                                            : `${resultado.votos_cantidad || 0} unidades`}
                                         </p>
                                       </div>
                                     )

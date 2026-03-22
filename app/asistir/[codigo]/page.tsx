@@ -1014,8 +1014,18 @@ export default function AsistirPage() {
                             key={i}
                             className="inline-flex items-center px-2.5 py-1 rounded-2xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700"
                           >
-                            Mayoría alcanzada — {d.name}: {d.porcentaje}% · {d.votosCantidad}{' '}
-                            {d.votosCantidad !== 1 ? 'unidades' : 'unidad'} · Σ coef. {(d.coeficienteSum ?? 0).toFixed(2)}%
+                            Mayoría alcanzada — {d.name}:{' '}
+                            {preg.tipo_votacion === 'nominal' ? (
+                              <>
+                                {d.porcentaje}% · {d.votosCantidad}{' '}
+                                {d.votosCantidad !== 1 ? 'unidades' : 'unidad'}
+                              </>
+                            ) : (
+                              <>
+                                {d.porcentaje}% del conjunto · {d.votosCantidad}{' '}
+                                {d.votosCantidad !== 1 ? 'unidades' : 'unidad'}
+                              </>
+                            )}
                           </span>
                         ))}
                       </div>
