@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle, UserCheck, HelpCircle, QrCode, Copy } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle, UserCheck, HelpCircle, QrCode, Copy, FileText, Upload, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -189,6 +189,117 @@ export default function VotacionPublicaPage() {
   /** Quórum verificado por pregunta (para tab Avance: cada pregunta muestra su quórum) */
   // --- Tabs ---
   const [tabActivo, setTabActivo] = useState<'votacion' | 'avance' | 'misdatos'>('votacion')
+
+  /** Declaración de poder recibido (pendiente de verificación en dashboard) */
+  const [unidadesDelegacionOpciones, setUnidadesDelegacionOpciones] = useState<
+    Array<{ id: string; torre: string; numero: string; nombre_propietario: string | null }>
+  >([])
+  const [cargandoDelegacion, setCargandoDelegacion] = useState(false)
+  const [poderOtorganteId, setPoderOtorganteId] = useState('')
+  const [nombreReceptorPoder, setNombreReceptorPoder] = useState('')
+  const [observacionesPoder, setObservacionesPoder] = useState('')
+  const [archivoPoderVotante, setArchivoPoderVotante] = useState<File | null>(null)
+  const [enviandoPoderPendiente, setEnviandoPoderPendiente] = useState(false)
+  const [misPoderesPendientes, setMisPoderesPendientes] = useState<
+    Array<{
+      id: string
+      unidad_otorgante_torre: string
+      unidad_otorgante_numero: string
+      nombre_otorgante: string | null
+      created_at: string
+      archivo_poder: string | null
+      observaciones: string | null
+      coeficiente_delegado: number
+    }>
+  >([])
+  const [cargandoMisPendientes, setCargandoMisPendientes] = useState(false)
+
+  const cargarDatosMisDatosPoder = useCallback(async () => {
+    if (!codigo || !email.trim()) return
+    setCargandoDelegacion(true)
+    setCargandoMisPendientes(true)
+    try {
+      const [r1, r2] = await Promise.all([
+        fetch('/api/votar/unidades-delegacion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codigo }),
+        }),
+        fetch('/api/votar/mis-poderes-pendientes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codigo, identificador: email.trim() }),
+        }),
+      ])
+      const j1 = (await r1.json().catch(() => ({}))) as {
+        unidades?: Array<{ id: string; torre: string; numero: string; nombre_propietario: string | null }>
+      }
+      const j2 = (await r2.json().catch(() => ({}))) as {
+        poderes?: Array<{
+          id: string
+          unidad_otorgante_torre: string
+          unidad_otorgante_numero: string
+          nombre_otorgante: string | null
+          created_at: string
+          archivo_poder: string | null
+          observaciones: string | null
+          coeficiente_delegado: number
+        }>
+      }
+      if (r1.ok && Array.isArray(j1.unidades)) setUnidadesDelegacionOpciones(j1.unidades)
+      if (r2.ok && Array.isArray(j2.poderes)) setMisPoderesPendientes(j2.poderes)
+    } finally {
+      setCargandoDelegacion(false)
+      setCargandoMisPendientes(false)
+    }
+  }, [codigo, email])
+
+  useEffect(() => {
+    if (step !== 'votar' || tabActivo !== 'misdatos') return
+    void cargarDatosMisDatosPoder()
+  }, [step, tabActivo, cargarDatosMisDatosPoder])
+
+  const enviarDeclaracionPoder = useCallback(async () => {
+    if (!poderOtorganteId || !codigo || !email.trim()) {
+      toast.error('Elige el apartamento que te otorgó el poder.')
+      return
+    }
+    if (archivoPoderVotante && archivoPoderVotante.size > 2 * 1024 * 1024) {
+      toast.error('El documento no puede superar 2 MB.')
+      return
+    }
+    setEnviandoPoderPendiente(true)
+    try {
+      const fd = new FormData()
+      fd.append('codigo', codigo)
+      fd.append('identificador', email.trim())
+      fd.append('unidad_otorgante_id', poderOtorganteId)
+      if (nombreReceptorPoder.trim()) fd.append('nombre_receptor', nombreReceptorPoder.trim())
+      if (observacionesPoder.trim()) fd.append('observaciones', observacionesPoder.trim())
+      if (archivoPoderVotante) fd.append('archivo', archivoPoderVotante)
+      const res = await fetch('/api/votar/registrar-poder-pendiente', { method: 'POST', body: fd })
+      const data = (await res.json().catch(() => ({}))) as { error?: string; mensaje?: string }
+      if (!res.ok) {
+        toast.error(data?.error || 'No se pudo enviar la solicitud')
+        return
+      }
+      toast.success(data?.mensaje || 'Solicitud registrada')
+      setPoderOtorganteId('')
+      setObservacionesPoder('')
+      setArchivoPoderVotante(null)
+      await cargarDatosMisDatosPoder()
+    } finally {
+      setEnviandoPoderPendiente(false)
+    }
+  }, [
+    poderOtorganteId,
+    codigo,
+    email,
+    nombreReceptorPoder,
+    observacionesPoder,
+    archivoPoderVotante,
+    cargarDatosMisDatosPoder,
+  ])
 
   // Cronómetro de participación: estado puramente visual (no cambia reglas reales)
   const [participationTimerEndAt, setParticipationTimerEndAt] = useState<string | null>(null)
@@ -1531,6 +1642,8 @@ export default function VotacionPublicaPage() {
     const totalCoeficiente = unidades.reduce((sum, u) => sum + u.coeficiente, 0)
     const unidadesPropias = unidades.filter(u => !u.es_poder)
     const unidadesPoderes = unidades.filter(u => u.es_poder)
+    const idsYaRepresentados = new Set(unidades.map((u) => u.id))
+    const opcionesOtorgantesPoder = unidadesDelegacionOpciones.filter((u) => !idsYaRepresentados.has(u.id))
     const todasVotadas =
       preguntas.length > 0 &&
       preguntas.every((p) =>
@@ -2351,6 +2464,153 @@ export default function VotacionPublicaPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Declarar poder recibido (pendiente de verificación administrativa) */}
+              {unidades.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-amber-200 dark:border-amber-800 p-4 shadow-sm space-y-3">
+                  <h3 className="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    Registrar poder que te otorgaron
+                  </h3>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Si otro apartamento te delegó el voto, indícalo aquí. La solicitud{' '}
+                    <strong>no activa el poder para votar</strong> hasta que un administrador lo verifique (documento o acta) en la tabla de poderes.
+                  </p>
+                  {cargandoDelegacion ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Cargando unidades…
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-1.5">
+                        <label htmlFor="poder-otorgante" className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Unidad que otorga el poder <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          id="poder-otorgante"
+                          value={poderOtorganteId}
+                          onChange={(e) => setPoderOtorganteId(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm px-3 py-2"
+                        >
+                          <option value="">— Elige torre y apartamento —</option>
+                          {opcionesOtorgantesPoder.map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.torre || 'S/T'} — {u.numero || 'S/N'}
+                              {u.nombre_propietario ? ` · ${u.nombre_propietario}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {opcionesOtorgantesPoder.length === 0 && (
+                          <p className="text-xs text-amber-700 dark:text-amber-300">
+                            No hay más unidades en el censo distintas a las tuyas, o aún se cargan los datos.
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-1.5">
+                        <label htmlFor="poder-nombre-receptor" className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Tu nombre (apoderado) — opcional
+                        </label>
+                        <input
+                          id="poder-nombre-receptor"
+                          type="text"
+                          value={nombreReceptorPoder}
+                          onChange={(e) => setNombreReceptorPoder(e.target.value)}
+                          placeholder="Como figura en el poder o documento"
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm px-3 py-2"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label htmlFor="poder-obs" className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Notas — opcional
+                        </label>
+                        <textarea
+                          id="poder-obs"
+                          value={observacionesPoder}
+                          onChange={(e) => setObservacionesPoder(e.target.value)}
+                          rows={2}
+                          placeholder="Ej. referencia del documento"
+                          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm px-3 py-2 resize-none"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Documento escaneado — opcional</span>
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-indigo-600 dark:text-indigo-400">
+                          <Upload className="w-4 h-4" />
+                          <span>{archivoPoderVotante ? archivoPoderVotante.name : 'Elegir PDF o Word (máx. 2 MB)'}</span>
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            className="sr-only"
+                            onChange={(e) => setArchivoPoderVotante(e.target.files?.[0] ?? null)}
+                          />
+                        </label>
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={() => void enviarDeclaracionPoder()}
+                        disabled={enviandoPoderPendiente || !poderOtorganteId}
+                        className="w-full bg-amber-600 hover:bg-amber-700 text-white text-sm"
+                      >
+                        {enviandoPoderPendiente ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Enviando…
+                          </span>
+                        ) : (
+                          'Enviar solicitud'
+                        )}
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {unidades.length > 0 && (
+                <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <h3 className="font-bold text-gray-900 dark:text-white text-sm">Tus solicitudes pendientes</h3>
+                    {cargandoMisPendientes && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+                  </div>
+                  {misPoderesPendientes.length === 0 && !cargandoMisPendientes ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">No tienes solicitudes en verificación.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {misPoderesPendientes.map((p) => (
+                        <li
+                          key={p.id}
+                          className="text-xs rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-gray-800/80 p-2.5"
+                        >
+                          <div className="font-medium text-gray-900 dark:text-white">
+                            {p.unidad_otorgante_torre} — {p.unidad_otorgante_numero}
+                          </div>
+                          {p.nombre_otorgante && (
+                            <div className="text-gray-600 dark:text-gray-400 mt-0.5">Prop.: {p.nombre_otorgante}</div>
+                          )}
+                          <div className="text-gray-500 dark:text-gray-500 mt-1">
+                            Coef. delegado: {Number(p.coeficiente_delegado || 0).toFixed(4)}% ·{' '}
+                            {p.created_at
+                              ? new Date(p.created_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' })
+                              : ''}
+                          </div>
+                          {p.archivo_poder && (
+                            <a
+                              href={p.archivo_poder}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 mt-1 hover:underline"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              Ver documento cargado
+                            </a>
+                          )}
+                          <p className="text-amber-700 dark:text-amber-300 mt-1.5 font-medium">En espera de verificación del administrador</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
 
               {/* Estado de verificación */}
               {yaVerifico && (

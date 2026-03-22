@@ -1,44 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-
-type UnidadRow = {
-  id: string
-  torre: string
-  numero: string
-  coeficiente: number
-  nombre_propietario?: string | null
-  email?: string | null
-  email_propietario?: string | null
-  telefono?: string | null
-  telefono_propietario?: string | null
-}
-
-const norm = (v: string) => v.trim().toLowerCase()
-const normPhone = (v: string) => v.replace(/\D/g, '')
-const normDoc = (v: string) => v.replace(/[^a-z0-9]/gi, '').toLowerCase()
-
-function emailCoincide(campo: string | null | undefined, email: string): boolean {
-  if (!campo) return false
-  return campo
-    .split(/[;,]/)
-    .map((x) => norm(x))
-    .filter(Boolean)
-    .includes(email)
-}
-
-function identificadorCoincide(rawStored: string | null | undefined, identificador: string): boolean {
-  if (!rawStored) return false
-  const stored = norm(rawStored)
-  if (!stored) return false
-  const idNorm = norm(identificador)
-  if (stored === idNorm) return true
-  const telA = normPhone(stored)
-  const telB = normPhone(idNorm)
-  if (telA && telB && telA === telB) return true
-  const docA = normDoc(stored)
-  const docB = normDoc(idNorm)
-  return !!docA && !!docB && docA === docB
-}
+import {
+  identificadorCoincide,
+  unidadesPropiasParaIdentificador,
+  type UnidadVotarRow,
+} from '@/lib/votar-identificador'
 
 /**
  * POST /api/votar/validar-identificador
@@ -73,9 +39,6 @@ export async function POST(request: NextRequest) {
     const asambleaId = codigoData[0].asamblea_id as string
     const organizationId = codigoData[0].organization_id as string
     const ident = identificador.trim()
-    const identNorm = norm(ident)
-    const identPhone = normPhone(identNorm)
-    const esEmail = identNorm.includes('@')
 
     const { data: unidadesRows, error: unidadesErr } = await admin
       .from('unidades')
@@ -85,15 +48,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Error consultando unidades' }, { status: 500 })
     }
 
-    const unidadesPropias = (unidadesRows ?? []).filter((u: UnidadRow) => {
-      if (esEmail) {
-        return emailCoincide(u.email_propietario ?? u.email ?? '', identNorm)
-      }
-      if (identPhone) {
-        return normPhone(u.telefono_propietario ?? u.telefono ?? '') === identPhone
-      }
-      return false
-    })
+    const unidadesPropias = unidadesPropiasParaIdentificador((unidadesRows ?? []) as UnidadVotarRow[], ident)
 
     const { data: poderesRows, error: poderesErr } = await admin
       .from('poderes')
@@ -105,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     const unidadesPoderesIds = (poderesRows ?? [])
-      .filter((p) => identificadorCoincide(p.email_receptor, identNorm))
+      .filter((p) => identificadorCoincide(p.email_receptor, ident))
       .map((p) => p.unidad_otorgante_id as string)
 
     const propiasIds = unidadesPropias.map((u) => u.id).filter(Boolean)
@@ -120,10 +75,10 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const byId = new Map((unidadesRows ?? []).map((u: UnidadRow) => [u.id, u]))
+    const byId = new Map((unidadesRows ?? []).map((u: UnidadVotarRow) => [u.id, u]))
     const unidades = todasIds
       .map((id) => byId.get(id))
-      .filter((u): u is UnidadRow => !!u)
+      .filter((u): u is UnidadVotarRow => !!u)
       .map((u) => ({
         id: u.id,
         torre: u.torre,

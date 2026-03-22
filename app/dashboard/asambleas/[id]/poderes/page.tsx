@@ -183,12 +183,13 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
   // Estados para búsqueda y filtros
   const [searchTerm, setSearchTerm] = useState('')
-  /** Solo activos o incluir revocados / histórico */
-  const [filtroEstadoPoder, setFiltroEstadoPoder] = useState<'activos' | 'todos'>('activos')
+  /** Vigentes, pendientes de verificar o histórico completo */
+  const [filtroEstadoPoder, setFiltroEstadoPoder] = useState<'activos' | 'pendientes' | 'todos'>('activos')
   /** Filtrar por unidad que otorga el poder (UUID) */
   const [filtroUnidadOtorganteId, setFiltroUnidadOtorganteId] = useState<string>('')
   const [revocandoPoderId, setRevocandoPoderId] = useState<string | null>(null)
   const [revocando, setRevocando] = useState(false)
+  const [activandoPoderId, setActivandoPoderId] = useState<string | null>(null)
   const [guiaModalOpen, setGuiaModalOpen] = useState(false)
 
   useEffect(() => {
@@ -694,6 +695,41 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     }
   }
 
+  const handleActivarPoderPendiente = async (poderId: string) => {
+    if (!asamblea?.organization_id) return
+    const poder = poderes.find((p) => p.id === poderId)
+    if (!poder || poder.estado !== 'pendiente_verificacion') return
+
+    setActivandoPoderId(poderId)
+    try {
+      const { data: val, error: valErr } = await supabase.rpc('validar_limite_poderes', {
+        p_asamblea_id: params.id,
+        p_email_receptor: poder.email_receptor,
+        p_organization_id: asamblea.organization_id,
+      })
+      if (valErr) throw valErr
+      const r = val?.[0] as { puede_recibir_poder?: boolean; mensaje?: string }
+      if (!r?.puede_recibir_poder) {
+        toast.error(r?.mensaje ?? 'El apoderado alcanzó el límite de poderes activos en esta asamblea.')
+        return
+      }
+
+      const { error } = await supabase.from('poderes').update({ estado: 'activo' }).eq('id', poderId)
+      if (error) throw error
+
+      setSuccessMessage('Poder verificado y activado para votación')
+      setTimeout(() => setSuccessMessage(''), 4000)
+      toast.success('Poder activado')
+      await loadPoderes()
+      await loadResumen()
+    } catch (error: unknown) {
+      const e = error as { message?: string; code?: string }
+      toast.error('No se pudo activar: ' + mensajeErrorInsertPoder(e))
+    } finally {
+      setActivandoPoderId(null)
+    }
+  }
+
   const matchUnidad = (u: Unidad, search: string) => {
     if (!search.trim()) return true
     if (matchesTorreUnidadSearch(u.torre, u.numero, search)) return true
@@ -708,6 +744,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
   const filteredPoderes = poderes.filter((p) => {
     if (filtroEstadoPoder === 'activos' && p.estado !== 'activo') return false
+    if (filtroEstadoPoder === 'pendientes' && p.estado !== 'pendiente_verificacion') return false
     if (filtroUnidadOtorganteId && p.unidad_otorgante_id !== filtroUnidadOtorganteId) return false
     if (!searchTerm.trim()) return true
     const term = searchTerm.toLowerCase().trim()
@@ -882,6 +919,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
             • El voto del apoderado representa la suma de su coeficiente más el de todas las unidades que representa
             <br />
             • Los poderes activos se pueden <strong>editar</strong> (corregir apoderado o unidad) o revocar antes de la votación
+            <br />
+            • Los votantes pueden <strong>declarar un poder recibido</strong> desde «Mis datos»; queda <strong>pendiente de verificación</strong> hasta que usted lo active aquí (tras revisar documento o acta física)
           </AlertDescription>
         </Alert>
 
@@ -913,18 +952,21 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                 ))}
               </select>
               <select
-                title="Mostrar solo poderes vigentes o también revocados"
+                title="Filtrar por estado del poder"
                 value={filtroEstadoPoder}
-                onChange={(e) => setFiltroEstadoPoder(e.target.value as 'activos' | 'todos')}
+                onChange={(e) =>
+                  setFiltroEstadoPoder(e.target.value as 'activos' | 'pendientes' | 'todos')
+                }
                 className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm px-3 py-2"
               >
                 <option value="activos">Solo vigentes</option>
-                <option value="todos">Incluir revocados</option>
+                <option value="pendientes">Pendientes de verificar</option>
+                <option value="todos">Todos (incl. revocados)</option>
               </select>
             </div>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Tip: elige “Unidad otorgante” para ver solo los poderes de ese apto; o “Incluir revocados” para auditoría.
+            Tip: elige “Unidad otorgante” para filtrar por apartamento; “Pendientes de verificar” para activar solicitudes enviadas desde la votación; “Todos” para auditoría.
           </p>
         </div>
 
@@ -1094,6 +1136,14 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                           <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                             Activo
                           </span>
+                        ) : poder.estado === 'pendiente_verificacion' ? (
+                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-300">
+                            Pendiente verificación
+                          </span>
+                        ) : poder.estado === 'usado' ? (
+                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            Usado
+                          </span>
                         ) : (
                           <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
                             Revocado
@@ -1126,6 +1176,34 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                             >
                               <XCircle className="w-4 h-4 mr-1" />
                               Revocar
+                            </Button>
+                          </div>
+                        )}
+                        {poder.estado === 'pendiente_verificacion' && (
+                          <div className="flex flex-wrap gap-2 justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                asamblea?.estado !== 'finalizada' && handleActivarPoderPendiente(poder.id)
+                              }
+                              disabled={asamblea?.estado === 'finalizada' || activandoPoderId === poder.id}
+                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                              title="Validar contra documento o acta y activar para votación"
+                            >
+                              <ClipboardCheck className="w-4 h-4 mr-1" />
+                              {activandoPoderId === poder.id ? '…' : 'Activar'}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => asamblea?.estado !== 'finalizada' && handleRevocarPoder(poder.id)}
+                              disabled={asamblea?.estado === 'finalizada'}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              title="Rechazar la solicitud"
+                            >
+                              <XCircle className="w-4 h-4 mr-1" />
+                              Rechazar
                             </Button>
                           </div>
                         )}

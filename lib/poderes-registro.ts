@@ -5,8 +5,11 @@ export function mensajeErrorInsertPoder(err: { message?: string; code?: string }
   const m = String(err.message || '').toLowerCase()
   const code = String(err.code || '')
   if (code === '23505' || m.includes('duplicate key') || m.includes('poderes_activo') || m.includes('unique')) {
-    if (m.includes('poderes_activo_otorgante_email_receptor')) {
-      return 'Ya hay un poder activo desde esa unidad que delega hacia el mismo apoderado (mismo correo o identificación). Revoca el anterior o edita el registro.'
+    if (
+      m.includes('poderes_activo_otorgante_email_receptor') ||
+      m.includes('poderes_activo_o_pendiente_otorgante_email')
+    ) {
+      return 'Ya hay un poder activo o una solicitud pendiente desde esa unidad hacia el mismo apoderado (mismo correo o identificación). Revoca el anterior, espera la verificación o edita el registro.'
     }
     return 'Esa unidad que delega ya tiene un poder activo en esta asamblea: cada apartamento solo puede otorgar una delegación vigente a la vez. Revócalo o edítalo para cambiar de apoderado. El mismo apoderado sí puede recibir varios poderes si vienen de apartamentos distintos (hasta el límite por apoderado).'
   }
