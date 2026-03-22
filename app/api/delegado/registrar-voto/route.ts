@@ -3,15 +3,16 @@ import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * POST /api/delegado/registrar-voto
- * El asistente delegado vota en nombre de una unidad.
+ * El asistente delegado vota en nombre de una o varias unidades.
  * Autenticación: token UUID almacenado en asambleas.token_delegado.
  *
  * Body: {
  *   asamblea_id: string,
  *   token: string,
- *   unidad_id: string,
+ *   unidad_id?: string,
+ *   unidad_ids?: string[],
  *   votante_email?: string,
- *   votante_nombre: string,
+ *   votante_nombre?: string,
  *   votos: Array<{ pregunta_id: string; opcion_id: string }>
  * }
  *
@@ -21,22 +22,27 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}))
-    const { asamblea_id, token, unidad_id, votante_email, votante_nombre, votos } = body as {
+    const { asamblea_id, token, unidad_id, unidad_ids, votante_email, votante_nombre, votos } = body as {
       asamblea_id?: string
       token?: string
       unidad_id?: string
+      unidad_ids?: string[]
       votante_email?: string
       votante_nombre?: string
       votos?: Array<{ pregunta_id: string; opcion_id: string }>
     }
 
     const validUUID = /^[0-9a-f-]{36}$/i
+    const idsFromBody = Array.isArray(unidad_ids)
+      ? unidad_ids.filter((x) => typeof x === 'string' && validUUID.test(x.trim())).map((x) => x.trim())
+      : []
+    const unidadIds = idsFromBody.length > 0 ? idsFromBody : unidad_id && validUUID.test(unidad_id.trim()) ? [unidad_id.trim()] : []
+
     if (
-      !asamblea_id || !token || !unidad_id ||
+      !asamblea_id || !token || unidadIds.length === 0 ||
       !Array.isArray(votos) || votos.length === 0 ||
       !validUUID.test(asamblea_id.trim()) ||
-      !validUUID.test(token.trim()) ||
-      !validUUID.test(unidad_id.trim())
+      !validUUID.test(token.trim())
     ) {
       return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
     }
@@ -62,15 +68,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 403 })
     }
 
-    // Verificar que la unidad pertenece a la organización
-    const { data: unidad } = await admin
+    const { data: unidadesRows } = await admin
       .from('unidades')
       .select('id, organization_id, email, email_propietario, nombre_propietario')
-      .eq('id', unidad_id.trim())
+      .in('id', unidadIds)
       .eq('organization_id', asamblea.organization_id)
-      .single()
 
-    if (!unidad) return NextResponse.json({ error: 'Unidad no válida para esta asamblea' }, { status: 400 })
+    if (!unidadesRows || unidadesRows.length !== unidadIds.length) {
+      return NextResponse.json({ error: 'Una o más unidades no son válidas para esta asamblea' }, { status: 400 })
+    }
+
+    const unidadesById = new Map(unidadesRows.map((u) => [u.id, u]))
 
     // Verificar que las preguntas pertenecen a la asamblea y están abiertas
     const { data: preguntas } = await admin
@@ -93,11 +101,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const email = String(votante_email || unidad.email_propietario || unidad.email || `unidad-${unidad_id.trim()}@registro-delegado.local`)
-      .toLowerCase()
-      .trim()
-    const nombre = (votante_nombre || unidad.nombre_propietario || 'Residente').trim()
-    const nombreAudit = `${nombre} (registrado por asistente delegado)`
     const userAgentAudit = '[Registrado por asistente delegado]'
     const ip =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -105,27 +108,67 @@ export async function POST(request: NextRequest) {
       request.headers.get('x-real-ip') ||
       null
 
-    const results: Array<{ pregunta_id: string; success: boolean; error?: string }> = []
+    type RpcResult = { unidad_id: string; pregunta_id: string; success: boolean; error?: string }
+    const tareas: Array<{ unidadId: string; v: { pregunta_id: string; opcion_id: string } }> = []
+    for (const uid of unidadIds) {
+      for (const v of votos) {
+        tareas.push({ unidadId: uid, v })
+      }
+    }
 
-    for (const v of votos) {
-      const { error } = await admin.rpc('registrar_voto_con_trazabilidad', {
-        p_pregunta_id: v.pregunta_id,
-        p_unidad_id: unidad_id.trim(),
-        p_opcion_id: v.opcion_id,
-        p_votante_email: email,
-        p_votante_nombre: nombreAudit,
-        p_es_poder: false,
-        p_poder_id: null,
-        p_ip_address: ip,
-        p_user_agent: userAgentAudit,
-      })
+    const CONCURRENCY = 12
+    const results: RpcResult[] = []
+    for (let i = 0; i < tareas.length; i += CONCURRENCY) {
+      const chunk = tareas.slice(i, i + CONCURRENCY)
+      const chunkOut = await Promise.all(
+        chunk.map(async ({ unidadId, v }) => {
+          const unidad = unidadesById.get(unidadId)
+          const email = String(
+            votante_email || unidad?.email_propietario || unidad?.email || `unidad-${unidadId}@registro-delegado.local`
+          )
+            .toLowerCase()
+            .trim()
+          const nombre = (votante_nombre || unidad?.nombre_propietario || 'Residente').trim()
+          const nombreAudit = `${nombre} (registrado por asistente delegado)`
 
-      results.push({ pregunta_id: v.pregunta_id, success: !error, error: error?.message })
+          const { error } = await admin.rpc('registrar_voto_con_trazabilidad', {
+            p_pregunta_id: v.pregunta_id,
+            p_unidad_id: unidadId,
+            p_opcion_id: v.opcion_id,
+            p_votante_email: email,
+            p_votante_nombre: nombreAudit,
+            p_es_poder: false,
+            p_poder_id: null,
+            p_ip_address: ip,
+            p_user_agent: userAgentAudit,
+          })
+
+          if (error) {
+            return {
+              unidad_id: unidadId,
+              pregunta_id: v.pregunta_id,
+              success: false,
+              error: error.message,
+            } as RpcResult
+          }
+          return { unidad_id: unidadId, pregunta_id: v.pregunta_id, success: true } as RpcResult
+        })
+      )
+      results.push(...chunkOut)
     }
 
     const allOk = results.every((r) => r.success)
+    const okCount = results.filter((r) => r.success).length
     return NextResponse.json(
-      { success: allOk, results, message: allOk ? 'Votos registrados correctamente' : 'Algunos votos no se registraron' },
+      {
+        success: allOk,
+        results,
+        total_intentos: results.length,
+        total_ok: okCount,
+        message: allOk
+          ? 'Votos registrados correctamente'
+          : `Registro parcial: ${okCount}/${results.length} votos`,
+      },
       { status: allOk ? 200 : 207 }
     )
   } catch (e) {

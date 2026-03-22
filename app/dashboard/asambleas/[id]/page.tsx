@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -38,7 +38,9 @@ import {
   ShieldAlert,
   Link2,
   Link2Off,
-  RefreshCw
+  RefreshCw,
+  Vote,
+  Search
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -50,6 +52,7 @@ import { getEffectivePlanLimits } from '@/lib/plan-limits'
 import { useToast } from '@/components/providers/ToastProvider'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { buildPublicAsistirUrl, buildPublicVotarUrl } from '@/lib/publicVotarUrl'
+import { matchesUnidadBusquedaCompleta } from '@/lib/matchUnidadSearch'
 
 /** URL canónica del sitio para enlaces de votación (WhatsApp, correo, copiar). Ver https://www.asamblea.online */
 const SITE_URL = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL)
@@ -254,11 +257,26 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   // Registrar voto a nombre de un residente (admin)
   const [showRegistroVotoAdmin, setShowRegistroVotoAdmin] = useState(false)
-  const [unidadesParaVoto, setUnidadesParaVoto] = useState<Array<{ id: string; torre: string; numero: string; email?: string | null; email_propietario?: string | null; nombre_propietario?: string | null }>>([])
+  const [unidadesParaVoto, setUnidadesParaVoto] = useState<
+    Array<{
+      id: string
+      torre: string
+      numero: string
+      coeficiente?: number
+      email?: string | null
+      email_propietario?: string | null
+      nombre_propietario?: string | null
+    }>
+  >([])
   const [unidadesRegistroSeleccionadas, setUnidadesRegistroSeleccionadas] = useState<string[]>([])
   const [searchUnidadesRegistro, setSearchUnidadesRegistro] = useState('')
   const [votanteNombreRegistro, setVotanteNombreRegistro] = useState('')
-  const [votosRegistroPorPregunta, setVotosRegistroPorPregunta] = useState<Record<string, string>>({})
+  const [votosRegistradosAdmin, setVotosRegistradosAdmin] = useState<
+    Array<{ unidad_id: string; pregunta_id: string; es_poder?: boolean }>
+  >([])
+  const [registroAdminPreguntaId, setRegistroAdminPreguntaId] = useState('')
+  const [registroAdminOpcionId, setRegistroAdminOpcionId] = useState('')
+  const [loadingRegistroVotoModal, setLoadingRegistroVotoModal] = useState(false)
   const [savingRegistroVoto, setSavingRegistroVoto] = useState(false)
 
   // Enviar enlace a cada unidad (WhatsApp o correo por separado)
@@ -919,30 +937,61 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const preguntasAbiertas = preguntas.filter((p) => p.estado === 'abierta')
 
+  const unidadesListaRegistroVoto = useMemo(() => {
+    const pid = registroAdminPreguntaId
+    if (!pid) return []
+    return unidadesParaVoto.filter((u) => {
+      if (votosRegistradosAdmin.some((v) => v.unidad_id === u.id && v.pregunta_id === pid)) return false
+      const uBus = { ...u, email_propietario: u.email_propietario || u.email }
+      return matchesUnidadBusquedaCompleta(uBus, searchUnidadesRegistro)
+    })
+  }, [unidadesParaVoto, votosRegistradosAdmin, registroAdminPreguntaId, searchUnidadesRegistro])
+
   const handleAbrirRegistroVotoAdmin = async () => {
     if (!asamblea?.organization_id) return
-    // No se exigen tokens para entrar ni para registrar votos; solo al activar o generar acta
     setShowRegistroVotoAdmin(true)
     setUnidadesRegistroSeleccionadas([])
     setSearchUnidadesRegistro('')
     setVotanteNombreRegistro('')
-    setVotosRegistroPorPregunta({})
+    setRegistroAdminOpcionId('')
+    setVotosRegistradosAdmin([])
+    const abiertasIds = preguntas.filter((p) => p.estado === 'abierta').map((p) => p.id)
+    setRegistroAdminPreguntaId(abiertasIds[0] ?? '')
+    setLoadingRegistroVotoModal(true)
     try {
       let query = supabase
         .from('unidades')
-        .select('id, torre, numero, email, email_propietario, nombre_propietario')
+        .select('id, torre, numero, coeficiente, email, email_propietario, nombre_propietario')
         .eq('organization_id', asamblea.organization_id)
-      // Asamblea real: solo unidades NO demo. Sandbox: demo o reales según sandbox_usar_unidades_reales
       if (soloUnidadesDemo) {
         query = query.eq('is_demo', true)
       } else {
         query = query.or('is_demo.eq.false,is_demo.is.null')
       }
-      const { data } = await query.order('torre').order('numero')
-      setUnidadesParaVoto(data ?? [])
+      const { data: unidadesData } = await query.order('torre').order('numero')
+      setUnidadesParaVoto(unidadesData ?? [])
+
+      if (abiertasIds.length > 0) {
+        const { data: vRows } = await supabase
+          .from('votos')
+          .select('unidad_id, pregunta_id, es_poder')
+          .in('pregunta_id', abiertasIds)
+        setVotosRegistradosAdmin(
+          (vRows || []).map((v: { unidad_id: string; pregunta_id: string; es_poder?: boolean | null }) => ({
+            unidad_id: v.unidad_id,
+            pregunta_id: v.pregunta_id,
+            es_poder: !!v.es_poder,
+          }))
+        )
+      } else {
+        setVotosRegistradosAdmin([])
+      }
     } catch (e) {
       console.error('Error cargando unidades:', e)
       setUnidadesParaVoto([])
+      setVotosRegistradosAdmin([])
+    } finally {
+      setLoadingRegistroVotoModal(false)
     }
   }
 
@@ -953,14 +1002,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   }
 
   const toggleSeleccionarTodasRegistro = () => {
-    const visibles = unidadesParaVoto
-      .filter((u) =>
-        `${u.torre || ''} ${u.numero || ''} ${u.nombre_propietario || ''} ${u.email_propietario || u.email || ''}`
-          .toLowerCase()
-          .includes(searchUnidadesRegistro.trim().toLowerCase())
-      )
-      .map((u) => u.id)
+    const visibles = unidadesListaRegistroVoto.map((u) => u.id)
     const todasVisiblesSeleccionadas = visibles.length > 0 && visibles.every((id) => unidadesRegistroSeleccionadas.includes(id))
+    if (!todasVisiblesSeleccionadas && visibles.length > 0 && !window.confirm('¿Seleccionar todas las unidades mostradas?')) return
     setUnidadesRegistroSeleccionadas((prev) => {
       if (todasVisiblesSeleccionadas) return prev.filter((id) => !visibles.includes(id))
       return Array.from(new Set([...prev, ...visibles]))
@@ -972,13 +1016,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       toast.error('Selecciona al menos una unidad.')
       return
     }
-    const votosPayload = preguntasAbiertas
-      .filter((p) => votosRegistroPorPregunta[p.id])
-      .map((p) => ({ pregunta_id: p.id, opcion_id: votosRegistroPorPregunta[p.id] }))
-    if (votosPayload.length === 0) {
-      toast.error('Indica al menos un voto para una pregunta abierta.')
+    if (!registroAdminPreguntaId || !registroAdminOpcionId) {
+      toast.error('Selecciona la pregunta y la opción de voto.')
       return
     }
+    const votosPayload = [{ pregunta_id: registroAdminPreguntaId, opcion_id: registroAdminOpcionId }]
     setSavingRegistroVoto(true)
     const controller = new AbortController()
     const timeoutMs = 180000
@@ -1014,8 +1056,22 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         toast.error(msg)
         return
       }
-      const results = Array.isArray(data.results) ? (data.results as { success?: boolean; error?: string }[]) : []
+      const results = Array.isArray(data.results)
+        ? (data.results as { success?: boolean; unidad_id?: string; pregunta_id?: string; error?: string }[])
+        : []
       const fallos = results.filter((r) => r && r.success === false)
+      const ok = results.filter((r) => r.success && r.unidad_id)
+      if (ok.length > 0) {
+        setVotosRegistradosAdmin((prev) => [
+          ...prev,
+          ...ok.map((r) => ({
+            unidad_id: r.unidad_id!,
+            pregunta_id: r.pregunta_id || registroAdminPreguntaId,
+          })),
+        ])
+      }
+      setUnidadesRegistroSeleccionadas([])
+      setRegistroAdminOpcionId('')
       if (fallos.length > 0) {
         const primeros = fallos
           .slice(0, 3)
@@ -1028,7 +1084,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         toast.success((data.message as string) || 'Votos registrados correctamente')
       }
       setSuccessMessage((data.message as string) || 'Votos registrados correctamente')
-      setShowRegistroVotoAdmin(false)
       try {
         loadEstadisticas()
         loadQuorum()
@@ -3781,141 +3836,211 @@ Tu participacion es importante. 🏠`
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Registrar voto a nombre de un residente */}
+      {/* Dialog: Registrar voto a nombre de residentes (mismo flujo que asistente delegado) */}
       <Dialog open={showRegistroVotoAdmin} onOpenChange={setShowRegistroVotoAdmin}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-blue-600" />
-              Registrar votos a nombre de residentes
-            </DialogTitle>
-            <DialogDescription>
-              Flujo masivo para personas que no pueden votar en línea. Selecciona una o varias unidades y registra en lote los votos de las preguntas abiertas; todo queda con trazabilidad.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl p-0 gap-0">
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-4 rounded-t-3xl">
+            <DialogHeader className="space-y-1 text-left">
+              <DialogTitle className="flex items-center gap-2 text-white text-lg font-bold">
+                <Vote className="w-5 h-5 shrink-0" />
+                Registrar votos en asamblea
+              </DialogTitle>
+              <DialogDescription className="text-indigo-100 text-sm">
+                Elige la pregunta, la opción y las unidades que aún no votaron en esa pregunta. Puedes repetir por cada pregunta u opción. Trazabilidad como administrador.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          <div className="space-y-4 pt-2">
-            <div>
-              <Label className="text-gray-700 dark:text-gray-300">Seleccionar unidades (masivo)</Label>
-              <div className="mt-1 space-y-2">
-                <Input
-                  type="text"
-                  value={searchUnidadesRegistro}
-                  onChange={(e) => setSearchUnidadesRegistro(e.target.value)}
-                  placeholder="Buscar por torre, número, nombre o email"
-                />
-                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                  <span>{unidadesRegistroSeleccionadas.length} seleccionada(s)</span>
-                  <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={toggleSeleccionarTodasRegistro}>
-                    Seleccionar / quitar visibles
-                  </Button>
+          <div className="p-4 space-y-4">
+            {loadingRegistroVotoModal ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">Cargando unidades y estado de votos…</p>
+            ) : preguntasAbiertas.length === 0 ? (
+              <p className="text-sm text-gray-500">No hay preguntas con votación abierta.</p>
+            ) : (
+              <>
+                <div>
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">Pregunta</span>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {preguntasAbiertas.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setRegistroAdminPreguntaId(p.id)
+                          setRegistroAdminOpcionId('')
+                          setUnidadesRegistroSeleccionadas([])
+                        }}
+                        className={`w-full text-left px-4 py-3 rounded-2xl border text-sm font-medium transition-colors ${
+                          registroAdminPreguntaId === p.id
+                            ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-400 text-indigo-800 dark:text-indigo-200'
+                            : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        {p.texto_pregunta}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="max-h-44 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 p-2 space-y-1">
-                  {unidadesParaVoto
-                    .filter((u) =>
-                      `${u.torre || ''} ${u.numero || ''} ${u.nombre_propietario || ''} ${u.email_propietario || u.email || ''}`
-                        .toLowerCase()
-                        .includes(searchUnidadesRegistro.trim().toLowerCase())
-                    )
-                    .map((u) => {
-                      const checked = unidadesRegistroSeleccionadas.includes(u.id)
-                      const email = (u.email_propietario || u.email || '').trim()
-                      return (
-                        <label key={u.id} className="flex items-start gap-2 rounded px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleUnidadRegistro(u.id)}
-                            className="mt-0.5 rounded border-gray-300"
-                          />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">
-                            <strong>{u.torre || '—'} - {u.numero || '—'}</strong>
-                            <span className="block text-xs text-gray-500 dark:text-gray-400">
-                              {u.nombre_propietario || 'Sin nombre'}{email ? ` · ${email}` : ' · Sin email'}
-                            </span>
-                          </span>
-                        </label>
-                      )
-                    })}
-                </div>
-              </div>
-            </div>
 
-            <div>
-              <Label className="text-gray-700 dark:text-gray-300">Nombre del residente (opcional)</Label>
-              <Input
-                type="text"
-                value={votanteNombreRegistro}
-                onChange={(e) => setVotanteNombreRegistro(e.target.value)}
-                placeholder="Nombre del propietario o residente"
-                className="mt-1"
-              />
-            </div>
-
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">Votos por pregunta abierta</p>
-              {preguntasAbiertas.length === 0 ? (
-                <p className="text-sm text-gray-500">No hay preguntas con votación abierta.</p>
-              ) : (
-                <div className="space-y-3">
-                  {preguntasAbiertas.map((p) => {
-                    const opciones = opcionesPreguntas[p.id] ?? []
-                    return (
-                      <div key={p.id} className="bg-gray-50 dark:bg-gray-800/50 rounded-3xl p-3">
-                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 line-clamp-2">
-                          {p.texto_pregunta}
-                        </p>
-                        <select
-                          value={votosRegistroPorPregunta[p.id] ?? ''}
-                          onChange={(e) =>
-                            setVotosRegistroPorPregunta((prev) => ({
-                              ...prev,
-                              [p.id]: e.target.value,
-                            }))
-                          }
-                          className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-white"
-                        >
-                          <option value="">Selecciona opción</option>
-                          {opciones.filter((o) => o.id).map((o) => (
-                            <option key={o.id!} value={o.id}>
-                              {o.texto_opcion}
-                            </option>
+                {registroAdminPreguntaId && (
+                  <>
+                    <div>
+                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">Opción a votar</span>
+                      <div className="flex flex-wrap gap-2">
+                        {(opcionesPreguntas[registroAdminPreguntaId] ?? [])
+                          .filter((o) => o.id)
+                          .map((opc) => (
+                            <button
+                              key={opc.id}
+                              type="button"
+                              onClick={() => setRegistroAdminOpcionId(opc.id!)}
+                              className={`px-4 py-2 rounded-full border-2 text-sm font-semibold transition-all ${
+                                registroAdminOpcionId === opc.id
+                                  ? 'border-indigo-600 bg-indigo-600 text-white shadow-md scale-105'
+                                  : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-indigo-400'
+                              }`}
+                            >
+                              {opc.texto_opcion}
+                            </button>
                           ))}
-                        </select>
                       </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+                    </div>
 
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setShowRegistroVotoAdmin(false)}
-                disabled={savingRegistroVoto}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleRegistrarVotoAdmin}
-                disabled={savingRegistroVoto || unidadesRegistroSeleccionadas.length === 0}
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
-              >
-                {savingRegistroVoto ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    Registrando...
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Registrar votos
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Unidades a votar</span>
+                        <span className="text-xs text-gray-400">
+                          {unidadesParaVoto.filter(
+                            (u) =>
+                              !votosRegistradosAdmin.some((v) => v.unidad_id === u.id && v.pregunta_id === registroAdminPreguntaId)
+                          ).length}{' '}
+                          pendientes
+                        </span>
+                      </div>
+                      <div className="relative mb-2">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        <Input
+                          type="text"
+                          value={searchUnidadesRegistro}
+                          onChange={(e) => setSearchUnidadesRegistro(e.target.value)}
+                          placeholder="Torre, número, nombre o correo…"
+                          className="pl-9 rounded-2xl"
+                        />
+                      </div>
+                      {unidadesListaRegistroVoto.length > 0 && (
+                        <div className="flex items-center justify-between text-xs mb-2">
+                          <button
+                            type="button"
+                            className="text-indigo-600 dark:text-indigo-400 underline underline-offset-2"
+                            onClick={toggleSeleccionarTodasRegistro}
+                          >
+                            {unidadesListaRegistroVoto.every((u) => unidadesRegistroSeleccionadas.includes(u.id)) &&
+                            unidadesListaRegistroVoto.length > 0
+                              ? 'Deseleccionar todas'
+                              : 'Seleccionar todas'}
+                          </button>
+                          <span className="text-gray-500 dark:text-gray-400">{unidadesRegistroSeleccionadas.length} seleccionada(s)</span>
+                        </div>
+                      )}
+                      <div className="max-h-48 overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700 p-2 space-y-1">
+                        {unidadesListaRegistroVoto.length === 0 ? (
+                          <p className="text-sm text-center text-gray-500 dark:text-gray-400 py-4">
+                            {unidadesParaVoto.every((u) =>
+                              votosRegistradosAdmin.some((v) => v.unidad_id === u.id && v.pregunta_id === registroAdminPreguntaId)
+                            )
+                              ? 'Todas las unidades ya votaron en esta pregunta.'
+                              : 'Sin coincidencias con la búsqueda.'}
+                          </p>
+                        ) : (
+                          unidadesListaRegistroVoto.map((u) => {
+                            const checked = unidadesRegistroSeleccionadas.includes(u.id)
+                            return (
+                              <label
+                                key={u.id}
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer transition-colors border ${
+                                  checked
+                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-300 dark:border-indigo-700'
+                                    : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleUnidadRegistro(u.id)}
+                                  className="w-4 h-4 accent-indigo-600 cursor-pointer"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                    {u.torre && u.torre !== 'S/T' ? `T${u.torre} · ` : ''}Apto {u.numero}
+                                  </span>
+                                  <span className="block text-xs text-gray-500 truncate">{u.nombre_propietario || 'Sin nombre'}</span>
+                                </div>
+                                {typeof u.coeficiente === 'number' && (
+                                  <span className="text-xs text-gray-400 shrink-0">{u.coeficiente.toFixed(3)}%</span>
+                                )}
+                              </label>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
                   </>
                 )}
-              </Button>
-            </div>
+
+                <div>
+                  <Label className="text-gray-700 dark:text-gray-300">Nombre en acta (opcional)</Label>
+                  <Input
+                    type="text"
+                    value={votanteNombreRegistro}
+                    onChange={(e) => setVotanteNombreRegistro(e.target.value)}
+                    placeholder="Si no indicas, se usa el nombre registrado en cada unidad"
+                    className="mt-1 rounded-2xl"
+                  />
+                </div>
+
+                {registroAdminPreguntaId && (!registroAdminOpcionId || unidadesRegistroSeleccionadas.length === 0) && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+                    {!registroAdminOpcionId ? 'Selecciona una opción de voto' : 'Selecciona al menos una unidad'}
+                  </p>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowRegistroVotoAdmin(false)}
+                    disabled={savingRegistroVoto}
+                    className="flex-1 rounded-2xl"
+                  >
+                    Cerrar
+                  </Button>
+                  <Button
+                    onClick={handleRegistrarVotoAdmin}
+                    disabled={
+                      savingRegistroVoto ||
+                      unidadesRegistroSeleccionadas.length === 0 ||
+                      !registroAdminOpcionId ||
+                      !registroAdminPreguntaId
+                    }
+                    className="flex-1 rounded-2xl bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    {savingRegistroVoto ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2 inline-block" />
+                        Registrando...
+                      </>
+                    ) : (
+                      <>
+                        <Vote className="w-4 h-4 mr-2 inline" />
+                        Registrar{' '}
+                        {unidadesRegistroSeleccionadas.length > 0
+                          ? `${unidadesRegistroSeleccionadas.length} voto${unidadesRegistroSeleccionadas.length !== 1 ? 's' : ''}`
+                          : 'votos'}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>

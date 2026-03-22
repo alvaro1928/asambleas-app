@@ -538,39 +538,47 @@ export default function AsistirPage() {
     if (selVotacion.size === 0 || !opcionSeleccionada || guardandoVoto || !asamblea) return
     setGuardandoVoto(true)
     setMsgVotacion(null)
-    let exitos = 0
-    let errores = 0
     const unidadesAVotar = Array.from(selVotacion)
-    for (const unidad_id of unidadesAVotar) {
-      const unidad = unidades.find((u) => u.id === unidad_id)
+    try {
       const res = await fetch('/api/delegado/registrar-voto', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           asamblea_id: asamblea.asamblea_id,
           token,
-          unidad_id,
-          votante_email: unidad?.email_propietario || 'asistente.delegado@sistema',
-          votante_nombre: unidad?.nombre_propietario || 'Residente',
+          unidad_ids: unidadesAVotar,
           votos: [{ pregunta_id: preguntaActiva, opcion_id: opcionSeleccionada }],
         }),
       })
-      const data = await res.json()
-      if (data.success) {
-        exitos++
-        setVotosRegistrados((prev) => [...prev, { unidad_id, pregunta_id: preguntaActiva }])
-      } else {
-        errores++
+      const data = await res.json().catch(() => ({}))
+      const results = Array.isArray(data.results) ? (data.results as { success?: boolean; unidad_id?: string; pregunta_id?: string }[]) : []
+      const ok = results.filter((r) => r.success && r.unidad_id)
+      const nOk = ok.length
+      const nFail = Math.max(0, results.length - nOk)
+      if (nOk > 0) {
+        setVotosRegistrados((prev) => [
+          ...prev,
+          ...ok.map((r) => ({ unidad_id: r.unidad_id!, pregunta_id: r.pregunta_id || preguntaActiva })),
+        ])
       }
+      setSelVotacion(new Set())
+      setOpcionSeleccionada('')
+      if (res.ok && data.success) {
+        setMsgVotacion({ tipo: 'ok', texto: `✓ ${nOk} voto${nOk !== 1 ? 's' : ''} registrado${nOk !== 1 ? 's' : ''} correctamente.` })
+      } else if (res.ok && nOk > 0) {
+        setMsgVotacion({
+          tipo: 'error',
+          texto: `Registro parcial: ${nOk} correcto${nOk !== 1 ? 's' : ''} · ${nFail} fallo${nFail !== 1 ? 's' : ''}.`,
+        })
+      } else {
+        setMsgVotacion({ tipo: 'error', texto: (data.error as string) || 'No se pudieron registrar los votos.' })
+      }
+      void cargarPreguntas()
+    } catch {
+      setMsgVotacion({ tipo: 'error', texto: 'Error de conexión.' })
+    } finally {
+      setGuardandoVoto(false)
     }
-    setSelVotacion(new Set())
-    setOpcionSeleccionada('')
-    if (errores === 0) {
-      setMsgVotacion({ tipo: 'ok', texto: `✓ ${exitos} voto${exitos !== 1 ? 's' : ''} registrado${exitos !== 1 ? 's' : ''} correctamente.` })
-    } else {
-      setMsgVotacion({ tipo: 'error', texto: `${exitos} voto${exitos !== 1 ? 's' : ''} registrado${exitos !== 1 ? 's' : ''}, ${errores} con error.` })
-    }
-    setGuardandoVoto(false)
   }
 
   // ── Renders ───────────────────────────────────────────────────────────────
