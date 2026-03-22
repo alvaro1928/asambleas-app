@@ -985,6 +985,7 @@ export default function AsistirPage() {
                     fullName: texto,
                     porcentaje: Math.round(pct * 100) / 100,
                     votosCantidad: r.votos_cantidad,
+                    coeficienteSum: r.votos_coeficiente,
                     color: r.color,
                     aprueba: preg.umbral_aprobacion != null && pct >= preg.umbral_aprobacion,
                   }
@@ -1013,7 +1014,8 @@ export default function AsistirPage() {
                             key={i}
                             className="inline-flex items-center px-2.5 py-1 rounded-2xl text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700"
                           >
-                            Mayoría alcanzada — {d.name}: {d.porcentaje}% ({d.votosCantidad} {d.votosCantidad !== 1 ? 'votos' : 'voto'})
+                            Mayoría alcanzada — {d.name}: {d.porcentaje}% · {d.votosCantidad}{' '}
+                            {d.votosCantidad !== 1 ? 'unidades' : 'unidad'} · Σ coef. {(d.coeficienteSum ?? 0).toFixed(2)}%
                           </span>
                         ))}
                       </div>

@@ -17,7 +17,10 @@ export interface BarChartData {
   name: string
   fullName: string
   porcentaje: number
+  /** Unidades que votaron esta opción (una fila de voto por unidad). */
   votosCantidad: number
+  /** Suma del coeficiente de esas unidades (% del conjunto). */
+  coeficienteSum?: number
   color: string
   aprueba: boolean
 }
@@ -52,10 +55,16 @@ export default function VotacionBarChart({
           <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 18, fill: '#94a3b8' }} />
           <Tooltip
             formatter={(value: number | undefined, _n?: string, props?: unknown) => {
-              const payload = (props as { payload?: { votosCantidad?: number } })?.payload
-              const votos = payload?.votosCantidad ?? 0
-              const labelTipo = tipoVotacion === 'nominal' ? 'Porcentaje (unidades)' : 'Coeficiente'
-              return [`${value ?? 0}% (${votos} ${votos !== 1 ? 'votos' : 'voto'})`, labelTipo]
+              const payload = (props as { payload?: { votosCantidad?: number; coeficienteSum?: number } })?.payload
+              const unidades = payload?.votosCantidad ?? 0
+              const sumCoef = payload?.coeficienteSum
+              const labelTipo = tipoVotacion === 'nominal' ? 'Sobre unidades del conjunto' : 'Sobre coeficiente total (Ley 675)'
+              const detalleUnidades = `${unidades} ${unidades !== 1 ? 'unidades' : 'unidad'}`
+              const detalleCoef =
+                sumCoef != null && Number.isFinite(sumCoef)
+                  ? ` · Σ coef. ${Number(sumCoef).toFixed(2)}%`
+                  : ''
+              return [`${value ?? 0}% — ${detalleUnidades}${detalleCoef}`, labelTipo]
             }}
             labelFormatter={(_: ReactNode, payload: readonly { payload?: { fullName?: string } }[]) =>
               payload?.[0]?.payload?.fullName ?? ''
@@ -132,10 +141,16 @@ export default function VotacionBarChart({
         />
         <Tooltip
           formatter={(value: number | undefined, _name?: string, props?: unknown) => {
-            const payload = (props as { payload?: { votosCantidad?: number } })?.payload
-            const votos = payload?.votosCantidad ?? 0
-            const labelTipo = tipoVotacion === 'nominal' ? 'Porcentaje (unidades)' : 'Coeficiente'
-            return [`${value ?? 0}% (${votos} ${votos !== 1 ? 'votos' : 'voto'})`, labelTipo]
+            const payload = (props as { payload?: { votosCantidad?: number; coeficienteSum?: number } })?.payload
+            const unidades = payload?.votosCantidad ?? 0
+            const sumCoef = payload?.coeficienteSum
+            const labelTipo = tipoVotacion === 'nominal' ? 'Sobre unidades del conjunto' : 'Sobre coeficiente total (Ley 675)'
+            const detalleUnidades = `${unidades} ${unidades !== 1 ? 'unidades' : 'unidad'}`
+            const detalleCoef =
+              sumCoef != null && Number.isFinite(sumCoef)
+                ? ` · Σ coef. ${Number(sumCoef).toFixed(2)}%`
+                : ''
+            return [`${value ?? 0}% — ${detalleUnidades}${detalleCoef}`, labelTipo]
           }}
           labelFormatter={(_: ReactNode, payload: readonly { payload?: { fullName?: string } }[]) =>
             payload?.[0]?.payload?.fullName ?? ''

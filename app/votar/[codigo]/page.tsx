@@ -2052,27 +2052,36 @@ export default function VotacionPublicaPage() {
                         </div>
                         <div className="p-4 space-y-3">
                           <div>
-                            <div className="flex justify-between text-xs mb-1">
+                            <div className="flex justify-between text-xs mb-1 gap-2">
                               <span className="text-gray-600 dark:text-gray-400">Participación</span>
-                              <span className="font-medium text-gray-800 dark:text-gray-200">{participacion.toFixed(2)}% ({stats.total_votos ?? 0} votos)</span>
+                              <span className="font-medium text-gray-800 dark:text-gray-200 text-right">
+                                {participacion.toFixed(2)}% · {stats.total_votos ?? 0}{' '}
+                                {(stats.total_votos ?? 0) === 1 ? 'unidad' : 'unidades'} · Σ coef.{' '}
+                                {(stats.total_coeficiente ?? 0).toFixed(2)}%
+                              </span>
                             </div>
                             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                               <div className="bg-indigo-500 h-2 rounded-full transition-all duration-500" style={{ width: `${Math.min(participacion, 100)}%` }} />
                             </div>
                           </div>
                           <div className="space-y-2">
-                            {resultados.map((r: { opcion_id?: string; opcion_texto?: string; color?: string; votos_cantidad?: number; porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }, ri: number) => {
+                            {resultados.map((r: { opcion_id?: string; opcion_texto?: string; color?: string; votos_cantidad?: number; votos_coeficiente?: number; porcentaje_coeficiente_total?: number; porcentaje_coeficiente?: number; porcentaje_nominal_total?: number; porcentaje_votos_emitidos?: number }, ri: number) => {
                               const pct = pctRelevante(r, tipoVot)
                               const pasaUmbral = pct >= umbral
+                              const nUnid = r.votos_cantidad ?? 0
+                              const sumCoef = Number(r.votos_coeficiente ?? 0)
                               return (
                                 <div key={r.opcion_id ?? `opt-${index}-${ri}`} className="flex items-center gap-2">
                                   <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: r.color || '#6366f1' }} />
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between text-xs mb-0.5">
+                                    <div className="flex justify-between gap-2 text-xs mb-0.5">
                                       <span className="text-gray-700 dark:text-gray-300 truncate">{r.opcion_texto ?? '—'}</span>
-                                      <span className={`font-medium shrink-0 ml-2 ${pasaUmbral ? 'text-green-600 dark:text-green-400' : ''}`}>
-                                        {pct.toFixed(2)}% ({r.votos_cantidad ?? 0}){pasaUmbral ? ' ✓' : ''}
+                                      <span className={`font-medium shrink-0 text-right ${pasaUmbral ? 'text-green-600 dark:text-green-400' : ''}`}>
+                                        <span className="tabular-nums">{pct.toFixed(2)}%{pasaUmbral ? ' ✓' : ''}</span>
                                       </span>
+                                    </div>
+                                    <div className="flex justify-end text-[10px] text-gray-500 dark:text-gray-400 leading-tight">
+                                      {nUnid} {nUnid === 1 ? 'unidad' : 'unidades'} · Σ coef. {sumCoef.toFixed(2)}%
                                     </div>
                                     <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden relative">
                                       <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: r.color || '#6366f1' }} />
@@ -2163,7 +2172,10 @@ export default function VotacionPublicaPage() {
                                         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
                                           <div className="h-full transition-all duration-500 rounded-full" style={{ width: `${Math.min(porcentaje, 100)}%`, backgroundColor: resultado.color || '#6366f1' }} />
                                         </div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{resultado.votos_cantidad || 0} voto{(resultado.votos_cantidad || 0) !== 1 ? 's' : ''}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                          {(resultado.votos_cantidad || 0) === 1 ? '1 unidad' : `${resultado.votos_cantidad || 0} unidades`} · Σ coef.{' '}
+                                          {Number(resultado.votos_coeficiente ?? 0).toFixed(2)}%
+                                        </p>
                                       </div>
                                     )
                                   })}

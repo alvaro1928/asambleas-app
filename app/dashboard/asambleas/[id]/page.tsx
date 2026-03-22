@@ -3289,24 +3289,26 @@ Tu participacion es importante. 🏠`
                                           {stat.texto_opcion}
                                         </span>
                                       </div>
-                                      <div className="text-right">
+                                      <div className="text-right max-w-[min(100%,14rem)]">
                                         {pregunta.tipo_votacion === 'coeficiente' ? (
                                           <div>
-                                            <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                            <span className="text-sm font-bold text-gray-900 dark:text-white tabular-nums">
                                               {stat.porcentaje_coeficiente}%
                                             </span>
-                                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                                              ({stat.votos_count} votos)
-                                            </span>
+                                            <div className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 leading-snug mt-0.5">
+                                              {stat.votos_count} {stat.votos_count === 1 ? 'unidad' : 'unidades'} · Σ coef.{' '}
+                                              {stat.votos_coeficiente.toFixed(2)}%
+                                            </div>
                                           </div>
                                         ) : (
                                           <div>
-                                            <span className="text-sm font-bold text-gray-900 dark:text-white">
-                                              {stat.votos_count} votos
+                                            <span className="text-sm font-bold text-gray-900 dark:text-white tabular-nums">
+                                              {stat.porcentaje_nominal}%
                                             </span>
-                                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                                              ({stat.porcentaje_nominal}%)
-                                            </span>
+                                            <div className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 leading-snug mt-0.5">
+                                              {stat.votos_count} {stat.votos_count === 1 ? 'unidad' : 'unidades'} · Σ coef.{' '}
+                                              {stat.votos_coeficiente.toFixed(2)}%
+                                            </div>
                                           </div>
                                         )}
                                       </div>
@@ -3338,10 +3340,15 @@ Tu participacion es importante. 🏠`
                                   </div>
                                 )
                               })()}
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-                                {pregunta.tipo_votacion === 'coeficiente'
-                                  ? '📊 Votación ponderada por coeficiente (Ley 675)'
-                                  : '📊 Votación nominal (un voto por unidad)'}
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center space-y-1">
+                                <span className="block">
+                                  {pregunta.tipo_votacion === 'coeficiente'
+                                    ? '📊 Votación ponderada por coeficiente (Ley 675)'
+                                    : '📊 Votación nominal (un voto por unidad)'}
+                                </span>
+                                <span className="block text-[11px] opacity-90">
+                                  Por opción: unidades = cantidad que votó esa opción; Σ coef. = suma del coeficiente de esas unidades (% del conjunto).
+                                </span>
                               </p>
                             </div>
                           )}

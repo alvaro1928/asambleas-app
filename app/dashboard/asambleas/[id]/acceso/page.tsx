@@ -1395,6 +1395,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       fullName: texto,
                       porcentaje: Math.round(pct * 100) / 100,
                       votosCantidad: Number(r.votos_cantidad) || 0,
+                      coeficienteSum: Number(r.votos_coeficiente) || 0,
                       color: r.color,
                       aprueba: preg.umbral_aprobacion != null && pct >= preg.umbral_aprobacion
                     }
@@ -1424,7 +1425,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                               className="inline-flex items-center px-3 py-1.5 rounded-3xl text-sm font-bold text-emerald-200 bg-emerald-900/40 border border-emerald-600"
                               style={{ boxShadow: '0 0 12px rgba(16, 185, 129, 0.4)' }}
                             >
-                              MAYORÍA ALCANZADA — {d.name}: {d.porcentaje}% ({d.votosCantidad} {d.votosCantidad !== 1 ? 'votos' : 'voto'})
+                              MAYORÍA ALCANZADA — {d.name}: {d.porcentaje}% · {d.votosCantidad}{' '}
+                              {d.votosCantidad !== 1 ? 'unidades' : 'unidad'} · Σ coef.{' '}
+                              {(d.coeficienteSum ?? 0).toFixed(2)}%
                             </span>
                           ))}
                         </div>
@@ -1529,6 +1532,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   fullName: r.opcion_texto,
                   porcentaje: Math.round(pct * 100) / 100,
                   votosCantidad: Number(r.votos_cantidad) || 0,
+                  coeficienteSum: Number(r.votos_coeficiente) || 0,
                   color: r.color,
                   aprueba: preg.umbral_aprobacion != null && pct >= preg.umbral_aprobacion
                 }
@@ -1555,7 +1559,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                           className="inline-flex items-center px-4 py-2 rounded-3xl text-base font-bold text-emerald-200 bg-emerald-900/40 border border-emerald-600"
                           style={{ boxShadow: '0 0 16px rgba(16, 185, 129, 0.5)' }}
                         >
-                          MAYORÍA ALCANZADA — {d.fullName}: {d.porcentaje}% ({d.votosCantidad} {d.votosCantidad !== 1 ? 'votos' : 'voto'})
+                          MAYORÍA ALCANZADA — {d.fullName}: {d.porcentaje}% · {d.votosCantidad}{' '}
+                          {d.votosCantidad !== 1 ? 'unidades' : 'unidad'} · Σ coef. {(d.coeficienteSum ?? 0).toFixed(2)}%
                         </span>
                       ))}
                     </div>
