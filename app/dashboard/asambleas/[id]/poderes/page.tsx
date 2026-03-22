@@ -981,17 +981,27 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                           {poder.email_otorgante}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 min-w-[200px]">
+                        {poder.unidad_receptor_id ? (
+                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                            Unidad del apoderado
+                          </div>
+                        ) : (
+                          <div className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-1">
+                            Sin unidad en el conjunto (tercero)
+                          </div>
+                        )}
+                        {poder.unidad_receptor_id && (
+                          <div className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                            {(poder.unidad_receptor_torre && String(poder.unidad_receptor_torre).trim()) || 'S/T'} —{' '}
+                            {(poder.unidad_receptor_numero && String(poder.unidad_receptor_numero).trim()) || 'S/N'}
+                          </div>
+                        )}
                         <div className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-                          {poder.nombre_receptor}
-                          {!poder.unidad_receptor_id && (
-                            <span className="ml-1.5 text-xs font-normal text-amber-600 dark:text-amber-400" title="Poder a nombre de tercero (no es propietario)">
-                              (Tercero)
-                            </span>
-                          )}
+                          {(poder.nombre_receptor && String(poder.nombre_receptor).trim()) || '—'}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {poder.email_receptor}
+                        <div className="text-xs text-gray-500 dark:text-gray-400 break-all">
+                          {(poder.email_receptor && String(poder.email_receptor).trim()) || 'Sin identificador registrado'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
