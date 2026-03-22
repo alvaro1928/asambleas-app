@@ -954,9 +954,12 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700">
+            <div
+              className="max-h-[min(70vh,42rem)] overflow-auto overscroll-contain border-t border-gray-100 dark:border-gray-700/80"
+              title="Desplazamiento horizontal en la barra inferior de este recuadro"
+            >
+              <table className="w-full min-w-[960px]">
+                <thead className="sticky top-0 z-10 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 shadow-sm [&_th]:bg-gray-50 dark:[&_th]:bg-gray-700">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Unidad Otorgante
