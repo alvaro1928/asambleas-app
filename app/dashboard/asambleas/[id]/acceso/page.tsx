@@ -129,6 +129,59 @@ interface PreguntaConResultados {
   estado?: string
 }
 
+/** Totales solo de esta pregunta (el quórum global de la asamblea cuenta votos en cualquier pregunta). */
+function ResumenLineaAvanceGrafica({
+  av,
+  totalUnidadesConjunto,
+  tipoV,
+  size,
+}: {
+  av: PreguntaAvance
+  totalUnidadesConjunto: number | null | undefined
+  tipoV: 'coeficiente' | 'nominal'
+  size: 'sm' | 'md'
+}) {
+  const pend = Math.max(0, 100 - av.porcentaje_participacion)
+  const tu = totalUnidadesConjunto
+  const sinVotar = tu != null && tu >= 0 ? Math.max(0, tu - av.total_votos) : null
+  const cls =
+    size === 'md'
+      ? 'text-sm text-slate-400 leading-snug'
+      : 'text-xs text-slate-400 mt-1 leading-snug'
+  return (
+    <p className={cls}>
+      {tu != null ? (
+        <>
+          <span className="font-bold tabular-nums text-slate-300">{av.total_votos}</span>
+          /<span className="tabular-nums text-slate-300">{tu}</span> en esta pregunta
+          {sinVotar != null && sinVotar > 0 && (
+            <>
+              {' '}
+              · <span className="font-bold tabular-nums">{sinVotar}</span> sin votar
+            </>
+          )}
+          {sinVotar === 0 && tu > 0 && ' · todas las unidades votaron'}
+        </>
+      ) : (
+        <>
+          <span className="font-bold tabular-nums text-slate-300">{av.total_votos}</span>{' '}
+          {av.total_votos === 1 ? 'unidad' : 'unidades'} en esta pregunta
+        </>
+      )}
+      {' · '}
+      {tipoV === 'coeficiente' ? (
+        <>
+          {av.porcentaje_participacion.toFixed(2)}% coeficiente emitido · {pend.toFixed(2)}% pendiente (del conjunto)
+        </>
+      ) : (
+        <>
+          {av.porcentaje_participacion.toFixed(2)}% participación · {pend.toFixed(2)}% pendiente (del conjunto)
+        </>
+      )}
+    </p>
+  )
+}
+
 export default function AsambleaAccesoPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1336,7 +1389,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     Avance de votaciones
                   </CardTitle>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Línea vertical = mayoría necesaria (umbral de cada pregunta). Participación y gráficas se actualizan cada 10 s.
+                    Línea vertical = mayoría necesaria (umbral de cada pregunta). Los totales bajo cada pregunta son solo de esa
+                    pregunta (unidades del conjunto: {quorum?.total_unidades ?? '—'}). Actualización cada 10 s.
                   </p>
                 </div>
                 <Button
@@ -1352,14 +1406,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </Button>
               </CardHeader>
               <CardContent className="p-6 space-y-8">
-                {quorum && (
-                  <div className="flex justify-between text-sm border-b border-[rgba(255,255,255,0.08)] pb-4">
-                    <span className="text-gray-600 dark:text-gray-400">Participación en votación (unidades con al menos un voto)</span>
-                    <span className="font-bold tabular-nums">
-                      {quorum.unidades_votantes} / {quorum.total_unidades}
-                    </span>
-                  </div>
-                )}
                 {preguntasConResultados.map((preg) => {
                   const av = preguntasAvance.find((a) => a.id === preg.id)
                   const pctRelevante = (r: ResultadoOpcion) =>
@@ -1380,28 +1426,18 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   })
                   const umbral = preg.umbral_aprobacion ?? 51
                   const tipoV = (preg.tipo_votacion ?? av?.tipo_votacion ?? 'coeficiente') === 'nominal' ? 'nominal' : 'coeficiente'
-                  const pendAv = av ? Math.max(0, 100 - av.porcentaje_participacion) : 0
                   return (
                     <div key={preg.id} className="space-y-3 min-w-0">
                       <p className="text-base font-semibold text-slate-200 line-clamp-2">
                         {preg.texto_pregunta}
                       </p>
                       {av && (
-                        <p className="text-xs text-slate-400 mt-1 leading-snug">
-                          <span className="font-bold tabular-nums text-slate-300">{av.total_votos}</span>
-                          {' '}
-                          {av.total_votos === 1 ? 'unidad' : 'unidades'}
-                          {' · '}
-                          {tipoV === 'coeficiente' ? (
-                            <>
-                              {av.porcentaje_participacion.toFixed(2)}% coeficiente emitido · {pendAv.toFixed(2)}% pendiente
-                            </>
-                          ) : (
-                            <>
-                              {av.porcentaje_participacion.toFixed(2)}% participación · {pendAv.toFixed(2)}% pendiente
-                            </>
-                          )}
-                        </p>
+                        <ResumenLineaAvanceGrafica
+                          av={av}
+                          totalUnidadesConjunto={quorum?.total_unidades}
+                          tipoV={tipoV}
+                          size="sm"
+                        />
                       )}
                       <div className="h-[320px] min-h-[240px] w-full overflow-x-auto overflow-y-hidden -mx-1 px-1">
                         <div className="h-full min-w-[260px] w-full">
@@ -1496,14 +1532,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             </Button>
           </DialogHeader>
           <div className="space-y-10 pt-4">
-            {quorum && (
-              <div className="flex justify-between text-lg border-b border-[rgba(255,255,255,0.1)] pb-4">
-                <span className="text-gray-600 dark:text-gray-400">Participación en votación (unidades con al menos un voto)</span>
-                <span className="font-bold text-xl tabular-nums">
-                  {quorum.unidades_votantes} / {quorum.total_unidades}
-                </span>
-              </div>
-            )}
             {preguntasConResultados.map((preg) => {
               const av = preguntasAvance.find((a) => a.id === preg.id)
               const pctRelevante = (r: ResultadoOpcion) =>
@@ -1522,28 +1550,18 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               })
               const umbral = preg.umbral_aprobacion ?? 51
               const tipoVModal = (preg.tipo_votacion ?? av?.tipo_votacion ?? 'coeficiente') === 'nominal' ? 'nominal' : 'coeficiente'
-              const pendAvModal = av ? Math.max(0, 100 - av.porcentaje_participacion) : 0
               return (
                 <div key={preg.id} className="space-y-4">
                   <p className="text-xl sm:text-2xl font-bold text-slate-100 leading-snug">
                     {preg.texto_pregunta}
                   </p>
                   {av && (
-                    <p className="text-sm text-slate-400 leading-snug">
-                      <span className="font-bold tabular-nums text-slate-300">{av.total_votos}</span>
-                      {' '}
-                      {av.total_votos === 1 ? 'unidad' : 'unidades'}
-                      {' · '}
-                      {tipoVModal === 'coeficiente' ? (
-                        <>
-                          {av.porcentaje_participacion.toFixed(2)}% coeficiente emitido · {pendAvModal.toFixed(2)}% pendiente
-                        </>
-                      ) : (
-                        <>
-                          {av.porcentaje_participacion.toFixed(2)}% participación · {pendAvModal.toFixed(2)}% pendiente
-                        </>
-                      )}
-                    </p>
+                    <ResumenLineaAvanceGrafica
+                      av={av}
+                      totalUnidadesConjunto={quorum?.total_unidades}
+                      tipoV={tipoVModal}
+                      size="md"
+                    />
                   )}
                   <div className="min-h-[50vh] h-[55vh] w-full">
                     <VotacionBarChart

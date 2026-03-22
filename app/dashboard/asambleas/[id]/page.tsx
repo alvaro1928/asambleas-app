@@ -3309,39 +3309,63 @@ Tu participacion es importante. 🏠`
                                     Total en esta pregunta
                                   </p>
                                   <p className="text-sm text-gray-800 dark:text-gray-200 leading-snug">
-                                    <span className="font-bold tabular-nums">{estadisticasMeta[pregunta.id].total_votos}</span>
-                                    {' '}
-                                    {estadisticasMeta[pregunta.id].total_votos === 1 ? 'unidad ha votado' : 'unidades han votado'}
-                                    {pregunta.tipo_votacion === 'coeficiente' ? (
-                                      <>
-                                        {' · '}
-                                        coeficiente emitido en esta pregunta:{' '}
-                                        <span className="font-bold tabular-nums">
-                                          {estadisticasMeta[pregunta.id].porcentaje_participacion.toFixed(2)}%
-                                        </span>
-                                        {' '}
-                                        del conjunto (100% = total del coeficiente)
-                                        {' · '}
-                                        pendiente:{' '}
-                                        <span className="font-bold tabular-nums">
-                                          {Math.max(
-                                            0,
-                                            100 - estadisticasMeta[pregunta.id].porcentaje_participacion
-                                          ).toFixed(2)}
-                                          %
-                                        </span>
-                                        {' '}
-                                        del coeficiente
-                                      </>
-                                    ) : (
-                                      <>
-                                        {' · '}
-                                        participación nominal sobre unidades del conjunto:{' '}
-                                        <span className="font-bold tabular-nums">
-                                          {estadisticasMeta[pregunta.id].porcentaje_participacion.toFixed(2)}%
-                                        </span>
-                                      </>
-                                    )}
+                                    {(() => {
+                                      const m = estadisticasMeta[pregunta.id]
+                                      const tu = quorum?.total_unidades
+                                      const tv = m.total_votos
+                                      const sinV = tu != null ? Math.max(0, tu - tv) : null
+                                      const pend = Math.max(0, 100 - m.porcentaje_participacion)
+                                      return (
+                                        <>
+                                          {tu != null ? (
+                                            <>
+                                              <span className="font-bold tabular-nums">{tv}</span>
+                                              /<span className="tabular-nums">{tu}</span> en esta pregunta
+                                              {sinV != null && sinV > 0 && (
+                                                <>
+                                                  {' '}
+                                                  · <span className="font-bold tabular-nums">{sinV}</span> sin votar
+                                                </>
+                                              )}
+                                              {sinV === 0 && tu > 0 && ' · todas las unidades votaron'}
+                                            </>
+                                          ) : (
+                                            <>
+                                              <span className="font-bold tabular-nums">{tv}</span>
+                                              {' '}
+                                              {tv === 1 ? 'unidad ha votado' : 'unidades han votado'}
+                                            </>
+                                          )}
+                                          {pregunta.tipo_votacion === 'coeficiente' ? (
+                                            <>
+                                              {' · '}
+                                              <span className="font-bold tabular-nums">
+                                                {m.porcentaje_participacion.toFixed(2)}%
+                                              </span>
+                                              {' '}
+                                              coeficiente emitido ·{' '}
+                                              <span className="font-bold tabular-nums">{pend.toFixed(2)}%</span> pendiente
+                                              (del conjunto)
+                                            </>
+                                          ) : (
+                                            <>
+                                              {' · '}
+                                              participación nominal sobre unidades del conjunto:{' '}
+                                              <span className="font-bold tabular-nums">
+                                                {m.porcentaje_participacion.toFixed(2)}%
+                                              </span>
+                                              {tu != null && (
+                                                <>
+                                                  {' '}
+                                                  · <span className="font-bold tabular-nums">{pend.toFixed(2)}%</span>{' '}
+                                                  pendiente
+                                                </>
+                                              )}
+                                            </>
+                                          )}
+                                        </>
+                                      )
+                                    })()}
                                   </p>
                                 </div>
                               )}

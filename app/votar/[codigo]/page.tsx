@@ -143,6 +143,8 @@ export default function VotacionPublicaPage() {
   const [votosHistorico, setVotosHistorico] = useState<VotoActual[]>([])
   const [estadisticas, setEstadisticas] = useState<Record<string, EstadisticasPregunta>>({})
   const [estadisticasCerradas, setEstadisticasCerradas] = useState<Record<string, EstadisticasPregunta>>({})
+  /** Unidades del censo (conjunto); para mostrar X/Y y sin votar por pregunta (mismo criterio que Acceso). */
+  const [totalUnidadesConjunto, setTotalUnidadesConjunto] = useState<number | null>(null)
   const [votando, setVotando] = useState<string | null>(null)
   const [recargando, setRecargando] = useState(false)
   const [mostrarHistorial, setMostrarHistorial] = useState(false)
@@ -736,6 +738,17 @@ export default function VotacionPublicaPage() {
 
   const cargarEstadisticas = async (preguntaIds: string[]) => {
     try {
+      if (asamblea?.asamblea_id && preguntaIds.length > 0) {
+        const { data: qd } = await supabase.rpc('calcular_quorum_asamblea', {
+          p_asamblea_id: asamblea.asamblea_id,
+        })
+        if (qd?.length) {
+          setTotalUnidadesConjunto(
+            Math.max(0, Number((qd[0] as { total_unidades?: number }).total_unidades))
+          )
+        }
+      }
+
       const estadisticasMap: Record<string, EstadisticasPregunta> = {}
 
       for (const preguntaId of preguntaIds) {
@@ -790,6 +803,17 @@ export default function VotacionPublicaPage() {
 
   const cargarEstadisticasCerradas = async (preguntaIds: string[]) => {
     try {
+      if (asamblea?.asamblea_id && preguntaIds.length > 0) {
+        const { data: qd } = await supabase.rpc('calcular_quorum_asamblea', {
+          p_asamblea_id: asamblea.asamblea_id,
+        })
+        if (qd?.length) {
+          setTotalUnidadesConjunto(
+            Math.max(0, Number((qd[0] as { total_unidades?: number }).total_unidades))
+          )
+        }
+      }
+
       const estadisticasMap: Record<string, EstadisticasPregunta> = {}
 
       for (const preguntaId of preguntaIds) {
@@ -2032,6 +2056,9 @@ export default function VotacionPublicaPage() {
                     const tipoVot = stats.tipo_votacion ?? pregunta.tipo_votacion ?? 'coeficiente'
                     const participacion = stats.porcentaje_participacion ?? 0
                     const pendienteParticipacion = Math.max(0, 100 - participacion)
+                    const tuPub = totalUnidadesConjunto
+                    const tvPub = stats.total_votos ?? 0
+                    const sinVotarPub = tuPub != null ? Math.max(0, tuPub - tvPub) : null
                     const umbral = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
                     const resultados = stats.resultados ?? []
                     const maxPct = resultados.length > 0
@@ -2062,15 +2089,46 @@ export default function VotacionPublicaPage() {
                               <span className="font-medium text-gray-800 dark:text-gray-200 text-right">
                                 {tipoVot === 'coeficiente' ? (
                                   <>
-                                    {participacion.toFixed(2)}% emitido · {pendienteParticipacion.toFixed(2)}% pendiente ·{' '}
-                                    {stats.total_votos ?? 0}{' '}
-                                    {(stats.total_votos ?? 0) === 1 ? 'unidad' : 'unidades'}
+                                    {tuPub != null ? (
+                                      <>
+                                        <span className="tabular-nums">{tvPub}</span>/
+                                        <span className="tabular-nums">{tuPub}</span> en esta pregunta
+                                        {sinVotarPub != null && sinVotarPub > 0 && (
+                                          <>
+                                            {' '}
+                                            · <span className="tabular-nums">{sinVotarPub}</span> sin votar
+                                          </>
+                                        )}
+                                        {' · '}
+                                      </>
+                                    ) : (
+                                      <>
+                                        {tvPub} {(tvPub === 1 ? 'unidad' : 'unidades')} ·{' '}
+                                      </>
+                                    )}
+                                    {participacion.toFixed(2)}% coef. emitido · {pendienteParticipacion.toFixed(2)}% pendiente
+                                    (del conjunto)
                                   </>
                                 ) : (
                                   <>
-                                    {participacion.toFixed(2)}% · {pendienteParticipacion.toFixed(2)}% pendiente ·{' '}
-                                    {stats.total_votos ?? 0}{' '}
-                                    {(stats.total_votos ?? 0) === 1 ? 'unidad' : 'unidades'}
+                                    {tuPub != null ? (
+                                      <>
+                                        <span className="tabular-nums">{tvPub}</span>/
+                                        <span className="tabular-nums">{tuPub}</span> en esta pregunta
+                                        {sinVotarPub != null && sinVotarPub > 0 && (
+                                          <>
+                                            {' '}
+                                            · <span className="tabular-nums">{sinVotarPub}</span> sin votar
+                                          </>
+                                        )}
+                                        {' · '}
+                                      </>
+                                    ) : (
+                                      <>
+                                        {tvPub} {(tvPub === 1 ? 'unidad' : 'unidades')} ·{' '}
+                                      </>
+                                    )}
+                                    {participacion.toFixed(2)}% · {pendienteParticipacion.toFixed(2)}% pendiente
                                   </>
                                 )}
                               </span>
@@ -2465,6 +2523,11 @@ export default function VotacionPublicaPage() {
                             {/* Resultados Finales */}
                             {stats && stats.resultados && stats.resultados.length > 0 && (() => {
                               const tipoVotCerrada = stats.tipo_votacion ?? pregunta.tipo_votacion ?? 'coeficiente'
+                              const tvC = stats.total_votos || 0
+                              const tuC = totalUnidadesConjunto
+                              const sinVC = tuC != null ? Math.max(0, tuC - tvC) : null
+                              const ppC = stats.porcentaje_participacion || 0
+                              const pendC = Math.max(0, 100 - ppC)
                               return (
                               <div>
                                 <h4 className="font-bold text-gray-900 dark:text-white mb-3">
@@ -2528,14 +2591,27 @@ export default function VotacionPublicaPage() {
                                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                                   <div className="flex justify-between items-center text-sm flex-wrap gap-x-2 gap-y-1">
                                     <span className="text-gray-600 dark:text-gray-400">
-                                      Participación total
-                                      {tipoVotCerrada === 'coeficiente' ? ' (coeficiente)' : ' (unidades)'}:
+                                      Participación en esta pregunta
+                                      {tipoVotCerrada === 'coeficiente' ? ' (coeficiente del conjunto)' : ' (unidades)'}:
                                     </span>
-                                    <span className="font-bold text-gray-900 dark:text-white text-right">
-                                      {stats.total_votos || 0}{' '}
-                                      {(stats.total_votos || 0) === 1 ? 'voto' : 'votos'} ·{' '}
-                                      {(stats.porcentaje_participacion || 0).toFixed(2)}% emitido ·{' '}
-                                      {Math.max(0, 100 - (stats.porcentaje_participacion || 0)).toFixed(2)}% pendiente
+                                    <span className="font-bold text-gray-900 dark:text-white text-right max-w-[min(100%,20rem)]">
+                                      {tuC != null ? (
+                                        <>
+                                          <span className="tabular-nums">{tvC}</span>/
+                                          <span className="tabular-nums">{tuC}</span>
+                                          {' · '}
+                                          {sinVC != null && sinVC > 0 && (
+                                            <>
+                                              <span className="tabular-nums">{sinVC}</span> sin votar ·{' '}
+                                            </>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <>
+                                          {tvC} {tvC === 1 ? 'voto' : 'votos'} ·{' '}
+                                        </>
+                                      )}
+                                      {ppC.toFixed(2)}% emitido · {pendC.toFixed(2)}% pendiente
                                     </span>
                                   </div>
                                 </div>
