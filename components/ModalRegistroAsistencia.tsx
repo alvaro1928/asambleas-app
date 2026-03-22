@@ -65,7 +65,7 @@ export function ModalRegistroAsistencia({
     try {
       const { data: asambleaModal } = await supabase
         .from('asambleas')
-        .select('organization_id, is_demo, sandbox_usar_unidades_reales, verificacion_pregunta_id')
+        .select('organization_id, is_demo, sandbox_usar_unidades_reales')
         .eq('id', asambleaId)
         .single()
       const orgIdModal = asambleaModal?.organization_id
@@ -83,11 +83,10 @@ export function ModalRegistroAsistencia({
       q = soloDemo ? q.eq('is_demo', true) : q.or('is_demo.eq.false,is_demo.is.null')
       const { data: todas } = await q
 
-      const preguntaIdModal = (asambleaModal as { verificacion_pregunta_id?: string | null })?.verificacion_pregunta_id ?? null
       const verificadasSet = new Set<string>()
       const { data: idsSesion, error: rpcErr } = await supabase.rpc('unidad_ids_verificados_sesion_actual', {
         p_asamblea_id: asambleaId,
-        p_pregunta_id: preguntaIdModal,
+        p_pregunta_id: null,
       })
       if (!rpcErr && idsSesion?.length !== undefined) {
         (idsSesion as { unidad_id: string }[]).forEach((r) => {

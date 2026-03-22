@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     // Verificar que la asamblea existe y tiene la verificación activa
     const { data: asamblea, error: fetchErr } = await admin
       .from('asambleas')
-      .select('id, verificacion_asistencia_activa, verificacion_pregunta_id')
+      .select('id, verificacion_asistencia_activa')
       .eq('id', asamblea_id.trim())
       .single()
 

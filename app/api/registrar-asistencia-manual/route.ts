@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     // Obtener organización y contexto de verificación de la asamblea
     const { data: asamblea } = await admin
       .from('asambleas')
-      .select('id, organization_id, verificacion_pregunta_id')
+      .select('id, organization_id')
       .eq('id', asamblea_id.trim())
       .single()
 

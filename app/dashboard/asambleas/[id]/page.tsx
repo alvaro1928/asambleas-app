@@ -381,7 +381,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         setAsamblea((prev) => prev ? { ...prev, ...verifData } : prev)
         await loadQuorum(undefined, {
           verificacion_asistencia_activa: !!verifData.verificacion_asistencia_activa,
-          verificacion_pregunta_id: verifData.verificacion_pregunta_id ?? null,
         })
       } else {
         await loadQuorum()
@@ -531,8 +530,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       // Cargar estadísticas y quórum (pasamos preguntas recién cargadas: setState es async y loadEstadisticas usa preguntas)
       await loadEstadisticas(preguntasData || [])
-      const a = asambleaData as { verificacion_asistencia_activa?: boolean; verificacion_pregunta_id?: string | null }
-      await loadQuorum(asambleaData, { verificacion_asistencia_activa: !!a.verificacion_asistencia_activa, verificacion_pregunta_id: a.verificacion_pregunta_id ?? null })
+      const a = asambleaData as { verificacion_asistencia_activa?: boolean }
+      await loadQuorum(asambleaData, { verificacion_asistencia_activa: !!a.verificacion_asistencia_activa })
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -602,7 +601,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const loadQuorum = async (
     asambleaOverride?: { is_demo?: boolean; sandbox_usar_unidades_reales?: boolean } | null,
-    verificacionOverride?: { verificacion_asistencia_activa?: boolean; verificacion_pregunta_id?: string | null }
+    verificacionOverride?: { verificacion_asistencia_activa?: boolean }
   ) => {
     const verifActiva = verificacionOverride?.verificacion_asistencia_activa ?? !!(asamblea?.verificacion_asistencia_activa)
     try {
@@ -1298,8 +1297,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const handleChangeEstadoPregunta = async (preguntaId: string, nuevoEstado: 'pendiente' | 'abierta' | 'cerrada') => {
     try {
-      // Si se cierra la pregunta que es el contexto actual de verificación, primero cerrar la verificación
-      // para que el trigger guarde la sesión con este pregunta_id (quórum asociado a esta pregunta en el acta).
+      // Compatibilidad: datos antiguos podían tener verificacion_pregunta_id; al cerrar esa pregunta se cierra la verificación.
       const cerramosVerificacion = nuevoEstado === 'cerrada' && asamblea?.verificacion_asistencia_activa && asamblea?.verificacion_pregunta_id === preguntaId
       if (cerramosVerificacion) {
         const { error: errVer } = await supabase
@@ -1340,7 +1338,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       // Recargar estadísticas y sesiones cerradas (con override si cerramos verificación para que el chip muestre los datos guardados)
       await loadEstadisticas()
       if (cerramosVerificacion) {
-        await loadQuorum(undefined, { verificacion_asistencia_activa: false, verificacion_pregunta_id: null })
+        await loadQuorum(undefined, { verificacion_asistencia_activa: false })
       } else {
         await loadQuorum()
       }
@@ -1802,7 +1800,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
-  const cargarStatsVerificacion = async (override?: { verificacion_asistencia_activa: boolean; verificacion_pregunta_id: string | null }) => {
+  const cargarStatsVerificacion = async (override?: { verificacion_asistencia_activa: boolean }) => {
     if (!asamblea?.id) return
     const verifActiva = override ? !!override.verificacion_asistencia_activa : !!asamblea.verificacion_asistencia_activa
     if (verifActiva) {
@@ -1904,7 +1902,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       } else {
         setAsamblea({ ...asamblea, ...payload })
       }
-      const verifOverride = { verificacion_asistencia_activa: !!updatedRow?.verificacion_asistencia_activa, verificacion_pregunta_id: updatedRow?.verificacion_pregunta_id ?? null }
+      const verifOverride = { verificacion_asistencia_activa: !!updatedRow?.verificacion_asistencia_activa }
       await cargarStatsVerificacion(verifOverride)
       // Al cerrar verificación: forzar override para que loadQuorum use sesiones cerradas (estado React puede ir retrasado)
       await loadQuorum(undefined, verifOverride)

@@ -388,7 +388,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
       // Refrescar asamblea para no depender del closure (interval/refrescar usan datos actuales)
       const { data: asambleaFresh } = await supabase
         .from('asambleas')
-        .select('organization_id, verificacion_asistencia_activa, verificacion_pregunta_id, is_demo, sandbox_usar_unidades_reales')
+        .select('organization_id, verificacion_asistencia_activa, is_demo, sandbox_usar_unidades_reales')
         .eq('id', params.id)
         .single()
 
@@ -527,10 +527,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       try {
         // Desglose para el panel "Ya verificaron": siempre sesión general
-        const preguntaIdDesglose = null
         const { data: desgloseData } = await supabase.rpc('calcular_verificacion_quorum_desglose', {
           p_asamblea_id: params.id,
-          p_pregunta_id: preguntaIdDesglose,
+          p_pregunta_id: null,
           p_solo_sesion_actual: verifActiva,
         })
         if (desgloseData?.length && desgloseData[0]) {
@@ -603,11 +602,10 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       // Si la verificación de quórum está activa, cargar paneles "Ya verificaron" / "Faltan por verificar" (solo sesión actual, con es_poder)
       if (asambleaFresh?.verificacion_asistencia_activa && orgId) {
-        const preguntaId = (asambleaFresh as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null
         const esPoderVerificados = new Map<string, boolean>()
         const { data: idsSesion, error: rpcError } = await supabase.rpc('unidad_ids_verificados_sesion_actual', {
           p_asamblea_id: params.id,
-          p_pregunta_id: preguntaId,
+          p_pregunta_id: null,
         })
         const idsVerificados = new Set<string>()
         if (!rpcError && idsSesion?.length !== undefined) {

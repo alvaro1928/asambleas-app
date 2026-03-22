@@ -165,7 +165,6 @@ export async function POST(request: NextRequest) {
         asamblea,
         vData,
         yaVerificoRaw,
-        statsVerificacionPorPregunta: {} as Record<string, StatsVerif>,
       },
       {
         headers: { 'Cache-Control': 'no-store, max-age=0' },
