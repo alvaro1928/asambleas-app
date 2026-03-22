@@ -35,6 +35,7 @@ import {
   emailContactoUnidad,
   esDocumentoPoderValido,
   extensionDocPoder,
+  normalizarEmailReceptor,
   validarLimiteReceptoresLote,
   insertarPoderesYSubirDocumentos,
 } from '@/lib/poderes-registro'
@@ -402,7 +403,11 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     }
   }
 
-  /** Añade el formulario actual a la cola sin guardar aún (puedes registrar varios seguidos y guardar una vez). */
+  /**
+   * Añade la fila actual a la lista sin guardar aún.
+   * Caso habitual: mismo apoderado, varias unidades que delegan → se conservan apoderado y datos de contacto;
+   * solo se pide elegir otra unidad otorgante (y opcionalmente doc/notas por fila).
+   */
   const agregarPoderALaCola = async () => {
     if (poderModal.type !== 'create') return
     const item = buildColaItemFromForm()
@@ -414,7 +419,12 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       toast.error('El documento debe ser PDF o Word (.doc, .docx) y máximo 2MB')
       return
     }
+    const keyApoderado = normalizarEmailReceptor(item.email_receptor.trim())
+    const enColaMismoApoderado = colaPoderes.filter(
+      (c) => normalizarEmailReceptor(c.email_receptor.trim()) === keyApoderado
+    )
     const okLim = await validarLimiteReceptoresLote(supabase, params.id, asamblea?.organization_id, [
+      ...enColaMismoApoderado.map((c) => ({ email_receptor: c.email_receptor })),
       { email_receptor: item.email_receptor },
     ])
     if (!okLim.ok) {
@@ -431,13 +441,14 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       return
     }
     setColaPoderes((prev) => [...prev, item])
-    setSelectedReceptor(null)
-    setEmailReceptor('')
-    setNombreReceptor('')
+    setSelectedOtorgante(null)
+    setSearchOtorgante('')
     setObservaciones('')
     setArchivoPoder(null)
-    setSearchReceptor('')
-    toast.success(`Añadido a la cola (${colaPoderes.length + 1} en total). Completa el siguiente apoderado y vuelve a añadir, o pulsa «Registrar todo».`)
+    const total = colaPoderes.length + 1
+    toast.success(
+      `En lista: ${total} fila(s). El apoderado se mantiene: elige otra unidad que otorga (paso 1) o pulsa «Registrar todo».`
+    )
   }
 
   const handleCreatePoder = async () => {
@@ -1132,13 +1143,16 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
             <DialogDescription>
               {poderModal.type === 'edit'
                 ? 'Puedes pasar el apoderado de tercero a una unidad del conjunto (o al revés), corregir correo/nombre o cambiar la unidad que otorga, sin revocar el poder.'
-                : 'Usa «Añadir a la cola» para preparar varios poderes seguidos y «Registrar todo» al final. Recuerda: cada unidad que delega solo puede tener un poder activo; el mismo apoderado puede recibir varios si vienen de unidades distintas (hasta el límite por apoderado).'}
+                : 'Para el mismo apoderado con varias unidades que delegan: completa apoderado una vez, usa «Añadir otra unidad» por cada unidad otorgante distinta y «Registrar todo» al final. Cada unidad que delega solo puede tener un poder activo; el límite por apoderado aplica al total de poderes que recibe en la asamblea.'}
             </DialogDescription>
           </DialogHeader>
 
           {poderModal.type === 'create' && colaPoderes.length > 0 && (
             <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 px-3 py-2 text-sm">
-              <p className="font-medium text-indigo-900 dark:text-indigo-100 mb-1">En cola ({colaPoderes.length})</p>
+              <p className="font-medium text-indigo-900 dark:text-indigo-100 mb-1">Pendientes de registrar ({colaPoderes.length})</p>
+              <p className="text-xs text-indigo-700/90 dark:text-indigo-300/90 mb-2">
+                Mismo apoderado: los datos del paso 2 siguen rellenos; solo cambia la unidad que otorga en el paso 1 en cada nueva fila.
+              </p>
               <ul className="max-h-28 overflow-y-auto space-y-1 text-xs text-indigo-800 dark:text-indigo-200">
                 {colaPoderes.map((c) => {
                   const uo = unidades.find((u) => u.id === c.unidad_otorgante_id)
@@ -1481,7 +1495,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   className="border-indigo-300 dark:border-indigo-700"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Añadir a la cola
+                  Añadir otra unidad
                 </Button>
               )}
               <Button
