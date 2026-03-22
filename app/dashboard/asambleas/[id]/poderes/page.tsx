@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -172,6 +173,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   const [apoderadoEsTercero, setApoderadoEsTercero] = useState(false)
   /** Varios poderes para guardar en un solo flujo (sin cerrar el modal entre uno y otro) */
   const [colaPoderes, setColaPoderes] = useState<ColaPoderItem[]>([])
+  /** Remount del bloque «unidad otorgante» tras añadir a la cola para dejar búsqueda y UI limpias */
+  const [otorgantePickerNonce, setOtorgantePickerNonce] = useState(0)
 
   // Reemplazar documento
   const [reemplazandoPoderId, setReemplazandoPoderId] = useState<string | null>(null)
@@ -247,6 +250,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   const openCreatePoderModal = () => {
     resetPoderForm()
     setColaPoderes([])
+    setOtorgantePickerNonce(0)
     setPoderModal({ type: 'create' })
   }
 
@@ -440,11 +444,15 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       toast.error('Ya hay en la cola un poder con la misma unidad que otorga y el mismo apoderado.')
       return
     }
-    setColaPoderes((prev) => [...prev, item])
-    setSelectedOtorgante(null)
-    setSearchOtorgante('')
-    setObservaciones('')
-    setArchivoPoder(null)
+    // Tras await, agrupar en flushSync evita que el paso 1 quede un instante con la unidad anterior seleccionada
+    flushSync(() => {
+      setColaPoderes((prev) => [...prev, item])
+      setSelectedOtorgante(null)
+      setSearchOtorgante('')
+      setObservaciones('')
+      setArchivoPoder(null)
+      setOtorgantePickerNonce((n) => n + 1)
+    })
     const total = colaPoderes.length + 1
     toast.success(
       `En lista: ${total} fila(s). El apoderado se mantiene: elige otra unidad que otorga (paso 1) o pulsa «Registrar todo».`
@@ -1176,8 +1184,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
           )}
 
           <div className="space-y-6 mt-4">
-            {/* Selección de Unidad Otorgante */}
-            <div>
+            {/* Selección de Unidad Otorgante — key fuerza remount tras «Añadir otra unidad» para dejar el paso listo para buscar */}
+            <div key={otorgantePickerNonce}>
               <Label htmlFor="search-otorgante">
                 1. Unidad que Otorga el Poder <span className="text-red-500">*</span>
               </Label>
