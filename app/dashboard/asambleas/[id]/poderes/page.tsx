@@ -30,6 +30,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/components/providers/ToastProvider'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
 import { matchesTorreUnidadSearch } from '@/lib/matchUnidadSearch'
+import {
+  mensajeErrorInsertPoder,
+  emailContactoUnidad,
+  esDocumentoPoderValido,
+  extensionDocPoder,
+  validarLimiteReceptoresLote,
+  insertarPoderesYSubirDocumentos,
+} from '@/lib/poderes-registro'
 
 interface Asamblea {
   id: string
@@ -122,36 +130,6 @@ function ChecklistPoderLey675() {
       )}
     </div>
   )
-}
-
-const MAX_DOC_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
-const DOC_MIME_ALLOWED = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-]
-
-function isValidDocFile(file: File): boolean {
-  return file.size <= MAX_DOC_SIZE_BYTES && DOC_MIME_ALLOWED.includes(file.type)
-}
-
-function getDocExtension(file: File): string {
-  if (file.name.toLowerCase().endsWith('.pdf')) return '.pdf'
-  if (file.name.toLowerCase().endsWith('.doc')) return '.doc'
-  return '.docx'
-}
-
-/** Mensaje legible ante duplicado / constraint en poderes */
-function mensajeErrorInsertPoder(err: { message?: string; code?: string }): string {
-  const m = String(err.message || '').toLowerCase()
-  const code = String(err.code || '')
-  if (code === '23505' || m.includes('duplicate key') || m.includes('poderes_activo') || m.includes('unique')) {
-    if (m.includes('poderes_activo_otorgante_email_receptor')) {
-      return 'Ya hay un poder activo desde esa unidad que delega hacia el mismo apoderado (mismo correo o identificación). Revoca el anterior o edita el registro.'
-    }
-    return 'Esa unidad que delega ya tiene un poder activo en esta asamblea: cada apartamento solo puede otorgar una delegación vigente a la vez. Revócalo o edítalo para cambiar de apoderado. El mismo apoderado sí puede recibir varios poderes si vienen de apartamentos distintos (hasta el límite por apoderado).'
-  }
-  return String(err.message || 'Error al guardar el poder')
 }
 
 /** Entrada en cola para registrar varios poderes seguidos (misma sesión) */
@@ -410,10 +388,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     if (!selectedOtorgante) return null
     if (!apoderadoEsTercero && !selectedReceptor) return null
     if (!emailReceptor.trim() || !nombreReceptor.trim()) return null
-    const emailOtorgante =
-      (selectedOtorgante as { email?: string; email_propietario?: string }).email_propietario ??
-      (selectedOtorgante as { email?: string }).email ??
-      ''
+    const emailOtorgante = emailContactoUnidad(selectedOtorgante as { email_propietario?: string; email?: string })
     return {
       id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `tmp-${Date.now()}`,
       unidad_otorgante_id: selectedOtorgante.id,
@@ -427,37 +402,6 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     }
   }
 
-  const validarLimiteReceptor = async (emailReceptorRaw: string) => {
-    try {
-      const { data: validacion, error: validacionError } = await supabase.rpc('validar_limite_poderes', {
-        p_asamblea_id: params.id,
-        p_email_receptor: emailReceptorRaw.trim(),
-        p_organization_id: asamblea?.organization_id,
-      })
-      if (validacionError) {
-        console.error('Error validando límite:', validacionError)
-        return true
-      }
-      if (validacion && validacion.length > 0) {
-        const resultado = validacion[0] as {
-          puede_recibir_poder?: boolean
-          mensaje?: string
-          poderes_actuales?: number
-          limite_maximo?: number
-        }
-        if (!resultado.puede_recibir_poder) {
-          toast.error(
-            `${resultado.mensaje}. El apoderado ya tiene ${resultado.poderes_actuales} poderes activos (límite: ${resultado.limite_maximo})`
-          )
-          return false
-        }
-      }
-    } catch (error) {
-      console.error('Error en validación:', error)
-    }
-    return true
-  }
-
   /** Añade el formulario actual a la cola sin guardar aún (puedes registrar varios seguidos y guardar una vez). */
   const agregarPoderALaCola = async () => {
     if (poderModal.type !== 'create') return
@@ -466,12 +410,17 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       toast.error('Completa unidad otorgante, apoderado, correo/identificación y nombre para añadir a la cola.')
       return
     }
-    if (archivoPoder && !isValidDocFile(archivoPoder)) {
+    if (archivoPoder && !esDocumentoPoderValido(archivoPoder)) {
       toast.error('El documento debe ser PDF o Word (.doc, .docx) y máximo 2MB')
       return
     }
-    const okLim = await validarLimiteReceptor(item.email_receptor)
-    if (!okLim) return
+    const okLim = await validarLimiteReceptoresLote(supabase, params.id, asamblea?.organization_id, [
+      { email_receptor: item.email_receptor },
+    ])
+    if (!okLim.ok) {
+      toast.error(okLim.mensaje)
+      return
+    }
     const dup = colaPoderes.some(
       (c) =>
         c.unidad_otorgante_id === item.unidad_otorgante_id &&
@@ -491,42 +440,12 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     toast.success(`Añadido a la cola (${colaPoderes.length + 1} en total). Completa el siguiente apoderado y vuelve a añadir, o pulsa «Registrar todo».`)
   }
 
-  const insertarUnPoderItem = async (item: ColaPoderItem) => {
-    const { data: newPoder, error } = await supabase
-      .from('poderes')
-      .insert({
-        asamblea_id: params.id,
-        unidad_otorgante_id: item.unidad_otorgante_id,
-        unidad_receptor_id: item.unidad_receptor_id,
-        email_otorgante: item.email_otorgante,
-        nombre_otorgante: item.nombre_otorgante,
-        email_receptor: item.email_receptor,
-        nombre_receptor: item.nombre_receptor,
-        observaciones: item.observaciones,
-        estado: 'activo',
-      })
-      .select('id')
-      .single()
-
-    if (error) throw error
-
-    if (item.archivo && newPoder?.id && isValidDocFile(item.archivo)) {
-      const ext = getDocExtension(item.archivo)
-      const path = `${params.id}/${newPoder.id}/doc${ext}`
-      const { error: uploadError } = await supabase.storage.from('poderes-docs').upload(path, item.archivo, { upsert: true })
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage.from('poderes-docs').getPublicUrl(path)
-        await supabase.from('poderes').update({ archivo_poder: urlData.publicUrl }).eq('id', newPoder.id)
-      }
-    }
-  }
-
   const handleCreatePoder = async () => {
     if (poderModal.type !== 'create') return
 
     const desdeCola = [...colaPoderes]
     const desdeForm = buildColaItemFromForm()
-    if (desdeForm && archivoPoder && !isValidDocFile(archivoPoder)) {
+    if (desdeForm && archivoPoder && !esDocumentoPoderValido(archivoPoder)) {
       toast.error('El documento debe ser PDF o Word (.doc, .docx) y máximo 2MB')
       return
     }
@@ -546,43 +465,42 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       return
     }
 
-    const emailsUnicos = Array.from(new Set(items.map((i) => i.email_receptor.trim().toLowerCase())))
-    for (const em of emailsUnicos) {
-      const okLim = await validarLimiteReceptor(em)
-      if (!okLim) return
+    const limLote = await validarLimiteReceptoresLote(
+      supabase,
+      params.id,
+      asamblea?.organization_id,
+      items.map((i) => ({ email_receptor: i.email_receptor }))
+    )
+    if (!limLote.ok) {
+      toast.error(limLote.mensaje)
+      return
     }
 
     setSavingPoder(true)
-    const errores: string[] = []
-    let ok = 0
     try {
-      for (const item of items) {
-        try {
-          await insertarUnPoderItem(item)
-          ok++
-        } catch (err: unknown) {
-          const e = err as { message?: string; code?: string }
-          errores.push(mensajeErrorInsertPoder(e))
-        }
-      }
-
-      if (ok > 0) {
-        const msg =
-          ok === items.length
-            ? `Se registraron ${ok} poder(es).`
-            : `Registrados ${ok} de ${items.length} poder(es). Revisa los errores.`
-        setSuccessMessage(msg)
-        setTimeout(() => setSuccessMessage(''), 5000)
-        toast.success(msg)
-        if (errores.length) {
-          toast.error(errores.slice(0, 4).join(' · ') + (errores.length > 4 ? '…' : ''))
-        }
-        closePoderModal()
-        await loadPoderes()
-        await loadResumen()
-      } else {
-        toast.error(errores[0] || 'No se pudo registrar ningún poder')
-      }
+      await insertarPoderesYSubirDocumentos(
+        supabase,
+        params.id,
+        items.map((item) => ({
+          campos: {
+            unidad_otorgante_id: item.unidad_otorgante_id,
+            unidad_receptor_id: item.unidad_receptor_id,
+            email_otorgante: item.email_otorgante,
+            nombre_otorgante: item.nombre_otorgante,
+            email_receptor: item.email_receptor,
+            nombre_receptor: item.nombre_receptor,
+            observaciones: item.observaciones,
+          },
+          archivo: item.archivo,
+        }))
+      )
+      const msg = `Se registraron ${items.length} poder(es).`
+      setSuccessMessage(msg)
+      setTimeout(() => setSuccessMessage(''), 5000)
+      toast.success(msg)
+      closePoderModal()
+      await loadPoderes()
+      await loadResumen()
     } catch (error: unknown) {
       console.error('Error creating poder:', error)
       const e = error as { message?: string; code?: string }
@@ -619,25 +537,12 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     const emailTrim = emailReceptor.trim()
     const emailAnterior = poderExistente.email_receptor.trim()
     if (emailTrim.toLowerCase() !== emailAnterior.toLowerCase()) {
-      try {
-        const { data: validacion, error: validacionError } = await supabase.rpc('validar_limite_poderes', {
-          p_asamblea_id: params.id,
-          p_email_receptor: emailTrim,
-          p_organization_id: asamblea?.organization_id,
-        })
-        if (validacionError) {
-          console.error('Error validando límite:', validacionError)
-        } else if (validacion && validacion.length > 0) {
-          const resultado = validacion[0]
-          if (!resultado.puede_recibir_poder) {
-            toast.error(
-              `${resultado.mensaje}. El apoderado ya tiene ${resultado.poderes_actuales} poderes activos (límite: ${resultado.limite_maximo})`
-            )
-            return
-          }
-        }
-      } catch (e) {
-        console.error('Error en validación:', e)
+      const lim = await validarLimiteReceptoresLote(supabase, params.id, asamblea?.organization_id, [
+        { email_receptor: emailTrim },
+      ])
+      if (!lim.ok) {
+        toast.error(lim.mensaje)
+        return
       }
     }
 
@@ -659,10 +564,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       }
     }
 
-    const emailOtorgante =
-      (selectedOtorgante as { email?: string; email_propietario?: string }).email_propietario ??
-      (selectedOtorgante as { email?: string }).email ??
-      ''
+    const emailOtorgante = emailContactoUnidad(selectedOtorgante as { email_propietario?: string; email?: string })
 
     setSavingPoder(true)
     try {
@@ -720,13 +622,13 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
   const handleReemplazarDocumento = async () => {
     if (!reemplazandoPoderId || !archivoReemplazo) return
-    if (!isValidDocFile(archivoReemplazo)) {
+    if (!esDocumentoPoderValido(archivoReemplazo)) {
       toast.error('El documento debe ser PDF o Word (.doc, .docx) y máximo 2MB')
       return
     }
     setReemplazando(true)
     try {
-      const ext = getDocExtension(archivoReemplazo)
+      const ext = extensionDocPoder(archivoReemplazo)
       const path = `${params.id}/${reemplazandoPoderId}/doc${ext}`
       const { error: uploadError } = await supabase.storage
         .from('poderes-docs')
@@ -1514,7 +1416,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                       onChange={(e) => {
                         const f = e.target.files?.[0]
                         if (!f) { setArchivoPoder(null); return }
-                        if (!isValidDocFile(f)) {
+                        if (!esDocumentoPoderValido(f)) {
                           toast.error('Archivo debe ser PDF o Word y máximo 2MB')
                           e.target.value = ''
                           return
@@ -1631,7 +1533,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                 onChange={(e) => {
                   const f = e.target.files?.[0]
                   if (!f) { setArchivoReemplazo(null); return }
-                  if (!isValidDocFile(f)) {
+                  if (!esDocumentoPoderValido(f)) {
                     toast.error('Archivo debe ser PDF o Word y máximo 2MB')
                     e.target.value = ''
                     return

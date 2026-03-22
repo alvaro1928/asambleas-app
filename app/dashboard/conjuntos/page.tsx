@@ -67,7 +67,7 @@ export default function ConjuntosPage() {
               // Contar unidades de cada conjunto
               const { count } = await supabase
                 .from('unidades')
-                .select('*', { count: 'exact', head: true })
+                .select('id', { count: 'exact', head: true })
                 .eq('organization_id', org.id)
 
               // Solo se puede eliminar si no tiene asambleas activas ni finalizadas

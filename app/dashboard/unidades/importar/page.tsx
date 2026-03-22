@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { sumaCoeficientesValida, rangoCoeficientesAceptado } from '@/lib/coeficientes'
 import ConjuntoSelector from '@/components/ConjuntoSelector'
-import * as XLSX from 'xlsx'
 import Papa from 'papaparse'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -109,7 +108,7 @@ export default function ImportarUnidadesPage() {
       // Solo contar unidades reales (excluir demo/sandbox)
       const { count } = await supabase
         .from('unidades')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('organization_id', orgId)
         .eq('is_demo', false)
 
@@ -249,7 +248,8 @@ export default function ImportarUnidadesPage() {
         })
         jsonData = result.data
       } else {
-        // Procesar Excel
+        // Procesar Excel (xlsx solo al subir archivo, no en el bundle inicial)
+        const XLSX = await import('xlsx')
         const data = await file.arrayBuffer()
         const workbook = XLSX.read(data)
         const sheetName = workbook.SheetNames[0]
@@ -335,7 +335,8 @@ export default function ImportarUnidadesPage() {
     }
   }
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    const XLSX = await import('xlsx')
     const template = [
       {
         'Torre/Bloque': 'A',

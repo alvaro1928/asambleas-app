@@ -138,25 +138,24 @@ function UnidadesPageContent() {
         return
       }
 
-      // Obtener nombre del conjunto
-      const { data: org } = await supabase
-        .from('organizations')
-        .select('name')
-        .eq('id', selectedConjuntoId)
-        .single()
+      const UNIDADES_COLUMNS =
+        'id, torre, numero, coeficiente, tipo, nombre_propietario, email, email_propietario, telefono, is_demo'
+
+      const [{ data: org }, { data: unidadesData, error }, costoRes] = await Promise.all([
+        supabase.from('organizations').select('name').eq('id', selectedConjuntoId).single(),
+        supabase
+          .from('unidades')
+          .select(UNIDADES_COLUMNS)
+          .eq('organization_id', selectedConjuntoId)
+          .eq('is_demo', false)
+          .order('torre', { ascending: true, nullsFirst: false })
+          .order('numero', { ascending: true }),
+        fetch('/api/dashboard/whatsapp-costo', { credentials: 'include' }),
+      ])
 
       if (org) {
         setConjuntoName(org.name)
       }
-
-      // Solo unidades reales: excluir unidades demo (sandbox), que son lógica interna de demostración
-      const { data: unidadesData, error } = await supabase
-        .from('unidades')
-        .select('*')
-        .eq('organization_id', selectedConjuntoId)
-        .eq('is_demo', false)
-        .order('torre', { ascending: true, nullsFirst: false })
-        .order('numero', { ascending: true })
 
       if (error) {
         console.error('Error loading unidades:', error)
@@ -164,9 +163,6 @@ function UnidadesPageContent() {
       }
 
       setUnidades(unidadesData || [])
-
-      // Estado de WhatsApp (habilitado/deshabilitado para todos los usuarios)
-      const costoRes = await fetch('/api/dashboard/whatsapp-costo', { credentials: 'include' })
       if (costoRes.ok) {
         const costoData = await costoRes.json().catch(() => ({}))
         setWhatsappHabilitado(costoData.habilitado !== false)

@@ -179,55 +179,54 @@ export default function DashboardPage() {
 
   const loadStats = async (userId: string) => {
     try {
-      loadConfig()
-      // Contar conjuntos del usuario (por user_id o por id, según esquema)
-      let profilesList: Array<{ organization_id?: string | null }> = []
-      const { data: byUser } = await supabase.from('profiles').select('organization_id').eq('user_id', userId)
-      profilesList = Array.isArray(byUser) ? byUser : byUser ? [byUser] : []
-      if (profilesList.length === 0) {
-        const { data: byId } = await supabase.from('profiles').select('organization_id').eq('id', userId)
-        profilesList = Array.isArray(byId) ? byId : byId ? [byId] : []
-      }
-      const uniqueOrgs = new Set(profilesList.map(p => p.organization_id).filter(Boolean))
-      setConjuntosCount(uniqueOrgs.size)
-
-      // Conjunto activo: tokens del gestor (billetera) y costo para este conjunto (1 token = 1 unidad)
-      const conjId = localStorage.getItem('selectedConjuntoId')
+      const conjId = typeof window !== 'undefined' ? localStorage.getItem('selectedConjuntoId') : null
       setSelectedConjuntoId(conjId)
       if (!conjId) setTokensDisponibles(0)
 
-      if (conjId) {
-        const statusRes = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(conjId)}`, {
+      const [, profilesResult] = await Promise.all([
+        loadConfig(),
+        supabase
+          .from('profiles')
+          .select('organization_id')
+          .or(`user_id.eq.${userId},id.eq.${userId}`),
+      ])
+
+      const rawProfiles = profilesResult.data
+      const profilesList = Array.isArray(rawProfiles) ? rawProfiles : rawProfiles ? [rawProfiles] : []
+      const uniqueOrgs = new Set(profilesList.map((p) => p.organization_id).filter(Boolean))
+      setConjuntosCount(uniqueOrgs.size)
+
+      if (!conjId) return
+
+      const [statusRes, unidadesResult] = await Promise.all([
+        fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(conjId)}`, {
           credentials: 'include',
           cache: 'no-store',
           headers: { 'Cache-Control': 'no-cache' },
-        })
-        const statusData = statusRes.ok ? await statusRes.json().catch(() => ({})) : null
-        setTokensDisponibles(Math.max(0, Number(statusData?.tokens_disponibles ?? 0)))
-        const unidades = Math.max(0, Number(statusData?.unidades_conjunto ?? 0))
-        setUnidadesCount(unidades)
-        setCostoOperacion(Math.max(0, Number(statusData?.costo_operacion ?? unidades)))
-
-        // Solo unidades reales (excluir demo/sandbox) para métricas y conteo
-        const { data: unidadesData, error } = await supabase
+        }),
+        supabase
           .from('unidades')
-          .select('*')
+          .select('coeficiente')
           .eq('organization_id', conjId)
-          .eq('is_demo', false)
+          .eq('is_demo', false),
+      ])
 
-        if (!error && unidadesData) {
-          const total = unidadesData.length
-          setUnidadesCount(total)
+      const statusData = statusRes.ok ? await statusRes.json().catch(() => ({})) : null
+      setTokensDisponibles(Math.max(0, Number(statusData?.tokens_disponibles ?? 0)))
+      const unidadesStatus = Math.max(0, Number(statusData?.unidades_conjunto ?? 0))
+      setUnidadesCount(unidadesStatus)
+      setCostoOperacion(Math.max(0, Number(statusData?.costo_operacion ?? unidadesStatus)))
 
-          // Calcular suma de coeficientes
-          const sumaCoeficientes = unidadesData.reduce((sum, u) => sum + u.coeficiente, 0)
-
-          setMetrics({
-            total,
-            sumaCoeficientes,
-            censoDatos: 0
-          })
-        }
+      const { data: unidadesData, error } = unidadesResult
+      if (!error && unidadesData) {
+        const total = unidadesData.length
+        setUnidadesCount(total)
+        const sumaCoeficientes = unidadesData.reduce((sum, u) => sum + u.coeficiente, 0)
+        setMetrics({
+          total,
+          sumaCoeficientes,
+          censoDatos: 0,
+        })
       }
     } catch (error) {
       console.error('Error loading stats:', error)

@@ -96,29 +96,28 @@ function AsambleasPageContent() {
         return
       }
 
-      // Obtener nombre del conjunto
-      const { data: org } = await supabase
-        .from('organizations')
-        .select('name')
-        .eq('id', selectedConjuntoId)
-        .single()
+      const ASAMBLEAS_COLUMNS =
+        'id, nombre, descripcion, fecha, estado, created_at, is_demo, is_archived'
+
+      const [{ data: org }, statusRes, { data: asambleasData, error }] = await Promise.all([
+        supabase.from('organizations').select('name').eq('id', selectedConjuntoId).single(),
+        fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(selectedConjuntoId)}`, {
+          credentials: 'include',
+        }),
+        supabase
+          .from('asambleas')
+          .select(ASAMBLEAS_COLUMNS)
+          .eq('organization_id', selectedConjuntoId)
+          .order('fecha', { ascending: false }),
+      ])
 
       if (org) {
         setConjuntoName(org.name)
       }
 
-      // Billetera de tokens (visible en todas las páginas de administrador)
-      const statusRes = await fetch(`/api/dashboard/organization-status?organization_id=${encodeURIComponent(selectedConjuntoId)}`)
-      const statusData = statusRes.ok ? await statusRes.json() : null
+      const statusData = statusRes.ok ? await statusRes.json().catch(() => null) : null
       setTokensDisponibles(Math.max(0, Number(statusData?.tokens_disponibles ?? 0)))
       setCostoOperacion(Math.max(0, Number(statusData?.costo_operacion ?? 0)))
-
-      // Obtener asambleas del conjunto
-      const { data: asambleasData, error } = await supabase
-        .from('asambleas')
-        .select('*')
-        .eq('organization_id', selectedConjuntoId)
-        .order('fecha', { ascending: false })
 
       if (error) {
         console.error('Error loading asambleas:', error)

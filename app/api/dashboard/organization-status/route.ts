@@ -68,14 +68,12 @@ export async function GET(request: NextRequest) {
 
     // Billetera única por gestor: saldo = máximo de tokens en TODOS sus perfiles (evita desfase por conjunto)
     let tokensDisponibles = 0
-    const { data: byUser } = await supabase
-      .from('profiles')
-      .select('tokens_disponibles')
-      .eq('user_id', userId)
-    const { data: byId } = await supabase
-      .from('profiles')
-      .select('tokens_disponibles')
-      .eq('id', userId)
+    const [byUserRes, byIdRes] = await Promise.all([
+      supabase.from('profiles').select('tokens_disponibles').eq('user_id', userId),
+      supabase.from('profiles').select('tokens_disponibles').eq('id', userId),
+    ])
+    const byUser = byUserRes.data
+    const byId = byIdRes.data
     const allTokens = [
       ...(Array.isArray(byUser) ? byUser : byUser ? [byUser] : []),
       ...(Array.isArray(byId) ? byId : byId ? [byId] : []),
@@ -86,7 +84,7 @@ export async function GET(request: NextRequest) {
     // Unidades del conjunto (costo = unidades; 1 token = 1 unidad). Excluir unidades demo (sandbox).
     const { count: unidadesCount } = await supabase
       .from('unidades')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('organization_id', organizationId)
       .eq('is_demo', false)
 

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import * as XLSX from 'xlsx'
 import Papa from 'papaparse'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -21,10 +20,15 @@ import {
   Upload,
   FileSpreadsheet,
   ArrowLeft,
-  CheckCircle2,
   AlertTriangle,
   Download,
 } from 'lucide-react'
+import {
+  mensajeErrorInsertPoder,
+  emailContactoUnidad,
+  normalizarEmailReceptor,
+  validarLimiteReceptoresLote,
+} from '@/lib/poderes-registro'
 
 interface PoderRow {
   torre_otorga: string
@@ -141,6 +145,7 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
         const result = Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: false })
         jsonData = result.data as any[]
       } else {
+        const XLSX = await import('xlsx')
         const data = await file.arrayBuffer()
         const workbook = XLSX.read(data)
         const sheetName = workbook.SheetNames[0]
@@ -177,28 +182,44 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('No hay usuario autenticado')
 
-      const unidadesByKey = new Map<string, { id: string; email_propietario: string; nombre_propietario: string }>()
+      const unidadesByKey = new Map<
+        string,
+        { id: string; email_propietario: string | null; email: string | null; nombre_propietario: string | null }
+      >()
       const { data: unidadesData } = await supabase
         .from('unidades')
-        .select('id, torre, numero, email_propietario, nombre_propietario')
+        .select('id, torre, numero, email_propietario, email, nombre_propietario')
         .eq('organization_id', organizationId)
 
-      unidadesData?.forEach((u: any) => {
+      unidadesData?.forEach((u: {
+        id: string
+        torre: string | null
+        numero: string | null
+        email_propietario: string | null
+        email: string | null
+        nombre_propietario: string | null
+      }) => {
         const key = `${(u.torre || '').toString().trim()}|${(u.numero || '').toString().trim()}`
         unidadesByKey.set(key, {
           id: u.id,
-          email_propietario: u.email_propietario || '',
-          nombre_propietario: u.nombre_propietario || '',
+          email_propietario: u.email_propietario,
+          email: u.email,
+          nombre_propietario: u.nombre_propietario,
         })
       })
 
-      const { data: poderesExistentes } = await supabase
+      const { data: poderesActivos } = await supabase
         .from('poderes')
-        .select('unidad_otorgante_id')
+        .select('unidad_otorgante_id, email_receptor')
         .eq('asamblea_id', params.id)
         .eq('estado', 'activo')
 
-      const unidadesConPoder = new Set(poderesExistentes?.map((p: any) => p.unidad_otorgante_id) || [])
+      const clavesPoderExistentes = new Set(
+        (poderesActivos ?? []).map(
+          (p: { unidad_otorgante_id: string; email_receptor: string }) =>
+            `${p.unidad_otorgante_id}|${normalizarEmailReceptor(p.email_receptor)}`
+        )
+      )
 
       const toInsert: Array<{
         asamblea_id: string
@@ -212,6 +233,7 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
         estado: string
       }> = []
       const errores: string[] = []
+      const clavesEnLote = new Set<string>()
 
       for (const row of rows) {
         const keyOtorga = `${row.torre_otorga}|${row.numero_otorga}`
@@ -226,22 +248,39 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
           errores.push(`Unidad que recibe no encontrada: ${row.torre_recibe ? row.torre_recibe + ' - ' : ''}${row.numero_recibe}`)
           continue
         }
-        if (unidadesConPoder.has(unidadOtorgante.id)) {
-          errores.push(`La unidad ${row.torre_otorga ? row.torre_otorga + ' - ' : ''}${row.numero_otorga} ya tiene un poder registrado`)
+        const emailRec = emailContactoUnidad(unidadReceptor)
+        const emailOt = emailContactoUnidad(unidadOtorgante)
+        if (!emailRec.trim()) {
+          errores.push(
+            `Unidad receptora ${row.torre_recibe ? row.torre_recibe + ' - ' : ''}${row.numero_recibe}: falta email o identificador en el registro de la unidad`
+          )
           continue
         }
+        const claveUnica = `${unidadOtorgante.id}|${normalizarEmailReceptor(emailRec)}`
+        if (clavesPoderExistentes.has(claveUnica)) {
+          errores.push(
+            `Ya existe un poder activo desde ${row.torre_otorga ? row.torre_otorga + ' - ' : ''}${row.numero_otorga} hacia el mismo apoderado (${emailRec})`
+          )
+          continue
+        }
+        if (clavesEnLote.has(claveUnica)) {
+          errores.push(
+            `Fila duplicada en el archivo: misma unidad otorgante y mismo apoderado (${row.torre_otorga ? row.torre_otorga + ' - ' : ''}${row.numero_otorga} → ${emailRec})`
+          )
+          continue
+        }
+        clavesEnLote.add(claveUnica)
         toInsert.push({
           asamblea_id: params.id,
           unidad_otorgante_id: unidadOtorgante.id,
           unidad_receptor_id: unidadReceptor.id,
-          email_otorgante: unidadOtorgante.email_propietario || '',
-          nombre_otorgante: unidadOtorgante.nombre_propietario || '',
-          email_receptor: unidadReceptor.email_propietario || '',
-          nombre_receptor: unidadReceptor.nombre_propietario || '',
+          email_otorgante: emailOt,
+          nombre_otorgante: unidadOtorgante.nombre_propietario?.trim() || '',
+          email_receptor: emailRec,
+          nombre_receptor: unidadReceptor.nombre_propietario?.trim() || '',
           observaciones: row.observaciones || null,
           estado: 'activo',
         })
-        unidadesConPoder.add(unidadOtorgante.id)
       }
 
       if (errores.length > 0) {
@@ -256,9 +295,21 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
         return
       }
 
+      const lim = await validarLimiteReceptoresLote(
+        supabase,
+        params.id,
+        organizationId,
+        toInsert.map((r) => ({ email_receptor: r.email_receptor }))
+      )
+      if (!lim.ok) {
+        setError(lim.mensaje)
+        setLoading(false)
+        return
+      }
+
       const { error: insertError } = await supabase.from('poderes').insert(toInsert)
 
-      if (insertError) throw insertError
+      if (insertError) throw new Error(mensajeErrorInsertPoder(insertError))
 
       toast.success(`Se importaron ${toInsert.length} poder(es) correctamente.`)
       router.push(`/dashboard/asambleas/${params.id}/poderes`)
@@ -269,7 +320,8 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
     }
   }
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    const XLSX = await import('xlsx')
     const template = [
       {
         'Torre otorga': 'A',

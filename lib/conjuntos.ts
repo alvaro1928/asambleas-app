@@ -57,7 +57,7 @@ export async function getSelectedConjunto() {
 
     const { data, error } = await supabase
       .from('organizations')
-      .select('*')
+      .select('id, name, slug, nit, address, city, created_at')
       .eq('id', conjuntoId)
       .single()
 
