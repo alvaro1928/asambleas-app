@@ -120,6 +120,14 @@ interface EstadisticaOpcion {
   porcentaje_coeficiente: number
 }
 
+/** Totales de la pregunta (RPC `calcular_estadisticas_pregunta`, primera fila). */
+interface EstadisticasPreguntaMeta {
+  total_votos: number
+  total_coeficiente: number
+  coeficiente_total_conjunto: number
+  porcentaje_participacion: number
+}
+
 interface QuorumData {
   total_unidades: number
   unidades_votantes: number
@@ -160,6 +168,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   ])
   const [opcionesPreguntas, setOpcionesPreguntas] = useState<{ [key: string]: OpcionPregunta[] }>({})
   const [estadisticas, setEstadisticas] = useState<{ [key: string]: EstadisticaOpcion[] }>({})
+  /** Por pregunta: totales globales (votos emitidos en la pregunta), desde el RPC. */
+  const [estadisticasMeta, setEstadisticasMeta] = useState<{ [key: string]: EstadisticasPreguntaMeta }>({})
   const [quorum, setQuorum] = useState<QuorumData | null>(null)
   const [loadingStats, setLoadingStats] = useState(false)
   interface VerifStats { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
@@ -567,6 +577,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
     try {
       const statsMap: { [key: string]: EstadisticaOpcion[] } = {}
+      const metaMap: { [key: string]: EstadisticasPreguntaMeta } = {}
 
       for (const pregunta of list) {
         const { data, error } = await supabase.rpc('calcular_estadisticas_pregunta', {
@@ -611,11 +622,27 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             porcentaje_coeficiente: parseFloat(r.porcentaje_coeficiente_total || r.porcentaje_coeficiente_emitido || r.porcentaje_coeficiente || 0)
           }))
 
+          const sumUnidades = estadisticasFormateadas.reduce((s, o) => s + o.votos_count, 0)
+          const sumCoefOpciones = estadisticasFormateadas.reduce((s, o) => s + o.votos_coeficiente, 0)
+          const tv = Number(statsData.total_votos)
+          const tc = Number(statsData.total_coeficiente)
+          const cconj = Number(statsData.coeficiente_total_conjunto)
+          const pp = Number(statsData.porcentaje_participacion)
+          metaMap[pregunta.id] = {
+            total_votos: Number.isFinite(tv) ? Math.max(0, Math.round(tv)) : sumUnidades,
+            total_coeficiente: Number.isFinite(tc) ? tc : sumCoefOpciones,
+            coeficiente_total_conjunto: Number.isFinite(cconj) && cconj > 0 ? cconj : 100,
+            porcentaje_participacion: Number.isFinite(pp)
+              ? pp
+              : (Number.isFinite(cconj) && cconj > 0 ? (sumCoefOpciones / cconj) * 100 : 0),
+          }
+
           statsMap[pregunta.id] = estadisticasFormateadas
         }
       }
 
       setEstadisticas(statsMap)
+      setEstadisticasMeta(metaMap)
     } catch (error) {
       console.error('Error loading estadisticas:', error)
     }
@@ -3276,6 +3303,42 @@ Tu participacion es importante. 🏠`
                                   </span>
                                 )}
                               </div>
+                              {estadisticasMeta[pregunta.id] && (
+                                <div className="mb-3 rounded-xl border border-indigo-200/80 dark:border-indigo-800/80 bg-indigo-50/80 dark:bg-indigo-950/40 px-3 py-2.5">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-800 dark:text-indigo-200 mb-1">
+                                    Total en esta pregunta
+                                  </p>
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 leading-snug">
+                                    <span className="font-bold tabular-nums">{estadisticasMeta[pregunta.id].total_votos}</span>
+                                    {' '}
+                                    {estadisticasMeta[pregunta.id].total_votos === 1 ? 'unidad ha votado' : 'unidades han votado'}
+                                    {pregunta.tipo_votacion === 'coeficiente' ? (
+                                      <>
+                                        {' · '}
+                                        coeficiente total emitido:{' '}
+                                        <span className="font-bold tabular-nums">
+                                          {estadisticasMeta[pregunta.id].total_coeficiente.toFixed(2)}%
+                                        </span>
+                                        {' '}
+                                        del conjunto (100% = todo el coeficiente del conjunto)
+                                        {' · '}
+                                        participación{' '}
+                                        <span className="font-bold tabular-nums">
+                                          {estadisticasMeta[pregunta.id].porcentaje_participacion.toFixed(2)}%
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        {' · '}
+                                        participación nominal sobre unidades del conjunto:{' '}
+                                        <span className="font-bold tabular-nums">
+                                          {estadisticasMeta[pregunta.id].porcentaje_participacion.toFixed(2)}%
+                                        </span>
+                                      </>
+                                    )}
+                                  </p>
+                                </div>
+                              )}
                               <div className="space-y-3">
                                 {estadisticas[pregunta.id].map((stat) => (
                                   <div key={stat.opcion_id}>
@@ -3296,8 +3359,7 @@ Tu participacion es importante. 🏠`
                                               {stat.porcentaje_coeficiente}%
                                             </span>
                                             <div className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 leading-snug mt-0.5">
-                                              {stat.votos_count} {stat.votos_count === 1 ? 'unidad' : 'unidades'} · Σ coef.{' '}
-                                              {stat.votos_coeficiente.toFixed(2)}%
+                                              {stat.votos_count} {stat.votos_count === 1 ? 'unidad' : 'unidades'} (esta opción)
                                             </div>
                                           </div>
                                         ) : (
@@ -3306,8 +3368,7 @@ Tu participacion es importante. 🏠`
                                               {stat.porcentaje_nominal}%
                                             </span>
                                             <div className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 leading-snug mt-0.5">
-                                              {stat.votos_count} {stat.votos_count === 1 ? 'unidad' : 'unidades'} · Σ coef.{' '}
-                                              {stat.votos_coeficiente.toFixed(2)}%
+                                              {stat.votos_count} {stat.votos_count === 1 ? 'unidad' : 'unidades'} (esta opción)
                                             </div>
                                           </div>
                                         )}
@@ -3343,11 +3404,8 @@ Tu participacion es importante. 🏠`
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center space-y-1">
                                 <span className="block">
                                   {pregunta.tipo_votacion === 'coeficiente'
-                                    ? '📊 Votación ponderada por coeficiente (Ley 675)'
-                                    : '📊 Votación nominal (un voto por unidad)'}
-                                </span>
-                                <span className="block text-[11px] opacity-90">
-                                  Por opción: unidades = cantidad que votó esa opción; Σ coef. = suma del coeficiente de esas unidades (% del conjunto).
+                                    ? '📊 Votación ponderada por coeficiente (Ley 675). El % de cada barra es la participación de esa opción sobre el coeficiente total del conjunto.'
+                                    : '📊 Votación nominal (un voto por unidad). Por opción: % sobre unidades del conjunto; el número abajo es cuántas unidades eligieron esa opción.'}
                                 </span>
                               </p>
                             </div>
