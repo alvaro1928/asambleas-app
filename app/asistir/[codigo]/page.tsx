@@ -331,10 +331,9 @@ export default function AsistirPage() {
       q = soloDemo ? q.eq('is_demo', true) : q.or('is_demo.eq.false,is_demo.is.null')
       const { data: todas } = await q
 
-      const preguntaId = asamblea.verificacion_pregunta_id ?? null
       const { data: idsSesion } = await supabase.rpc('unidad_ids_verificados_sesion_actual', {
         p_asamblea_id: asamblea.asamblea_id,
-        p_pregunta_id: preguntaId,
+        p_pregunta_id: null,
       })
       const verificadasSet = new Set<string>()
       const esPoderVerificados = new Map<string, boolean>()

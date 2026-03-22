@@ -176,14 +176,13 @@ export default function VotacionPublicaPage() {
   // --- Verificación de Quórum ---
   const [verificacionActiva, setVerificacionActiva] = useState(false)
   const verificacionActivaRef = useRef(false)
-  /** Contexto actual de verificación (null = general, uuid = pregunta); si cambia, hay que mostrar popup de nuevo */
-  const lastVerificacionPreguntaIdRef = useRef<string | null>(null)
+  /** Transición apagado→encendido de verificación: pedir de nuevo confirmación de asistencia. */
+  const prevVerificacionActivaRef = useRef(false)
   const [yaVerifico, setYaVerifico] = useState(false)
   const [verificando, setVerificando] = useState(false)
   interface StatsVerif { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
   const [statsVerificacion, setStatsVerificacion] = useState<StatsVerif | null>(null)
   /** Quórum verificado por pregunta (para tab Avance: cada pregunta muestra su quórum) */
-  const [statsVerificacionPorPregunta, setStatsVerificacionPorPregunta] = useState<Record<string, StatsVerif>>({})
   // --- Tabs ---
   const [tabActivo, setTabActivo] = useState<'votacion' | 'avance' | 'misdatos'>('votacion')
 
@@ -907,16 +906,14 @@ export default function VotacionPublicaPage() {
           if (data) a = data as FlagsAsamblea
         }
         if (a) {
-          setVerificacionActiva(!!a.verificacion_asistencia_activa)
+          const activa = !!a.verificacion_asistencia_activa
+          setVerificacionActiva(activa)
           setParticipationTimerEndAt(a.participacion_timer_end_at ?? null)
           setParticipationTimerDefaultMinutes(Number(a.participacion_timer_default_minutes ?? 5) || 5)
           setParticipationTimerEnabled(a.participacion_timer_enabled ?? true)
-          const pid = a.verificacion_pregunta_id ?? null
-          if (!!a.verificacion_asistencia_activa && lastVerificacionPreguntaIdRef.current !== pid) {
-            lastVerificacionPreguntaIdRef.current = pid
-            setYaVerifico(false)
-          }
-          if (!a.verificacion_asistencia_activa) lastVerificacionPreguntaIdRef.current = null
+          if (activa && !prevVerificacionActivaRef.current) setYaVerifico(false)
+          prevVerificacionActivaRef.current = activa
+          verificacionActivaRef.current = activa
         }
       } catch {
         // ignorar
@@ -927,7 +924,7 @@ export default function VotacionPublicaPage() {
     return () => clearInterval(interval)
   }, [asamblea?.asamblea_id, codigo, step, email])
 
-  // Función auxiliar: refresca flag de verificación + stats por contexto (pregunta abierta o general) + si este votante ya verificó en ese contexto
+  // Función auxiliar: refresca verificación general de asistencia + si este votante ya verificó en la sesión actual
   const refrescarVerificacion = async (asambleaId: string, emailVotante?: string) => {
     const aplicarDesdeApi = (json: {
       asamblea: {
@@ -939,7 +936,6 @@ export default function VotacionPublicaPage() {
       }
       vData?: StatsVerif[] | null
       yaVerificoRaw?: boolean | null
-      statsVerificacionPorPregunta?: Record<string, StatsVerif>
     }) => {
       const aData = json.asamblea
       setParticipationTimerEndAt(aData.participacion_timer_end_at ?? null)
@@ -948,17 +944,10 @@ export default function VotacionPublicaPage() {
 
       const activa = !!aData.verificacion_asistencia_activa
       const prevActiva = verificacionActivaRef.current
-      const preguntaId = aData.verificacion_pregunta_id ?? null
-      const preguntaIdStr = preguntaId ?? null
 
       setVerificacionActiva(activa)
       if (activa && !prevActiva) setYaVerifico(false)
-      if (activa) {
-        if (lastVerificacionPreguntaIdRef.current !== preguntaIdStr) setYaVerifico(false)
-        lastVerificacionPreguntaIdRef.current = preguntaIdStr
-      } else {
-        lastVerificacionPreguntaIdRef.current = null
-      }
+      prevVerificacionActivaRef.current = activa
       verificacionActivaRef.current = activa
 
       const vData = json.vData
@@ -973,8 +962,6 @@ export default function VotacionPublicaPage() {
       } else {
         setStatsVerificacion(null)
       }
-
-      setStatsVerificacionPorPregunta(json.statsVerificacionPorPregunta || {})
 
       const yaVerificoB = json.yaVerificoRaw === true
       if (emailVotante) {
@@ -1007,7 +994,6 @@ export default function VotacionPublicaPage() {
           }
           vData?: StatsVerif[] | null
           yaVerificoRaw?: boolean | null
-          statsVerificacionPorPregunta?: Record<string, StatsVerif>
         })
         return
       }
@@ -1021,24 +1007,17 @@ export default function VotacionPublicaPage() {
       if (aData) {
         const activa = !!(aData as any).verificacion_asistencia_activa
         const prevActiva = verificacionActivaRef.current
-        const preguntaId = (aData as any).verificacion_pregunta_id ?? null
-        const preguntaIdStr = preguntaId ?? null
 
         setVerificacionActiva(activa)
         if (activa && !prevActiva) setYaVerifico(false)
-        if (activa) {
-          if (lastVerificacionPreguntaIdRef.current !== preguntaIdStr) setYaVerifico(false)
-          lastVerificacionPreguntaIdRef.current = preguntaIdStr
-        } else {
-          lastVerificacionPreguntaIdRef.current = null
-        }
+        prevVerificacionActivaRef.current = activa
         verificacionActivaRef.current = activa
 
         let vData: { total_verificados?: number; coeficiente_verificado?: number; porcentaje_verificado?: number; quorum_alcanzado?: boolean }[] | null = null
         if (activa) {
           const vRes = await supabase.rpc('calcular_verificacion_quorum', {
             p_asamblea_id: asambleaId,
-            p_pregunta_id: preguntaId,
+            p_pregunta_id: null,
             p_solo_sesion_actual: true,
           })
           vData = vRes.data
@@ -1064,7 +1043,7 @@ export default function VotacionPublicaPage() {
           ? await supabase.rpc('ya_verifico_asistencia', {
               p_asamblea_id: asambleaId,
               p_email: emailVotante.trim(),
-              p_pregunta_id: preguntaId,
+              p_pregunta_id: null,
             })
           : { data: null }
 
@@ -1079,36 +1058,6 @@ export default function VotacionPublicaPage() {
         } else {
           setStatsVerificacion(null)
         }
-
-        const { data: sesionesPorPregunta } = await supabase
-          .from('verificacion_asamblea_sesiones')
-          .select('pregunta_id, total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
-          .eq('asamblea_id', asambleaId)
-          .not('pregunta_id', 'is', null)
-          .not('cierre_at', 'is', null)
-          .order('cierre_at', { ascending: false })
-        const porPregunta: Record<string, StatsVerif> = {}
-        ;(sesionesPorPregunta || []).forEach((s: { pregunta_id: string; total_verificados?: number; coeficiente_verificado?: number; porcentaje_verificado?: number; quorum_alcanzado?: boolean }) => {
-          const id = s.pregunta_id
-          if (id && !porPregunta[id]) {
-            porPregunta[id] = {
-              total_verificados: Number(s.total_verificados) ?? 0,
-              coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0,
-              porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
-              quorum_alcanzado: !!s.quorum_alcanzado,
-            }
-          }
-        })
-        if (activa && preguntaId && vData?.length) {
-          const v = vData[0]
-          porPregunta[preguntaId] = {
-            total_verificados: Number(v.total_verificados) || 0,
-            coeficiente_verificado: Number(v.coeficiente_verificado) || 0,
-            porcentaje_verificado: Number(v.porcentaje_verificado) || 0,
-            quorum_alcanzado: !!v.quorum_alcanzado,
-          }
-        }
-        setStatsVerificacionPorPregunta(porPregunta)
 
         const yaVerificoVal = yaRes.data
         const yaVerificoB = Array.isArray(yaVerificoVal)
@@ -2062,15 +2011,12 @@ export default function VotacionPublicaPage() {
                             P{index + 1}: {pregunta.texto_pregunta}
                           </h4>
                           <div className="flex items-center gap-2 shrink-0">
-                            {(() => {
-                              const statsPreg = statsVerificacionPorPregunta[pregunta.id] ?? statsVerificacion
-                              return statsPreg ? (
-                                <span className="flex items-center gap-1.5 text-xs font-medium" title="Quórum verificado para esta pregunta">
-                                  <QuorumChip pct={statsPreg.porcentaje_verificado} total={statsPreg.total_verificados} small />
-                                  <span className="text-gray-500 dark:text-gray-400 hidden sm:inline">Quórum</span>
-                                </span>
-                              ) : null
-                            })()}
+                            {statsVerificacion ? (
+                              <span className="flex items-center gap-1.5 text-xs font-medium" title="Quórum verificado (asamblea)">
+                                <QuorumChip pct={statsVerificacion.porcentaje_verificado} total={statsVerificacion.total_verificados} small />
+                                <span className="text-gray-500 dark:text-gray-400 hidden sm:inline">Quórum</span>
+                              </span>
+                            ) : null}
                             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${algunaAprobada ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'}`}>
                               {algunaAprobada ? '✓ Aprobada' : '○ Pendiente'}
                             </span>
@@ -2154,9 +2100,9 @@ export default function VotacionPublicaPage() {
                               P{index + 1}: {pregunta.texto_pregunta}
                             </h4>
                             <div className="flex items-center gap-2 shrink-0">
-                              {statsVerificacionPorPregunta[pregunta.id] && (
-                                <span className="flex items-center gap-1.5 text-xs" title="Quórum verificado para esta pregunta">
-                                  <QuorumChip pct={statsVerificacionPorPregunta[pregunta.id].porcentaje_verificado} total={statsVerificacionPorPregunta[pregunta.id].total_verificados} small />
+                              {statsVerificacion && (
+                                <span className="flex items-center gap-1.5 text-xs" title="Quórum verificado (asamblea)">
+                                  <QuorumChip pct={statsVerificacion.porcentaje_verificado} total={statsVerificacion.total_verificados} small />
                                 </span>
                               )}
                               <span className="text-xs font-bold bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">CERRADA</span>

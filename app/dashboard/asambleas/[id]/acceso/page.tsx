@@ -748,19 +748,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     setToggling(true)
     try {
       const nuevoValor = !verificacionActiva
-      const { data: openQuestion } = await supabase
-        .from('preguntas')
-        .select('id')
-        .eq('asamblea_id', params.id)
-        .eq('estado', 'abierta')
-        .limit(1)
-        .maybeSingle()
-      const preguntaAbiertaId = openQuestion?.id ?? null
-      const payload: { verificacion_asistencia_activa: boolean; verificacion_pregunta_id?: string | null } = {
-        verificacion_asistencia_activa: nuevoValor
+      /** Solo verificación general (asamblea), no por pregunta. */
+      const payload: { verificacion_asistencia_activa: boolean; verificacion_pregunta_id: string | null } = {
+        verificacion_asistencia_activa: nuevoValor,
+        verificacion_pregunta_id: null,
       }
-      if (nuevoValor) payload.verificacion_pregunta_id = preguntaAbiertaId
-      else payload.verificacion_pregunta_id = null
 
       const { data: updatedRow, error } = await supabase
         .from('asambleas')
@@ -773,8 +765,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         return
       }
       setVerificacionActiva(updatedRow ? !!updatedRow.verificacion_asistencia_activa : nuevoValor)
-      // Tarjeta siempre general: si abrimos en modo general usar RPC en vivo; si no, última sesión general cerrada
-      if (nuevoValor && !preguntaAbiertaId) {
+      if (nuevoValor) {
         const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
           p_asamblea_id: params.id,
           p_pregunta_id: null,
@@ -789,25 +780,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             quorum_alcanzado: !!v.quorum_alcanzado,
           })
         } else {
-          const { data: sesionesData } = await supabase
-            .from('verificacion_asamblea_sesiones')
-            .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
-            .eq('asamblea_id', params.id)
-            .is('pregunta_id', null)
-            .not('cierre_at', 'is', null)
-            .order('cierre_at', { ascending: false })
-            .limit(1)
-          if (sesionesData?.length) {
-            const s = sesionesData[0] as VerificacionStats
-            setStatsVerificacion({
-              total_verificados: Number(s.total_verificados) ?? 0,
-              coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0,
-              porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
-              quorum_alcanzado: !!s.quorum_alcanzado,
-            })
-          } else {
-            setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
-          }
+          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
         }
       } else {
         const { data: sesionesData } = await supabase

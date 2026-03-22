@@ -59,7 +59,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const preguntaId = (asamblea as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null
+    /** Solo sesión general (misma fila que pregunta_id IS NULL en registro). */
+    const preguntaId: string | null = null
 
     // Obtener los quorum_asamblea.id donde este email puede verificar (incl. múltiples correos y poder a terceros)
     let idRows: { quorum_id: string }[] | null = null

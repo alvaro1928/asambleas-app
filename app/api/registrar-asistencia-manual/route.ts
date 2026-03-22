@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     const orgId = asamblea.organization_id
-    const preguntaId = (asamblea as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null
+    const preguntaId: string | null = null
 
     // Obtener datos de las unidades Y validar que pertenecen a la misma organización.
     // Esto previene que un admin registre unidades de otro conjunto.

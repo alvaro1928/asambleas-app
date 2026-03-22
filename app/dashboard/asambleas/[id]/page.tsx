@@ -856,8 +856,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const handleDesactivarVotacion = async () => {
     if (!asamblea) return
-    
-    if (!confirm('¿Deseas desactivar el acceso público? Los votantes no podrán acceder con el código.')) {
+
+    if (
+      !confirm(
+        '¿Desactivar el acceso público a la votación?\n\n' +
+          'Todas las personas que estén votando en este momento PERDERÁN el acceso (verán “acceso cerrado” o similar) hasta que vuelvas a activar la votación.\n\n' +
+          'No uses esto durante la asamblea salvo emergencia. ¿Continuar?'
+      )
+    ) {
       return
     }
     
@@ -1946,14 +1952,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     setTogglingVerif(true)
     try {
       const nuevoValor = !asamblea.verificacion_asistencia_activa
-      const preguntaAbiertaId = preguntas.find((p) => p.estado === 'abierta')?.id ?? null
-      const payload: { verificacion_asistencia_activa: boolean; verificacion_pregunta_id?: string | null } = {
-        verificacion_asistencia_activa: nuevoValor
-      }
-      if (nuevoValor) {
-        payload.verificacion_pregunta_id = preguntaAbiertaId
-      } else {
-        payload.verificacion_pregunta_id = null
+      /** Solo quórum / asistencia general (no por pregunta). */
+      const payload: { verificacion_asistencia_activa: boolean; verificacion_pregunta_id: string | null } = {
+        verificacion_asistencia_activa: nuevoValor,
+        verificacion_pregunta_id: null,
       }
       const { data: updatedRow, error } = await supabase
         .from('asambleas')

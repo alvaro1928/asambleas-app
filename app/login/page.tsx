@@ -192,11 +192,18 @@ export default function LoginPage() {
         className="bg-gray-800 p-8 rounded-xl shadow-2xl w-96 space-y-4"
       >
         <h1 className="text-2xl font-bold text-center">Entrar a Asambleas</h1>
+        <div className="rounded-lg border border-amber-500/40 bg-amber-950/40 px-3 py-2.5 text-xs text-amber-100/95 leading-snug">
+          <strong className="text-amber-200">¿Vas a votar como propietario o delegado?</strong> No necesitas cuenta aquí.
+          Abre el enlace que te dio el administrador (debe incluir <code className="text-amber-300">/votar/…</code> o{' '}
+          <code className="text-amber-300">/asistir/…</code>). Si te pidió iniciar sesión, probablemente abriste el enlace del panel
+          de administración por error.
+        </div>
         <p className="text-sm text-gray-400 text-center">
           ¿No tienes cuenta?{' '}
           <Link href="/auth/register" className="text-indigo-400 hover:text-indigo-300 font-medium">
             Regístrate
           </Link>
+          {' '}— solo para administrar conjuntos y asambleas.
         </p>
 
         {/* Selector de método */}

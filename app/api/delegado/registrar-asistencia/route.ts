@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Validar token y obtener contexto de verificación (pregunta_id para sesión actual)
     const { data: asamblea } = await admin
       .from('asambleas')
-      .select('id, organization_id, token_delegado, verificacion_pregunta_id')
+      .select('id, organization_id, token_delegado')
       .eq('id', asamblea_id.trim())
       .single()
 
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     // Registrar en verificacion_asistencia_registro (igual que registrar-asistencia-manual)
     // para que "Ya verificaron" y el quórum de la sesión actual cuenten a estas unidades
-    const preguntaId = (asamblea as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null
+    const preguntaId: string | null = null
     const unidadIds = unidadesValidas.map((u: any) => u.id)
     const { data: quorumRows } = await admin
       .from('quorum_asamblea')

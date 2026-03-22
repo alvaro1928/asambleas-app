@@ -69,11 +69,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No se pudo leer la asamblea' }, { status: 500 })
     }
 
+    /** Solo verificación general (asamblea completa). Se ignora verificacion_pregunta_id en BD para no romper quórum al cambiar de pregunta. */
     const asamblea = {
       verificacion_asistencia_activa: !!(aRow as { verificacion_asistencia_activa?: boolean })
         .verificacion_asistencia_activa,
-      verificacion_pregunta_id:
-        (aRow as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null,
+      verificacion_pregunta_id: null as string | null,
       participacion_timer_end_at:
         (aRow as { participacion_timer_end_at?: string | null }).participacion_timer_end_at ?? null,
       participacion_timer_default_minutes: Number(
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     const activa = asamblea.verificacion_asistencia_activa
-    const preguntaId = asamblea.verificacion_pregunta_id
+    const preguntaId: string | null = null
 
     let vData: StatsVerif[] | null = null
     if (activa) {
@@ -159,52 +159,13 @@ export async function POST(request: NextRequest) {
       yaVerificoRaw = Array.isArray(val) ? val[0] === true : val === true
     }
 
-    const { data: sesionesPorPregunta } = await admin
-      .from('verificacion_asamblea_sesiones')
-      .select('pregunta_id, total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
-      .eq('asamblea_id', asambleaId)
-      .not('pregunta_id', 'is', null)
-      .not('cierre_at', 'is', null)
-      .order('cierre_at', { ascending: false })
-
-    const porPregunta: Record<string, StatsVerif> = {}
-    ;(sesionesPorPregunta || []).forEach(
-      (s: {
-        pregunta_id: string
-        total_verificados?: number
-        coeficiente_verificado?: number
-        porcentaje_verificado?: number
-        quorum_alcanzado?: boolean
-      }) => {
-        const id = s.pregunta_id
-        if (id && !porPregunta[id]) {
-          porPregunta[id] = {
-            total_verificados: Number(s.total_verificados) ?? 0,
-            coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0,
-            porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
-            quorum_alcanzado: !!s.quorum_alcanzado,
-          }
-        }
-      }
-    )
-
-    if (activa && preguntaId && vData?.length) {
-      const v = vData[0]
-      porPregunta[preguntaId] = {
-        total_verificados: v.total_verificados,
-        coeficiente_verificado: v.coeficiente_verificado,
-        porcentaje_verificado: v.porcentaje_verificado,
-        quorum_alcanzado: v.quorum_alcanzado,
-      }
-    }
-
     return NextResponse.json(
       {
         ok: true,
         asamblea,
         vData,
         yaVerificoRaw,
-        statsVerificacionPorPregunta: porPregunta,
+        statsVerificacionPorPregunta: {} as Record<string, StatsVerif>,
       },
       {
         headers: { 'Cache-Control': 'no-store, max-age=0' },

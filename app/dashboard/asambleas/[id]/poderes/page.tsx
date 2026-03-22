@@ -172,6 +172,10 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
   // Estados para búsqueda y filtros
   const [searchTerm, setSearchTerm] = useState('')
+  /** Solo activos o incluir revocados / histórico */
+  const [filtroEstadoPoder, setFiltroEstadoPoder] = useState<'activos' | 'todos'>('activos')
+  /** Filtrar por unidad que otorga el poder (UUID) */
+  const [filtroUnidadOtorganteId, setFiltroUnidadOtorganteId] = useState<string>('')
   const [revocandoPoderId, setRevocandoPoderId] = useState<string | null>(null)
   const [revocando, setRevocando] = useState(false)
   const [guiaModalOpen, setGuiaModalOpen] = useState(false)
@@ -665,7 +669,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   const filteredReceptores = unidades.filter(u => matchUnidad(u, searchReceptor))
 
   const filteredPoderes = poderes.filter(p => {
-    if (p.estado !== 'activo') return false
+    if (filtroEstadoPoder === 'activos' && p.estado !== 'activo') return false
+    if (filtroUnidadOtorganteId && p.unidad_otorgante_id !== filtroUnidadOtorganteId) return false
     if (!searchTerm) return true
     const q = searchTerm.toLowerCase().replace(/[\s\-]/g, '')
     const torre = String(p.unidad_otorgante_torre ?? '').toLowerCase()
@@ -841,18 +846,47 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
           </AlertDescription>
         </Alert>
 
-        {/* Buscador */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <Input
-              type="text"
-              placeholder="Buscar por torre+apto (ej. 1304, 10301), propietario o apoderado..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+        {/* Buscador y filtros */}
+        <div className="mb-6 space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Input
+                type="text"
+                placeholder="Torre+apto, nombre o correo de quien otorga o del apoderado…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2 sm:items-center">
+              <select
+                title="Filtrar por unidad que otorga el poder"
+                value={filtroUnidadOtorganteId}
+                onChange={(e) => setFiltroUnidadOtorganteId(e.target.value)}
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm px-3 py-2 min-w-[200px]"
+              >
+                <option value="">Todas las unidades (otorgante)</option>
+                {unidades.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.torre || 'S/T'} — {u.numero || 'S/N'} · {u.nombre_propietario?.trim() || '—'}
+                  </option>
+                ))}
+              </select>
+              <select
+                title="Mostrar solo poderes vigentes o también revocados"
+                value={filtroEstadoPoder}
+                onChange={(e) => setFiltroEstadoPoder(e.target.value as 'activos' | 'todos')}
+                className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm px-3 py-2"
+              >
+                <option value="activos">Solo vigentes</option>
+                <option value="todos">Incluir revocados</option>
+              </select>
+            </div>
           </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Tip: elige “Unidad otorgante” para ver solo los poderes de ese apto; o “Incluir revocados” para auditoría.
+          </p>
         </div>
 
         {/* Lista de Poderes */}

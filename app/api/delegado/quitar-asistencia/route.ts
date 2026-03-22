@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     const { data: asamblea } = await admin
       .from('asambleas')
-      .select('id, organization_id, token_delegado, verificacion_pregunta_id')
+      .select('id, organization_id, token_delegado')
       .eq('id', asamblea_id.trim())
       .single()
 
@@ -50,8 +50,6 @@ export async function POST(request: NextRequest) {
     if (!asamblea.token_delegado || asamblea.token_delegado !== token.trim()) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 403 })
     }
-
-    const preguntaId = (asamblea as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null
 
     const { data: sesionAbierta } = await admin
       .from('verificacion_asamblea_sesiones')
@@ -83,18 +81,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, quitadas: 0 })
     }
 
-    let query = admin
+    /** Quitar todos los registros de asistencia de esta sesión para esas unidades (contexto general o legado). */
+    const { error: deleteErr } = await admin
       .from('verificacion_asistencia_registro')
       .delete()
       .eq('asamblea_id', asamblea_id.trim())
       .in('quorum_asamblea_id', quorumIds)
       .gte('creado_en', aperturaAt)
-    if (preguntaId == null) {
-      query = query.is('pregunta_id', null)
-    } else {
-      query = query.eq('pregunta_id', preguntaId)
-    }
-    const { error: deleteErr } = await query
 
     if (deleteErr) {
       console.error('delegado/quitar-asistencia delete:', deleteErr)

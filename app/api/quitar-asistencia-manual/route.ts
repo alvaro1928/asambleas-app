@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     const { data: asamblea } = await admin
       .from('asambleas')
-      .select('id, organization_id, verificacion_pregunta_id')
+      .select('id, organization_id')
       .eq('id', asamblea_id.trim())
       .single()
 
@@ -78,8 +78,6 @@ export async function POST(request: NextRequest) {
     if (profile?.organization_id && asamblea.organization_id !== profile.organization_id) {
       return NextResponse.json({ error: 'Sin permiso para esta asamblea' }, { status: 403 })
     }
-
-    const preguntaId = (asamblea as { verificacion_pregunta_id?: string | null }).verificacion_pregunta_id ?? null
 
     // Sesión abierta (verificación activa): solo quitamos registros de esta sesión
     const { data: sesionAbierta } = await admin
@@ -110,19 +108,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, quitadas: 0 })
     }
 
-    // Borrar solo registros de la sesión actual y del contexto actual (general o pregunta)
-    let query = admin
+    const { error: deleteErr } = await admin
       .from('verificacion_asistencia_registro')
       .delete()
       .eq('asamblea_id', asamblea_id.trim())
       .in('quorum_asamblea_id', quorumIds)
       .gte('creado_en', aperturaAt)
-    if (preguntaId == null) {
-      query = query.is('pregunta_id', null)
-    } else {
-      query = query.eq('pregunta_id', preguntaId)
-    }
-    const { error: deleteErr } = await query
 
     if (deleteErr) {
       console.error('quitar-asistencia-manual delete:', deleteErr)
