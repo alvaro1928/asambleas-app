@@ -92,6 +92,16 @@ function formatFecha(fecha: string) {
   } catch { return fecha }
 }
 
+/** Evita re-renders cuando el polling devuelve los mismos datos (misma forma que el servidor). */
+function datosEquivalentes(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true
+  try {
+    return JSON.stringify(a) === JSON.stringify(b)
+  } catch {
+    return false
+  }
+}
+
 /** Intervalo de refresco en segundo plano (asamblea + unidades + votación); menos agresivo que el polling anterior. */
 const POLL_MS_DELEGADO = 12_000
 
@@ -155,7 +165,8 @@ export default function AsistirPage() {
       const data = await r.json()
       if (data.ok) {
         const { ok: _o, participacion_timer_end_at: _te, participacion_timer_default_minutes: _td, participacion_timer_enabled: _ten, ...resto } = data
-        setAsamblea(resto as AsambleaInfo)
+        const next = resto as AsambleaInfo
+        setAsamblea((prev) => (prev && datosEquivalentes(prev, next) ? prev : next))
       }
     } catch {
       // No cambiar step para no expulsar al delegado; solo no actualizar
@@ -210,7 +221,8 @@ export default function AsistirPage() {
         console.error('[asistir] unidades-y-verificacion:', data?.error || res.status)
         return
       }
-      setUnidades(data.unidades as Unidad[])
+      const nuevas = data.unidades as Unidad[]
+      setUnidades((prev) => (datosEquivalentes(prev, nuevas) ? prev : nuevas))
     } finally {
       if (!silent) setCargandoUnidades(false)
     }
@@ -253,23 +265,31 @@ export default function AsistirPage() {
           orden: typeof o.orden === 'number' ? o.orden : 0,
         })),
       }))
-      setPreguntas(nuevasPreguntas)
 
-      setVotosRegistrados(
-        (data.votosRegistrados || []).map((v: Record<string, unknown>) => ({
-          unidad_id: v.unidad_id as string,
-          pregunta_id: v.pregunta_id as string,
-          es_poder: !!v.es_poder,
-        }))
-      )
+      const nuevosVotos: VotoRegistrado[] = (data.votosRegistrados || []).map((v: Record<string, unknown>) => ({
+        unidad_id: v.unidad_id as string,
+        pregunta_id: v.pregunta_id as string,
+        es_poder: !!v.es_poder,
+      }))
 
-      setAvanceVotaciones((data.avanceVotaciones || []) as PreguntaConResultados[])
+      const nuevoAvance = (data.avanceVotaciones || []) as PreguntaConResultados[]
 
-      setPreguntaActiva((prev) => {
-        if (nuevasPreguntas.length === 0) return ''
-        if (prev && nuevasPreguntas.some((p) => p.id === prev)) return prev
-        return nuevasPreguntas[0].id
+      let preguntasCambiaron = false
+      setPreguntas((prev) => {
+        if (datosEquivalentes(prev, nuevasPreguntas)) return prev
+        preguntasCambiaron = true
+        return nuevasPreguntas
       })
+      if (preguntasCambiaron) {
+        setPreguntaActiva((prev) => {
+          if (nuevasPreguntas.length === 0) return ''
+          if (prev && nuevasPreguntas.some((p) => p.id === prev)) return prev
+          return nuevasPreguntas[0].id
+        })
+      }
+
+      setVotosRegistrados((prev) => (datosEquivalentes(prev, nuevosVotos) ? prev : nuevosVotos))
+      setAvanceVotaciones((prev) => (datosEquivalentes(prev, nuevoAvance) ? prev : nuevoAvance))
     } finally {
       if (!silent) setCargandoPreguntas(false)
       cargarPreguntasInFlightRef.current = false
