@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import type { BarChartData } from '@/components/charts/VotacionBarChart'
 import { normalizeCodigoAccesoFromUrl } from '@/lib/codigoAcceso'
+import { matchesUnidadBusquedaCompleta } from '@/lib/matchUnidadSearch'
 
 const VotacionBarChart = dynamic(
   () => import('@/components/charts/VotacionBarChart'),
@@ -521,9 +522,7 @@ export default function AsistirPage() {
   const unidadesFiltradas = (busq: string, excludeVerificadas = false) =>
     unidades.filter((u) => {
       if (excludeVerificadas && u.ya_verifico) return false
-      if (!busq.trim()) return true
-      const q = busq.toLowerCase()
-      return `${u.torre} ${u.numero}`.toLowerCase().includes(q) || u.nombre_propietario.toLowerCase().includes(q)
+      return matchesUnidadBusquedaCompleta(u, busq)
     })
 
   // ── Votación ──────────────────────────────────────────────────────────────
@@ -533,11 +532,7 @@ export default function AsistirPage() {
   const preguntaActualObj = preguntas.find((p) => p.id === preguntaActiva)
 
   const unidadesSinVotar = unidades.filter((u) => !yaVoto(u.id, preguntaActiva))
-    .filter((u) => {
-      if (!busqVotacion.trim()) return true
-      const q = busqVotacion.toLowerCase()
-      return `${u.torre} ${u.numero}`.toLowerCase().includes(q) || u.nombre_propietario.toLowerCase().includes(q)
-    })
+    .filter((u) => matchesUnidadBusquedaCompleta(u, busqVotacion))
 
   const guardarVotos = async () => {
     if (selVotacion.size === 0 || !opcionSeleccionada || guardandoVoto || !asamblea) return
@@ -627,7 +622,7 @@ export default function AsistirPage() {
             <div>
               <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Registrar asistencia</h4>
               <p className="text-gray-600 dark:text-gray-400">
-                En la pestaña <strong>Registrar asistencia</strong>: busca las unidades (por torre/apto o nombre), marca las que están presentes y pulsa <strong>Guardar asistencia</strong>. Puedes quitar la asistencia de una unidad con el botón correspondiente. Solo aparece esta pestaña si el administrador activó la verificación de quórum.
+                En la pestaña <strong>Registrar asistencia</strong>: busca por torre y apartamento, solo por número (conjuntos sin torre), nombre o correo del propietario; marca las que están presentes y pulsa <strong>Guardar asistencia</strong>. Puedes quitar la asistencia de una unidad con el botón correspondiente. Solo aparece esta pestaña si el administrador activó la verificación de quórum.
               </p>
             </div>
             <div>
@@ -838,7 +833,7 @@ export default function AsistirPage() {
                   type="text"
                   value={busqAsistencia}
                   onChange={(e) => setBusqAsistencia(e.target.value)}
-                  placeholder="Buscar unidad..."
+                  placeholder="Torre+número, solo número, nombre o correo…"
                   className="w-full pl-9 pr-4 py-2 rounded-2xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500"
                 />
               </div>
@@ -1030,7 +1025,7 @@ export default function AsistirPage() {
                             type="text"
                             value={busqVotacion}
                             onChange={(e) => setBusqVotacion(e.target.value)}
-                            placeholder="Buscar unidad..."
+                            placeholder="Torre+número, solo número, nombre o correo…"
                             className="w-full pl-9 pr-4 py-2 rounded-2xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500"
                           />
                         </div>

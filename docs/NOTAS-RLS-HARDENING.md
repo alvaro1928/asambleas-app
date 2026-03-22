@@ -15,10 +15,14 @@ Tras endurecer políticas RLS en Supabase, las lecturas con el **cliente JS** (`
 | `/asistir` — preguntas, votos, estadísticas | `POST /api/delegado/estado-votacion` |
 | Acciones delegado (voto, asistencia, timer) | Rutas `/api/delegado/*` con token |
 
+## Realtime (preguntas en `/votar`)
+
+Si ejecutaste `supabase/REALTIME-PREGUNTAS-VOTACION.sql`, el cliente puede suscribirse a cambios en `preguntas`. Sigue siendo compatible con APIs que usan `service_role`; el tema principal aquí es la **sesión cruzada** descrita arriba (otra org autenticada), no Realtime en sí.
+
 ## Qué sigue usando el cliente en `/votar` (revisar si hay incidencias)
 
 - RPC: `calcular_estadisticas_pregunta`, `registrar_voto_con_trazabilidad`, `calcular_verificacion_quorum`, `ya_verifico_asistencia`, etc.
-- Tablas: historial (preguntas cerradas), votos, realtime en `preguntas`.
+- Tablas: historial (preguntas cerradas), votos, canal Realtime en `preguntas` (opcional).
 - Si en BD las funciones están como **SECURITY DEFINER** o con `row_security = off` donde corresponde, el comportamiento es correcto también con sesión cruzada.
 - El fallback de `refrescarVerificacion` que usa `supabase.from('asambleas')` solo corre si la API devuelve error; en ese caso puede fallar por RLS.
 

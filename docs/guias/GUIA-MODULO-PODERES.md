@@ -105,8 +105,10 @@ SELECT * FROM resumen_poderes_asamblea('asamblea-uuid');
    - Límite actual configurado
    - Cómo funcionan en las votaciones
 
-3. **Buscador:**
-   - Búsqueda por unidad, propietario o apoderado
+3. **Buscador y filtro**
+   - Campo de texto: torre+número (también pegado sin espacios, p. ej. `10 301` o `10301`), **solo número** cuando en datos no hay torre (conjuntos que no usan torre), nombre o correo de quien otorga o del apoderado.
+   - Selector **Todas las unidades (otorgante)** para filtrar por la unidad que delega.
+   - En el modal **Registrar poder**, la búsqueda de unidad otorgante y receptora usa el **mismo criterio** que el listado de unidades del conjunto (`lib/matchUnidadSearch.ts`).
 
 4. **Tabla de Poderes:**
    | Unidad Otorgante | Propietario | Apoderado | Coeficiente | Estado | Acciones |
@@ -251,7 +253,7 @@ WHERE v.pregunta_id = p_pregunta_id;
 2. **Clic en "Registrar Poder"**
 
 3. **Paso 1: Seleccionar Unidad Otorgante**
-   - Buscar por torre, número o nombre del propietario
+   - Buscar por torre y número, solo número (sin torre en el conjunto), o nombre/correo del propietario
    - Ver coeficiente de la unidad
    - Seleccionar
 
@@ -340,21 +342,11 @@ WHERE v.pregunta_id = p_pregunta_id;
    - ✅ Componentes UI (modal, tabla, búsqueda)
    - ✅ Botón de acceso en detalle de asamblea
 
-### 🔄 Pendiente (Próximos Pasos)
+### Estado actual (integración)
 
-4. **Integración con Votación:**
-   - ⏳ Interfaz pública de votación que detecte poderes
-   - ⏳ Al votar, crear múltiples registros en `votos` (uno por cada unidad representada)
-   - ⏳ Mostrar al apoderado cuántas unidades representa
+4. **Integración con votación y quórum** — En producción: la votación pública (`/votar`) y el flujo de validación consideran poderes activos; el apoderado vota por cada unidad (propias + poderes). Verificación de asistencia y paneles del dashboard incluyen unidades representadas por poder donde aplica. Detalle en **[RESUMEN-APLICACION.md](../RESUMEN-APLICACION.md)**.
 
-5. **Integración con Quórum:**
-   - ⏳ Al registrar asistencia del apoderado, marcar todas sus unidades
-   - ⏳ Mostrar en el panel de quórum cuántas unidades están por poder
-
-6. **Mejoras UX:**
-   - ⏳ Carga de documento del poder
-   - ⏳ Validación visual (checkmarks, alertas)
-   - ⏳ Tooltips explicativos
+5. **Mejoras UX opcionales (futuro):** tooltips adicionales, más validaciones visuales en flujos edge.
 
 ---
 
@@ -411,10 +403,6 @@ WHERE v.pregunta_id = p_pregunta_id;
    - Intentar registrar más de 3 poderes para el mismo apoderado
    - Revocar un poder
 
-3. **Siguiente Fase:**
-   - Implementar interfaz pública de votación con soporte para poderes
-   - Actualizar el sistema de quórum para considerar poderes
+3. **Documentación relacionada:** [GUIA-SISTEMA-VOTACION-PUBLICA.md](GUIA-SISTEMA-VOTACION-PUBLICA.md), [GUIA-ESTADISTICAS-QUORUM-PODERES.md](GUIA-ESTADISTICAS-QUORUM-PODERES.md).
 
 ---
-
-**¿Listo para continuar con la integración de poderes en el sistema de votación?** 🚀

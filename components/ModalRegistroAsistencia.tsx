@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle2, Search, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { matchesUnidadBusquedaCompleta } from '@/lib/matchUnidadSearch'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
@@ -14,26 +15,6 @@ interface UnidadConAsistencia {
   email_propietario: string
   coeficiente: number
   ya_verifico: boolean
-}
-
-function matchUnidadAsistencia(
-  u: { torre?: string; numero?: string; nombre_propietario?: string; email_propietario?: string },
-  search: string
-): boolean {
-  if (!search.trim()) return true
-  const q = search.toLowerCase().replace(/[\s\-]/g, '')
-  const torre = String(u.torre ?? '').toLowerCase()
-  const numero = String(u.numero ?? '').toLowerCase()
-  const torreNumero = torre + numero
-  const nom = String(u.nombre_propietario ?? '').toLowerCase()
-  const em = String(u.email_propietario ?? '').toLowerCase()
-  return (
-    numero.includes(q) ||
-    torre.includes(q) ||
-    torreNumero.includes(q) ||
-    nom.includes(search.toLowerCase()) ||
-    em.includes(search.toLowerCase())
-  )
 }
 
 export interface ModalRegistroAsistenciaProps {
@@ -133,7 +114,7 @@ export function ModalRegistroAsistencia({
   const toggleSeleccionarTodas = () => {
     const filtradas = unidadesParaAsistencia.filter((u) => {
       if (u.ya_verifico) return false
-      return matchUnidadAsistencia(u, busquedaAsistencia)
+      return matchesUnidadBusquedaCompleta(u, busquedaAsistencia, { displaySentinels: true })
     })
     const idsVisibles = filtradas.map((u) => u.id)
     const todasSeleccionadas = idsVisibles.every((id) => seleccionadas.has(id))
@@ -248,7 +229,7 @@ export function ModalRegistroAsistencia({
               type="text"
               value={busquedaAsistencia}
               onChange={(e) => setBusquedaAsistencia(e.target.value)}
-              placeholder="Buscar por torre+apto (ej. 1304, 10-301), propietario o email..."
+              placeholder="Torre+número, solo número (sin torre), propietario o correo…"
               className="w-full pl-9 pr-4 py-2 rounded-2xl bg-white/5 border border-[rgba(255,255,255,0.1)] text-slate-200 text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500"
             />
           </div>
@@ -262,7 +243,7 @@ export function ModalRegistroAsistencia({
                 {(() => {
                   const pendientes = unidadesParaAsistencia.filter((u) => {
                     if (u.ya_verifico) return false
-                    return matchUnidadAsistencia(u, busquedaAsistencia)
+                    return matchesUnidadBusquedaCompleta(u, busquedaAsistencia, { displaySentinels: true })
                   })
                   return pendientes.length > 0 && pendientes.every((u) => seleccionadas.has(u.id))
                     ? 'Deseleccionar todas'
@@ -287,7 +268,7 @@ export function ModalRegistroAsistencia({
           ) : (
             <div className="space-y-1">
               {unidadesParaAsistencia
-                .filter((u) => matchUnidadAsistencia(u, busquedaAsistencia))
+                .filter((u) => matchesUnidadBusquedaCompleta(u, busquedaAsistencia, { displaySentinels: true }))
                 .map((u) => {
                   const checked = u.ya_verifico || seleccionadas.has(u.id)
                   const disabled = u.ya_verifico

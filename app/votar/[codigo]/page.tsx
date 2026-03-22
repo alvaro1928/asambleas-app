@@ -1590,7 +1590,7 @@ export default function VotacionPublicaPage() {
                 Ayuda: cómo votar
               </DialogTitle>
               <DialogDescription>
-                Guía rápida para participar en la votación en línea.
+                Guía rápida para participar en la votación en línea. La lista de preguntas puede actualizarse en vivo cuando el administrador abre o cierra preguntas.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300">
@@ -1619,6 +1619,12 @@ export default function VotacionPublicaPage() {
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Verificación de asistencia</h4>
                 <p className="text-gray-600 dark:text-gray-400">
                   Si el administrador activó la verificación de quórum, aparecerá un aviso para que confirmes tu asistencia. Es necesario hacerlo para que tu presencia quede registrada en el acta.
+                </p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Actualización de la votación</h4>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Si el administrador abre o cierra preguntas mientras votas, la pantalla puede refrescarse sola para mostrar los cambios. Si no ves una pregunta nueva, usa el botón de actualizar de tu navegador o vuelve a entrar al enlace.
                 </p>
               </div>
             </div>

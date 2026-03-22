@@ -29,6 +29,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useToast } from '@/components/providers/ToastProvider'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
+import { matchesTorreUnidadSearch } from '@/lib/matchUnidadSearch'
 
 interface Asamblea {
   id: string
@@ -138,30 +139,6 @@ function getDocExtension(file: File): string {
   if (file.name.toLowerCase().endsWith('.pdf')) return '.pdf'
   if (file.name.toLowerCase().endsWith('.doc')) return '.doc'
   return '.docx'
-}
-
-/**
- * Misma lógica que en /dashboard/unidades: torre+número pegados ("10 301" → "10301"),
- * y si en BD no hay torre, el último token del texto suele ser el número de unidad.
- */
-function matchesTorreUnidadSearch(
-  torreRaw: string | null | undefined,
-  numeroRaw: string | number | null | undefined,
-  searchRaw: string
-): boolean {
-  const term = searchRaw.toLowerCase().trim()
-  if (!term) return true
-  const termSinSeparadores = term.replace(/[\s\-]/g, '')
-  const torre = String(torreRaw ?? '').toLowerCase()
-  const numero = String(numeroRaw ?? '').toLowerCase()
-  const torreNumero = torre + numero
-  const tokens = term.split(/\s+/).filter(Boolean)
-  const lastTok = (tokens[tokens.length - 1] || '').replace(/[\s\-]/g, '')
-
-  if (numero.includes(term) || torre.includes(term)) return true
-  if (termSinSeparadores.length > 0 && torreNumero.includes(termSinSeparadores)) return true
-  if (!torre && lastTok.length > 0 && (numero === lastTok || numero.includes(lastTok))) return true
-  return false
 }
 
 /** Mensaje legible ante duplicado / constraint en poderes */
@@ -569,7 +546,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       return
     }
 
-    const emailsUnicos = [...new Set(items.map((i) => i.email_receptor.trim().toLowerCase()))]
+    const emailsUnicos = Array.from(new Set(items.map((i) => i.email_receptor.trim().toLowerCase())))
     for (const em of emailsUnicos) {
       const okLim = await validarLimiteReceptor(em)
       if (!okLim) return

@@ -10,7 +10,7 @@
 
 | Documento | Descripción |
 |-----------|-------------|
-| **[RESUMEN-APLICACION.md](RESUMEN-APLICACION.md)** | Resumen funcional (por rol: admin, votantes, super-admin) y técnico (stack, rutas, APIs, BD). Incluye **billetera de tokens por gestor** (1 token = 1 unidad; cobro solo al activar asamblea), **asamblea de pruebas (sandbox)** y **ayudas al usuario** (modales de ayuda en votación pública y en modo asistente delegado). Punto de entrada para entender la app. |
+| **[RESUMEN-APLICACION.md](RESUMEN-APLICACION.md)** | Resumen funcional (por rol: admin, votantes, super-admin) y técnico (stack, rutas, APIs, BD). Incluye **billetera de tokens por gestor** (1 token = 1 unidad; cobro solo al activar asamblea), **asamblea de pruebas (sandbox)** y **ayudas al usuario** (modales: votación pública, asistente delegado, **Guía** de tokens en gestión de poderes). Punto de entrada para entender la app. |
 
 ---
 
@@ -53,7 +53,8 @@
 
 | Documento | Descripción |
 |-----------|-------------|
-| **[supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md](supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md)** | Orden y descripción de los scripts SQL a ejecutar en Supabase. |
+| **[supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md](supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md)** | Orden y descripción de los scripts SQL a ejecutar en Supabase. Incluye nota sobre **Realtime** (`REALTIME-PREGUNTAS-VOTACION.sql`) para actualización en vivo de preguntas en `/votar`. |
+| [NOTAS-RLS-HARDENING.md](NOTAS-RLS-HARDENING.md) | RLS endurecido: rutas públicas que usan API con `service_role`, sesión cruzada `authenticated`, y consideraciones para modales del dashboard. |
 | [supabase/README-RLS.md](supabase/README-RLS.md) | Row Level Security (RLS). |
 | [supabase/INSTRUCCIONES-CORREGIR-RLS.md](supabase/INSTRUCCIONES-CORREGIR-RLS.md) | Cómo corregir políticas RLS. |
 | [supabase/README-LIMPIAR-DATOS.md](supabase/README-LIMPIAR-DATOS.md) | Limpiar datos en desarrollo. |

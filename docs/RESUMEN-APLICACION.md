@@ -21,7 +21,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - **Editar conjunto** (`/dashboard/conjuntos/[id]/editar`): nombre, NIT, dirección, ciudad.
 
 **Unidades**
-- **Listado de unidades** (`/dashboard/unidades`) con búsqueda y filtro por torre.
+- **Listado de unidades** (`/dashboard/unidades`) con búsqueda (torre+número, solo número si el conjunto no usa torre, propietario o correo) y filtro por torre.
 - **Importación masiva** desde Excel/CSV (`/dashboard/unidades/importar`) con validación de coeficientes (suma 100%) y torre/unidad única.
 - Editar y eliminar unidades.
 - **Notificar vía WhatsApp**: selección por checkbox y botón para enviar enlace de votación por Meta API. Se descuentan tokens (configurable en Super Admin → WhatsApp). Delay 300 ms entre mensajes.
@@ -54,6 +54,8 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - **Envío de correo:** Botón "Enviar enlace por correo" envía por **SMTP** desde el servidor (sin Outlook). Configurable en Super Admin → Ajustes o por variables. Plantilla adicional en Configuración → Poderes y correo.
 - **Poderes** (`/dashboard/asambleas/[id]/poderes`):
   - Asignar apoderados por unidad (quién otorga, email y nombre del apoderado).
+  - **Búsqueda y filtros** en la tabla: por torre+número, solo número de unidad (conjuntos sin torre en datos), nombre o correo de otorgante o apoderado; selector por unidad otorgante.
+  - Botón **Guía** (modal): tokens y funcionalidades, incluida línea sobre poderes y búsqueda.
   - Límite máximo de poderes por apoderado **configurable** en Dashboard → Configuración → Poderes y correo; validación antes de crear.
   - Revocar poder (con diálogo de confirmación).
   - **Importación masiva** de poderes desde Excel/CSV (`/dashboard/asambleas/[id]/poderes/importar`).
@@ -80,7 +82,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - **Indicador de pasos** (StepIndicator): Código → Email → Unidades → Votar.
 - Progreso "X/Y unidades votadas" por pregunta.
 - Mensaje al completar todas las votaciones; **historial** de preguntas cerradas con resultados y votos del votante.
-- **Ayuda al usuario:** modal de ayuda (ícono ? en la cabecera) con guía de pasos, tipos de votación (coeficiente vs nominal), poderes y verificación de asistencia.
+- **Ayuda al usuario:** modal de ayuda (ícono ? en la cabecera) con guía de pasos, tipos de votación (coeficiente vs nominal), poderes, verificación de asistencia y **actualización de la votación** (preguntas que el admin abre o cierra; refresco en vivo si Realtime está habilitado en Supabase).
 - **Trazabilidad**: IP y user-agent vía `/api/client-info`; RPC `registrar_voto_con_trazabilidad`.
 - Heartbeat cada 2 min y marcar salida al abandonar (quorum_asamblea, registro de ingresos).
 - Toasts para éxito/error (no `alert()`).
