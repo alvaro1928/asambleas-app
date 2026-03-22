@@ -374,8 +374,7 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
             Torre otorga, Número otorga (unidad que delega), Torre recibe, Número recibe (unidad del apoderado). Opcional: Observaciones.
             El sistema asocia automáticamente los correos y nombres desde el registro de las unidades.
             <span className="block mt-2 text-sm">
-              Cada fila es un poder: la misma unidad <strong>otorgante</strong> no puede repetirse (un poder activo por apartamento que delega).
-              La unidad <strong>receptora</strong> puede aparecer en varias filas si distintos apartamentos delegan en ella.
+              Cada fila es un poder: no puede haber dos filas con la misma unidad <strong>otorgante</strong> y el mismo apoderado (mismo correo o identificador del registro de la unidad receptora). Una misma unidad sí puede delegar a <strong>varios</strong> apoderados distintos a la vez, y la unidad receptora puede aparecer en varias filas si distintos apartamentos delegan en ella (respetando el límite por apoderado).
             </span>
           </AlertDescription>
         </Alert>
