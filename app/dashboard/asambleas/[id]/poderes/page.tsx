@@ -140,6 +140,30 @@ function getDocExtension(file: File): string {
   return '.docx'
 }
 
+/**
+ * Misma lógica que en /dashboard/unidades: torre+número pegados ("10 301" → "10301"),
+ * y si en BD no hay torre, el último token del texto suele ser el número de unidad.
+ */
+function matchesTorreUnidadSearch(
+  torreRaw: string | null | undefined,
+  numeroRaw: string | number | null | undefined,
+  searchRaw: string
+): boolean {
+  const term = searchRaw.toLowerCase().trim()
+  if (!term) return true
+  const termSinSeparadores = term.replace(/[\s\-]/g, '')
+  const torre = String(torreRaw ?? '').toLowerCase()
+  const numero = String(numeroRaw ?? '').toLowerCase()
+  const torreNumero = torre + numero
+  const tokens = term.split(/\s+/).filter(Boolean)
+  const lastTok = (tokens[tokens.length - 1] || '').replace(/[\s\-]/g, '')
+
+  if (numero.includes(term) || torre.includes(term)) return true
+  if (termSinSeparadores.length > 0 && torreNumero.includes(termSinSeparadores)) return true
+  if (!torre && lastTok.length > 0 && (numero === lastTok || numero.includes(lastTok))) return true
+  return false
+}
+
 /** Mensaje legible ante duplicado / constraint en poderes */
 function mensajeErrorInsertPoder(err: { message?: string; code?: string }): string {
   const m = String(err.message || '').toLowerCase()
@@ -773,45 +797,36 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   }
 
   const matchUnidad = (u: Unidad, search: string) => {
-    if (!search) return true
-    const q = search.toLowerCase().replace(/[\s\-]/g, '')
-    const torre = String(u.torre ?? '').toLowerCase()
-    const numero = String(u.numero ?? '').toLowerCase()
-    const torreNumero = torre + numero // ej. "10"+"301" = "10301"
+    if (!search.trim()) return true
+    if (matchesTorreUnidadSearch(u.torre, u.numero, search)) return true
+    const term = search.toLowerCase().trim()
     const nom = String(u.nombre_propietario ?? '').toLowerCase()
     const em = String((u as { email_propietario?: string }).email_propietario ?? (u as { email?: string }).email ?? '').toLowerCase()
-    return (
-      numero.includes(q) ||
-      torre.includes(q) ||
-      torreNumero.includes(q) ||
-      nom.includes(search.toLowerCase()) ||
-      em.includes(search.toLowerCase())
-    )
+    return nom.includes(term) || em.includes(term)
   }
 
   const filteredOtorgantes = unidades.filter(u => matchUnidad(u, searchOtorgante))
   const filteredReceptores = unidades.filter(u => matchUnidad(u, searchReceptor))
 
-  const filteredPoderes = poderes.filter(p => {
+  const filteredPoderes = poderes.filter((p) => {
     if (filtroEstadoPoder === 'activos' && p.estado !== 'activo') return false
     if (filtroUnidadOtorganteId && p.unidad_otorgante_id !== filtroUnidadOtorganteId) return false
-    if (!searchTerm) return true
-    const q = searchTerm.toLowerCase().replace(/[\s\-]/g, '')
-    const torre = String(p.unidad_otorgante_torre ?? '').toLowerCase()
-    const numero = String(p.unidad_otorgante_numero ?? '').toLowerCase()
-    const torreNumero = torre + numero // ej. "10"+"301" = "10301", "13"+"04" = "1304"
-    const torreRecep = String((p as { unidad_receptor_torre?: string }).unidad_receptor_torre ?? '').toLowerCase()
-    const numeroRecep = String((p as { unidad_receptor_numero?: string }).unidad_receptor_numero ?? '').toLowerCase()
-    const torreNumeroRecep = torreRecep + numeroRecep
+    if (!searchTerm.trim()) return true
+    const term = searchTerm.toLowerCase().trim()
+    if (matchesTorreUnidadSearch(p.unidad_otorgante_torre, p.unidad_otorgante_numero, searchTerm)) return true
+    if (
+      matchesTorreUnidadSearch(
+        p.unidad_receptor_torre,
+        p.unidad_receptor_numero,
+        searchTerm
+      )
+    )
+      return true
     return (
-      p.nombre_otorgante?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.email_otorgante?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.nombre_receptor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.email_receptor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.unidad_otorgante_numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.unidad_otorgante_torre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      torreNumero.includes(q) ||
-      torreNumeroRecep.includes(q)
+      String(p.nombre_otorgante ?? '').toLowerCase().includes(term) ||
+      String(p.email_otorgante ?? '').toLowerCase().includes(term) ||
+      String(p.nombre_receptor ?? '').toLowerCase().includes(term) ||
+      String(p.email_receptor ?? '').toLowerCase().includes(term)
     )
   })
 
@@ -979,7 +994,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <Input
                 type="text"
-                placeholder="Torre+apto, nombre o correo de quien otorga o del apoderado…"
+                placeholder="Torre+apto, solo apto (sin torre), nombre o correo…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -1027,9 +1042,9 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
             <div className="p-12 text-center">
               <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
               <p className="text-gray-600 dark:text-gray-400">
-                {searchTerm ? 'No se encontraron poderes con ese criterio' : 'No hay poderes registrados'}
+                {searchTerm.trim() ? 'No se encontraron poderes con ese criterio' : 'No hay poderes registrados'}
               </p>
-              {!searchTerm && (
+              {!searchTerm.trim() && (
                 <Button
                   onClick={() => openCreatePoderModal()}
                   variant="outline"
@@ -1268,7 +1283,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                 <Input
                   id="search-otorgante"
                   type="text"
-                  placeholder="Buscar por torre, número o propietario..."
+                  placeholder="Torre+número, solo número, propietario o correo…"
                   value={searchOtorgante}
                   onChange={(e) => setSearchOtorgante(e.target.value)}
                   className="pl-10"
@@ -1390,7 +1405,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <Input
                       type="text"
-                      placeholder="Buscar por torre, número o propietario..."
+                      placeholder="Torre+número, solo número, propietario o correo…"
                       value={searchReceptor}
                       onChange={(e) => setSearchReceptor(e.target.value)}
                       className="pl-10"
