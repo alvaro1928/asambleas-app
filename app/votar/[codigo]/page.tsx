@@ -43,6 +43,8 @@ function mensajeErrorAmigable(msg: string): string {
   if (m.includes('no puede votar') || m.includes('puede_votar')) return 'No tienes permiso para votar en esta asamblea con este correo, teléfono o identificación. Verifica que tengas una unidad o poder asignado.'
   if (m.includes('código') && m.includes('inválido')) return 'El código de acceso no es válido. Verifica que hayas escaneado correctamente el QR o que el enlace sea el indicado.'
   if (m.includes('acceso') && m.includes('cerrado')) return 'El acceso a esta votación está cerrado. Contacta al administrador si crees que es un error.'
+  if (m.includes('desactivado') && m.includes('acceso')) return 'El acceso público a esta asamblea está desactivado. El administrador debe volver a activar la votación desde el panel.'
+  if (m.includes('failed to fetch') || m.includes('network') || m.includes('load failed')) return 'No hay conexión estable o el servidor respondió mal. Comprueba datos/Wi‑Fi, reintenta o recarga la página.'
   return msg
 }
 
@@ -304,27 +306,7 @@ export default function VotacionPublicaPage() {
   }, [participationTimerEnabled, participationTimerEndAt, participationTimerDefaultMinutes])
 
   const validarCodigo = async () => {
-    try {
-      const { data, error } = await supabase.rpc('validar_codigo_acceso', {
-        p_codigo: codigo
-      })
-
-      if (error) throw error
-
-      if (!data || data.length === 0) {
-        setError(mensajeErrorAmigable('Código de acceso inválido'))
-        setStep('error')
-        return
-      }
-
-      const asambleaData = data[0]
-
-      if (!asambleaData.acceso_valido) {
-        setError(mensajeErrorAmigable(asambleaData.mensaje || 'Acceso denegado'))
-        setStep('error')
-        return
-      }
-
+    const aplicarAsamblea = (asambleaData: AsambleaInfo) => {
       setAsamblea(asambleaData)
       setParticipationTimerEnabled(asambleaData.participacion_timer_enabled ?? true)
       setParticipationTimerEndAt(asambleaData.participacion_timer_end_at ?? null)
@@ -338,9 +320,79 @@ export default function VotacionPublicaPage() {
       } catch {
         // Ignorar si localStorage no está disponible
       }
-    } catch (error: any) {
+    }
+
+    const interpretarFilaRpc = (row: Record<string, unknown>): AsambleaInfo => ({
+      asamblea_id: String(row.asamblea_id ?? ''),
+      nombre: String(row.nombre ?? ''),
+      fecha: String(row.fecha ?? ''),
+      organization_id: String(row.organization_id ?? ''),
+      nombre_conjunto: String(row.nombre_conjunto ?? ''),
+      acceso_valido: !!row.acceso_valido,
+      mensaje: String(row.mensaje ?? ''),
+      participacion_timer_end_at: (row.participacion_timer_end_at as string | null | undefined) ?? null,
+      participacion_timer_default_minutes: Number(row.participacion_timer_default_minutes ?? 5) || 5,
+      participacion_timer_enabled: row.participacion_timer_enabled as boolean | null | undefined,
+    })
+
+    try {
+      /** Preferir API (service role): no depende de sesión Supabase en el navegador (misma causa que hardening móvil). */
+      let usadoApi = false
+      try {
+        const res = await fetch('/api/votar/validar-codigo-acceso', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codigo }),
+          cache: 'no-store',
+        })
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean
+          asamblea?: Record<string, unknown>
+          mensaje?: string
+          error?: string
+        }
+        if (res.ok && json.ok && json.asamblea) {
+          usadoApi = true
+          aplicarAsamblea(interpretarFilaRpc(json.asamblea))
+          return
+        }
+        if (!res.ok && (json.mensaje || json.error)) {
+          setError(mensajeErrorAmigable(json.mensaje || json.error || 'Acceso denegado'))
+          setStep('error')
+          return
+        }
+      } catch {
+        // red: intentar RPC en cliente
+      }
+
+      if (!usadoApi) {
+        const { data, error } = await supabase.rpc('validar_codigo_acceso', {
+          p_codigo: codigo,
+        })
+
+        if (error) throw error
+
+        if (!data || data.length === 0) {
+          setError(mensajeErrorAmigable('Código de acceso inválido'))
+          setStep('error')
+          return
+        }
+
+        const raw = data[0] as Record<string, unknown>
+        const asambleaData = interpretarFilaRpc(raw)
+
+        if (!asambleaData.acceso_valido) {
+          setError(mensajeErrorAmigable(asambleaData.mensaje || 'Acceso denegado'))
+          setStep('error')
+          return
+        }
+
+        aplicarAsamblea(asambleaData)
+      }
+    } catch (error: unknown) {
       console.error('Error validando código:', error)
-      setError(mensajeErrorAmigable(error?.message || 'Error al validar el código de acceso'))
+      const msg = error instanceof Error ? error.message : 'Error al validar el código de acceso'
+      setError(mensajeErrorAmigable(msg))
       setStep('error')
     }
   }
@@ -1234,9 +1286,12 @@ export default function VotacionPublicaPage() {
             <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
               <p className="font-semibold mb-1">Posibles razones:</p>
               <ul className="text-left space-y-1">
-                <li>• El código ha expirado o fue desactivado</li>
-                <li>• El código es incorrecto</li>
-                <li>• El acceso público está cerrado</li>
+                <li>• El administrador <strong>desactivó el acceso público</strong> a la votación (no es lo mismo que cerrar una pregunta)</li>
+                <li>• Tras mucho tiempo en segundo plano el móvil puede <strong>recargar la página</strong>; si el acceso se desactivó mientras tanto, verás este mensaje</li>
+                <li>• El código es incorrecto o el enlace está incompleto</li>
+                <li>
+                  • Si en el mismo dispositivo tienes abierta la <strong>cuenta de administración</strong> de otra copropiedad, prueba en <strong>ventana de incógnito</strong> o otro navegador
+                </li>
                 <li>
                   • En celular: abre el enlace en <strong>Chrome o Safari</strong> (no en el navegador interno de WhatsApp u otras apps); algunos lectores de QR alteran el código
                 </li>
