@@ -8,8 +8,18 @@
 -- recibe eventos, en Dashboard: Database → Publications → supabase_realtime
 -- y asegurar que `public.preguntas` esté incluida.
 --
--- Si al ejecutar esto la tabla ya está en la publicación, Postgres puede
--- devolver error; en ese caso no es necesario repetir.
+-- Idempotente: si `preguntas` ya está en la publicación, no hace nada.
 -- =====================================================
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.preguntas;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'preguntas'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.preguntas;
+  END IF;
+END $$;
