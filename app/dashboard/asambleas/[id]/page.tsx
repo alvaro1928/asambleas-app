@@ -235,6 +235,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   })
   const [editOpciones, setEditOpciones] = useState<OpcionPregunta[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
+  const [eliminandoOpcionId, setEliminandoOpcionId] = useState<string | null>(null)
 
   // Billetera de tokens por gestor: puede_operar = tokens >= unidades del conjunto
   const [puedeOperar, setPuedeOperar] = useState(false)
@@ -1524,20 +1525,58 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     ])
   }
 
-  const removeEditOpcion = (index: number) => {
+  const removeEditOpcion = async (index: number) => {
     const op = editOpciones[index]
-    if (
-      editingPregunta &&
-      (editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada') &&
-      op.id
-    ) {
-      toast.error('No puedes eliminar opciones que ya están en la votación. Solo puedes añadir nuevas.')
-      return
-    }
-    if (editingPregunta?.estado === 'pendiente' && editOpciones.length <= 2) {
+    if (!editingPregunta) return
+
+    if (editOpciones.length <= 2) {
       toast.error('Debes tener al menos 2 opciones')
       return
     }
+
+    if (
+      (editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada') &&
+      op.id
+    ) {
+      if (
+        !window.confirm(
+          '¿Eliminar esta opción de respuesta?\n\nSe borrarán también todos los votos registrados para esa opción. Esta acción no se puede deshacer.'
+        )
+      ) {
+        return
+      }
+      setEliminandoOpcionId(op.id)
+      try {
+        const res = await fetch('/api/dashboard/eliminar-opcion-pregunta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ pregunta_id: editingPregunta.id, opcion_id: op.id }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          toast.error(typeof data?.error === 'string' ? data.error : 'No se pudo eliminar la opción')
+          return
+        }
+        setEditOpciones((prev) => prev.filter((_, i) => i !== index))
+        setOpcionesPreguntas((prev) => {
+          const lista = prev[editingPregunta.id] || []
+          return {
+            ...prev,
+            [editingPregunta.id]: lista.filter((o) => o.id !== op.id),
+          }
+        })
+        toast.success('Opción eliminada. Los votos asociados a esa opción se eliminaron.')
+        await loadEstadisticas(preguntas)
+      } catch (e) {
+        console.error(e)
+        toast.error('Error de red al eliminar la opción')
+      } finally {
+        setEliminandoOpcionId(null)
+      }
+      return
+    }
+
     setEditOpciones(editOpciones.filter((_, i) => i !== index))
   }
 
@@ -3784,7 +3823,7 @@ Tu participacion es importante. 🏠`
             <DialogTitle>Editar Pregunta</DialogTitle>
             <DialogDescription>
               {editingPregunta && (editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada')
-                ? 'Puedes editar el texto, descripción, tipo y umbral. Las opciones ya publicadas no se pueden borrar ni cambiar aquí; puedes añadir nuevas opciones abajo (útil si olvidaste una alternativa).'
+                ? 'Puedes editar el texto, descripción, tipo y umbral. Las opciones ya publicadas no se pueden renombrar aquí; puedes añadir opciones nuevas o eliminar una opción existente (con confirmación; se borran los votos de esa opción). Deben quedar al menos 2 opciones.'
                 : 'Modifica los datos de la pregunta y sus opciones.'}
             </DialogDescription>
           </DialogHeader>
@@ -3873,7 +3912,7 @@ Tu participacion es importante. 🏠`
 
                     {(editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada') && (
                       <p className="text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 mb-3">
-                        Las opciones que ya estaban publicadas aparecen bloqueadas. Las filas nuevas (sin guardar aún) puedes editarlas o quitarlas antes de guardar.
+                        Las opciones ya publicadas no se pueden renombrar. Puedes añadir filas nuevas o usar la papelera para quitar una opción (pide confirmación y elimina los votos de esa opción). Deben quedar al menos 2 opciones.
                       </p>
                     )}
 
@@ -3883,9 +3922,11 @@ Tu participacion es importante. 🏠`
                           !!opcion.id &&
                           (editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada')
                         const puedeQuitarFila =
-                          (editingPregunta.estado === 'pendiente' && editOpciones.length > 2) ||
-                          ((editingPregunta.estado === 'abierta' || editingPregunta.estado === 'cerrada') &&
-                            !opcion.id)
+                          editOpciones.length > 2 &&
+                          (editingPregunta.estado === 'pendiente' ||
+                            editingPregunta.estado === 'abierta' ||
+                            editingPregunta.estado === 'cerrada')
+                        const quitandoEsta = opcion.id != null && eliminandoOpcionId === opcion.id
                         return (
                           <div key={opcion.id ?? `nueva-${index}`} className="flex items-center space-x-2">
                             <Input
@@ -3909,10 +3950,20 @@ Tu participacion es importante. 🏠`
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                onClick={() => removeEditOpcion(index)}
+                                onClick={() => void removeEditOpcion(index)}
+                                disabled={quitandoEsta || (eliminandoOpcionId != null && opcion.id != null)}
                                 className="text-red-600 hover:text-red-700"
+                                title={
+                                  opcionBloqueada
+                                    ? 'Eliminar opción y los votos asociados (pide confirmación)'
+                                    : 'Quitar opción'
+                                }
                               >
-                                <Trash2 className="w-4 h-4" />
+                                {quitandoEsta ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
                               </Button>
                             )}
                           </div>
@@ -3922,7 +3973,7 @@ Tu participacion es importante. 🏠`
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                       {editingPregunta.estado === 'pendiente'
                         ? 'Mínimo 2 opciones. Puedes personalizar textos y colores.'
-                        : 'Añade tantas opciones nuevas como necesites; se guardarán al pulsar «Guardar cambios».'}
+                        : 'Las opciones nuevas se guardan al pulsar «Guardar cambios». Quitar una opción ya publicada pide confirmación y elimina sus votos al instante.'}
                     </p>
                   </div>
                 </>
