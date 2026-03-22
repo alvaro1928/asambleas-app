@@ -321,6 +321,10 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
           <AlertDescription>
             Torre otorga, Número otorga (unidad que delega), Torre recibe, Número recibe (unidad del apoderado). Opcional: Observaciones.
             El sistema asocia automáticamente los correos y nombres desde el registro de las unidades.
+            <span className="block mt-2 text-sm">
+              Cada fila es un poder: la misma unidad <strong>otorgante</strong> no puede repetirse (un poder activo por apartamento que delega).
+              La unidad <strong>receptora</strong> puede aparecer en varias filas si distintos apartamentos delegan en ella.
+            </span>
           </AlertDescription>
         </Alert>
 

@@ -145,7 +145,10 @@ function mensajeErrorInsertPoder(err: { message?: string; code?: string }): stri
   const m = String(err.message || '').toLowerCase()
   const code = String(err.code || '')
   if (code === '23505' || m.includes('duplicate key') || m.includes('poderes_activo') || m.includes('unique')) {
-    return 'Ya hay un poder activo con esta misma unidad que otorga y este apoderado (o el registro está duplicado). Revoca el anterior, edita el existente o cambia el apoderado.'
+    if (m.includes('poderes_activo_otorgante_email_receptor')) {
+      return 'Ya hay un poder activo desde esa unidad que delega hacia el mismo apoderado (mismo correo o identificación). Revoca el anterior o edita el registro.'
+    }
+    return 'Esa unidad que delega ya tiene un poder activo en esta asamblea: cada apartamento solo puede otorgar una delegación vigente a la vez. Revócalo o edítalo para cambiar de apoderado. El mismo apoderado sí puede recibir varios poderes si vienen de apartamentos distintos (hasta el límite por apoderado).'
   }
   return String(err.message || 'Error al guardar el poder')
 }
@@ -648,7 +651,9 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       if (cntErr) {
         console.error('Error comprobando duplicado otorgante:', cntErr)
       } else if (count && count > 0) {
-        toast.error('Ya existe un poder activo otorgado desde esa unidad en esta asamblea.')
+        toast.error(
+          'Esa unidad que delega ya tiene un poder activo en esta asamblea. Revócalo o edita el registro para cambiar de apoderado.'
+        )
         return
       }
     }
@@ -955,9 +960,11 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
             ℹ️ Sobre los Poderes en Asambleas
           </AlertTitle>
           <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">
-            • Un propietario puede otorgar un <strong>poder</strong> a otra persona para que vote en su nombre
+            • Cada <strong>unidad que delega</strong> (apartamento que otorga el poder) solo puede tener <strong>un poder activo</strong> a la vez en esta asamblea; para cambiar de apoderado, <strong>revoca o edita</strong> el existente
             <br />
-            • Límite actual: máximo <strong>{config.max_poderes_por_apoderado} poderes</strong> por apoderado (configurable)
+            • El <strong>mismo apoderado</strong> (persona o unidad receptora) <strong>sí puede recibir varios poderes</strong> si vienen de <strong>apartamentos distintos</strong>, hasta el límite configurado
+            <br />
+            • Límite actual: máximo <strong>{config.max_poderes_por_apoderado} poderes</strong> por apoderado (configurable en Configuración → Poderes)
             <br />
             • El voto del apoderado representa la suma de su coeficiente más el de todas las unidades que representa
             <br />
@@ -1221,7 +1228,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
             <DialogDescription>
               {poderModal.type === 'edit'
                 ? 'Puedes pasar el apoderado de tercero a una unidad del conjunto (o al revés), corregir correo/nombre o cambiar la unidad que otorga, sin revocar el poder.'
-                : 'Usa «Añadir a la cola» para preparar varios poderes seguidos y «Registrar todo» al final. Así no pierdes tiempo guardando de uno en uno.'}
+                : 'Usa «Añadir a la cola» para preparar varios poderes seguidos y «Registrar todo» al final. Recuerda: cada unidad que delega solo puede tener un poder activo; el mismo apoderado puede recibir varios si vienen de unidades distintas (hasta el límite por apoderado).'}
             </DialogDescription>
           </DialogHeader>
 

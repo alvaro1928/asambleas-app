@@ -24,7 +24,8 @@ Permitir que los propietarios deleguen su derecho al voto a otra persona (apoder
 - created_at: TIMESTAMP
 - revocado_at: TIMESTAMP
 
-CONSTRAINT UNIQUE(asamblea_id, unidad_otorgante_id, estado)
+-- Índice único típico (solo filas activas): un poder activo por unidad que delega por asamblea.
+-- Ver FIX-PODERES-UNIQUE-REVOCAR.sql / PODERES-VARIOS-RECEPTORES-MISMA-UNIDAD.sql según despliegue.
 ```
 
 ### Tabla: `configuracion_poderes`
@@ -143,15 +144,23 @@ SELECT * FROM resumen_poderes_asamblea('asamblea-uuid');
 - Si el apoderado ya alcanzó el límite, se rechaza
 - Mensaje claro al administrador
 
-### 2. Una Unidad = Un Poder por Asamblea
+### 2. Quién delega vs. quién recibe (reglas claras)
 
-**Regla:**
-- Una unidad solo puede otorgar UN poder activo por asamblea
-- Si necesita cambiar el apoderado, debe revocar el anterior primero
+**Unidad que otorga (delega):**
+- Cada apartamento / unidad **solo puede tener un poder activo** en la misma asamblea (delega **una vez** a la vez hacia un apoderado).
+- Para cambiar de apoderado: **revocar** el poder vigente o **editarlo** desde la gestión de poderes.
 
-**Implementación:**
+**Unidad o persona que recibe (apoderado):**
+- **Sí puede acumular varios poderes activos** si cada uno viene de **unidades otorgantes distintas** (varios vecinos delegan en la misma persona).
+- El tope global lo marca **límite por apoderado** (email/identificación del receptor), configurable en el conjunto.
+
+**Implementación típica en base de datos:**
+- Índice único por `(asamblea_id, unidad_otorgante_id)` en poderes **activos** → una delegación vigente por unidad que delega.
+- Opcional (`PODERES-VARIOS-RECEPTORES-MISMA-UNIDAD.sql`): varios activos desde la misma unidad si el **email del apoderado** es distinto; sigue sin permitir duplicar la misma pareja otorgante + mismo receptor.
+
 ```sql
-UNIQUE(asamblea_id, unidad_otorgante_id, estado)
+-- Ejemplo estándar (un activo por unidad otorgante):
+UNIQUE(asamblea_id, unidad_otorgante_id) WHERE estado = 'activo'
 ```
 
 ### 3. Estados del Poder

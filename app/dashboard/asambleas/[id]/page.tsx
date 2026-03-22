@@ -4695,7 +4695,7 @@ Tu participacion es importante. 🏠`
                 Gestión de poderes
               </h4>
               <p className="mt-1">
-                Desde el enlace correspondiente puedes registrar poderes (delegación de voto) para que un apoderado vote por varias unidades.
+                Registra poderes (delegación de voto): cada apartamento que delega solo puede tener <strong>un</strong> poder activo a la vez; el mismo apoderado puede recibir varios poderes de <strong>distintos</strong> apartamentos, hasta el límite por apoderado.
               </p>
             </div>
           </div>
