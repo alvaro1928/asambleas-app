@@ -11,7 +11,6 @@ import {
   QrCode,
   RefreshCw,
   Clock,
-  Building2,
   Vote,
   CheckCircle2,
   Copy,
@@ -1054,7 +1053,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" style={{ backgroundColor: '#0B0E14' }}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Columna izquierda: QR + Resumen */}
+          {/* Columna izquierda: QR */}
           <div className="lg:col-span-1 space-y-6">
             <Card className="rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
               <CardHeader className="bg-indigo-600 text-white py-4">
@@ -1075,27 +1074,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 <p className="text-xl font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 py-2 px-4 rounded-3xl">
                   CÓDIGO: {asamblea?.codigo_acceso}
                 </p>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
-              <CardHeader>
-                <CardTitle className="text-md flex items-center">
-                  <Building2 className="w-4 h-4 mr-2 text-gray-500" />
-                  Resumen de Ingresos
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-gray-800">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Unidades con sesión activa</span>
-                  <span className="text-lg font-bold text-gray-900 dark:text-white">{asistentes.length}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Coeficiente presente</span>
-                  <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-                    {asistentes.reduce((sum, a) => sum + a.coeficiente, 0).toFixed(6)}%
-                  </span>
-                </div>
               </CardContent>
             </Card>
 
