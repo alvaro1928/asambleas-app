@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/providers/ToastProvider'
+import { Info } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -192,11 +193,32 @@ export default function LoginPage() {
         className="bg-gray-800 p-8 rounded-xl shadow-2xl w-96 space-y-4"
       >
         <h1 className="text-2xl font-bold text-center">Entrar a Asambleas</h1>
-        <div className="rounded-lg border border-amber-500/40 bg-amber-950/40 px-3 py-2.5 text-xs text-amber-100/95 leading-snug">
-          <strong className="text-amber-200">¿Vas a votar como propietario o delegado?</strong> No necesitas cuenta aquí.
-          Abre el enlace que te dio el administrador (debe incluir <code className="text-amber-300">/votar/…</code> o{' '}
-          <code className="text-amber-300">/asistir/…</code>). Si te pidió iniciar sesión, probablemente abriste el enlace del panel
-          de administración por error.
+        <div
+          role="note"
+          className="rounded-xl border border-slate-600/45 bg-slate-900/35 px-3.5 py-3 text-left"
+        >
+          <div className="flex gap-3">
+            <Info className="h-4 w-4 shrink-0 text-indigo-400 mt-0.5" aria-hidden />
+            <div className="space-y-2 text-[13px] leading-snug text-slate-300">
+              <p className="font-medium text-slate-100">¿Solo vas a votar o a marcar asistencia?</p>
+              <p>
+                No hace falta entrar aquí. Usa el enlace que te envió el administrador: la dirección debería contener{' '}
+                <code className="rounded bg-slate-800/90 px-1 py-0.5 font-mono text-[11px] text-slate-200">
+                  /votar/
+                </code>{' '}
+                o{' '}
+                <code className="rounded bg-slate-800/90 px-1 py-0.5 font-mono text-[11px] text-slate-200">
+                  /asistir/
+                </code>
+                .
+              </p>
+              <p className="text-[12px] text-slate-500">
+                Esta pantalla es para quien gestiona el conjunto. Si llegaste aquí sin querer, revisa que no hayas abierto un enlace
+                del panel (rutas como <code className="text-slate-400 font-mono text-[11px]">/dashboard</code>) en lugar del de
+                votación.
+              </p>
+            </div>
+          </div>
         </div>
         <p className="text-sm text-gray-400 text-center">
           ¿No tienes cuenta?{' '}
