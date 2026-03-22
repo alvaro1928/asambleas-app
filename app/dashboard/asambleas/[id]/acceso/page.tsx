@@ -105,6 +105,9 @@ interface PreguntaAvance {
   total_votos: number
   total_coeficiente: number
   coeficiente_total_conjunto?: number
+  /** % del conjunto (mismo criterio que en detalle de asamblea / votar). */
+  porcentaje_participacion: number
+  tipo_votacion: string
   umbral_aprobacion?: number | null
 }
 
@@ -432,12 +435,20 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         const tipoVotRpc = (s?.tipo_votacion ?? 'coeficiente') as string
         const totalCoef = Number(s?.total_coeficiente) || 0
         const coefConjunto = s?.coeficiente_total_conjunto != null ? Number(s.coeficiente_total_conjunto) : undefined
+        const ppRaw = Number(s?.porcentaje_participacion)
+        const porcentajeParticipacion = Number.isFinite(ppRaw)
+          ? ppRaw
+          : coefConjunto && coefConjunto > 0
+            ? (totalCoef / coefConjunto) * 100
+            : 0
         avances.push({
           id: p.id,
           texto_pregunta: p.texto_pregunta,
           total_votos: Number(s?.total_votos) || 0,
           total_coeficiente: totalCoef,
           coeficiente_total_conjunto: coefConjunto,
+          porcentaje_participacion: porcentajeParticipacion,
+          tipo_votacion: tipoVotRpc,
           umbral_aprobacion: p.umbral_aprobacion ?? null
         })
 
@@ -1372,6 +1383,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   </div>
                 )}
                 {preguntasConResultados.map((preg) => {
+                  const av = preguntasAvance.find((a) => a.id === preg.id)
                   const pctRelevante = (r: ResultadoOpcion) =>
                     preg.tipo_votacion === 'nominal' ? (r.porcentaje_nominal_total ?? 0) : r.porcentaje_coeficiente_total
                   const maxLabelLen = esMobile ? 14 : 22
@@ -1389,11 +1401,30 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     }
                   })
                   const umbral = preg.umbral_aprobacion ?? 51
+                  const tipoV = (preg.tipo_votacion ?? av?.tipo_votacion ?? 'coeficiente') === 'nominal' ? 'nominal' : 'coeficiente'
+                  const pendAv = av ? Math.max(0, 100 - av.porcentaje_participacion) : 0
                   return (
                     <div key={preg.id} className="space-y-3 min-w-0">
                       <p className="text-base font-semibold text-slate-200 line-clamp-2">
                         {preg.texto_pregunta}
                       </p>
+                      {av && (
+                        <p className="text-xs text-slate-400 mt-1 leading-snug">
+                          <span className="font-bold tabular-nums text-slate-300">{av.total_votos}</span>
+                          {' '}
+                          {av.total_votos === 1 ? 'unidad' : 'unidades'}
+                          {' · '}
+                          {tipoV === 'coeficiente' ? (
+                            <>
+                              {av.porcentaje_participacion.toFixed(2)}% coeficiente emitido · {pendAv.toFixed(2)}% pendiente
+                            </>
+                          ) : (
+                            <>
+                              {av.porcentaje_participacion.toFixed(2)}% participación · {pendAv.toFixed(2)}% pendiente
+                            </>
+                          )}
+                        </p>
+                      )}
                       <div className="h-[320px] min-h-[240px] w-full overflow-x-auto overflow-y-hidden -mx-1 px-1">
                         <div className="h-full min-w-[260px] w-full">
                           <VotacionBarChart
@@ -1496,6 +1527,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </div>
             )}
             {preguntasConResultados.map((preg) => {
+              const av = preguntasAvance.find((a) => a.id === preg.id)
               const pctRelevante = (r: ResultadoOpcion) =>
                 preg.tipo_votacion === 'nominal' ? (r.porcentaje_nominal_total ?? 0) : r.porcentaje_coeficiente_total
               const data: BarChartData[] = preg.resultados.map((r) => {
@@ -1511,11 +1543,30 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 }
               })
               const umbral = preg.umbral_aprobacion ?? 51
+              const tipoVModal = (preg.tipo_votacion ?? av?.tipo_votacion ?? 'coeficiente') === 'nominal' ? 'nominal' : 'coeficiente'
+              const pendAvModal = av ? Math.max(0, 100 - av.porcentaje_participacion) : 0
               return (
                 <div key={preg.id} className="space-y-4">
                   <p className="text-xl sm:text-2xl font-bold text-slate-100 leading-snug">
                     {preg.texto_pregunta}
                   </p>
+                  {av && (
+                    <p className="text-sm text-slate-400 leading-snug">
+                      <span className="font-bold tabular-nums text-slate-300">{av.total_votos}</span>
+                      {' '}
+                      {av.total_votos === 1 ? 'unidad' : 'unidades'}
+                      {' · '}
+                      {tipoVModal === 'coeficiente' ? (
+                        <>
+                          {av.porcentaje_participacion.toFixed(2)}% coeficiente emitido · {pendAvModal.toFixed(2)}% pendiente
+                        </>
+                      ) : (
+                        <>
+                          {av.porcentaje_participacion.toFixed(2)}% participación · {pendAvModal.toFixed(2)}% pendiente
+                        </>
+                      )}
+                    </p>
+                  )}
                   <div className="min-h-[50vh] h-[55vh] w-full">
                     <VotacionBarChart
                       data={data}

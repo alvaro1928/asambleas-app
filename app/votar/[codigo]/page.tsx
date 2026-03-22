@@ -2031,6 +2031,7 @@ export default function VotacionPublicaPage() {
                     }
                     const tipoVot = stats.tipo_votacion ?? pregunta.tipo_votacion ?? 'coeficiente'
                     const participacion = stats.porcentaje_participacion ?? 0
+                    const pendienteParticipacion = Math.max(0, 100 - participacion)
                     const umbral = pregunta.umbral_aprobacion ?? UMBRAL_APROBACION_DEFECTO
                     const resultados = stats.resultados ?? []
                     const maxPct = resultados.length > 0
@@ -2053,11 +2054,25 @@ export default function VotacionPublicaPage() {
                         <div className="p-4 space-y-3">
                           <div>
                             <div className="flex justify-between text-xs mb-1 gap-2">
-                              <span className="text-gray-600 dark:text-gray-400">Participación</span>
+                              <span className="text-gray-600 dark:text-gray-400">
+                                {tipoVot === 'coeficiente'
+                                  ? 'Participación (coeficiente del conjunto)'
+                                  : 'Participación (unidades del conjunto)'}
+                              </span>
                               <span className="font-medium text-gray-800 dark:text-gray-200 text-right">
-                                {participacion.toFixed(2)}% · {stats.total_votos ?? 0}{' '}
-                                {(stats.total_votos ?? 0) === 1 ? 'unidad' : 'unidades'} · Σ coef.{' '}
-                                {(stats.total_coeficiente ?? 0).toFixed(2)}%
+                                {tipoVot === 'coeficiente' ? (
+                                  <>
+                                    {participacion.toFixed(2)}% emitido · {pendienteParticipacion.toFixed(2)}% pendiente ·{' '}
+                                    {stats.total_votos ?? 0}{' '}
+                                    {(stats.total_votos ?? 0) === 1 ? 'unidad' : 'unidades'}
+                                  </>
+                                ) : (
+                                  <>
+                                    {participacion.toFixed(2)}% · {pendienteParticipacion.toFixed(2)}% pendiente ·{' '}
+                                    {stats.total_votos ?? 0}{' '}
+                                    {(stats.total_votos ?? 0) === 1 ? 'unidad' : 'unidades'}
+                                  </>
+                                )}
                               </span>
                             </div>
                             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
@@ -2511,12 +2526,16 @@ export default function VotacionPublicaPage() {
                                 </div>
                                 {/* Participación Total */}
                                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                                  <div className="flex justify-between items-center text-sm">
+                                  <div className="flex justify-between items-center text-sm flex-wrap gap-x-2 gap-y-1">
                                     <span className="text-gray-600 dark:text-gray-400">
-                                      Participación total:
+                                      Participación total
+                                      {tipoVotCerrada === 'coeficiente' ? ' (coeficiente)' : ' (unidades)'}:
                                     </span>
-                                    <span className="font-bold text-gray-900 dark:text-white">
-                                      {stats.total_votos || 0} votos • {(stats.porcentaje_participacion || 0).toFixed(2)}% {tipoVotCerrada === 'nominal' ? 'del total de unidades' : 'del coeficiente'}
+                                    <span className="font-bold text-gray-900 dark:text-white text-right">
+                                      {stats.total_votos || 0}{' '}
+                                      {(stats.total_votos || 0) === 1 ? 'voto' : 'votos'} ·{' '}
+                                      {(stats.porcentaje_participacion || 0).toFixed(2)}% emitido ·{' '}
+                                      {Math.max(0, 100 - (stats.porcentaje_participacion || 0)).toFixed(2)}% pendiente
                                     </span>
                                   </div>
                                 </div>
