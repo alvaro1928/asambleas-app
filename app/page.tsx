@@ -283,7 +283,7 @@ export default function Home() {
               </div>
               <h3 className="font-semibold text-white text-lg">Censo y respaldo en papel</h3>
               <p className="text-sm text-slate-400 mt-2 flex-1 leading-relaxed">
-                Importación de unidades y <strong className="text-slate-300">lista imprimible</strong> del censo con columna para firmas,
+                Importación de unidades y <strong className="text-slate-300">PDF del censo</strong> con columna para firmas,
                 útil si la mesa requiere constancia física de asistencia junto al registro digital.
               </p>
             </article>
