@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   HelpCircle,
   Plus,
-  MessageCircle
+  MessageCircle,
+  Printer,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,6 +30,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/components/providers/ToastProvider'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
 import { sumaCoeficientesValida, rangoCoeficientesAceptado } from '@/lib/coeficientes'
+import { abrirListaAsistenciaImpresion, descargarListaAsistenciaHtml } from '@/lib/listaAsistenciaUnidades'
 import {
   Table,
   TableBody,
@@ -245,6 +247,25 @@ function UnidadesPageContent() {
       }
     } else {
       setAsambleasOpciones([])
+    }
+  }
+
+  const handleListaAsistenciaFirmas = () => {
+    if (unidades.length === 0) {
+      toast.error('No hay unidades para listar.')
+      return
+    }
+    const filas = unidades.map((u) => ({
+      torre: u.torre,
+      numero: u.numero,
+      nombre_propietario: u.nombre_propietario,
+      coeficiente: u.coeficiente,
+    }))
+    const nombre = conjuntoName.trim() || 'Conjunto'
+    const abierto = abrirListaAsistenciaImpresion(nombre, filas)
+    if (!abierto) {
+      descargarListaAsistenciaHtml(nombre, filas)
+      toast.info('Se descargó un archivo HTML. Ábrelo y usa Imprimir o Guardar como PDF.')
     }
   }
 
@@ -465,6 +486,16 @@ function UnidadesPageContent() {
                   </Button>
                 </Link>
               )}
+              <Button
+                variant="outline"
+                onClick={handleListaAsistenciaFirmas}
+                disabled={unidades.length === 0}
+                className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200"
+                title="Abre una lista imprimible: cada unidad con espacio para firma manual de asistencia"
+              >
+                <Printer className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Lista para firmas</span>
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => setShowAddUnidad(true)}
