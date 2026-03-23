@@ -41,6 +41,10 @@ interface Unidad {
   ya_verifico: boolean
   es_poder?: boolean
 }
+interface ResumenAsistenciaDelegado {
+  con_asistencia: number
+  pendientes_verificar: number
+}
 
 interface Opcion {
   id: string
@@ -61,6 +65,7 @@ interface Pregunta {
 interface VotoRegistrado {
   unidad_id: string
   pregunta_id: string
+  opcion_id: string
   es_poder?: boolean
 }
 
@@ -123,6 +128,7 @@ export default function AsistirPage() {
 
   // Asistencia
   const [unidades, setUnidades] = useState<Unidad[]>([])
+  const [resumenAsistencia, setResumenAsistencia] = useState<ResumenAsistenciaDelegado | null>(null)
   const [selAsistencia, setSelAsistencia] = useState<Set<string>>(new Set())
   const [busqAsistencia, setBusqAsistencia] = useState('')
   const [guardandoAsistencia, setGuardandoAsistencia] = useState(false)
@@ -223,6 +229,15 @@ export default function AsistirPage() {
       }
       const nuevas = data.unidades as Unidad[]
       setUnidades((prev) => (datosEquivalentes(prev, nuevas) ? prev : nuevas))
+      if (data.resumen_asistencia) {
+        const resumen = data.resumen_asistencia as Partial<ResumenAsistenciaDelegado>
+        setResumenAsistencia({
+          con_asistencia: Number(resumen.con_asistencia ?? 0),
+          pendientes_verificar: Number(resumen.pendientes_verificar ?? 0),
+        })
+      } else {
+        setResumenAsistencia(null)
+      }
     } finally {
       if (!silent) setCargandoUnidades(false)
     }
@@ -269,6 +284,7 @@ export default function AsistirPage() {
       const nuevosVotos: VotoRegistrado[] = (data.votosRegistrados || []).map((v: Record<string, unknown>) => ({
         unidad_id: v.unidad_id as string,
         pregunta_id: v.pregunta_id as string,
+        opcion_id: v.opcion_id as string,
         es_poder: !!v.es_poder,
       }))
 
@@ -410,6 +426,21 @@ export default function AsistirPage() {
 
   const unidadesSinVotar = unidades.filter((u) => !yaVoto(u.id, preguntaActiva))
     .filter((u) => matchesUnidadBusquedaCompleta(u, busqVotacion))
+  const votosDelegadoPregunta = votosRegistrados
+    .filter((v) => v.pregunta_id === preguntaActiva)
+    .filter((v) => {
+      const unidad = unidades.find((u) => u.id === v.unidad_id)
+      return unidad ? matchesUnidadBusquedaCompleta(unidad, busqVotacion) : false
+    })
+  const unidadesDisponiblesVotacion = unidades
+    .filter((u) => !yaVoto(u.id, preguntaActiva) || selVotacion.has(u.id))
+    .filter((u) => matchesUnidadBusquedaCompleta(u, busqVotacion))
+  const textoOpcionPorId = useMemo(() => {
+    const map = new Map<string, string>()
+    if (!preguntaActualObj) return map
+    for (const opc of preguntaActualObj.opciones) map.set(opc.id, opc.texto_opcion)
+    return map
+  }, [preguntaActualObj])
 
   const guardarVotos = async () => {
     if (selVotacion.size === 0 || !opcionSeleccionada || guardandoVoto || !asamblea) return
@@ -433,10 +464,20 @@ export default function AsistirPage() {
       const nOk = ok.length
       const nFail = Math.max(0, results.length - nOk)
       if (nOk > 0) {
-        setVotosRegistrados((prev) => [
-          ...prev,
-          ...ok.map((r) => ({ unidad_id: r.unidad_id!, pregunta_id: r.pregunta_id || preguntaActiva })),
-        ])
+        setVotosRegistrados((prev) => {
+          const next = [...prev]
+          for (const r of ok) {
+            const unidadId = r.unidad_id!
+            const preguntaId = r.pregunta_id || preguntaActiva
+            const idx = next.findIndex((x) => x.unidad_id === unidadId && x.pregunta_id === preguntaId)
+            if (idx >= 0) {
+              next[idx] = { ...next[idx], opcion_id: opcionSeleccionada }
+            } else {
+              next.push({ unidad_id: unidadId, pregunta_id: preguntaId, opcion_id: opcionSeleccionada })
+            }
+          }
+          return next
+        })
       }
       setSelVotacion(new Set())
       setOpcionSeleccionada('')
@@ -848,13 +889,13 @@ export default function AsistirPage() {
                         </div>
 
                         {/* Seleccionar todas */}
-                        {unidadesSinVotar.length > 0 && (
+                        {unidadesDisponiblesVotacion.length > 0 && (
                           <div className="flex items-center justify-between text-xs mb-2">
                             <button
                               type="button"
                               className="text-indigo-600 dark:text-indigo-400 underline underline-offset-2"
                               onClick={() => {
-                                const ids = unidadesSinVotar.map((u) => u.id)
+                                const ids = unidadesDisponiblesVotacion.map((u) => u.id)
                                 const todasSel = ids.every((id) => selVotacion.has(id))
                                 if (todasSel) setSelVotacion(new Set())
                                 else {
@@ -863,7 +904,7 @@ export default function AsistirPage() {
                                 }
                               }}
                             >
-                              {unidadesSinVotar.every((u) => selVotacion.has(u.id)) && unidadesSinVotar.length > 0
+                              {unidadesDisponiblesVotacion.every((u) => selVotacion.has(u.id)) && unidadesDisponiblesVotacion.length > 0
                                 ? 'Deseleccionar todas'
                                 : 'Seleccionar todas'}
                             </button>
@@ -872,13 +913,13 @@ export default function AsistirPage() {
                         )}
 
                         <div className="space-y-1 max-h-60 overflow-y-auto pr-1">
-                          {unidadesSinVotar.length === 0 ? (
+                          {unidadesDisponiblesVotacion.length === 0 ? (
                             <div className="text-center py-4">
                               <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-1" />
                               <p className="text-sm text-gray-500">Todas las unidades ya votaron en esta pregunta.</p>
                             </div>
                           ) : (
-                            unidadesSinVotar.map((u) => (
+                            unidadesDisponiblesVotacion.map((u) => (
                               <label
                                 key={u.id}
                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer transition-colors border ${
@@ -905,6 +946,54 @@ export default function AsistirPage() {
                                 <span className="text-xs text-gray-400 shrink-0">{u.coeficiente.toFixed(3)}%</span>
                               </label>
                             ))
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Votos registrados por ti</label>
+                          <span className="text-xs text-gray-400">{votosDelegadoPregunta.length}</span>
+                        </div>
+                        <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
+                          {votosDelegadoPregunta.length === 0 ? (
+                            <p className="text-xs text-gray-500 text-center py-3">Aún no has registrado votos en esta pregunta.</p>
+                          ) : (
+                            votosDelegadoPregunta.map((v) => {
+                              const unidad = unidades.find((u) => u.id === v.unidad_id)
+                              if (!unidad) return null
+                              return (
+                                <div
+                                  key={`${v.unidad_id}-${v.pregunta_id}`}
+                                  className="flex items-center gap-3 px-3 py-2 rounded-2xl border border-indigo-200/70 dark:border-indigo-700/60 bg-indigo-50/60 dark:bg-indigo-900/20"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                      {unidad.torre !== 'S/T' ? `T${unidad.torre} · ` : ''}Apto {unidad.numero}
+                                    </p>
+                                    <p className="text-xs text-indigo-700 dark:text-indigo-300 truncate">
+                                      Opción: {textoOpcionPorId.get(v.opcion_id) || 'Sin opción'}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 rounded-xl border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300"
+                                    onClick={() => {
+                                      setSelVotacion(new Set([unidad.id]))
+                                      setOpcionSeleccionada(v.opcion_id)
+                                      setMsgVotacion({
+                                        tipo: 'ok',
+                                        texto: `Editando voto de ${unidad.torre !== 'S/T' ? `T${unidad.torre} · ` : ''}Apto ${unidad.numero}. Cambia la opción y guarda para actualizar.`,
+                                      })
+                                    }}
+                                  >
+                                    Editar
+                                  </Button>
+                                </div>
+                              )
+                            })
                           )}
                         </div>
                       </div>
@@ -949,13 +1038,13 @@ export default function AsistirPage() {
           <div className="grid grid-cols-2 gap-3 text-center">
             <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl p-3">
               <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
-                {unidades.filter((u) => u.ya_verifico).length}
+                {resumenAsistencia?.con_asistencia ?? unidades.filter((u) => u.ya_verifico).length}
               </p>
               <p className="text-xs text-emerald-600 dark:text-emerald-300">Con asistencia</p>
             </div>
             <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-3">
               <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-400">
-                {unidades.filter((u) => !u.ya_verifico).length}
+                {resumenAsistencia?.pendientes_verificar ?? unidades.filter((u) => !u.ya_verifico).length}
               </p>
               <p className="text-xs text-indigo-600 dark:text-indigo-300">Pendientes de verificar</p>
             </div>

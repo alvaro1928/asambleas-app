@@ -71,7 +71,34 @@ export async function POST(request: NextRequest) {
       es_poder: esPoderVerificados.get(u.id as string) ?? false,
     }))
 
-    return NextResponse.json({ ok: true, unidades }, { status: 200, headers: noStoreHeaders })
+    const totalUnidades = unidades.length
+    let conAsistencia = verificadasSet.size
+    if (!asamblea.verificacion_asistencia_activa) {
+      const { data: ultimaSesionCerrada } = await admin
+        .from('verificacion_asamblea_sesiones')
+        .select('total_verificados')
+        .eq('asamblea_id', asamblea.id)
+        .is('pregunta_id', null)
+        .not('cierre_at', 'is', null)
+        .order('cierre_at', { ascending: false })
+        .limit(1)
+      if (ultimaSesionCerrada?.length) {
+        conAsistencia = Number((ultimaSesionCerrada[0] as { total_verificados?: number }).total_verificados ?? 0)
+      }
+    }
+    const pendientes = Math.max(0, totalUnidades - conAsistencia)
+
+    return NextResponse.json(
+      {
+        ok: true,
+        unidades,
+        resumen_asistencia: {
+          con_asistencia: conAsistencia,
+          pendientes_verificar: pendientes,
+        },
+      },
+      { status: 200, headers: noStoreHeaders }
+    )
   } catch (e) {
     console.error('[delegado/unidades-y-verificacion]', e)
     return NextResponse.json({ error: 'Error interno' }, { status: 500, headers: noStoreHeaders })
