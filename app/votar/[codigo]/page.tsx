@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle, UserCheck, HelpCircle, QrCode, Copy, FileText, Upload, Loader2 } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle, UserCheck, HelpCircle, QrCode, Copy, FileText, Upload, Loader2, Ban } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -213,6 +213,7 @@ export default function VotacionPublicaPage() {
     }>
   >([])
   const [cargandoMisPendientes, setCargandoMisPendientes] = useState(false)
+  const [cancelandoPoderId, setCancelandoPoderId] = useState<string | null>(null)
 
   const cargarDatosMisDatosPoder = useCallback(async () => {
     if (!codigo || !email.trim()) return
@@ -300,7 +301,43 @@ export default function VotacionPublicaPage() {
     observacionesPoder,
     archivoPoderVotante,
     cargarDatosMisDatosPoder,
+    toast,
   ])
+
+  const cancelarPoderPendiente = useCallback(
+    async (poderId: string) => {
+      if (!codigo || !email.trim()) return
+      if (
+        !window.confirm(
+          '¿Cancelar esta solicitud? Podrás enviar una nueva más adelante si la necesitas. El administrador dejará de verla como pendiente.'
+        )
+      ) {
+        return
+      }
+      setCancelandoPoderId(poderId)
+      try {
+        const res = await fetch('/api/votar/cancelar-poder-pendiente', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            codigo,
+            identificador: email.trim(),
+            poder_id: poderId,
+          }),
+        })
+        const data = (await res.json().catch(() => ({}))) as { error?: string; mensaje?: string }
+        if (!res.ok) {
+          toast.error(data.error || 'No se pudo cancelar la solicitud')
+          return
+        }
+        toast.success(data.mensaje || 'Solicitud cancelada')
+        await cargarDatosMisDatosPoder()
+      } finally {
+        setCancelandoPoderId(null)
+      }
+    },
+    [codigo, email, cargarDatosMisDatosPoder, toast]
+  )
 
   // Cronómetro de participación: estado puramente visual (no cambia reglas reales)
   const [participationTimerEndAt, setParticipationTimerEndAt] = useState<string | null>(null)
@@ -2553,6 +2590,21 @@ export default function VotacionPublicaPage() {
                             </a>
                           )}
                           <p className="text-amber-700 dark:text-amber-300 mt-1.5 font-medium">En espera de verificación del administrador</p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 w-full sm:w-auto border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs"
+                            disabled={cancelandoPoderId === p.id}
+                            onClick={() => void cancelarPoderPendiente(p.id)}
+                          >
+                            {cancelandoPoderId === p.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                            ) : (
+                              <Ban className="w-3.5 h-3.5 mr-1.5" />
+                            )}
+                            Cancelar solicitud
+                          </Button>
                         </li>
                       ))}
                     </ul>
