@@ -132,10 +132,10 @@ export async function POST(request: NextRequest) {
      * (página pública, admin o delegado) para el estado Ya votó/Pendiente.
      */
     let votosRegistrados: VotoEstadoDelegado[] = []
+    /** No usar `votos.user_agent` en SELECT: en muchas BD antiguas esa columna no existe (500 en PostgREST). La RPC ya guarda el texto en `votante_nombre`. */
     const esRegistradoPorDelegado = (v: Record<string, unknown>) => {
-      const ua = String(v.user_agent ?? '')
       const nombre = String(v.votante_nombre ?? '').toLowerCase()
-      return ua === '[Registrado por asistente delegado]' || nombre.includes('(registrado por asistente delegado)')
+      return nombre.includes('(registrado por asistente delegado)')
     }
 
     const mapVotoRow = (v: Record<string, unknown>): VotoEstadoDelegado => ({
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
     if (openIds.length > 0) {
       const { data: votosData, error: vErr } = await admin
         .from('votos')
-        .select('unidad_id, pregunta_id, opcion_id, es_poder, user_agent, votante_nombre')
+        .select('unidad_id, pregunta_id, opcion_id, es_poder, votante_nombre')
         .in('pregunta_id', openIds)
       if (vErr) {
         console.error('[delegado/estado-votacion] votos:', vErr)

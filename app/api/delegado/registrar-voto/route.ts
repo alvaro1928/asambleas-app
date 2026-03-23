@@ -151,13 +151,15 @@ export async function POST(request: NextRequest) {
               error: error.message,
             } as RpcResult
           }
-          // Marcar explícitamente el origen delegado en la fila vigente de `votos`.
-          // Algunas versiones de la RPC solo guardan user_agent en historial_votos.
-          await admin
+          // Opcional: columna `user_agent` en `votos` no existe en todas las BD; el origen delegado ya va en `votante_nombre`.
+          const { error: updErr } = await admin
             .from('votos')
             .update({ user_agent: userAgentAudit })
             .eq('pregunta_id', v.pregunta_id)
             .eq('unidad_id', unidadId)
+          if (updErr) {
+            console.warn('[delegado/registrar-voto] update user_agent omitido:', updErr.message)
+          }
           return { unidad_id: unidadId, pregunta_id: v.pregunta_id, success: true } as RpcResult
         })
       )
