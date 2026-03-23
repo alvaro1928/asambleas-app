@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { StepIndicator } from '@/components/ui/StepIndicator'
 import { useToast } from '@/components/providers/ToastProvider'
 import { buildPublicVotarUrl } from '@/lib/publicVotarUrl'
 import { normalizeCodigoAccesoFromUrl } from '@/lib/codigoAcceso'
@@ -1567,7 +1566,6 @@ export default function VotacionPublicaPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-light to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 overflow-x-hidden">
         <div className="max-w-md w-full min-w-0 bg-surface dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-border dark:border-gray-700">
-          <StepIndicator pasoActual="email" />
           {participationTimerEnabled && (
             <div className="mt-3 flex items-center justify-center">
               <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium bg-slate-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700 text-slate-700 dark:text-gray-200">
@@ -1670,7 +1668,6 @@ export default function VotacionPublicaPage() {
       <div className="min-h-screen bg-gradient-to-br from-primary-light to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 overflow-x-hidden">
         {/* Sin aceptar el EULA no se puede verificar quórum: el popup de verificación solo aparece en step 'votar' */}
         <div className="max-w-md w-full min-w-0 bg-surface dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-border dark:border-gray-700">
-          <StepIndicator pasoActual="consentimiento" />
           {participationTimerEnabled && (
             <div className="mt-3 flex items-center justify-center">
               <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium bg-slate-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700 text-slate-700 dark:text-gray-200">
@@ -2029,10 +2026,10 @@ export default function VotacionPublicaPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => setTabActivo(tab.id)}
-                  className={`flex-1 min-w-0 py-2 px-1 text-xs sm:text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 overflow-hidden flex items-center justify-center gap-1 ${
+                  className={`flex-1 min-w-0 py-2 px-1 text-xs sm:text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 overflow-hidden flex items-center justify-center gap-1 ${
                     tabActivo === tab.id
-                      ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-sm'
+                      : 'text-gray-800 dark:text-gray-200 hover:bg-white/70 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
                   <span className="hidden sm:inline truncate">{tab.label}</span>
@@ -2055,7 +2052,6 @@ export default function VotacionPublicaPage() {
         </div>
 
         <div className="max-w-2xl mx-auto px-4 py-4 pb-10">
-          <StepIndicator pasoActual="votar" />
 
           {/* ── TAB 1: VOTACIÓN ── */}
           {tabActivo === 'votacion' && (
