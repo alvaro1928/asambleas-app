@@ -528,12 +528,15 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [descargandoPdf, setDescargandoPdf] = useState(false)
   const [showVerificacionModal, setShowVerificacionModal] = useState(false)
   const [showModalTipoActa, setShowModalTipoActa] = useState(false)
+  /** En el modal de descarga: versión pública (por defecto) o acta con auditoría completa */
+  const [tipoDescargaActaModal, setTipoDescargaActaModal] = useState<'publica' | 'auditoria'>('publica')
   /** true = renderizar acta sin auditoría (para PDF soporte general); al descargar se restaura a false */
   const [actaModoSoporte, setActaModoSoporte] = useState(false)
   const [descargarSoportePendiente, setDescargarSoportePendiente] = useState(false)
   const [certificando, setCertificando] = useState(false)
   const [blockchainCertEnabled, setBlockchainCertEnabled] = useState(false)
   const actaContentRef = useRef<HTMLElement>(null)
+  const handleDescargarPdfRef = useRef<(soporteGeneral?: boolean, incluirAnexos?: boolean) => Promise<void>>(async () => {})
   const toast = useToast()
 
   useEffect(() => {
@@ -542,24 +545,10 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     }
   }, [params.id])
 
-  /** Tras elegir "versión pública", el DOM debe re-renderizar sin auditoría; delay y layout aplican igual para asambleas reales y sandbox/demo. */
-  /* eslint-disable react-hooks/exhaustive-deps -- handleDescargarPdf se define más abajo y su lógica se usa con estado capturado en este flujo controlado */
+  /** Al abrir el modal de tipo de acta, la opción recomendada (pública) queda seleccionada por defecto. */
   useEffect(() => {
-    if (!actaModoSoporte || !descargarSoportePendiente) return
-    const conAnexos = descargarSoporteConAnexosRef.current
-    const t = setTimeout(() => {
-      // Esperar a que React pinte el DOM sin bloques de auditoría; delay generoso para que la primera descarga ya sea la versión pública
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          handleDescargarPdf(true, conAnexos)
-          setDescargarSoportePendiente(false)
-          setActaModoSoporte(false)
-        })
-      })
-    }, 1400)
-    return () => clearTimeout(t)
-  }, [actaModoSoporte, descargarSoportePendiente])
-  /* eslint-enable react-hooks/exhaustive-deps */
+    if (showModalTipoActa) setTipoDescargaActaModal('publica')
+  }, [showModalTipoActa])
 
   /** Descontar tokens y marcar acta como generada; luego se puede descargar PDF sin volver a cobrar. */
   const handleGenerarActa = async () => {
@@ -782,6 +771,30 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       setDescargandoPdf(false)
     }
   }
+
+  handleDescargarPdfRef.current = handleDescargarPdf
+
+  /** Tras elegir "versión pública", el DOM debe re-renderizar sin auditoría; solo entonces se genera el PDF. No quitar actaModoSoporte hasta que handleDescargarPdf termine (es async): si no, React vuelve a pintar la auditoría antes de html2canvas y el primer PDF sale con contenido de auditoría. */
+  useEffect(() => {
+    if (!actaModoSoporte || !descargarSoportePendiente) return
+    const conAnexos = descargarSoporteConAnexosRef.current
+    let cancelled = false
+    const t = setTimeout(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          void handleDescargarPdfRef.current(true, conAnexos).finally(() => {
+            if (cancelled) return
+            setDescargarSoportePendiente(false)
+            setActaModoSoporte(false)
+          })
+        })
+      })
+    }, 1400)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [actaModoSoporte, descargarSoportePendiente])
 
   const formatFecha = (fecha: string) => {
     return new Date(fecha).toLocaleDateString('es-CO', {
@@ -1551,7 +1564,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-700 dark:text-gray-200 mb-4">
-            Elige el tipo de acta que deseas descargar:
+            Elige el tipo de acta y pulsa descargar. Por defecto está seleccionada la versión pública (recomendada para compartir).
           </p>
           {poderesConDocumento.length > 0 && (
             <label className="flex items-center gap-2 mb-4 p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 cursor-pointer">
@@ -1566,38 +1579,68 @@ export default function ActaPage({ params }: { params: { id: string } }) {
               </span>
             </label>
           )}
-          <div className="flex flex-col gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              className="justify-start text-left h-auto py-3 px-4 border-slate-200 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900/60 dark:hover:bg-slate-800/70 dark:text-gray-100"
-              onClick={() => {
-                setShowModalTipoActa(false)
+          <div className="flex flex-col gap-2 mb-4" role="radiogroup" aria-label="Tipo de acta">
+            <label
+              className={`flex gap-3 p-3 rounded-xl border cursor-pointer text-left transition-colors ${
+                tipoDescargaActaModal === 'publica'
+                  ? 'border-indigo-500 bg-indigo-50/80 dark:bg-indigo-950/40 dark:border-indigo-500'
+                  : 'border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <input
+                type="radio"
+                name="tipo-acta-descarga"
+                className="mt-1 text-indigo-600 focus:ring-indigo-500"
+                checked={tipoDescargaActaModal === 'publica'}
+                onChange={() => setTipoDescargaActaModal('publica')}
+              />
+              <span>
+                <span className="font-semibold block text-gray-900 dark:text-white">Acta versión pública</span>
+                <span className="text-xs text-gray-600 dark:text-gray-300 font-normal mt-0.5 block">
+                  Quórums generales, preguntas con resultados (porcentaje y total en coeficiente), aprobado/no aprobado, cantidades de unidades que no votaron o no validaron y coeficiente total. Para compartir con participantes.
+                </span>
+              </span>
+            </label>
+            <label
+              className={`flex gap-3 p-3 rounded-xl border cursor-pointer text-left transition-colors ${
+                tipoDescargaActaModal === 'auditoria'
+                  ? 'border-indigo-500 bg-indigo-50/80 dark:bg-indigo-950/40 dark:border-indigo-500'
+                  : 'border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <input
+                type="radio"
+                name="tipo-acta-descarga"
+                className="mt-1 text-indigo-600 focus:ring-indigo-500"
+                checked={tipoDescargaActaModal === 'auditoria'}
+                onChange={() => setTipoDescargaActaModal('auditoria')}
+              />
+              <span>
+                <span className="font-semibold block text-gray-900 dark:text-white">Acta con auditoría completa</span>
+                <span className="text-xs text-gray-600 dark:text-gray-300 font-normal mt-0.5 block">
+                  Incluye quién votó qué, transacciones, IP y datos para revisión del administrador. Solo uso interno/auditoría.
+                </span>
+              </span>
+            </label>
+          </div>
+          <Button
+            type="button"
+            className="w-full bg-indigo-600 hover:bg-indigo-700"
+            disabled={descargandoPdf}
+            onClick={() => {
+              setShowModalTipoActa(false)
+              if (tipoDescargaActaModal === 'publica') {
                 descargarSoporteConAnexosRef.current = incluirAnexosPoderes
                 setActaModoSoporte(true)
                 setDescargarSoportePendiente(true)
-              }}
-            >
-              <span className="font-semibold block dark:text-white">Acta versión pública</span>
-              <span className="text-xs text-gray-600 dark:text-gray-300 font-normal mt-0.5 block">
-                Quórums generales, preguntas con resultados (porcentaje y total en coeficiente), aprobado/no aprobado, cantidades de unidades que no votaron o no validaron y coeficiente total. Para compartir con participantes.
-              </span>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="justify-start text-left h-auto py-3 px-4 border-indigo-200 hover:bg-indigo-50 dark:border-indigo-600 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/30 dark:text-gray-100"
-              onClick={() => {
-                setShowModalTipoActa(false)
+              } else {
                 handleDescargarPdf(false, incluirAnexosPoderes)
-              }}
-            >
-              <span className="font-semibold block dark:text-white">Acta con auditoría completa</span>
-              <span className="text-xs text-gray-600 dark:text-gray-300 font-normal mt-0.5 block">
-                Incluye quién votó qué, transacciones, IP y datos para revisión del administrador. Solo uso interno/auditoría.
-              </span>
-            </Button>
-          </div>
+              }
+            }}
+          >
+            {descargandoPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+            Descargar PDF
+          </Button>
         </DialogContent>
       </Dialog>
 
