@@ -226,29 +226,13 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  const handleCerrarSesionVotante = () => {
-    marcarSalidaQuorum()
-    clearStoredSession(codigo)
-    setShowVotanteMenu(false)
-    setConsentimientoAceptado(false)
-    setEmail('')
-    setUnidades([])
-    setPreguntas([])
-    setPreguntasCerradas([])
-    setVotosActuales([])
-    setVotosHistorico([])
-    setMisPoderesPendientes([])
-    setUnidadesDelegacionOpciones([])
-    setTabActivo('votacion')
-    setError('')
-    setStep('email')
-  }
-
   // --- Verificación de Quórum ---
   const [verificacionActiva, setVerificacionActiva] = useState(false)
   const verificacionActivaRef = useRef(false)
   /** Transición apagado→encendido de verificación: pedir de nuevo confirmación de asistencia. */
   const prevVerificacionActivaRef = useRef(false)
+  /** Evita resetear yaVerifico en la primera lectura tras montar (refs inician en false). */
+  const primeraLecturaVerificacionRef = useRef(true)
   const [yaVerifico, setYaVerifico] = useState(false)
   const [verificando, setVerificando] = useState(false)
   interface StatsVerif { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
@@ -433,6 +417,27 @@ export default function VotacionPublicaPage() {
       body: JSON.stringify({ asamblea_id: payload.asamblea_id, email: payload.email }),
       keepalive: true
     }).catch(() => {})
+  }
+
+  const handleCerrarSesionVotante = () => {
+    marcarSalidaQuorum()
+    clearStoredSession(codigo)
+    setShowVotanteMenu(false)
+    setConsentimientoAceptado(false)
+    setEmail('')
+    setUnidades([])
+    setPreguntas([])
+    setPreguntasCerradas([])
+    setVotosActuales([])
+    setVotosHistorico([])
+    setMisPoderesPendientes([])
+    setUnidadesDelegacionOpciones([])
+    setTabActivo('votacion')
+    setError('')
+    setStep('email')
+    primeraLecturaVerificacionRef.current = true
+    prevVerificacionActivaRef.current = false
+    verificacionActivaRef.current = false
   }
 
   useEffect(() => {
@@ -1236,7 +1241,8 @@ export default function VotacionPublicaPage() {
           setParticipationTimerEndAt(a.participacion_timer_end_at ?? null)
           setParticipationTimerDefaultMinutes(Number(a.participacion_timer_default_minutes ?? 5) || 5)
           setParticipationTimerEnabled(a.participacion_timer_enabled ?? true)
-          if (activa && !prevVerificacionActivaRef.current) setYaVerifico(false)
+          if (!primeraLecturaVerificacionRef.current && activa && !prevVerificacionActivaRef.current) setYaVerifico(false)
+          primeraLecturaVerificacionRef.current = false
           prevVerificacionActivaRef.current = activa
           verificacionActivaRef.current = activa
         }
@@ -1271,7 +1277,8 @@ export default function VotacionPublicaPage() {
       const prevActiva = verificacionActivaRef.current
 
       setVerificacionActiva(activa)
-      if (activa && !prevActiva) setYaVerifico(false)
+      if (!primeraLecturaVerificacionRef.current && activa && !prevActiva) setYaVerifico(false)
+      primeraLecturaVerificacionRef.current = false
       prevVerificacionActivaRef.current = activa
       verificacionActivaRef.current = activa
 
@@ -1331,7 +1338,8 @@ export default function VotacionPublicaPage() {
         const prevActiva = verificacionActivaRef.current
 
         setVerificacionActiva(activa)
-        if (activa && !prevActiva) setYaVerifico(false)
+        if (!primeraLecturaVerificacionRef.current && activa && !prevActiva) setYaVerifico(false)
+        primeraLecturaVerificacionRef.current = false
         prevVerificacionActivaRef.current = activa
         verificacionActivaRef.current = activa
 
