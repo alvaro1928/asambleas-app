@@ -2995,7 +2995,7 @@ Tu participacion es importante. 🏠`
                           </span>
                         )}
                       </div>
-                      <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end sm:ml-auto sm:shrink-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full sm:ml-auto sm:shrink-0">
                         <Button
                           type="button"
                           onClick={onActivarVerificacionClick}
@@ -3004,8 +3004,8 @@ Tu participacion es importante. 🏠`
                           size="sm"
                           className={
                             asamblea.verificacion_asistencia_activa
-                              ? 'min-h-[2.5rem] justify-center gap-2 px-3 w-full sm:w-auto border-green-600/85 dark:border-green-500/70 bg-green-50/90 dark:bg-green-950/35 text-green-800 dark:text-green-200 hover:bg-green-100 dark:hover:bg-green-950/55 hover:text-green-900 dark:hover:text-green-100'
-                              : 'min-h-[2.5rem] justify-center gap-2 px-3 w-full sm:w-auto border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30'
+                              ? 'w-full min-h-[2.5rem] h-auto py-2 justify-center gap-2 px-3 border-green-600/85 dark:border-green-500/70 bg-green-50/90 dark:bg-green-950/35 text-green-800 dark:text-green-200 hover:bg-green-100 dark:hover:bg-green-950/55 hover:text-green-900 dark:hover:text-green-100 whitespace-normal text-center leading-snug'
+                              : 'w-full min-h-[2.5rem] h-auto py-2 justify-center gap-2 px-3 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 whitespace-normal text-center leading-snug'
                           }
                         >
                           {togglingVerif ? (
