@@ -5,6 +5,7 @@ export type AsambleaDelegadoRow = {
   organization_id: string
   is_demo: boolean
   sandbox_usar_unidades_reales: boolean
+  verificacion_asistencia_activa: boolean
   estado: string
   token_delegado: string | null
 }
@@ -38,7 +39,7 @@ export async function verifyDelegadoToken(
 
   const { data: asamblea, error } = await admin
     .from('asambleas')
-    .select('id, organization_id, is_demo, sandbox_usar_unidades_reales, estado, token_delegado')
+    .select('id, organization_id, is_demo, sandbox_usar_unidades_reales, verificacion_asistencia_activa, estado, token_delegado')
     .eq('codigo_acceso', codigo.toUpperCase())
     .single()
 
