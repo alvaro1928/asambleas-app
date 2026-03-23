@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle, UserCheck, HelpCircle, QrCode, Copy, FileText, Upload, Loader2, Ban } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Vote, Users, ChevronRight, ChevronDown, ChevronUp, BarChart3, Clock, RefreshCw, History, LogOut, FileDown, XCircle, UserCheck, HelpCircle, QrCode, Copy, FileText, Upload, Loader2, Ban, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -164,6 +164,7 @@ export default function VotacionPublicaPage() {
   const [avanceColapsado, setAvanceColapsado] = useState(false)
   /** Modal de ayuda al votante; misma UI y ayuda para asambleas reales y sandbox. */
   const [showAyudaVotar, setShowAyudaVotar] = useState(false)
+  const [showVotanteMenu, setShowVotanteMenu] = useState(false)
   /** URL de la página de votación (origen + /votar/codigo) para mostrar QR y copiar enlace; solo en cliente */
   const [urlVotacionCompartir, setUrlVotacionCompartir] = useState('')
   const [copiandoEnlace, setCopiandoEnlace] = useState(false)
@@ -224,6 +225,24 @@ export default function VotacionPublicaPage() {
     } catch {
       // Ignorar storage errors
     }
+  }
+
+  const handleCerrarSesionVotante = () => {
+    marcarSalidaQuorum()
+    clearStoredSession(codigo)
+    setShowVotanteMenu(false)
+    setConsentimientoAceptado(false)
+    setEmail('')
+    setUnidades([])
+    setPreguntas([])
+    setPreguntasCerradas([])
+    setVotosActuales([])
+    setVotosHistorico([])
+    setMisPoderesPendientes([])
+    setUnidadesDelegacionOpciones([])
+    setTabActivo('votacion')
+    setError('')
+    setStep('email')
   }
 
   // --- Verificación de Quórum ---
@@ -1919,6 +1938,41 @@ export default function VotacionPublicaPage() {
           </DialogContent>
         </Dialog>
 
+        {/* Menú hamburguesa (móvil): ayuda y cierre de sesión del votante */}
+        <Dialog open={showVotanteMenu} onOpenChange={setShowVotanteMenu}>
+          <DialogContent className="max-w-xs rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Menú</DialogTitle>
+              <DialogDescription>
+                Opciones de tu sesión de votación.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => {
+                  setShowVotanteMenu(false)
+                  setShowAyudaVotar(true)
+                }}
+              >
+                <HelpCircle className="w-4 h-4 mr-2" />
+                Ver ayuda
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30"
+                onClick={handleCerrarSesionVotante}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Cerrar sesión
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Header fijo con indicador de quórum */}
         <div className="sticky top-0 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-b border-gray-200 dark:border-gray-700 shadow-sm">
           <div className="max-w-2xl mx-auto px-4 py-2">
@@ -1930,8 +1984,17 @@ export default function VotacionPublicaPage() {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
+                  onClick={() => setShowVotanteMenu(true)}
+                  className="sm:hidden p-2 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors"
+                  title="Menú"
+                  aria-label="Abrir menú"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => setShowAyudaVotar(true)}
-                  className="p-2 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors"
+                  className="hidden sm:inline-flex p-2 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors"
                   title="Ayuda"
                   aria-label="Ver ayuda"
                 >
@@ -2750,7 +2813,7 @@ export default function VotacionPublicaPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => { marcarSalidaQuorum(); setStep('email') }}
+                    onClick={handleCerrarSesionVotante}
                     className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shrink-0 text-xs"
                   >
                     <LogOut className="w-3.5 h-3.5 mr-1.5" />
