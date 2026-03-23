@@ -995,7 +995,7 @@ export default function AsistirPage() {
                                       {unidad.torre !== 'S/T' ? `T${unidad.torre} · ` : ''}Apto {unidad.numero}
                                     </p>
                                     <p className="text-xs text-indigo-700 dark:text-indigo-300 truncate">
-                                      Opción: {textoOpcionPorId.get(v.opcion_id) || 'Sin opción'}
+                                      Opción: {v.opcion_id ? (textoOpcionPorId.get(v.opcion_id) || 'Sin opción') : 'Sin opción'}
                                     </p>
                                   </div>
                                   <Button
