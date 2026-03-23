@@ -1006,7 +1006,17 @@ export default function AsistirPage() {
                               <p className="text-sm text-gray-500">Todas las unidades ya votaron en esta pregunta.</p>
                             </div>
                           ) : (
-                            unidadesDisponiblesVotacion.map((u) => (
+                            unidadesDisponiblesVotacion.map((u) => {
+                              const votoUnidadPregunta = votosRegistrados.find(
+                                (v) => v.unidad_id === u.id && v.pregunta_id === preguntaActiva
+                              )
+                              const textoOpcionUnidad =
+                                votoUnidadPregunta?.opcion_id
+                                  ? (textoOpcionPorId.get(votoUnidadPregunta.opcion_id) || 'Sin opción')
+                                  : 'Sin opción'
+                              const votoPropioDelegado = !!votoUnidadPregunta?.registrado_por_delegado
+
+                              return (
                               <label
                                 key={u.id}
                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer transition-colors border ${
@@ -1029,6 +1039,11 @@ export default function AsistirPage() {
                                     })()}{u.torre !== 'S/T' ? `T${u.torre} · ` : ''}Apto {u.numero}
                                   </span>
                                   <span className="text-xs text-gray-500 ml-1.5 truncate">{u.nombre_propietario}</span>
+                                  {votoPropioDelegado && (
+                                    <span className="block text-[11px] text-indigo-700 dark:text-indigo-300 truncate">
+                                      Tu voto: {textoOpcionUnidad}
+                                    </span>
+                                  )}
                                 </div>
                                   <div className="flex items-center gap-2 shrink-0">
                                     {yaVoto(u.id, preguntaActiva) ? (
@@ -1041,9 +1056,27 @@ export default function AsistirPage() {
                                       </span>
                                     )}
                                     <span className="text-xs text-gray-400">{u.coeficiente.toFixed(3)}%</span>
+                                    {votoPropioDelegado && votoUnidadPregunta?.opcion_id && (
+                                      <button
+                                        type="button"
+                                        className="text-[11px] px-2 py-0.5 rounded-full border border-indigo-300 text-indigo-700 dark:text-indigo-300 dark:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                                        onClick={(e) => {
+                                          e.preventDefault()
+                                          setSelVotacion(new Set([u.id]))
+                                          setOpcionSeleccionada(votoUnidadPregunta.opcion_id as string)
+                                          setMsgVotacion({
+                                            tipo: 'ok',
+                                            texto: `Editando voto de ${u.torre !== 'S/T' ? `T${u.torre} · ` : ''}Apto ${u.numero}. Cambia la opción y guarda para actualizar.`,
+                                          })
+                                        }}
+                                      >
+                                        Editar
+                                      </button>
+                                    )}
                                   </div>
                               </label>
-                            ))
+                              )
+                            })
                           )}
                         </div>
                       </div>
