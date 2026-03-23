@@ -673,7 +673,7 @@ export default function VotacionPublicaPage() {
   }
 
   const refrescarUnidades = async (): Promise<UnidadInfo[]> => {
-    const identificador = email.trim()
+    const identificador = email.trim().toLowerCase()
     const res = await fetch('/api/votar/validar-identificador', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -947,25 +947,21 @@ export default function VotacionPublicaPage() {
 
       setPreguntasCerradas(preguntasConOpciones)
 
-      // Cargar votos históricos del votante
+      // Cargar votos históricos por API (service role) para evitar vacíos por RLS/sesión cruzada.
       if (unidadesParaUsar && unidadesParaUsar.length > 0) {
-        const unidadIds = unidadesParaUsar.map(u => u.id)
-        
-        const { data: votosData } = await supabase
-          .from('votos')
-          .select('pregunta_id, unidad_id, opcion_id, opciones_pregunta(texto_opcion)')
-          .in('pregunta_id', preguntasConOpciones.map(p => p.id))
-          .in('unidad_id', unidadIds)
-
-        if (votosData && votosData.length > 0) {
-          const votosMap = votosData.map((v: any) => ({
-            pregunta_id: v.pregunta_id,
-            unidad_id: v.unidad_id,
-            opcion_id: v.opcion_id,
-            opcion_texto: v.opciones_pregunta?.texto_opcion || ''
-          }))
-          setVotosHistorico(votosMap)
-        }
+        const unidadIds = unidadesParaUsar.map((u) => u.id)
+        const votosRes = await fetch('/api/votar/votos-por-unidades', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({
+            codigo,
+            preguntaIds: preguntasConOpciones.map((p) => p.id),
+            unidadIds,
+          }),
+        })
+        const votosJson = (await votosRes.json().catch(() => ({}))) as { votos?: VotoActual[] }
+        setVotosHistorico(Array.isArray(votosJson.votos) ? votosJson.votos : [])
       }
 
       // Cargar estadísticas finales de preguntas cerradas
@@ -984,25 +980,19 @@ export default function VotacionPublicaPage() {
     if (!unidadesParaUsar || unidadesParaUsar.length === 0) return
 
     try {
-      const unidadIds = unidadesParaUsar.map(u => u.id)
-
-      const { data: votosData, error } = await supabase
-        .from('votos')
-        .select('pregunta_id, unidad_id, opcion_id, opciones_pregunta(texto_opcion)')
-        .in('pregunta_id', preguntaIds)
-        .in('unidad_id', unidadIds)
-
-      if (votosData && votosData.length > 0) {
-        const votosMap: any[] = votosData.map((v: any) => ({
-          pregunta_id: v.pregunta_id,
-          unidad_id: v.unidad_id,
-          opcion_id: v.opcion_id,
-          opcion_texto: v.opciones_pregunta?.texto_opcion || ''
-        }))
-        setVotosActuales(votosMap)
-      } else {
-        setVotosActuales([])
-      }
+      const unidadIds = unidadesParaUsar.map((u) => u.id)
+      const votosRes = await fetch('/api/votar/votos-por-unidades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({
+          codigo,
+          preguntaIds,
+          unidadIds,
+        }),
+      })
+      const votosJson = (await votosRes.json().catch(() => ({}))) as { votos?: VotoActual[] }
+      setVotosActuales(Array.isArray(votosJson.votos) ? votosJson.votos : [])
     } catch (error: any) {
       // Ignorar errores de AbortError
       if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) return
@@ -2273,10 +2263,11 @@ export default function VotacionPublicaPage() {
                                       key={opcion.id}
                                       onClick={() => handleVotar(pregunta.id, unidad.id, opcion.id)}
                                       disabled={votando === pregunta.id}
+                                      aria-pressed={esVotoActual}
                                       className={`
-                                        w-full text-left p-3 rounded-lg border transition-all relative overflow-hidden
+                                        w-full text-left p-3.5 rounded-xl border-2 transition-all relative overflow-hidden
                                         ${esVotoActual 
-                                          ? 'border-green-500 bg-green-50 dark:bg-green-900/30 ring-2 ring-green-500' 
+                                          ? 'border-green-500 bg-green-100 dark:bg-green-900/40 ring-4 ring-green-300 dark:ring-green-700 shadow-md' 
                                           : 'border-gray-300 dark:border-gray-600 hover:border-indigo-400 dark:hover:border-indigo-500 bg-white dark:bg-gray-800'
                                         }
                                         ${votando === pregunta.id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
@@ -2295,8 +2286,8 @@ export default function VotacionPublicaPage() {
                                             {opcion.texto}
                                           </span>
                                           {esVotoActual && (
-                                            <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded-full">
-                                              ✓
+                                            <span className="text-xs bg-green-700 text-white px-2.5 py-0.5 rounded-full font-semibold">
+                                              ✓ Seleccionada
                                             </span>
                                           )}
                                         </div>
