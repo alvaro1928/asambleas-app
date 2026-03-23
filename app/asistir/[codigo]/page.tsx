@@ -109,6 +109,37 @@ function datosEquivalentes(a: unknown, b: unknown): boolean {
 }
 
 /** Misma lista que /api/delegado/estado-votacion; respaldo si ese endpoint falla o devuelve vacío. */
+/** Une votos del endpoint delegado con los de /api/votar/votos-por-unidades (misma tabla `votos`). Prioriza filas delegado (p. ej. opción solo si registró delegado). */
+function mergeVotosDelegadoYPublico(
+  desdeDelegado: VotoRegistrado[],
+  desdePublico: Array<{ unidad_id: string; pregunta_id: string; opcion_id: string }>
+): VotoRegistrado[] {
+  const key = (a: { unidad_id: string; pregunta_id: string }) => `${a.unidad_id}|${a.pregunta_id}`
+  const map = new Map<string, VotoRegistrado>()
+  for (const v of desdeDelegado) {
+    map.set(key(v), {
+      unidad_id: v.unidad_id,
+      pregunta_id: v.pregunta_id,
+      opcion_id: v.opcion_id,
+      es_poder: !!v.es_poder,
+      registrado_por_delegado: !!v.registrado_por_delegado,
+    })
+  }
+  for (const v of desdePublico) {
+    const k = key(v)
+    if (!map.has(k)) {
+      map.set(k, {
+        unidad_id: v.unidad_id,
+        pregunta_id: v.pregunta_id,
+        opcion_id: v.opcion_id || null,
+        es_poder: false,
+        registrado_por_delegado: false,
+      })
+    }
+  }
+  return Array.from(map.values())
+}
+
 function mapPreguntasAbiertasApiToPreguntas(raw: Record<string, unknown>[]): Pregunta[] {
   return raw.map((p) => {
     const opcionesRaw = (p.opciones as Array<{ id: string; texto?: string; texto_opcion?: string; color?: string }>) || []
@@ -176,6 +207,7 @@ export default function AsistirPage() {
   const cargarPreguntasPendienteRef = useRef(false)
   /** Si el repaso pendiente debe evitar spinners de carga (refresco automático). */
   const cargarPreguntasPendienteSilentRef = useRef(true)
+  const unidadesRef = useRef<Unidad[]>([])
 
   // Revalidar estado de la asamblea (verificación activa, pregunta_id) para actualizar pestañas sin recargar
   const revalidar = useCallback(async (opts?: { silent?: boolean }) => {
@@ -232,9 +264,13 @@ export default function AsistirPage() {
       })
   }, [codigo, token])
 
+  useEffect(() => {
+    unidadesRef.current = unidades
+  }, [unidades])
+
   // ── Cargar unidades (ya_verifico según sesión actual; es_poder para etiqueta). Sandbox: demo o reales según sandbox_usar_unidades_reales; misma UI y ayuda para real y sandbox. ──
-  const cargarUnidades = useCallback(async (silent = false) => {
-    if (!asamblea || !codigo || !token) return
+  const cargarUnidades = useCallback(async (silent = false): Promise<Unidad[] | undefined> => {
+    if (!asamblea || !codigo || !token) return undefined
     if (!silent) setCargandoUnidades(true)
     try {
       const res = await fetch('/api/delegado/unidades-y-verificacion', {
@@ -246,10 +282,11 @@ export default function AsistirPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.ok || !Array.isArray(data.unidades)) {
         console.error('[asistir] unidades-y-verificacion:', data?.error || res.status)
-        return
+        return undefined
       }
       const nuevas = data.unidades as Unidad[]
       setUnidades((prev) => (datosEquivalentes(prev, nuevas) ? prev : nuevas))
+      unidadesRef.current = nuevas
       if (data.resumen_asistencia) {
         const resumen = data.resumen_asistencia as Partial<ResumenAsistenciaDelegado>
         setResumenAsistencia({
@@ -259,13 +296,14 @@ export default function AsistirPage() {
       } else {
         setResumenAsistencia(null)
       }
+      return nuevas
     } finally {
       if (!silent) setCargandoUnidades(false)
     }
   }, [asamblea, codigo, token])
 
   // ── Cargar preguntas ─────────────────────────────────────────────────────
-  const cargarPreguntas = useCallback(async (silent = false) => {
+  const cargarPreguntas = useCallback(async (silent = false, unidadesParaVotos?: Unidad[]) => {
     if (!asamblea || !codigo || !token) return
     if (cargarPreguntasInFlightRef.current) {
       cargarPreguntasPendienteRef.current = true
@@ -349,6 +387,37 @@ export default function AsistirPage() {
         registrado_por_delegado: !!v.registrado_por_delegado,
       }))
 
+      /** Refuerzo: misma fuente que /votar (validar_codigo + tabla votos). Si delegado devuelve [] en prod, aquí igual aparecen los votos públicos/delegado. */
+      let mergedVotos = nuevosVotos
+      const listaUnidades = (unidadesParaVotos?.length ? unidadesParaVotos : unidadesRef.current) ?? []
+      if (nuevasPreguntas.length > 0 && listaUnidades.length > 0 && codigo) {
+        try {
+          const resV = await fetch('/api/votar/votos-por-unidades', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              codigo,
+              preguntaIds: nuevasPreguntas.map((p) => p.id),
+              unidadIds: listaUnidades.map((u) => u.id),
+            }),
+            cache: 'no-store',
+          })
+          const dataV = await resV.json().catch(() => ({}))
+          const arrV = Array.isArray(dataV.votos) ? (dataV.votos as Record<string, unknown>[]) : []
+          const publicRows = arrV.map((v) => ({
+            unidad_id: String(v.unidad_id ?? ''),
+            pregunta_id: String(v.pregunta_id ?? ''),
+            opcion_id: String(v.opcion_id ?? ''),
+          }))
+          mergedVotos = mergeVotosDelegadoYPublico(nuevosVotos, publicRows)
+          if (nuevosVotos.length === 0 && publicRows.length > 0) {
+            console.warn('[asistir] votos rellenados vía /api/votar/votos-por-unidades (estado-votacion devolvió 0 filas)')
+          }
+        } catch {
+          mergedVotos = nuevosVotos
+        }
+      }
+
       const nuevoAvance = (data.avanceVotaciones || []) as PreguntaConResultados[]
 
       let preguntasCambiaron = false
@@ -366,13 +435,13 @@ export default function AsistirPage() {
       }
 
       setVotosRegistrados((prev) => {
-        if (datosEquivalentes(prev, nuevosVotos)) return prev
-        // Evitar que un poll con votosRegistrados=[] (p. ej. bug o respuesta incompleta) borre votos ya mostrados.
-        if (nuevasPreguntas.length > 0 && nuevosVotos.length === 0 && prev.length > 0) {
+        if (datosEquivalentes(prev, mergedVotos)) return prev
+        // Evitar que un poll con lista vacía borre votos ya mostrados (solo si el refuerzo también falló).
+        if (nuevasPreguntas.length > 0 && mergedVotos.length === 0 && prev.length > 0) {
           console.warn('[asistir] Conservando votosRegistrados en cliente: servidor devolvió 0 votos con preguntas abiertas')
           return prev
         }
-        return nuevosVotos
+        return mergedVotos
       })
       setAvanceVotaciones((prev) => (datosEquivalentes(prev, nuevoAvance) ? prev : nuevoAvance))
     } finally {
@@ -383,17 +452,18 @@ export default function AsistirPage() {
         const rerunSilent = cargarPreguntasPendienteSilentRef.current
         cargarPreguntasPendienteSilentRef.current = true
         queueMicrotask(() => {
-          void cargarPreguntas(rerunSilent)
+          void cargarPreguntas(rerunSilent, unidadesRef.current)
         })
       }
     }
   }, [asamblea, codigo, token])
 
   useEffect(() => {
-    if (step === 'ok' && asamblea) {
-      cargarUnidades()
-      cargarPreguntas()
-    }
+    if (step !== 'ok' || !asamblea) return
+    void (async () => {
+      const u = await cargarUnidades()
+      await cargarPreguntas(false, u)
+    })()
   }, [step, asamblea, cargarUnidades, cargarPreguntas])
 
   // Cuando no hay pestañas, revalidar una vez (2 s) por si el admin acaba de activar verificación. No depender de asamblea completo para evitar bucle: revalidar actualiza asamblea y re-ejecutaba el efecto.
@@ -410,8 +480,8 @@ export default function AsistirPage() {
     const t = window.setInterval(() => {
       void (async () => {
         await revalidar({ silent: true })
-        await cargarUnidades(true)
-        await cargarPreguntas(true)
+        const u = await cargarUnidades(true)
+        await cargarPreguntas(true, u)
       })()
     }, POLL_MS_DELEGADO)
     return () => clearInterval(t)
@@ -570,7 +640,7 @@ export default function AsistirPage() {
       } else {
         setMsgVotacion({ tipo: 'error', texto: (data.error as string) || 'No se pudieron registrar los votos.' })
       }
-      void cargarPreguntas(true)
+      void cargarPreguntas(true, unidadesRef.current)
     } catch {
       setMsgVotacion({ tipo: 'error', texto: 'Error de conexión.' })
     } finally {
@@ -670,7 +740,12 @@ export default function AsistirPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { cargarUnidades(); cargarPreguntas() }}
+                onClick={() => {
+                  void (async () => {
+                    const u = await cargarUnidades()
+                    await cargarPreguntas(false, u)
+                  })()
+                }}
                 className="rounded-2xl border-gray-300 dark:border-gray-600"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -920,7 +995,18 @@ export default function AsistirPage() {
                 <div className="text-center py-8">
                   <Vote className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                   <p className="text-gray-500 text-sm">No hay preguntas abiertas en este momento.</p>
-                  <button type="button" onClick={() => void cargarPreguntas()} className="mt-2 text-xs text-indigo-600 underline">Actualizar</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void (async () => {
+                        const u = await cargarUnidades()
+                        await cargarPreguntas(false, u)
+                      })()
+                    }}
+                    className="mt-2 text-xs text-indigo-600 underline"
+                  >
+                    Actualizar
+                  </button>
                 </div>
               ) : (
                 <>
