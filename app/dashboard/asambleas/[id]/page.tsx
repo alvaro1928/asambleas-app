@@ -60,6 +60,7 @@ const SITE_URL = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE
   : 'https://www.asamblea.online'
 import { StickyBanner } from '@/components/StickyBanner'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
+import { WhatsAppGlyph } from '@/components/icons/WhatsAppGlyph'
 import { ModalRegistroAsistencia } from '@/components/ModalRegistroAsistencia'
 
 interface Asamblea {
@@ -2994,13 +2995,22 @@ Tu participacion es importante. 🏠`
                               <Copy className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">Copiar</span>
                             </Button>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <Button onClick={openModalEnviarEnlace} size="sm" className="bg-green-600 hover:bg-green-700 text-white w-full">
-                              <MessageCircle className="w-4 h-4 mr-1" /> Enviar a cada uno
+                          <div className="flex flex-col gap-2">
+                            <Button
+                              type="button"
+                              onClick={openModalEnviarEnlace}
+                              variant="outline"
+                              size="sm"
+                              title="Envía el enlace por WhatsApp o correo, un contacto a la vez"
+                              aria-label="Enviar enlace de votación por WhatsApp o correo a cada contacto"
+                              className="w-full min-h-[2.5rem] h-auto py-2 border-green-600/85 dark:border-green-500/70 bg-green-50/90 dark:bg-green-950/35 text-green-800 dark:text-green-200 hover:bg-green-100 dark:hover:bg-green-950/55 hover:text-green-900 dark:hover:text-green-100 justify-center gap-2 px-3 whitespace-normal text-center leading-snug"
+                            >
+                              <WhatsAppGlyph className="w-4 h-4 shrink-0 text-green-600 dark:text-green-400" />
+                              <span>Enviar enlace a contactos</span>
                             </Button>
-                            <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="w-full" title="Ver QR">
-                              <Button variant="outline" size="sm" className="w-full border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400">
-                                <QrCode className="w-4 h-4 mr-1" /> Ver QR
+                            <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="w-full" title="Ver código QR del enlace de votación">
+                              <Button variant="outline" size="sm" className="w-full min-h-[2.5rem] border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 justify-center gap-2">
+                                <QrCode className="w-4 h-4 shrink-0" /> Ver QR
                               </Button>
                             </Link>
                           </div>
@@ -4785,7 +4795,7 @@ Tu participacion es importante. 🏠`
                 Acceso Público
               </h4>
               <p className="mt-1">
-                Secciones colapsables: <strong>Enlace de votación</strong> (copiar, Enviar a cada uno, Ver QR), <strong>Verificación de quórum</strong> (activar/desactivar y registrar asistencia manual), <strong>Acceso de asistente delegado</strong> (generar enlace para que otra persona registre asistencia y votos en tu nombre) y <strong>Desactivar votación</strong>. La página de Acceso tiene el mismo diseño colapsable.
+                Secciones colapsables: <strong>Enlace de votación</strong> (copiar, enviar enlace a contactos por WhatsApp o correo, Ver QR), <strong>Verificación de quórum</strong> (activar/desactivar y registrar asistencia manual), <strong>Acceso de asistente delegado</strong> (generar enlace para que otra persona registre asistencia y votos en tu nombre) y <strong>Desactivar votación</strong>. La página de Acceso tiene el mismo diseño colapsable.
               </p>
             </div>
             <div>
