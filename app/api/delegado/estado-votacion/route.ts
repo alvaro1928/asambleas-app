@@ -150,48 +150,33 @@ export async function POST(request: NextRequest) {
     })
 
     /**
-     * Votos: no depender solo de `pregIds` de la primera consulta.
-     * Si esa consulta devuelve 0 filas pero hay preguntas abiertas (p. ej. diferencia de filtros),
-     * antes quedaban 0 votos y el panel mostraba todo "Pendiente".
-     * 1) Join votos → preguntas por asamblea + estado abierta + no archivada.
-     * 2) Fallback: .in('pregunta_id', pregIds) si el join falla.
+     * Votos: consulta directa `votos` por IDs de preguntas abiertas (mismos filtros que arriba).
+     * El join embebido `preguntas!inner` a veces devolvía [] sin error aunque hubiera filas en `votos`,
+     * y el fallback solo corría si el join fallaba → todo quedaba "Pendiente" en el panel.
      */
-    const aplicarFiltroNoArchivada = (rows: Record<string, unknown>[]) =>
-      rows.filter((row) => {
-        const p = row.preguntas as { is_archived?: boolean | null } | null | undefined
-        const arch = p?.is_archived
-        return arch == null || arch === false
-      })
+    const { data: openRows, error: openErr } = await admin
+      .from('preguntas')
+      .select('id')
+      .eq('asamblea_id', asamblea.id)
+      .eq('estado', 'abierta')
+      .or('is_archived.is.null,is_archived.eq.false')
 
-    const { data: votosJoin, error: vJoinErr } = await admin
-      .from('votos')
-      .select(
-        'unidad_id, pregunta_id, opcion_id, es_poder, user_agent, votante_nombre, preguntas!inner(asamblea_id, estado, is_archived)'
-      )
-      .eq('preguntas.asamblea_id', asamblea.id)
-      .eq('preguntas.estado', 'abierta')
+    if (openErr) {
+      console.error('[delegado/estado-votacion] preguntas ids abiertas:', openErr)
+      return NextResponse.json({ error: openErr.message }, { status: 500, headers: noStoreHeaders })
+    }
 
-    if (!vJoinErr && Array.isArray(votosJoin)) {
-      const filtrados = aplicarFiltroNoArchivada(votosJoin as Record<string, unknown>[])
-      votosRegistrados = filtrados.map((row) => {
-        const { preguntas: _p, ...rest } = row
-        return mapVotoRow(rest)
-      })
-    } else {
-      if (vJoinErr) {
-        console.warn('[delegado/estado-votacion] votos join fallback:', vJoinErr.message)
+    const openIds = (openRows || []).map((p: { id: string }) => p.id)
+    if (openIds.length > 0) {
+      const { data: votosData, error: vErr } = await admin
+        .from('votos')
+        .select('unidad_id, pregunta_id, opcion_id, es_poder, user_agent, votante_nombre')
+        .in('pregunta_id', openIds)
+      if (vErr) {
+        console.error('[delegado/estado-votacion] votos:', vErr)
+        return NextResponse.json({ error: vErr.message }, { status: 500, headers: noStoreHeaders })
       }
-      if (pregIds.length > 0) {
-        const { data: votosData, error: vErr } = await admin
-          .from('votos')
-          .select('unidad_id, pregunta_id, opcion_id, es_poder, user_agent, votante_nombre')
-          .in('pregunta_id', pregIds)
-        if (vErr) {
-          console.error('[delegado/estado-votacion] votos:', vErr)
-          return NextResponse.json({ error: vErr.message }, { status: 500, headers: noStoreHeaders })
-        }
-        votosRegistrados = (votosData || []).map((v: Record<string, unknown>) => mapVotoRow(v))
-      }
+      votosRegistrados = (votosData || []).map((v: Record<string, unknown>) => mapVotoRow(v))
     }
 
     const avanceVotaciones: Array<{

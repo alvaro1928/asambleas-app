@@ -899,6 +899,18 @@ export default function AsistirPage() {
             </div>
 
             <div className="p-4 space-y-4">
+              {asamblea?.is_demo && !asamblea?.sandbox_usar_unidades_reales && (
+                <div className="rounded-2xl border border-amber-400/80 bg-amber-50 dark:bg-amber-950/35 dark:border-amber-600 px-4 py-3 text-xs text-amber-950 dark:text-amber-100">
+                  <p className="font-semibold mb-1">Asamblea demo: lista de unidades distinta a la votación web</p>
+                  <p className="leading-relaxed">
+                    Aquí se muestran <strong>unidades de demostración</strong> (otros IDs en base de datos). Si votaste en la{' '}
+                    <strong>página pública de votación</strong>, el voto se guarda sobre las <strong>unidades reales</strong>{' '}
+                    del conjunto; por eso puede verse <strong>Pendiente</strong> en esta lista aunque el apartamento parezca el
+                    mismo (ej. T1 · 304). Solución: en la asamblea demo activa <strong>usar unidades reales</strong> en sandbox,
+                    o usa una asamblea que no sea demo para pruebas finales.
+                  </p>
+                </div>
+              )}
               {cargandoPreguntas ? (
                 <div className="flex items-center justify-center py-8 gap-2 text-gray-400 text-sm">
                   <span className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-indigo-500" />
