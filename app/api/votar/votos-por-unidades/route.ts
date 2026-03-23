@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { normalizeCodigoAccesoFromUrl } from '@/lib/codigoAcceso'
 
 export const dynamic = 'force-dynamic'
+
+/** PostgREST/Supabase suele armar filtros `in.(...)` en la URL; ~100+ UUIDs supera el límite en varios entornos. */
+const UNIDAD_IDS_CHUNK = 45
 
 const noStoreHeaders = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
@@ -17,7 +21,8 @@ type ReqBody = {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json().catch(() => ({}))) as ReqBody
-    const codigo = body.codigo?.trim()
+    const codigoRaw = typeof body.codigo === 'string' ? body.codigo : ''
+    const codigo = codigoRaw ? normalizeCodigoAccesoFromUrl(codigoRaw) : ''
     const preguntaIds = Array.isArray(body.preguntaIds) ? body.preguntaIds.filter(Boolean) : []
     const unidadIds = Array.isArray(body.unidadIds) ? body.unidadIds.filter(Boolean) : []
 
@@ -65,16 +70,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ votos: [] }, { status: 200, headers: noStoreHeaders })
     }
 
-    const { data: votosData, error: votosErr } = await admin
-      .from('votos')
-      .select('pregunta_id, unidad_id, opcion_id, opciones_pregunta(texto_opcion)')
-      .in('pregunta_id', preguntaIdsValidos)
-      .in('unidad_id', unidadIds)
-    if (votosErr) {
-      return NextResponse.json({ error: votosErr.message }, { status: 500, headers: noStoreHeaders })
+    const votosDataAcc: Record<string, unknown>[] = []
+    for (let i = 0; i < unidadIds.length; i += UNIDAD_IDS_CHUNK) {
+      const chunk = unidadIds.slice(i, i + UNIDAD_IDS_CHUNK)
+      const { data: chunkData, error: votosErr } = await admin
+        .from('votos')
+        .select('pregunta_id, unidad_id, opcion_id, opciones_pregunta(texto_opcion)')
+        .in('pregunta_id', preguntaIdsValidos)
+        .in('unidad_id', chunk)
+      if (votosErr) {
+        console.error('[votos-por-unidades] chunk unidad_ids', i, votosErr.message)
+        return NextResponse.json({ error: votosErr.message }, { status: 500, headers: noStoreHeaders })
+      }
+      votosDataAcc.push(...(chunkData || []))
     }
 
-    const votos = (votosData || []).map((v: Record<string, unknown>) => ({
+    const votos = votosDataAcc.map((v: Record<string, unknown>) => ({
       pregunta_id: String(v.pregunta_id || ''),
       unidad_id: String(v.unidad_id || ''),
       opcion_id: String(v.opcion_id || ''),
