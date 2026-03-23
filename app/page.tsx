@@ -11,7 +11,13 @@ import {
   Zap,
   MessageCircle,
   Link2,
+  Vote,
+  UserCheck,
+  ScrollText,
+  QrCode,
+  Printer,
 } from 'lucide-react'
+import Script from 'next/script'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,14 +41,34 @@ function buildWhatsAppUrl(whatsappNumber: string, nombreConjunto: string) {
   return `https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`
 }
 
+/** Icono de marca WhatsApp (relleno), para el CTA de la landing. */
+function WhatsAppGlyph({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+    </svg>
+  )
+}
+
+/** URL pública del sitio (JSON-LD / SEO); mismo criterio que layout metadataBase */
+function publicSiteUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+  if (!raw) return 'https://asambleas.online'
+  return raw.startsWith('http') ? raw.replace(/\/$/, '') : `https://${raw.replace(/\/$/, '')}`
+}
+
 export default function Home() {
   useRedirectOAuthCode()
   const [nombreConjunto, setNombreConjunto] = useState('')
-  const [titulo, setTitulo] = useState('Asambleas digitales para propiedad horizontal')
-  const [subtitulo, setSubtitulo] = useState('Votaciones en tiempo real, actas y auditoría. Pensado para administradores y consejos de administración.')
+  const [titulo, setTitulo] = useState(
+    'Asambleas Online: votación Ley 675, quórum en vivo y acta digital'
+  )
+  const [subtitulo, setSubtitulo] = useState(
+    'Poderes de representación, WhatsApp y QR, verificación de asistencia y acta con trazabilidad. Para administradores y consejos de propiedad horizontal en Colombia.'
+  )
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [colorPrincipalHex, setColorPrincipalHex] = useState<string>('#4f46e5')
-  const [ctaWhatsappText, setCtaWhatsappText] = useState<string>('Contactanos')
+  const [ctaWhatsappText, setCtaWhatsappText] = useState<string>('Escribir por WhatsApp')
   const [logoError, setLogoError] = useState(false)
 
   useEffect(() => {
@@ -108,8 +134,9 @@ export default function Home() {
                 </Button>
               </Link>
             </div>
-            <p className="mt-6 text-sm text-slate-400 max-w-xl">
-              Crea tu conjunto, carga las unidades, convoca la asamblea y comparte el enlace. Los copropietarios votan en línea y obtienes el acta al instante.
+            <p className="mt-6 text-sm text-slate-400 max-w-2xl leading-relaxed">
+              Censo con coeficientes, votación nominal o por coeficiente, control de quórum, poderes con auditoría,
+              invitación masiva y acta descargable con opción de sellado en blockchain. Todo en un solo flujo pensado para Ley 675 y transparencia ante la copropiedad.
             </p>
           </div>
         </div>
@@ -123,10 +150,11 @@ export default function Home() {
             <Zap className="w-10 h-10 shrink-0 text-indigo-200" />
             <div>
               <p className="text-lg font-semibold">
-                Acta de votación, validación del quórum (Ley 675) y certificación en blockchain
+                Quórum, asistencia verificable y acta lista al cierre — con respaldo en blockchain
               </p>
               <p className="text-indigo-100 text-sm mt-0.5">
-                Resultados auditables, quórum en tiempo real y acta lista al cerrar; opción de sellar en blockchain para mayor trazabilidad.
+                Sigue el avance del quórum en vivo, registra rondas de verificación de asistencia y genera el acta
+                con resultados auditables; sellado opcional en Bitcoin (OpenTimestamps) para quien busca máxima trazabilidad.
               </p>
             </div>
           </div>
@@ -170,17 +198,100 @@ export default function Home() {
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 text-center flex-wrap">
             <div className="flex items-center gap-2 text-slate-300">
               <FileText className="w-5 h-5 text-emerald-400 shrink-0" />
-              <span className="text-sm">Actas y trazabilidad lista al cerrar la votación</span>
+              <span className="text-sm">Actas, certificados de voto y trazabilidad al cerrar</span>
             </div>
             <div className="flex items-center gap-2 text-slate-300">
               <Shield className="w-5 h-5 text-purple-400 shrink-0" />
-              <span className="text-sm">Datos aislados por conjunto y acceso seguro</span>
+              <span className="text-sm">Datos por conjunto, consentimiento Ley 1581 y acceso seguro</span>
             </div>
             <div className="flex items-center gap-2 text-slate-300">
               <Link2 className="w-5 h-5 text-amber-400 shrink-0" />
-              <span className="text-sm">Acta certificada en blockchain de Bitcoin (OpenTimestamps)</span>
+              <span className="text-sm">Sello en blockchain Bitcoin (OpenTimestamps), sin costo extra</span>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Funciones destacadas (SEO + conversión): prioridad intención de búsqueda */}
+      <section
+        className="py-14 border-b border-slate-800"
+        style={{ backgroundColor: '#0B0E14' }}
+        aria-labelledby="landing-funciones-heading"
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 id="landing-funciones-heading" className="text-2xl md:text-3xl font-bold text-white text-center mb-3">
+            Plataforma completa para asambleas de copropiedad
+          </h2>
+          <p className="text-center text-slate-400 text-sm md:text-base max-w-3xl mx-auto mb-10">
+            Lo esencial para cumplir con la Ley 675 de propiedad horizontal y ganar confianza de los copropietarios:
+            desde la convocatoria hasta el acta y los poderes, con transparencia en cada paso.
+          </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <article className="rounded-3xl bg-slate-800/50 border p-6 shadow-lg flex flex-col" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${colorPrincipalHex}28` }}>
+                <Vote className="w-5 h-5" style={{ color: colorPrincipalHex }} aria-hidden />
+              </div>
+              <h3 className="font-semibold text-white text-lg">Votación Ley 675</h3>
+              <p className="text-sm text-slate-400 mt-2 flex-1 leading-relaxed">
+                Voto por <strong className="text-slate-300">coeficiente de copropiedad</strong> o nominal; preguntas abiertas y cerradas,
+                umbral de aprobación y resultados en tiempo real para el conjunto.
+              </p>
+            </article>
+            <article className="rounded-3xl bg-slate-800/50 border p-6 shadow-lg flex flex-col" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${colorPrincipalHex}28` }}>
+                <UserCheck className="w-5 h-5" style={{ color: colorPrincipalHex }} aria-hidden />
+              </div>
+              <h3 className="font-semibold text-white text-lg">Quórum y asistencia</h3>
+              <p className="text-sm text-slate-400 mt-2 flex-1 leading-relaxed">
+                <strong className="text-slate-300">Verificación de asistencia</strong> por ronda, estadísticas de quórum visibles
+                y enlace para delegado en sala para registrar presencia cuando la mesa lo requiera.
+              </p>
+            </article>
+            <article className="rounded-3xl bg-slate-800/50 border p-6 shadow-lg flex flex-col" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${colorPrincipalHex}28` }}>
+                <ScrollText className="w-5 h-5" style={{ color: colorPrincipalHex }} aria-hidden />
+              </div>
+              <h3 className="font-semibold text-white text-lg">Poderes y apoderados</h3>
+              <p className="text-sm text-slate-400 mt-2 flex-1 leading-relaxed">
+                Registro de <strong className="text-slate-300">poderes de representación</strong>, límites configurables,
+                documento adjunto y flujo donde el votante puede declarar un poder recibido para revisión del administrador.
+              </p>
+            </article>
+            <article className="rounded-3xl bg-slate-800/50 border p-6 shadow-lg flex flex-col" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${colorPrincipalHex}28` }}>
+                <MessageCircle className="w-5 h-5" style={{ color: colorPrincipalHex }} aria-hidden />
+              </div>
+              <h3 className="font-semibold text-white text-lg">WhatsApp y acceso rápido</h3>
+              <p className="text-sm text-slate-400 mt-2 flex-1 leading-relaxed">
+                Invitaciones masivas con enlace de votación, <strong className="text-slate-300">código de acceso</strong> y
+                experiencia móvil clara para copropietarios que votan desde el celular.
+              </p>
+            </article>
+            <article className="rounded-3xl bg-slate-800/50 border p-6 shadow-lg flex flex-col" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${colorPrincipalHex}28` }}>
+                <QrCode className="w-5 h-5" style={{ color: colorPrincipalHex }} aria-hidden />
+              </div>
+              <h3 className="font-semibold text-white text-lg">QR en la sala</h3>
+              <p className="text-sm text-slate-400 mt-2 flex-1 leading-relaxed">
+                <strong className="text-slate-300">Código QR</strong> para compartir el ingreso a la votación en la asamblea presencial,
+                sin fricción para quien aún no tiene el enlace a mano.
+              </p>
+            </article>
+            <article className="rounded-3xl bg-slate-800/50 border p-6 shadow-lg flex flex-col" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${colorPrincipalHex}28` }}>
+                <Printer className="w-5 h-5" style={{ color: colorPrincipalHex }} aria-hidden />
+              </div>
+              <h3 className="font-semibold text-white text-lg">Censo y respaldo en papel</h3>
+              <p className="text-sm text-slate-400 mt-2 flex-1 leading-relaxed">
+                Importación de unidades y <strong className="text-slate-300">lista imprimible</strong> del censo con columna para firmas,
+                útil si la mesa requiere constancia física de asistencia junto al registro digital.
+              </p>
+            </article>
+          </div>
+          <p className="mt-10 text-center text-sm text-slate-500 max-w-2xl mx-auto leading-relaxed">
+            Además: acta descargable, certificado de votos para el copropietario, sellado opcional del acta en blockchain (OpenTimestamps)
+            y segregación de datos por conjunto para privacidad y cumplimiento del tratamiento de datos personales.
+          </p>
         </div>
       </section>
 
@@ -215,7 +326,21 @@ export default function Home() {
           <p className="text-slate-400 mb-6">
             ¿Dudas? Escríbenos y te ayudamos a configurar tu primera asamblea.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          {whatsappNumber && (
+            <div className="mb-5">
+              <Label htmlFor="nombre-conjunto-landing" className="text-xs text-slate-400">
+                Nombre de tu conjunto (opcional, se incluye en el mensaje)
+              </Label>
+              <Input
+                id="nombre-conjunto-landing"
+                placeholder="Ej. Conjunto Los Robles"
+                value={nombreConjunto}
+                onChange={(e) => setNombreConjunto(e.target.value)}
+                className="mt-1 rounded-3xl text-sm bg-slate-800/80 border-white/20 text-white placeholder:text-slate-500 max-w-xs mx-auto block"
+              />
+            </div>
+          )}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
             <Link href="/login">
               <Button size="lg" className="rounded-3xl shadow-lg w-full sm:w-auto" style={{ backgroundColor: colorPrincipalHex }}>
                 Empezar ahora
@@ -226,27 +351,19 @@ export default function Home() {
                 href={buildWhatsAppUrl(whatsappNumber, nombreConjunto)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex justify-center"
+                className="inline-flex justify-center sm:justify-start"
+                title="Abre WhatsApp con un mensaje de consulta listo para enviar"
               >
-                <Button variant="outline" size="lg" className="rounded-3xl border-white/20 text-slate-200 hover:bg-white/10 gap-2 w-full sm:w-auto">
-                  <MessageCircle className="w-5 h-5" />
-                  {ctaWhatsappText}
+                <Button
+                  size="lg"
+                  className="rounded-3xl gap-2.5 w-full sm:w-auto min-h-[3rem] border-0 bg-[#25D366] text-white shadow-lg shadow-emerald-950/35 hover:bg-[#20bd5a] hover:text-white focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0E14]"
+                >
+                  <WhatsAppGlyph className="w-5 h-5 shrink-0" />
+                  <span className="font-semibold">{ctaWhatsappText}</span>
                 </Button>
               </a>
             )}
           </div>
-          {whatsappNumber && (
-            <div className="pt-6">
-              <Label htmlFor="nombre-conjunto-landing" className="text-xs text-slate-400">Nombre de tu conjunto (opcional)</Label>
-              <Input
-                id="nombre-conjunto-landing"
-                placeholder="Ej. Conjunto Los Robles"
-                value={nombreConjunto}
-                onChange={(e) => setNombreConjunto(e.target.value)}
-                className="mt-1 rounded-3xl text-sm bg-slate-800/80 border-white/20 text-white placeholder:text-slate-500 max-w-xs mx-auto block"
-              />
-            </div>
-          )}
         </div>
       </section>
 
@@ -267,8 +384,40 @@ export default function Home() {
         </div>
       </section>
 
+      <Script
+        id="json-ld-software-asambleas"
+        type="application/ld+json"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'SoftwareApplication',
+            name: 'Asambleas Online',
+            applicationCategory: 'BusinessApplication',
+            operatingSystem: 'Web',
+            description:
+              'Software para asambleas de copropiedad en Colombia: votación Ley 675, quórum, poderes, WhatsApp, acta digital y sellado blockchain.',
+            offers: {
+              '@type': 'Offer',
+              availability: 'https://schema.org/InStock',
+              url: publicSiteUrl(),
+            },
+            featureList: [
+              'Votación por coeficiente o nominal según Ley 675',
+              'Verificación de asistencia y quórum en tiempo real',
+              'Poderes de representación y auditoría',
+              'Invitaciones por WhatsApp y acceso con QR',
+              'Acta digital y certificados de voto',
+              'Sello de acta en blockchain OpenTimestamps',
+            ],
+          }),
+        }}
+      />
+
       <footer className="py-6 border-t border-slate-800 text-center text-sm text-slate-500" style={{ backgroundColor: '#0B0E14' }}>
-        <p>Asambleas App — Para administradores de propiedad horizontal</p>
+        <p>
+          Asambleas Online — Votaciones y actas para propiedad horizontal en Colombia (Ley 675, quórum, poderes y trazabilidad)
+        </p>
         <p className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
           <Link href="/politica-privacidad" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">
             Política de Privacidad

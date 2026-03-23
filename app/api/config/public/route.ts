@@ -50,7 +50,7 @@ export async function GET() {
       bono_bienvenida_tokens: row?.bono_bienvenida_tokens != null ? Number(row.bono_bienvenida_tokens) : null,
       texto_hero_precio: row?.texto_hero_precio ?? null,
       texto_ahorro: row?.texto_ahorro ?? null,
-      cta_whatsapp_text: row?.cta_whatsapp_text?.trim() || 'Contactanos',
+      cta_whatsapp_text: row?.cta_whatsapp_text?.trim() || 'Escribir por WhatsApp',
     })
     res.headers.set('Cache-Control', 'no-store, max-age=0')
     return res
