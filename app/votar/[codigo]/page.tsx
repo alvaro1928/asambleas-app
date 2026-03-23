@@ -2294,28 +2294,28 @@ export default function VotacionPublicaPage() {
                                       disabled={votando === pregunta.id}
                                       aria-pressed={esVotoActual}
                                       className={`
-                                        w-full text-left p-3.5 rounded-xl border-2 transition-all relative overflow-hidden
+                                        w-full min-w-0 text-left p-3.5 rounded-xl border-2 transition-all relative
                                         ${esVotoActual 
-                                          ? 'border-green-500 bg-green-100 dark:bg-green-900/40 ring-4 ring-green-300 dark:ring-green-700 shadow-md' 
+                                          ? 'border-green-500 bg-green-100 dark:bg-green-900/40 ring-2 ring-inset ring-green-400/80 dark:ring-green-600/80 shadow-sm' 
                                           : 'border-gray-300 dark:border-gray-600 hover:border-indigo-400 dark:hover:border-indigo-500 bg-white dark:bg-gray-800'
                                         }
                                         ${votando === pregunta.id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                                       `}
                                     >
-                                      <div className="relative flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                          <div 
-                                            className="w-3 h-3 rounded-full border-2"
-                                            style={{ 
-                                              backgroundColor: esVotoActual ? opcion.color : 'transparent',
-                                              borderColor: opcion.color 
-                                            }}
-                                          />
-                                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                      <div className="flex items-start gap-2 min-w-0 w-full">
+                                        <div 
+                                          className="w-3 h-3 rounded-full border-2 shrink-0 mt-0.5"
+                                          style={{ 
+                                            backgroundColor: esVotoActual ? opcion.color : 'transparent',
+                                            borderColor: opcion.color 
+                                          }}
+                                        />
+                                        <div className="min-w-0 flex-1 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                                          <span className="text-sm font-medium text-gray-900 dark:text-white break-words text-left">
                                             {opcion.texto}
                                           </span>
                                           {esVotoActual && (
-                                            <span className="text-xs bg-green-700 text-white px-2.5 py-0.5 rounded-full font-semibold">
+                                            <span className="text-[11px] sm:text-xs bg-green-700 text-white px-2 py-0.5 rounded-full font-semibold whitespace-nowrap shrink-0 self-start sm:self-center">
                                               ✓ Seleccionada
                                             </span>
                                           )}
