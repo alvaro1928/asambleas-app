@@ -728,18 +728,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       // Quórum para tarjetas:
       // - Con pregunta abierta: usar siempre la última pregunta abierta.
-      // - Sin pregunta abierta: mantener RPC histórico y fallback manual si falla.
-      let rpcConDatos = false
-      if (!usarPreguntaAbierta) {
-        const { data: rpcData, error: rpcError } = await supabase.rpc('calcular_quorum_asamblea', {
-          p_asamblea_id: params.id
-        })
-        if (!rpcError && rpcData && rpcData.length > 0) {
-          setQuorum(rpcData[0])
-          rpcConDatos = true
-        }
-      }
-      if (usarPreguntaAbierta || !rpcConDatos) {
+      // - Sin pregunta abierta: mostrar tarjetas en cero (base = total de unidades).
+      {
       const isDemoAsam = asambleaOverride?.is_demo ?? asamblea?.is_demo
       const usarReales = asambleaOverride?.sandbox_usar_unidades_reales ?? asamblea?.sandbox_usar_unidades_reales
       const soloUnidadesDemoFallback = isDemoAsam === true && !(usarReales === true)
@@ -753,6 +743,19 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       const totalUnidades = unidadesData?.length || 0
       const coeficienteTotal = unidadesData?.reduce((sum, u) => sum + u.coeficiente, 0) || 0
+      if (!usarPreguntaAbierta) {
+        setQuorum({
+          total_unidades: totalUnidades,
+          unidades_votantes: 0,
+          unidades_pendientes: 0,
+          coeficiente_total: coeficienteTotal,
+          coeficiente_votante: 0,
+          coeficiente_pendiente: 0,
+          porcentaje_participacion_nominal: 0,
+          porcentaje_participacion_coeficiente: 0,
+          quorum_alcanzado: false,
+        })
+      } else {
       const idsUnidadesValidas = new Set(unidadesData?.map(u => u.id) || [])
 
       const preguntaIds = usarPreguntaAbierta
@@ -785,6 +788,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         porcentaje_participacion_coeficiente: porcentajeCoeficiente,
         quorum_alcanzado: porcentajeCoeficiente >= 50
       })
+      }
       }
     } catch (error) {
       console.error('Error loading quorum:', error)
@@ -2563,7 +2567,9 @@ Tu participacion es importante. 🏠`
               >
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center">
                   <Users className="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  Quórum y Participación
+                  {noHayPreguntasAbiertas
+                    ? 'Última pregunta abierta, Quórum y participación'
+                    : 'Quórum y Participación'}
                 </h3>
                 <div className="flex items-center gap-2 shrink-0">
                   {quorum?.quorum_alcanzado && (
