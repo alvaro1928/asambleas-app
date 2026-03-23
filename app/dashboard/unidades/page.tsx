@@ -20,6 +20,7 @@ import {
   Plus,
   MessageCircle,
   Printer,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,7 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/components/providers/ToastProvider'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
 import { sumaCoeficientesValida, rangoCoeficientesAceptado } from '@/lib/coeficientes'
-import { abrirListaAsistenciaImpresion, descargarListaAsistenciaHtml } from '@/lib/listaAsistenciaUnidades'
+import { descargarListaAsistenciaPdf } from '@/lib/listaAsistenciaUnidades'
 import {
   Table,
   TableBody,
@@ -107,6 +108,7 @@ function UnidadesPageContent() {
   const [whatsappAsambleaId, setWhatsappAsambleaId] = useState('')
   const [tokensPorMensajeWhatsapp, setTokensPorMensajeWhatsapp] = useState<number>(1)
   const [whatsappHabilitado, setWhatsappHabilitado] = useState<boolean | null>(null)
+  const [generandoListaPdf, setGenerandoListaPdf] = useState(false)
 
   const totalCoeficientes = unidades.reduce((sum, u) => sum + u.coeficiente, 0)
   const coeficientesCorrecto = sumaCoeficientesValida(totalCoeficientes)
@@ -250,7 +252,7 @@ function UnidadesPageContent() {
     }
   }
 
-  const handleListaAsistenciaFirmas = () => {
+  const handleListaAsistenciaFirmas = async () => {
     if (unidades.length === 0) {
       toast.error('No hay unidades para listar.')
       return
@@ -262,10 +264,15 @@ function UnidadesPageContent() {
       coeficiente: u.coeficiente,
     }))
     const nombre = conjuntoName.trim() || 'Conjunto'
-    const abierto = abrirListaAsistenciaImpresion(nombre, filas)
-    if (!abierto) {
-      descargarListaAsistenciaHtml(nombre, filas)
-      toast.info('Se descargó un archivo HTML. Ábrelo y usa Imprimir o Guardar como PDF.')
+    setGenerandoListaPdf(true)
+    try {
+      await descargarListaAsistenciaPdf(nombre, filas)
+      toast.success('PDF descargado.')
+    } catch (e) {
+      console.error(e)
+      toast.error('No se pudo generar el PDF. Intenta de nuevo o usa otro navegador.')
+    } finally {
+      setGenerandoListaPdf(false)
     }
   }
 
@@ -488,13 +495,18 @@ function UnidadesPageContent() {
               )}
               <Button
                 variant="outline"
-                onClick={handleListaAsistenciaFirmas}
-                disabled={unidades.length === 0}
+                onClick={() => void handleListaAsistenciaFirmas()}
+                disabled={unidades.length === 0 || generandoListaPdf}
                 className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200"
-                title="Abre una lista imprimible: cada unidad con espacio para firma manual de asistencia"
+                title="Descarga un PDF con el censo y columna para firma (generación liviana, como el acta)"
+                aria-label={generandoListaPdf ? 'Generando PDF de lista para firmas' : 'Descargar lista para firmas en PDF'}
               >
-                <Printer className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Lista para firmas</span>
+                {generandoListaPdf ? (
+                  <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" />
+                ) : (
+                  <Printer className="w-4 h-4 sm:mr-2" />
+                )}
+                <span className="hidden sm:inline">{generandoListaPdf ? 'Generando PDF…' : 'Lista para firmas (PDF)'}</span>
               </Button>
               <Button
                 variant="outline"

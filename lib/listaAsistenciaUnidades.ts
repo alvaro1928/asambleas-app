@@ -1,5 +1,6 @@
 /**
- * Genera una página HTML imprimible con el censo de unidades y columna para firma manual.
+ * Lista de censo para firma manual: genera PDF en cliente (html2pdf.js),
+ * mismo enfoque liviano que el acta (JPEG + jsPDF con compress).
  */
 
 export interface FilaListaAsistenciaUnidad {
@@ -23,95 +24,113 @@ function ordenarFilas(a: FilaListaAsistenciaUnidad, b: FilaListaAsistenciaUnidad
   return String(a.numero ?? '').localeCompare(String(b.numero ?? ''), 'es', { numeric: true })
 }
 
-export function buildHtmlListaAsistenciaUnidades(
+/** HTML con estilos en línea (fondo claro) para captura html2canvas → PDF. */
+export function buildListaAsistenciaInnerHtml(
   conjuntoNombre: string,
   filas: FilaListaAsistenciaUnidad[],
   generadoEn: Date = new Date()
 ): string {
   const ordenadas = [...filas].sort(ordenarFilas)
   const fechaStr = generadoEn.toLocaleString('es-CO', { timeZone: 'America/Bogota' })
-  const bodyRows = ordenadas
+  const rows = ordenadas
     .map((u, i) => {
       const torre = escapeHtml(String(u.torre ?? '—'))
       const num = escapeHtml(String(u.numero ?? ''))
       const prop = escapeHtml(String(u.nombre_propietario ?? '—'))
-      const coef = typeof u.coeficiente === 'number' && !Number.isNaN(u.coeficiente) ? u.coeficiente.toFixed(4) : '—'
+      const coef =
+        typeof u.coeficiente === 'number' && !Number.isNaN(u.coeficiente) ? u.coeficiente.toFixed(4) : '—'
       return `<tr>
-  <td style="text-align:center">${i + 1}</td>
-  <td>${torre}</td>
-  <td>${num}</td>
-  <td>${prop}</td>
-  <td style="text-align:right">${coef}</td>
-  <td style="min-height:36px;border-bottom:1px solid #333">&nbsp;</td>
+  <td style="text-align:center;border:1px solid #222;padding:5px 6px;">${i + 1}</td>
+  <td style="border:1px solid #222;padding:5px 6px;">${torre}</td>
+  <td style="border:1px solid #222;padding:5px 6px;">${num}</td>
+  <td style="border:1px solid #222;padding:5px 6px;">${prop}</td>
+  <td style="text-align:right;border:1px solid #222;padding:5px 6px;">${coef}</td>
+  <td style="border:1px solid #222;padding:16px 8px;min-width:100px;">&nbsp;</td>
 </tr>`
     })
     .join('\n')
 
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <title>Lista de asistencia — ${escapeHtml(conjuntoNombre)}</title>
-  <style>
-    body { font-family: system-ui, Segoe UI, sans-serif; margin: 24px; color: #111; }
-    h1 { font-size: 1.25rem; margin: 0 0 8px; }
-    .meta { font-size: 0.85rem; color: #444; margin-bottom: 20px; }
-    .nota { font-size: 0.8rem; color: #555; margin-bottom: 16px; max-width: 720px; line-height: 1.4; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    th, td { border: 1px solid #333; padding: 6px 8px; vertical-align: middle; }
-    th { background: #f0f0f0; text-align: left; }
-    @media print {
-      body { margin: 12mm; }
-      .no-print { display: none !important; }
-    }
-  </style>
-</head>
-<body>
-  <p class="no-print nota"><strong>Uso:</strong> Imprime desde el navegador (Ctrl+P) o elige &quot;Guardar como PDF&quot;. Cada propietario o representante puede firmar frente a su unidad como respaldo de asistencia manual.</p>
-  <h1>Lista de unidades — asistencia (firma)</h1>
-  <p class="meta"><strong>Conjunto:</strong> ${escapeHtml(conjuntoNombre)}<br />
-  <strong>Total unidades:</strong> ${ordenadas.length} · <strong>Generado:</strong> ${escapeHtml(fechaStr)}</p>
-  <table>
+  const titulo = escapeHtml(conjuntoNombre)
+  return `<div style="box-sizing:border-box;font-family:Helvetica,Arial,sans-serif;color:#111;background:#fff;font-size:10px;line-height:1.35;padding:4px;">
+  <p style="margin:0 0 10px;font-size:13px;font-weight:bold;">Lista de unidades — asistencia (firma manual)</p>
+  <p style="margin:0 0 12px;font-size:9px;color:#333;">
+    <strong>Conjunto:</strong> ${titulo}<br/>
+    <strong>Unidades:</strong> ${ordenadas.length} · <strong>Generado:</strong> ${escapeHtml(fechaStr)} (Colombia)
+  </p>
+  <p style="margin:0 0 10px;font-size:8px;color:#444;">
+    Cada copropietario o representante puede firmar frente a su unidad como respaldo de asistencia.
+  </p>
+  <table style="width:100%;border-collapse:collapse;font-size:9px;">
     <thead>
       <tr>
-        <th style="width:36px">N.º</th>
-        <th style="width:64px">Torre</th>
-        <th style="width:72px">Unidad</th>
-        <th>Propietario / titular</th>
-        <th style="width:72px">Coef. %</th>
-        <th style="min-width:140px">Firma</th>
+        <th style="text-align:center;border:1px solid #222;background:#eee;padding:6px 6px;width:28px;">N.º</th>
+        <th style="border:1px solid #222;background:#eee;padding:6px 6px;width:48px;">Torre</th>
+        <th style="border:1px solid #222;background:#eee;padding:6px 6px;width:52px;">Unidad</th>
+        <th style="border:1px solid #222;background:#eee;padding:6px 6px;">Propietario / titular</th>
+        <th style="text-align:right;border:1px solid #222;background:#eee;padding:6px 6px;width:56px;">Coef. %</th>
+        <th style="border:1px solid #222;background:#eee;padding:6px 6px;min-width:110px;">Firma</th>
       </tr>
     </thead>
     <tbody>
-${bodyRows}
+${rows}
     </tbody>
   </table>
-</body>
-</html>`
+</div>`
 }
 
-/** Abre una ventana con la lista lista para imprimir o guardar como PDF. */
-export function abrirListaAsistenciaImpresion(conjuntoNombre: string, filas: FilaListaAsistenciaUnidad[]): boolean {
-  const html = buildHtmlListaAsistenciaUnidades(conjuntoNombre, filas)
-  const w = window.open('', '_blank', 'noopener,noreferrer')
-  if (!w) return false
-  w.document.write(html)
-  w.document.close()
-  return true
+function filenameListaPdf(conjuntoNombre: string): string {
+  const safe = conjuntoNombre.replace(/[^a-zA-Z0-9\u00C0-\u024F\s.-]/g, '').trim().slice(0, 64) || 'conjunto'
+  return `lista-asistencia-firmas-${safe.replace(/\s+/g, '_')}.pdf`
 }
 
-/** Descarga un archivo .html con la misma lista (por si el bloqueador impide ventanas nuevas). */
-export function descargarListaAsistenciaHtml(conjuntoNombre: string, filas: FilaListaAsistenciaUnidad[]): void {
-  const html = buildHtmlListaAsistenciaUnidades(conjuntoNombre, filas)
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  const safe = conjuntoNombre.replace(/[^\w\-]+/g, '_').slice(0, 48) || 'conjunto'
-  a.href = url
-  a.download = `lista-asistencia-unidades-${safe}.html`
-  a.rel = 'noopener'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+/**
+ * Descarga un PDF liviano (misma pipeline que el acta: html2pdf.js, JPEG, jsPDF compress).
+ */
+export async function descargarListaAsistenciaPdf(
+  conjuntoNombre: string,
+  filas: FilaListaAsistenciaUnidad[]
+): Promise<void> {
+  if (typeof document === 'undefined') return
+
+  const inner = buildListaAsistenciaInnerHtml(conjuntoNombre, filas)
+  const el = document.createElement('div')
+  el.setAttribute('data-lista-asistencia-pdf', '1')
+  el.style.position = 'fixed'
+  el.style.left = '-12000px'
+  el.style.top = '0'
+  el.style.width = '800px'
+  el.style.backgroundColor = '#ffffff'
+  el.style.color = '#111111'
+  el.innerHTML = inner
+  document.body.appendChild(el)
+
+  try {
+    const html2pdf = (await import('html2pdf.js')).default
+    const filename = filenameListaPdf(conjuntoNombre)
+    const opts = {
+      margin: [12, 10, 12, 10] as [number, number, number, number],
+      filename,
+      image: { type: 'jpeg' as const, quality: 0.82 },
+      html2canvas: {
+        scale: 1.25,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: el.scrollWidth + 40,
+      },
+      jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const, compress: true },
+    }
+    const blob = (await html2pdf().set(opts).from(el).toPdf().output('blob')) as Blob
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.rel = 'noopener'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } finally {
+    document.body.removeChild(el)
+  }
 }
