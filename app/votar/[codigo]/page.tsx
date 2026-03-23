@@ -1838,7 +1838,7 @@ export default function VotacionPublicaPage() {
       { id: 'votacion' as const, label: 'Votación', short: 'Votar' },
       { id: 'avance' as const, label: 'Avance', short: 'Avance' },
       { id: 'poderes' as const, label: 'Poderes', short: 'Poderes' },
-      { id: 'misdatos' as const, label: 'Mis datos', short: 'Perfil' },
+      { id: 'misdatos' as const, label: 'Perfil', short: 'Perfil' },
     ]
 
     return (
@@ -2012,9 +2012,17 @@ export default function VotacionPublicaPage() {
                 {statsVerificacion && (
                   <QuorumChip pct={statsVerificacion.porcentaje_verificado} total={statsVerificacion.total_verificados} />
                 )}
-                {yaVerifico && !statsVerificacion && (
-                  <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                    <UserCheck className="w-3.5 h-3.5" /> Verificado
+                {verificacionActiva && (
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${
+                      yaVerifico
+                        ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300'
+                        : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                    }`}
+                    title={yaVerifico ? 'Ya verificaste tu asistencia en esta ronda.' : 'Aún no has verificado tu asistencia en esta ronda.'}
+                  >
+                    {yaVerifico ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                    {yaVerifico ? 'Asistencia verificada' : 'Asistencia pendiente'}
                   </span>
                 )}
               </div>
