@@ -540,9 +540,19 @@ export default function AsistirPage() {
             const preguntaId = r.pregunta_id || preguntaActiva
             const idx = next.findIndex((x) => x.unidad_id === unidadId && x.pregunta_id === preguntaId)
             if (idx >= 0) {
-              next[idx] = { ...next[idx], opcion_id: opcionSeleccionada }
+              next[idx] = {
+                ...next[idx],
+                opcion_id: opcionSeleccionada,
+                registrado_por_delegado: true,
+              }
             } else {
-              next.push({ unidad_id: unidadId, pregunta_id: preguntaId, opcion_id: opcionSeleccionada })
+              next.push({
+                unidad_id: unidadId,
+                pregunta_id: preguntaId,
+                opcion_id: opcionSeleccionada,
+                es_poder: false,
+                registrado_por_delegado: true,
+              })
             }
           }
           return next
@@ -1041,15 +1051,22 @@ export default function AsistirPage() {
                                   <span className="text-xs text-gray-500 ml-1.5 truncate">{u.nombre_propietario}</span>
                                   {votoPropioDelegado && (
                                     <span className="block text-[11px] text-indigo-700 dark:text-indigo-300 truncate">
-                                      Tu voto: {textoOpcionUnidad}
+                                      Registrado por ti: {textoOpcionUnidad}
                                     </span>
                                   )}
                                 </div>
-                                  <div className="flex items-center gap-2 shrink-0">
+                                  <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0 max-w-[min(100%,14rem)]">
                                     {yaVoto(u.id, preguntaActiva) ? (
-                                      <span className="text-[11px] px-2 py-0.5 rounded-full border border-emerald-300 text-emerald-700 dark:text-emerald-300 dark:border-emerald-700">
-                                        Ya votó
-                                      </span>
+                                      <>
+                                        <span className="text-[11px] px-2 py-0.5 rounded-full border border-emerald-300 text-emerald-700 dark:text-emerald-300 dark:border-emerald-700">
+                                          Registrado
+                                        </span>
+                                        {votoPropioDelegado && votoUnidadPregunta?.opcion_id && (
+                                          <span className="text-[10px] text-emerald-800 dark:text-emerald-200 truncate max-w-[10rem]" title={textoOpcionUnidad}>
+                                            {textoOpcionUnidad}
+                                          </span>
+                                        )}
+                                      </>
                                     ) : (
                                       <span className="text-[11px] px-2 py-0.5 rounded-full border border-amber-300 text-amber-700 dark:text-amber-300 dark:border-amber-700">
                                         Pendiente
