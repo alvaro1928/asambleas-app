@@ -65,8 +65,9 @@ interface Pregunta {
 interface VotoRegistrado {
   unidad_id: string
   pregunta_id: string
-  opcion_id: string
+  opcion_id: string | null
   es_poder?: boolean
+  registrado_por_delegado?: boolean
 }
 
 interface ResultadoOpcionGrafica {
@@ -284,8 +285,9 @@ export default function AsistirPage() {
       const nuevosVotos: VotoRegistrado[] = (data.votosRegistrados || []).map((v: Record<string, unknown>) => ({
         unidad_id: v.unidad_id as string,
         pregunta_id: v.pregunta_id as string,
-        opcion_id: v.opcion_id as string,
+        opcion_id: typeof v.opcion_id === 'string' ? (v.opcion_id as string) : null,
         es_poder: !!v.es_poder,
+        registrado_por_delegado: !!v.registrado_por_delegado,
       }))
 
       const nuevoAvance = (data.avanceVotaciones || []) as PreguntaConResultados[]
@@ -424,17 +426,17 @@ export default function AsistirPage() {
 
   const preguntaActualObj = preguntas.find((p) => p.id === preguntaActiva)
 
-  const unidadesSinVotar = unidades.filter((u) => !yaVoto(u.id, preguntaActiva))
+  const unidadesSinVotar = unidades
+    .filter((u) => !yaVoto(u.id, preguntaActiva))
     .filter((u) => matchesUnidadBusquedaCompleta(u, busqVotacion))
   const votosDelegadoPregunta = votosRegistrados
     .filter((v) => v.pregunta_id === preguntaActiva)
+    .filter((v) => v.registrado_por_delegado)
     .filter((v) => {
       const unidad = unidades.find((u) => u.id === v.unidad_id)
       return unidad ? matchesUnidadBusquedaCompleta(unidad, busqVotacion) : false
     })
-  const unidadesDisponiblesVotacion = unidades
-    .filter((u) => !yaVoto(u.id, preguntaActiva) || selVotacion.has(u.id))
-    .filter((u) => matchesUnidadBusquedaCompleta(u, busqVotacion))
+  const unidadesDisponiblesVotacion = unidades.filter((u) => matchesUnidadBusquedaCompleta(u, busqVotacion))
   const textoOpcionPorId = useMemo(() => {
     const map = new Map<string, string>()
     if (!preguntaActualObj) return map
@@ -877,11 +879,13 @@ export default function AsistirPage() {
                         </div>
                       </div>
 
-                      {/* Unidades sin votar */}
+                      {/* Unidades para votar/actualizar */}
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
                           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Unidades a votar</label>
-                          <span className="text-xs text-gray-400">{unidadesSinVotar.length} pendientes</span>
+                          <span className="text-xs text-gray-400">
+                            {unidadesSinVotar.length} pendientes · {unidades.length - unidadesSinVotar.length} con voto
+                          </span>
                         </div>
 
                         {/* Buscador unidades */}
@@ -951,7 +955,18 @@ export default function AsistirPage() {
                                   </span>
                                   <span className="text-xs text-gray-500 ml-1.5 truncate">{u.nombre_propietario}</span>
                                 </div>
-                                <span className="text-xs text-gray-400 shrink-0">{u.coeficiente.toFixed(3)}%</span>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {yaVoto(u.id, preguntaActiva) ? (
+                                      <span className="text-[11px] px-2 py-0.5 rounded-full border border-emerald-300 text-emerald-700 dark:text-emerald-300 dark:border-emerald-700">
+                                        Ya votó
+                                      </span>
+                                    ) : (
+                                      <span className="text-[11px] px-2 py-0.5 rounded-full border border-amber-300 text-amber-700 dark:text-amber-300 dark:border-amber-700">
+                                        Pendiente
+                                      </span>
+                                    )}
+                                    <span className="text-xs text-gray-400">{u.coeficiente.toFixed(3)}%</span>
+                                  </div>
                               </label>
                             ))
                           )}
@@ -989,6 +1004,7 @@ export default function AsistirPage() {
                                     size="sm"
                                     className="h-8 rounded-xl border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300"
                                     onClick={() => {
+                                      if (!v.opcion_id) return
                                       setSelVotacion(new Set([unidad.id]))
                                       setOpcionSeleccionada(v.opcion_id)
                                       setMsgVotacion({

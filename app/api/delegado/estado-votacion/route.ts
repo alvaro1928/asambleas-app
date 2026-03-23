@@ -18,6 +18,14 @@ type ResultadoOpcionGrafica = {
   porcentaje_nominal_total?: number
 }
 
+type VotoEstadoDelegado = {
+  unidad_id: string
+  pregunta_id: string
+  opcion_id: string | null
+  es_poder: boolean
+  registrado_por_delegado: boolean
+}
+
 function parsearResultadosStats(
   statsData: Record<string, unknown>[] | null
 ): ResultadoOpcionGrafica[] {
@@ -117,13 +125,12 @@ export async function POST(request: NextRequest) {
       opciones: opcMap[p.id as string] || [],
     }))
 
-    let votosRegistrados: { unidad_id: string; pregunta_id: string; opcion_id: string; es_poder: boolean }[] = []
+    let votosRegistrados: VotoEstadoDelegado[] = []
     if (pregIds.length > 0) {
       const { data: votosData, error: vErr } = await admin
         .from('votos')
         .select('unidad_id, pregunta_id, opcion_id, es_poder, user_agent')
         .in('pregunta_id', pregIds)
-        .eq('user_agent', '[Registrado por asistente delegado]')
       if (vErr) {
         console.error('[delegado/estado-votacion] votos:', vErr)
         return NextResponse.json({ error: vErr.message }, { status: 500, headers: noStoreHeaders })
@@ -131,8 +138,12 @@ export async function POST(request: NextRequest) {
       votosRegistrados = (votosData || []).map((v: Record<string, unknown>) => ({
         unidad_id: v.unidad_id as string,
         pregunta_id: v.pregunta_id as string,
-        opcion_id: v.opcion_id as string,
+        opcion_id:
+          v.user_agent === '[Registrado por asistente delegado]'
+            ? (v.opcion_id as string)
+            : null,
         es_poder: !!v.es_poder,
+        registrado_por_delegado: v.user_agent === '[Registrado por asistente delegado]',
       }))
     }
 
