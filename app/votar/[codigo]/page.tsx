@@ -1159,6 +1159,27 @@ export default function VotacionPublicaPage() {
 
       if (error) throw error
 
+      // Si votó y aún no tenía asistencia verificada, marcarla automáticamente.
+      // Cuando la verificación está cerrada, se registra en la última sesión cerrada.
+      try {
+        if (!yaVerifico && asamblea?.asamblea_id) {
+          const verifyRes = await fetch('/api/votar/auto-verificar-asistencia', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              asamblea_id: asamblea.asamblea_id,
+              identificador: email.trim(),
+            }),
+          })
+          const verifyJson = await verifyRes.json().catch(() => ({}))
+          if (verifyRes.ok && verifyJson?.ok) {
+            setYaVerifico(true)
+          }
+        }
+      } catch {
+        // No bloquear voto por fallo de auto-verificación.
+      }
+
       // Recargar votos actuales y estadísticas
       await cargarVotosActuales([preguntaId], unidades)
       await cargarEstadisticas([preguntaId])
