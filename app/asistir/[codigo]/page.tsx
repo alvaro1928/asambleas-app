@@ -108,6 +108,26 @@ function datosEquivalentes(a: unknown, b: unknown): boolean {
   }
 }
 
+/** Misma lista que /api/delegado/estado-votacion; respaldo si ese endpoint falla o devuelve vacío. */
+function mapPreguntasAbiertasApiToPreguntas(raw: Record<string, unknown>[]): Pregunta[] {
+  return raw.map((p) => {
+    const opcionesRaw = (p.opciones as Array<{ id: string; texto?: string; texto_opcion?: string; color?: string }>) || []
+    return {
+      id: p.id as string,
+      texto_pregunta: String(p.texto_pregunta ?? ''),
+      estado: (p.estado as string) || 'abierta',
+      tipo_votacion: String(p.tipo_votacion ?? 'coeficiente'),
+      umbral_aprobacion: (p.umbral_aprobacion as number | null) ?? null,
+      opciones: opcionesRaw.map((o, i) => ({
+        id: o.id,
+        texto_opcion: o.texto_opcion ?? o.texto ?? 'Opción',
+        color: o.color || '#6366f1',
+        orden: i,
+      })),
+    }
+  })
+}
+
 /** Intervalo de refresco en segundo plano (asamblea + unidades + votación); menos agresivo que el polling anterior. */
 const POLL_MS_DELEGADO = 12_000
 
@@ -265,10 +285,30 @@ export default function AsistirPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data?.ok) {
         console.error('[asistir] estado-votacion:', data?.error || res.status)
+        try {
+          const resFb = await fetch('/api/votar/preguntas-abiertas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ codigo }),
+            cache: 'no-store',
+          })
+          const dataFb = await resFb.json().catch(() => ({}))
+          const arr = Array.isArray(dataFb.preguntas) ? (dataFb.preguntas as Record<string, unknown>[]) : []
+          if (resFb.ok && arr.length > 0) {
+            const nuevasPreguntas = mapPreguntasAbiertasApiToPreguntas(arr)
+            setPreguntas(nuevasPreguntas)
+            setPreguntaActiva(nuevasPreguntas[0]?.id ?? '')
+            setVotosRegistrados([])
+            setAvanceVotaciones([])
+            console.warn('[asistir] Preguntas cargadas vía respaldo preguntas-abiertas (estado-votacion falló).')
+          }
+        } catch {
+          // ignorar
+        }
         return
       }
 
-      const nuevasPreguntas: Pregunta[] = (data.preguntas || []).map((p: Record<string, unknown>) => ({
+      let nuevasPreguntas: Pregunta[] = (data.preguntas || []).map((p: Record<string, unknown>) => ({
         id: p.id as string,
         texto_pregunta: p.texto_pregunta as string,
         estado: (p.estado as string) || 'abierta',
@@ -281,6 +321,25 @@ export default function AsistirPage() {
           orden: typeof o.orden === 'number' ? o.orden : 0,
         })),
       }))
+
+      if (nuevasPreguntas.length === 0) {
+        try {
+          const resFb = await fetch('/api/votar/preguntas-abiertas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ codigo }),
+            cache: 'no-store',
+          })
+          const dataFb = await resFb.json().catch(() => ({}))
+          const arr = Array.isArray(dataFb.preguntas) ? (dataFb.preguntas as Record<string, unknown>[]) : []
+          if (resFb.ok && arr.length > 0) {
+            nuevasPreguntas = mapPreguntasAbiertasApiToPreguntas(arr)
+            console.warn('[asistir] Preguntas cargadas vía respaldo preguntas-abiertas (estado-votacion devolvió 0).')
+          }
+        } catch {
+          // ignorar
+        }
+      }
 
       const nuevosVotos: VotoRegistrado[] = (data.votosRegistrados || []).map((v: Record<string, unknown>) => ({
         unidad_id: v.unidad_id as string,
@@ -660,8 +719,16 @@ export default function AsistirPage() {
           </div>
         )}
 
+        {/* Cargando preguntas / pestañas (evita mensaje “vacío” mientras llega estado-votacion) */}
+        {cargandoPreguntas && tabsDisponibles.length === 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <span className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent mb-3" />
+            <p className="text-gray-600 dark:text-gray-400 text-sm">Cargando estado de votación…</p>
+          </div>
+        )}
+
         {/* Sin pestañas disponibles */}
-        {tabsDisponibles.length === 0 && (
+        {!cargandoPreguntas && tabsDisponibles.length === 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow border border-gray-200 dark:border-gray-700 p-6 text-center">
             <UserCheck className="w-10 h-10 text-gray-300 mx-auto mb-2" />
             <p className="text-gray-600 dark:text-gray-400 text-sm">

@@ -77,12 +77,13 @@ export async function POST(request: NextRequest) {
 
     const { admin, asamblea } = v
 
+    /** Incluir NULL: .eq(false) excluye filas con is_archived NULL en algunas BD. */
     const { data: pregData, error: pregErr } = await admin
       .from('preguntas')
       .select('id, texto_pregunta, estado, tipo_votacion, umbral_aprobacion')
       .eq('asamblea_id', asamblea.id)
       .eq('estado', 'abierta')
-      .eq('is_archived', false)
+      .or('is_archived.is.null,is_archived.eq.false')
       .order('orden', { ascending: true })
 
     if (pregErr) {
@@ -156,22 +157,32 @@ export async function POST(request: NextRequest) {
     }> = []
 
     for (const p of preguntas) {
-      const { data: statsData, error: stErr } = await admin.rpc('calcular_estadisticas_pregunta', {
-        p_pregunta_id: p.id,
-      })
-      if (stErr) {
-        console.error('[delegado/estado-votacion] stats', p.id, stErr)
-        continue
+      try {
+        const { data: statsData, error: stErr } = await admin.rpc('calcular_estadisticas_pregunta', {
+          p_pregunta_id: p.id,
+        })
+        if (stErr) {
+          console.error('[delegado/estado-votacion] stats', p.id, stErr)
+          continue
+        }
+        const rows = (statsData as Record<string, unknown>[] | null) ?? []
+        let resultados: ResultadoOpcionGrafica[]
+        try {
+          resultados = parsearResultadosStats(rows)
+        } catch (parseErr) {
+          console.error('[delegado/estado-votacion] parse stats', p.id, parseErr)
+          resultados = []
+        }
+        avanceVotaciones.push({
+          id: p.id,
+          texto_pregunta: p.texto_pregunta,
+          tipo_votacion: p.tipo_votacion ?? 'coeficiente',
+          umbral_aprobacion: p.umbral_aprobacion ?? null,
+          resultados,
+        })
+      } catch (loopErr) {
+        console.error('[delegado/estado-votacion] avance pregunta', p.id, loopErr)
       }
-      const rows = (statsData as Record<string, unknown>[] | null) ?? []
-      const resultados = parsearResultadosStats(rows)
-      avanceVotaciones.push({
-        id: p.id,
-        texto_pregunta: p.texto_pregunta,
-        tipo_votacion: p.tipo_votacion ?? 'coeficiente',
-        umbral_aprobacion: p.umbral_aprobacion ?? null,
-        resultados,
-      })
     }
 
     return NextResponse.json(

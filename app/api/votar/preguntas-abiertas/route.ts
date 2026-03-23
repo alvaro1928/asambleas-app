@@ -48,7 +48,7 @@ async function responderPreguntasAbiertas(codigoRaw: string | null | undefined) 
     .select('id, texto_pregunta, descripcion, tipo_votacion, estado, umbral_aprobacion')
     .eq('asamblea_id', asambleaId)
     .eq('estado', 'abierta')
-    .eq('is_archived', false)
+    .or('is_archived.is.null,is_archived.eq.false')
     .order('created_at', { ascending: true })
 
   if (preguntasError) {
