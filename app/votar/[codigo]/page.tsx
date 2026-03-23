@@ -1154,11 +1154,8 @@ export default function VotacionPublicaPage() {
 
       const yaVerificoB = json.yaVerificoRaw === true
       if (emailVotante) {
-        if (!activa) {
-          setYaVerifico(!!yaVerificoB)
-        } else {
-          setYaVerifico((prev) => (yaVerificoB === false ? false : prev))
-        }
+        // Reflejar siempre el estado real del backend para evitar desincronización entre dispositivos/pestañas.
+        setYaVerifico(!!yaVerificoB)
       }
     }
 
@@ -1253,11 +1250,8 @@ export default function VotacionPublicaPage() {
           ? (yaVerificoVal as unknown[])[0] === true
           : yaVerificoVal === true
         if (emailVotante) {
-          if (!activa) {
-            setYaVerifico(!!yaVerificoB)
-          } else {
-            setYaVerifico((prev) => (yaVerificoB === false ? false : prev))
-          }
+          // Reflejar siempre el estado real del backend para evitar desincronización entre dispositivos/pestañas.
+          setYaVerifico(!!yaVerificoB)
         }
       }
     } catch {
@@ -1376,7 +1370,7 @@ export default function VotacionPublicaPage() {
       if (res.ok) {
         setYaVerifico(true)
         toast.success('¡Asistencia verificada! Tu presencia quedó registrada.')
-        await refrescarVerificacion(asamblea.asamblea_id)
+        await refrescarVerificacion(asamblea.asamblea_id, email.trim())
       } else {
         const data = await res.json().catch(() => ({}))
         toast.error(data?.error || 'No se pudo registrar la verificación.')

@@ -732,22 +732,18 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
     setToggling(true)
     try {
       const nuevoValor = !verificacionActiva
-      /** Solo verificación general (asamblea), no por pregunta. */
-      const payload: { verificacion_asistencia_activa: boolean; verificacion_pregunta_id: string | null } = {
-        verificacion_asistencia_activa: nuevoValor,
-        verificacion_pregunta_id: null,
-      }
-
-      const { data: updatedRow, error } = await supabase
-        .from('asambleas')
-        .update(payload)
-        .eq('id', params.id)
-        .select('verificacion_asistencia_activa, verificacion_pregunta_id')
-        .single()
-      if (error) {
-        toast.error('No se pudo actualizar la verificación: ' + (error.message || 'Error en la base de datos'))
+      const res = await fetch('/api/dashboard/toggle-verificacion-asistencia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ asamblea_id: params.id, activar: nuevoValor }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('No se pudo actualizar la verificación: ' + (body?.error || 'Error en el servidor'))
         return
       }
+      const updatedRow = body as { verificacion_asistencia_activa?: boolean }
       setVerificacionActiva(updatedRow ? !!updatedRow.verificacion_asistencia_activa : nuevoValor)
       if (nuevoValor) {
         const { data: verData } = await supabase.rpc('calcular_verificacion_quorum', {
@@ -1000,13 +996,17 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     ? 'Activa — Los votantes ven el popup para confirmar asistencia (sesión general de la asamblea). Al desactivar, el resultado queda en el acta.'
                     : 'Inactiva — Al activar, los votantes verán el popup en la página de votación. Cada vez que activas se inicia una nueva sesión (quórum a cero).'}
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch">
                   <Button type="button" onClick={onActivarVerificacionClick} disabled={toggling}
-                    className={`rounded-2xl font-semibold text-sm py-2 px-4 ${verificacionActiva ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white`}>
+                    className={`rounded-2xl font-semibold text-sm py-2 px-4 w-full sm:w-auto justify-center ${verificacionActiva ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white`}>
                     {toggling ? <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent inline-block" /> : <UserCheck className="w-4 h-4" />}
                     <span className="ml-1.5">{verificacionActiva ? 'Desactivar' : 'Activar'}</span>
                   </Button>
-                  <Button type="button" onClick={() => setShowModalAsistencia(true)} className="rounded-2xl font-semibold text-sm py-2 px-4 bg-slate-700 hover:bg-slate-600 text-white">
+                  <Button
+                    type="button"
+                    onClick={() => setShowModalAsistencia(true)}
+                    className="rounded-2xl font-semibold text-sm py-2 px-4 w-full sm:w-auto justify-center bg-slate-700 hover:bg-slate-600 text-white"
+                  >
                     <CheckCircle2 className="w-4 h-4 mr-1.5" /> Registrar asistencia
                   </Button>
                 </div>
