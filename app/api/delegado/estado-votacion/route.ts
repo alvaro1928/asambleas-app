@@ -132,21 +132,27 @@ export async function POST(request: NextRequest) {
      * devolvía votosRegistrados=[] y la UI marcaba de nuevo "pendiente".
      */
     let votosRegistrados: VotoEstadoDelegado[] = []
+    const esRegistradoPorDelegado = (v: Record<string, unknown>) => {
+      const ua = String(v.user_agent ?? '')
+      const nombre = String(v.votante_nombre ?? '').toLowerCase()
+      return ua === '[Registrado por asistente delegado]' || nombre.includes('(registrado por asistente delegado)')
+    }
+
     const mapVotoRow = (v: Record<string, unknown>): VotoEstadoDelegado => ({
       unidad_id: v.unidad_id as string,
       pregunta_id: v.pregunta_id as string,
       opcion_id:
-        v.user_agent === '[Registrado por asistente delegado]'
+        esRegistradoPorDelegado(v)
           ? (v.opcion_id as string)
           : null,
       es_poder: !!v.es_poder,
-      registrado_por_delegado: v.user_agent === '[Registrado por asistente delegado]',
+      registrado_por_delegado: esRegistradoPorDelegado(v),
     })
 
     const { data: votosJoin, error: vJoinErr } = await admin
       .from('votos')
       .select(
-        'unidad_id, pregunta_id, opcion_id, es_poder, user_agent, preguntas!inner(asamblea_id, estado, is_archived)'
+        'unidad_id, pregunta_id, opcion_id, es_poder, user_agent, votante_nombre, preguntas!inner(asamblea_id, estado, is_archived)'
       )
       .eq('preguntas.asamblea_id', asamblea.id)
       .eq('preguntas.estado', 'abierta')
@@ -168,7 +174,7 @@ export async function POST(request: NextRequest) {
       if (pregIds.length > 0) {
         const { data: votosData, error: vErr } = await admin
           .from('votos')
-          .select('unidad_id, pregunta_id, opcion_id, es_poder, user_agent')
+          .select('unidad_id, pregunta_id, opcion_id, es_poder, user_agent, votante_nombre')
           .in('pregunta_id', pregIds)
         if (vErr) {
           console.error('[delegado/estado-votacion] votos:', vErr)
