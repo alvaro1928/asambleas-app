@@ -53,6 +53,8 @@ interface Unidad {
   telefono?: string
   /** Unidad de demostración: no se puede editar ni eliminar */
   is_demo?: boolean
+  /** Total de poderes activos asignados a esta unidad (como otorgante). */
+  poderes_asignados?: number
 }
 
 function UnidadesPageContent() {
@@ -145,7 +147,7 @@ function UnidadesPageContent() {
       const UNIDADES_COLUMNS =
         'id, torre, numero, coeficiente, tipo, nombre_propietario, email, email_propietario, telefono, is_demo'
 
-      const [{ data: org }, { data: unidadesData, error }, costoRes] = await Promise.all([
+      const [{ data: org }, { data: unidadesData, error }, { data: asambleasData }, costoRes] = await Promise.all([
         supabase.from('organizations').select('name').eq('id', selectedConjuntoId).single(),
         supabase
           .from('unidades')
@@ -154,6 +156,7 @@ function UnidadesPageContent() {
           .eq('is_demo', false)
           .order('torre', { ascending: true, nullsFirst: false })
           .order('numero', { ascending: true }),
+        supabase.from('asambleas').select('id').eq('organization_id', selectedConjuntoId),
         fetch('/api/dashboard/whatsapp-costo', { credentials: 'include' }),
       ])
 
@@ -166,7 +169,28 @@ function UnidadesPageContent() {
         return
       }
 
-      setUnidades(unidadesData || [])
+      const asambleaIds = (asambleasData || []).map((a: { id: string }) => a.id)
+      let poderesMap = new Map<string, number>()
+      if (asambleaIds.length > 0) {
+        const { data: poderesData } = await supabase
+          .from('poderes')
+          .select('unidad_otorgante_id')
+          .in('asamblea_id', asambleaIds)
+          .eq('estado', 'activo')
+
+        poderesMap = (poderesData || []).reduce((acc: Map<string, number>, p: { unidad_otorgante_id: string | null }) => {
+          if (!p.unidad_otorgante_id) return acc
+          acc.set(p.unidad_otorgante_id, (acc.get(p.unidad_otorgante_id) || 0) + 1)
+          return acc
+        }, new Map<string, number>())
+      }
+
+      const unidadesConPoderes = (unidadesData || []).map((u) => ({
+        ...u,
+        poderes_asignados: poderesMap.get(u.id) || 0,
+      }))
+
+      setUnidades(unidadesConPoderes)
       if (costoRes.ok) {
         const costoData = await costoRes.json().catch(() => ({}))
         setWhatsappHabilitado(costoData.habilitado !== false)
@@ -176,7 +200,7 @@ function UnidadesPageContent() {
 
       // Extraer torres únicas
       const uniqueTorres = Array.from(
-        new Set(unidadesData?.map(u => u.torre).filter(Boolean))
+        new Set(unidadesConPoderes.map(u => u.torre).filter(Boolean))
       ).sort()
       setTorres(uniqueTorres as string[])
     } catch (error) {
@@ -438,7 +462,7 @@ function UnidadesPageContent() {
         .single()
 
       if (error) throw error
-      if (data) setUnidades((prev) => [...prev, data as Unidad])
+      if (data) setUnidades((prev) => [...prev, { ...(data as Unidad), poderes_asignados: 0 }])
       setShowAddUnidad(false)
       setNewUnidad({ torre: '', numero: '', coeficiente: 0, tipo: 'apartamento', nombre_propietario: '', email: '', telefono: '' })
       toast.success('Unidad añadida')
@@ -639,6 +663,7 @@ function UnidadesPageContent() {
                       <TableHead>Coeficiente</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Propietario</TableHead>
+                      <TableHead className="text-center">Poderes</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -690,6 +715,11 @@ function UnidadesPageContent() {
                               </p>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="inline-flex items-center justify-center min-w-8 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs font-semibold">
+                            {unidad.poderes_asignados ?? 0}
+                          </span>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap justify-end gap-2">

@@ -20,6 +20,14 @@ const QRCodeSVG = dynamic(
 )
 
 const STORAGE_EMAIL_KEY = (codigo: string) => `votar_email_${codigo}`
+const STORAGE_SESSION_STATE_KEY = (codigo: string) => `votar_session_state_${codigo}`
+const STORAGE_SESSION_TTL_MS = 12 * 60 * 60 * 1000
+
+type StoredVotarSessionState = {
+  step: 'consentimiento' | 'votar'
+  consentimientoAceptado: boolean
+  ts: number
+}
 
 /** Umbral por defecto según Ley 675: mayoría simple (>50%) — 51% para aprobación */
 const UMBRAL_APROBACION_DEFECTO = 51
@@ -163,6 +171,7 @@ export default function VotacionPublicaPage() {
   /** Evita closure obsoleto en setInterval (móvil/Safari) y permite saber el paso actual al volver a la pestaña */
   const stepRef = useRef(step)
   stepRef.current = step
+  const autoRehydrateTriedRef = useRef(false)
 
   /**
    * Una sola carga a la vez. Si llega otra (polling, refresco), se marca pendiente y al terminar se vuelve a cargar.
@@ -176,6 +185,46 @@ export default function VotacionPublicaPage() {
       setUrlVotacionCompartir(buildPublicVotarUrl(codigo))
     }
   }, [codigo])
+
+  const saveStoredSessionState = (next: StoredVotarSessionState) => {
+    try {
+      if (typeof window === 'undefined') return
+      localStorage.setItem(STORAGE_SESSION_STATE_KEY(codigo), JSON.stringify(next))
+    } catch {
+      // Ignorar storage errors
+    }
+  }
+
+  const readStoredSessionState = (): StoredVotarSessionState | null => {
+    try {
+      if (typeof window === 'undefined') return null
+      const raw = localStorage.getItem(STORAGE_SESSION_STATE_KEY(codigo))
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as Partial<StoredVotarSessionState>
+      if (!parsed || (parsed.step !== 'consentimiento' && parsed.step !== 'votar')) return null
+      if (typeof parsed.ts !== 'number' || Date.now() - parsed.ts > STORAGE_SESSION_TTL_MS) {
+        localStorage.removeItem(STORAGE_SESSION_STATE_KEY(codigo))
+        return null
+      }
+      return {
+        step: parsed.step,
+        consentimientoAceptado: !!parsed.consentimientoAceptado,
+        ts: parsed.ts,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  const clearStoredSession = (codigoLocal: string) => {
+    try {
+      if (typeof window === 'undefined') return
+      localStorage.removeItem(STORAGE_EMAIL_KEY(codigoLocal))
+      localStorage.removeItem(STORAGE_SESSION_STATE_KEY(codigoLocal))
+    } catch {
+      // Ignorar storage errors
+    }
+  }
 
   // --- Verificación de Quórum ---
   const [verificacionActiva, setVerificacionActiva] = useState(false)
@@ -402,6 +451,7 @@ export default function VotacionPublicaPage() {
       setStep('error')
       return
     }
+    autoRehydrateTriedRef.current = false
     validarCodigo()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run when codigo changes
   }, [codigo])
@@ -508,6 +558,7 @@ export default function VotacionPublicaPage() {
           return
         }
         if (!res.ok && (json.mensaje || json.error)) {
+          clearStoredSession(codigo)
           setError(mensajeErrorAmigable(json.mensaje || json.error || 'Acceso denegado'))
           setStep('error')
           return
@@ -524,6 +575,7 @@ export default function VotacionPublicaPage() {
         if (error) throw error
 
         if (!data || data.length === 0) {
+          clearStoredSession(codigo)
           setError(mensajeErrorAmigable('Código de acceso inválido'))
           setStep('error')
           return
@@ -533,6 +585,7 @@ export default function VotacionPublicaPage() {
         const asambleaData = interpretarFilaRpc(raw)
 
         if (!asambleaData.acceso_valido) {
+          clearStoredSession(codigo)
           setError(mensajeErrorAmigable(asambleaData.mensaje || 'Acceso denegado'))
           setStep('error')
           return
@@ -585,9 +638,11 @@ export default function VotacionPublicaPage() {
       )
       const consentData = consentRes.ok ? await consentRes.json().catch(() => ({})) : {}
       if (consentData.accepted) {
+        saveStoredSessionState({ step: 'votar', consentimientoAceptado: true, ts: Date.now() })
         setStep('votar')
         await cargarPreguntas(unidadesConInfo)
       } else {
+        saveStoredSessionState({ step: 'consentimiento', consentimientoAceptado: false, ts: Date.now() })
         setConsentimientoAceptado(false)
         setStep('consentimiento')
       }
@@ -644,6 +699,7 @@ export default function VotacionPublicaPage() {
         setError(data.error ?? 'Error al registrar la aceptación')
         return
       }
+      saveStoredSessionState({ step: 'votar', consentimientoAceptado: true, ts: Date.now() })
       setStep('votar')
       await cargarPreguntas(unidades)
     } catch (err: any) {
@@ -652,6 +708,57 @@ export default function VotacionPublicaPage() {
       setGuardandoConsentimiento(false)
     }
   }
+
+  // Si ya validó previamente en este dispositivo para este código, rehidratar al refrescar
+  useEffect(() => {
+    if (!codigo || !asamblea?.asamblea_id) return
+    if (step !== 'email' || loading) return
+    if (!email.trim()) return
+    if (autoRehydrateTriedRef.current) return
+
+    const stored = readStoredSessionState()
+    if (!stored) return
+
+    autoRehydrateTriedRef.current = true
+    void (async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const unidadesConInfo = await refrescarUnidades()
+        if (unidadesConInfo.length === 0) {
+          throw new Error('Sin unidades válidas en sesión')
+        }
+        if (stored.step === 'votar') {
+          setConsentimientoAceptado(true)
+          saveStoredSessionState({ step: 'votar', consentimientoAceptado: true, ts: Date.now() })
+          setStep('votar')
+          await cargarPreguntas(unidadesConInfo)
+          return
+        }
+        setConsentimientoAceptado(!!stored.consentimientoAceptado)
+        saveStoredSessionState({
+          step: 'consentimiento',
+          consentimientoAceptado: !!stored.consentimientoAceptado,
+          ts: Date.now(),
+        })
+        setStep('consentimiento')
+      } catch {
+        clearStoredSession(codigo)
+        setError('Tu sesión de votación expiró o cambió. Valida nuevamente tu dato para continuar.')
+      } finally {
+        setLoading(false)
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- controlled auto-rehydrate once
+  }, [codigo, asamblea?.asamblea_id, step, email, loading])
+
+  // Si el usuario rechaza consentimiento, limpiamos sesión guardada para evitar reentrada automática.
+  useEffect(() => {
+    if (step === 'rechazo_consentimiento' && codigo) {
+      clearStoredSession(codigo)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup only on step/codigo change
+  }, [step, codigo])
 
   const cargarPreguntas = async (unidadesParam?: UnidadInfo[]) => {
     if (!asamblea) return
@@ -1579,6 +1686,17 @@ export default function VotacionPublicaPage() {
               Puede ejercer sus derechos de acceso, corrección y supresión de sus datos contactando al administrador de su conjunto o a través de los canales indicados en la plataforma.
             </p>
           </div>
+          <p className="text-xs text-center text-gray-600 dark:text-gray-400 mb-4">
+            Si lo deseas, puedes{' '}
+            <a
+              href="/EULA-Asambleas-App.txt"
+              download
+              className="underline underline-offset-2 hover:text-gray-900 dark:hover:text-gray-200"
+            >
+              descargar el EULA
+            </a>{' '}
+            antes de continuar.
+          </p>
 
           <label className="flex items-start gap-3 cursor-pointer mb-4 sm:mb-6 min-w-0">
             <input

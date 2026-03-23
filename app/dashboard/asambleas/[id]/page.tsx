@@ -250,8 +250,15 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [guiaModalOpen, setGuiaModalOpen] = useState(false)
   const [checkoutLoadingSinTokens, setCheckoutLoadingSinTokens] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [canUseSandboxReales, setCanUseSandboxReales] = useState(false)
 
   const MIN_TOKENS_COMPRA = 20
+
+  const isUiSuperAdmin = (email: string | undefined | null): boolean => {
+    const allowed = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? '').trim().toLowerCase()
+    if (!allowed || !email) return false
+    return email.trim().toLowerCase() === allowed
+  }
 
   // Al abrir el modal de sin tokens, prellenar cantidad sugerida (necesaria para esta asamblea o 20)
   useEffect(() => {
@@ -453,6 +460,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         return
       }
       setUserId(user.id)
+      setCanUseSandboxReales(isUiSuperAdmin(user.email))
 
       const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
       if (!selectedConjuntoId) {
@@ -1983,25 +1991,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           quorum_alcanzado: !!v.quorum_alcanzado,
         })
       } else {
-        const { data: sesionesData } = await supabase
-          .from('verificacion_asamblea_sesiones')
-          .select('total_verificados, coeficiente_verificado, porcentaje_verificado, quorum_alcanzado')
-          .eq('asamblea_id', asamblea.id)
-          .is('pregunta_id', null)
-          .not('cierre_at', 'is', null)
-          .order('cierre_at', { ascending: false })
-          .limit(1)
-        if (sesionesData?.length) {
-          const s = sesionesData[0] as { total_verificados?: number; coeficiente_verificado?: number; porcentaje_verificado?: number; quorum_alcanzado?: boolean }
-          setStatsVerificacion({
-            total_verificados: Number(s.total_verificados) ?? 0,
-            coeficiente_verificado: Number(s.coeficiente_verificado) ?? 0,
-            porcentaje_verificado: Number(s.porcentaje_verificado) ?? 0,
-            quorum_alcanzado: !!s.quorum_alcanzado,
-          })
-        } else {
-          setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
-        }
+        // Verificación activa = sesión nueva en curso; si no hay datos aún, debe iniciar en 0
+        // (evita parpadeo mostrando temporalmente la última sesión cerrada).
+        setStatsVerificacion({ total_verificados: 0, coeficiente_verificado: 0, porcentaje_verificado: 0, quorum_alcanzado: false })
       }
     } else {
       const { data: sesionesData } = await supabase
@@ -2537,19 +2529,23 @@ Tu participacion es importante. 🏠`
               >
                 {sandboxToggleLoading ? '…' : 'Unidades de demostración (10)'}
               </Button>
-              <Button
-                variant={!soloUnidadesDemo ? 'default' : 'outline'}
-                size="sm"
-                disabled={sandboxToggleLoading}
-                onClick={() => handleSandboxUnidadesChange(true)}
-                className={!soloUnidadesDemo ? 'bg-amber-600 hover:bg-amber-700' : 'border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300'}
-              >
-                {sandboxToggleLoading ? '…' : 'Unidades reales del conjunto'}
-              </Button>
+              {canUseSandboxReales && (
+                <Button
+                  variant={!soloUnidadesDemo ? 'default' : 'outline'}
+                  size="sm"
+                  disabled={sandboxToggleLoading}
+                  onClick={() => handleSandboxUnidadesChange(true)}
+                  className={!soloUnidadesDemo ? 'bg-amber-600 hover:bg-amber-700' : 'border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300'}
+                >
+                  {sandboxToggleLoading ? '…' : 'Unidades reales del conjunto'}
+                </Button>
+              )}
             </div>
             <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
               {soloUnidadesDemo
-                ? 'Usando 10 unidades demo (test1@…test10@asambleas.online). Para probar con tus propias unidades, selecciona "Unidades reales".'
+                ? canUseSandboxReales
+                  ? 'Usando 10 unidades demo (test1@…test10@asambleas.online). Como superadministrador, también puedes cambiar a unidades reales.'
+                  : 'Usando 10 unidades demo (test1@…test10@asambleas.online). El modo con unidades reales está disponible solo para superadministrador.'
                 : 'Usando las unidades reales del conjunto. Puedes editarlas desde "Gestionar unidades".'}
             </p>
           </div>
@@ -3025,7 +3021,7 @@ Tu participacion es importante. 🏠`
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="min-h-[2.5rem] justify-center gap-2 px-3 w-full sm:w-auto border-gray-400/90 dark:border-gray-500 bg-gray-50/90 dark:bg-gray-900/50 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800/70"
+                          className="w-full sm:w-auto min-h-[2.5rem] h-auto py-2 justify-center gap-2 px-3 border-gray-400/90 dark:border-gray-500 bg-gray-50/90 dark:bg-gray-900/50 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800/70 whitespace-normal text-center leading-snug"
                           onClick={() => setShowModalAsistencia(true)}
                         >
                           <CheckCircle2 className="w-4 h-4 shrink-0" /> Registrar asistencia
@@ -3411,44 +3407,47 @@ Tu participacion es importante. 🏠`
                           )}
                         </div>
                         <div className="flex flex-wrap items-center gap-2 sm:ml-4 shrink-0">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => !isDemo && !isReadOnlyStructure && handleEditClick(pregunta)}
-                            disabled={isDemo || isReadOnlyStructure}
-                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-1"
-                            title={isDemo ? 'Modo demostración: no se puede editar' : isReadOnlyStructure ? 'Estructura congelada (solo lectura)' : (pregunta.estado === 'pendiente' ? 'Editar pregunta completa' : 'Editar texto (se actualiza en acceso)')}
-                          >
-                            <Edit className="w-4 h-4" />
-                            <span className="hidden sm:inline text-xs">
-                              {pregunta.estado === 'pendiente' ? 'Editar' : 'Editar texto'}
-                            </span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleArchivarPregunta(pregunta.id)}
-                            disabled={archivingPreguntaId === pregunta.id || isReadOnlyStructure}
-                            className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-1"
-                            title={isReadOnlyStructure ? 'Estructura congelada' : 'Las preguntas archivadas no aparecerán en el acta final'}
-                          >
-                            {archivingPreguntaId === pregunta.id ? (
-                              <span className="inline-block w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <Archive className="w-4 h-4" />
-                            )}
-                            <span className="hidden sm:inline text-xs">Archivar</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => !isDemo && !isReadOnlyStructure && setDeletingPregunta(pregunta)}
-                            disabled={pregunta.estado === 'abierta' || isDemo || isReadOnlyStructure}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            title={isDemo ? 'Modo demostración: no se puede eliminar' : (pregunta.estado === 'abierta' ? 'No puedes eliminar una pregunta abierta' : 'Eliminar pregunta')}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          {pregunta.estado === 'pendiente' && (
+                            <Button
+                              size="sm"
+                              onClick={() => !isReadOnlyStructure && handleAbrirPreguntaClick(pregunta.id)}
+                              disabled={isReadOnlyStructure}
+                              className="bg-green-600 hover:bg-green-700"
+                              title={isReadOnlyStructure ? 'Asamblea cerrada' : 'Abrir pregunta para votar'}
+                            >
+                              <Play className="w-3 h-3 mr-1" />
+                              Abrir Pregunta
+                            </Button>
+                          )}
+                          {pregunta.estado === 'abierta' && (
+                            <Button
+                              size="sm"
+                              onClick={() => !isReadOnlyStructure && handleChangeEstadoPregunta(pregunta.id, 'cerrada')}
+                              disabled={isReadOnlyStructure}
+                              className="bg-blue-600 hover:bg-blue-700"
+                              title={isReadOnlyStructure ? 'Asamblea cerrada' : 'Cerrar esta pregunta (no se podrán emitir más votos)'}
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              Cerrar Pregunta
+                            </Button>
+                          )}
+                          {pregunta.estado === 'cerrada' && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => !isReadOnlyStructure && handleAbrirPreguntaClick(pregunta.id)}
+                                disabled={isReadOnlyStructure}
+                                title={isReadOnlyStructure ? 'Asamblea cerrada' : 'Reabrir pregunta'}
+                              >
+                                <Play className="w-3 h-3 mr-1" />
+                                Reabrir Pregunta
+                              </Button>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                • Pregunta cerrada
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -3629,49 +3628,46 @@ Tu participacion es importante. 🏠`
                         </div>
                       )}
 
-                      {/* Controles de estado: en sandbox se permite abrir/cerrar/reabrir; no editar ni eliminar */}
+                      {/* Acciones de edición/archivo/eliminación */}
                       <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                        {pregunta.estado === 'pendiente' && (
-                          <Button
-                            size="sm"
-                            onClick={() => !isReadOnlyStructure && handleAbrirPreguntaClick(pregunta.id)}
-                            disabled={isReadOnlyStructure}
-                            className="bg-green-600 hover:bg-green-700"
-                            title={isReadOnlyStructure ? 'Asamblea cerrada' : 'Abrir pregunta para votar'}
-                          >
-                            <Play className="w-3 h-3 mr-1" />
-                            Abrir Pregunta
-                          </Button>
-                        )}
-                        {pregunta.estado === 'abierta' && (
-                          <Button
-                            size="sm"
-                            onClick={() => !isReadOnlyStructure && handleChangeEstadoPregunta(pregunta.id, 'cerrada')}
-                            disabled={isReadOnlyStructure}
-                            className="bg-blue-600 hover:bg-blue-700"
-                            title={isReadOnlyStructure ? 'Asamblea cerrada' : 'Cerrar esta pregunta (no se podrán emitir más votos)'}
-                          >
-                            <X className="w-3 h-3 mr-1" />
-                            Cerrar Pregunta
-                          </Button>
-                        )}
-                        {pregunta.estado === 'cerrada' && (
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => !isReadOnlyStructure && handleAbrirPreguntaClick(pregunta.id)}
-                              disabled={isReadOnlyStructure}
-                              title={isReadOnlyStructure ? 'Asamblea cerrada' : 'Reabrir pregunta'}
-                            >
-                              <Play className="w-3 h-3 mr-1" />
-                              Reabrir Pregunta
-                            </Button>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              • Pregunta cerrada
-                            </span>
-                          </div>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => !isDemo && !isReadOnlyStructure && handleEditClick(pregunta)}
+                          disabled={isDemo || isReadOnlyStructure}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-1"
+                          title={isDemo ? 'Modo demostración: no se puede editar' : isReadOnlyStructure ? 'Estructura congelada (solo lectura)' : (pregunta.estado === 'pendiente' ? 'Editar pregunta completa' : 'Editar texto (se actualiza en acceso)')}
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span className="hidden sm:inline text-xs">
+                            {pregunta.estado === 'pendiente' ? 'Editar' : 'Editar texto'}
+                          </span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleArchivarPregunta(pregunta.id)}
+                          disabled={archivingPreguntaId === pregunta.id || isReadOnlyStructure}
+                          className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-1"
+                          title={isReadOnlyStructure ? 'Estructura congelada' : 'Las preguntas archivadas no aparecerán en el acta final'}
+                        >
+                          {archivingPreguntaId === pregunta.id ? (
+                            <span className="inline-block w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Archive className="w-4 h-4" />
+                          )}
+                          <span className="hidden sm:inline text-xs">Archivar</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => !isDemo && !isReadOnlyStructure && setDeletingPregunta(pregunta)}
+                          disabled={pregunta.estado === 'abierta' || isDemo || isReadOnlyStructure}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          title={isDemo ? 'Modo demostración: no se puede eliminar' : (pregunta.estado === 'abierta' ? 'No puedes eliminar una pregunta abierta' : 'Eliminar pregunta')}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}

@@ -670,7 +670,7 @@ function AsambleasPageContent() {
                 <li>Acta, gestión de poderes y reinicio de simulación</li>
               </ul>
               <p>
-                Puedes usar <em>unidades de demostración</em> (10 cuentas de prueba) o cambiar a <em>unidades reales</em> del conjunto desde la asamblea.
+                Puedes usar <em>unidades de demostración</em> (10 cuentas de prueba). El cambio a <em>unidades reales</em> del conjunto está restringido a superadministrador.
               </p>
             </div>
           </DialogHeader>

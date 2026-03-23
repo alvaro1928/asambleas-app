@@ -1,0 +1,36 @@
+ACUERDO DE LICENCIA DE USUARIO FINAL (EULA)
+Asambleas App / VOTA TECH
+Ultima actualizacion: 2026-03-23
+
+1. ACEPTACION
+Al acceder o usar Asambleas App, usted acepta este EULA. Si no esta de acuerdo, no debe usar la plataforma.
+
+2. LICENCIA DE USO
+Se concede una licencia limitada, no exclusiva, intransferible y revocable para usar la plataforma conforme a su finalidad: gestion de asambleas, votaciones y actas.
+
+3. USO PERMITIDO
+El usuario se compromete a:
+- usar la plataforma de forma legal y de buena fe;
+- no intentar acceso no autorizado, alteracion o uso indebido;
+- no copiar, revender o explotar el servicio fuera de lo permitido.
+
+4. DATOS PERSONALES Y PRIVACIDAD
+El tratamiento de datos personales se rige por la Politica de Privacidad y por la normativa aplicable en Colombia (incluida la Ley 1581 de 2012).
+
+5. DISPONIBILIDAD DEL SERVICIO
+Se realizan esfuerzos razonables para mantener disponibilidad y seguridad, pero no se garantiza operacion ininterrumpida o libre de errores en todo momento.
+
+6. PROPIEDAD INTELECTUAL
+El software, su diseno, codigo, marcas y contenidos son propiedad de sus titulares y estan protegidos por la ley.
+
+7. LIMITACION DE RESPONSABILIDAD
+En la maxima medida permitida por la ley, el servicio se ofrece "tal cual". Los titulares no seran responsables por danos indirectos, incidentales o lucro cesante derivados del uso de la plataforma.
+
+8. MODIFICACIONES
+Este EULA puede actualizarse. La version vigente estara disponible para descarga en el sitio.
+
+9. LEY APLICABLE
+Este acuerdo se interpreta conforme a la ley colombiana.
+
+10. CONTACTO
+Para dudas legales o del servicio, use los canales oficiales publicados en la plataforma.

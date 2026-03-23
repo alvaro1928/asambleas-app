@@ -1005,7 +1005,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   <Button
                     type="button"
                     onClick={() => setShowModalAsistencia(true)}
-                    className="rounded-2xl font-semibold text-sm py-2 px-4 w-full sm:w-auto justify-center bg-slate-700 hover:bg-slate-600 text-white"
+                    className="rounded-2xl font-semibold text-sm w-full sm:w-auto min-h-[2.5rem] h-auto py-2 px-4 justify-center bg-slate-700 hover:bg-slate-600 text-white whitespace-normal text-center leading-snug"
                   >
                     <CheckCircle2 className="w-4 h-4 mr-1.5" /> Registrar asistencia
                   </Button>

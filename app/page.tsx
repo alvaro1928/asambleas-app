@@ -414,6 +414,13 @@ export default function Home() {
           <Link href="/politica-privacidad" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">
             Política de Privacidad
           </Link>
+          <a
+            href="/EULA-Asambleas-App.txt"
+            download
+            className="text-slate-400 hover:text-white transition-colors underline underline-offset-2"
+          >
+            Descargar EULA
+          </a>
           <Link href="/epbco" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">
             EPBCO Solutions
           </Link>

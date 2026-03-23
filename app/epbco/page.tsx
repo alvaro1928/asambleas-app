@@ -124,6 +124,13 @@ export default function EPBCOPage() {
               <Shield className="w-4 h-4" />
               Política de Privacidad y Tratamiento de Datos
             </Link>
+            <a
+              href="/EULA-Asambleas-App.txt"
+              download
+              className="hover:text-white transition-colors"
+            >
+              Descargar EULA
+            </a>
             <Link href="/" className="hover:text-white transition-colors">
               Producto: Asambleas App
             </Link>
