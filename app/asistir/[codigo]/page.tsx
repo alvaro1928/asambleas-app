@@ -298,7 +298,7 @@ export default function AsistirPage() {
             const nuevasPreguntas = mapPreguntasAbiertasApiToPreguntas(arr)
             setPreguntas(nuevasPreguntas)
             setPreguntaActiva(nuevasPreguntas[0]?.id ?? '')
-            setVotosRegistrados([])
+            // No vaciar votos: el siguiente poll a estado-votacion los traerá; vaciar causaba "pendiente" falso.
             setAvanceVotaciones([])
             console.warn('[asistir] Preguntas cargadas vía respaldo preguntas-abiertas (estado-votacion falló).')
           }
@@ -365,7 +365,15 @@ export default function AsistirPage() {
         })
       }
 
-      setVotosRegistrados((prev) => (datosEquivalentes(prev, nuevosVotos) ? prev : nuevosVotos))
+      setVotosRegistrados((prev) => {
+        if (datosEquivalentes(prev, nuevosVotos)) return prev
+        // Evitar que un poll con votosRegistrados=[] (p. ej. bug o respuesta incompleta) borre votos ya mostrados.
+        if (nuevasPreguntas.length > 0 && nuevosVotos.length === 0 && prev.length > 0) {
+          console.warn('[asistir] Conservando votosRegistrados en cliente: servidor devolvió 0 votos con preguntas abiertas')
+          return prev
+        }
+        return nuevosVotos
+      })
       setAvanceVotaciones((prev) => (datosEquivalentes(prev, nuevoAvance) ? prev : nuevoAvance))
     } finally {
       if (!silent) setCargandoPreguntas(false)

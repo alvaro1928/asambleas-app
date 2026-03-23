@@ -126,26 +126,56 @@ export async function POST(request: NextRequest) {
       opciones: opcMap[p.id as string] || [],
     }))
 
+    /**
+     * Votos: cargar vía join a preguntas para NO depender de que la query anterior
+     * devolviera filas. Si pregIds quedaba vacío por error transitorio, antes se
+     * devolvía votosRegistrados=[] y la UI marcaba de nuevo "pendiente".
+     */
     let votosRegistrados: VotoEstadoDelegado[] = []
-    if (pregIds.length > 0) {
-      const { data: votosData, error: vErr } = await admin
-        .from('votos')
-        .select('unidad_id, pregunta_id, opcion_id, es_poder, user_agent')
-        .in('pregunta_id', pregIds)
-      if (vErr) {
-        console.error('[delegado/estado-votacion] votos:', vErr)
-        return NextResponse.json({ error: vErr.message }, { status: 500, headers: noStoreHeaders })
+    const mapVotoRow = (v: Record<string, unknown>): VotoEstadoDelegado => ({
+      unidad_id: v.unidad_id as string,
+      pregunta_id: v.pregunta_id as string,
+      opcion_id:
+        v.user_agent === '[Registrado por asistente delegado]'
+          ? (v.opcion_id as string)
+          : null,
+      es_poder: !!v.es_poder,
+      registrado_por_delegado: v.user_agent === '[Registrado por asistente delegado]',
+    })
+
+    const { data: votosJoin, error: vJoinErr } = await admin
+      .from('votos')
+      .select(
+        'unidad_id, pregunta_id, opcion_id, es_poder, user_agent, preguntas!inner(asamblea_id, estado, is_archived)'
+      )
+      .eq('preguntas.asamblea_id', asamblea.id)
+      .eq('preguntas.estado', 'abierta')
+
+    if (!vJoinErr && votosJoin) {
+      votosRegistrados = (votosJoin as Record<string, unknown>[])
+        .filter((row) => {
+          const p = row.preguntas as { is_archived?: boolean | null } | undefined
+          return !p || p.is_archived !== true
+        })
+        .map((row) => {
+          const { preguntas: _pr, ...rest } = row
+          return mapVotoRow(rest)
+        })
+    } else {
+      if (vJoinErr) {
+        console.warn('[delegado/estado-votacion] votos join (fallback a in pregunta_id):', vJoinErr.message)
       }
-      votosRegistrados = (votosData || []).map((v: Record<string, unknown>) => ({
-        unidad_id: v.unidad_id as string,
-        pregunta_id: v.pregunta_id as string,
-        opcion_id:
-          v.user_agent === '[Registrado por asistente delegado]'
-            ? (v.opcion_id as string)
-            : null,
-        es_poder: !!v.es_poder,
-        registrado_por_delegado: v.user_agent === '[Registrado por asistente delegado]',
-      }))
+      if (pregIds.length > 0) {
+        const { data: votosData, error: vErr } = await admin
+          .from('votos')
+          .select('unidad_id, pregunta_id, opcion_id, es_poder, user_agent')
+          .in('pregunta_id', pregIds)
+        if (vErr) {
+          console.error('[delegado/estado-votacion] votos:', vErr)
+          return NextResponse.json({ error: vErr.message }, { status: 500, headers: noStoreHeaders })
+        }
+        votosRegistrados = (votosData || []).map((v: Record<string, unknown>) => mapVotoRow(v))
+      }
     }
 
     const avanceVotaciones: Array<{
