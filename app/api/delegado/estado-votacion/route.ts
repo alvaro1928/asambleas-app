@@ -167,6 +167,18 @@ export async function POST(request: NextRequest) {
           const { preguntas: _pr, ...rest } = row
           return mapVotoRow(rest)
         })
+      // Si el join no trae filas pero sí hay preguntas abiertas, usar fallback clásico.
+      if (votosRegistrados.length === 0 && pregIds.length > 0) {
+        const { data: votosData, error: vErr } = await admin
+          .from('votos')
+          .select('unidad_id, pregunta_id, opcion_id, es_poder, user_agent, votante_nombre')
+          .in('pregunta_id', pregIds)
+        if (!vErr) {
+          votosRegistrados = (votosData || []).map((vv: Record<string, unknown>) => mapVotoRow(vv))
+        } else {
+          console.warn('[delegado/estado-votacion] votos fallback tras join vacío:', vErr.message)
+        }
+      }
     } else {
       if (vJoinErr) {
         console.warn('[delegado/estado-votacion] votos join (fallback a in pregunta_id):', vJoinErr.message)

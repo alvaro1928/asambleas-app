@@ -151,6 +151,13 @@ export async function POST(request: NextRequest) {
               error: error.message,
             } as RpcResult
           }
+          // Marcar explícitamente el origen delegado en la fila vigente de `votos`.
+          // Algunas versiones de la RPC solo guardan user_agent en historial_votos.
+          await admin
+            .from('votos')
+            .update({ user_agent: userAgentAudit })
+            .eq('pregunta_id', v.pregunta_id)
+            .eq('unidad_id', unidadId)
           return { unidad_id: unidadId, pregunta_id: v.pregunta_id, success: true } as RpcResult
         })
       )
