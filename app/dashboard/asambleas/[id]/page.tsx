@@ -573,7 +573,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       // Cargar estadísticas y quórum (pasamos preguntas recién cargadas: setState es async y loadEstadisticas usa preguntas)
       await loadEstadisticas(preguntasData || [])
       const a = asambleaData as { verificacion_asistencia_activa?: boolean }
-      await loadQuorum(asambleaData, { verificacion_asistencia_activa: !!a.verificacion_asistencia_activa })
+      await loadQuorum(
+        asambleaData,
+        { verificacion_asistencia_activa: !!a.verificacion_asistencia_activa },
+        (preguntasData || []) as Pregunta[]
+      )
     } catch (error) {
       console.error('Error:', error)
     } finally {
@@ -660,21 +664,20 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const loadQuorum = async (
     asambleaOverride?: { is_demo?: boolean; sandbox_usar_unidades_reales?: boolean } | null,
-    verificacionOverride?: { verificacion_asistencia_activa?: boolean }
+    verificacionOverride?: { verificacion_asistencia_activa?: boolean },
+    preguntasOverride?: Pregunta[]
   ) => {
     const verifActiva = verificacionOverride?.verificacion_asistencia_activa ?? !!(asamblea?.verificacion_asistencia_activa)
     try {
       const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
       if (!selectedConjuntoId) return
 
-      // Intentar usar la función RPC (excluye unidades demo en asambleas reales)
-      const { data: rpcData, error: rpcError } = await supabase.rpc('calcular_quorum_asamblea', {
-        p_asamblea_id: params.id
-      })
-
-      if (!rpcError && rpcData && rpcData.length > 0) {
-        setQuorum(rpcData[0])
-      }
+      const preguntasFuente = preguntasOverride ?? preguntasRef.current
+      const ultimaPreguntaAbierta = [...preguntasFuente]
+        .filter((p) => p.estado === 'abierta')
+        .sort((a, b) => a.orden - b.orden)
+        .at(-1)
+      const usarPreguntaAbierta = !!ultimaPreguntaAbierta
 
       // Tarjeta "Asistencia verificada" (arriba): solo verificaciones GENERALES (pregunta_id null). Si la sesión actual está vacía (p. ej. al reabrir), mostrar última sesión cerrada para no perder el dato.
       const cargarUltimaGeneralCerrada = async (): Promise<VerifStats | null> => {
@@ -723,9 +726,20 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         }
       }
 
-      // Sesiones cerradas (general) para historial
-      if (rpcError || !rpcData || rpcData.length === 0) {
-      // Si falla la función RPC (no existe aún), calcular manualmente con mismo criterio que el RPC
+      // Quórum para tarjetas:
+      // - Con pregunta abierta: usar siempre la última pregunta abierta.
+      // - Sin pregunta abierta: mantener RPC histórico y fallback manual si falla.
+      let rpcConDatos = false
+      if (!usarPreguntaAbierta) {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('calcular_quorum_asamblea', {
+          p_asamblea_id: params.id
+        })
+        if (!rpcError && rpcData && rpcData.length > 0) {
+          setQuorum(rpcData[0])
+          rpcConDatos = true
+        }
+      }
+      if (usarPreguntaAbierta || !rpcConDatos) {
       const isDemoAsam = asambleaOverride?.is_demo ?? asamblea?.is_demo
       const usarReales = asambleaOverride?.sandbox_usar_unidades_reales ?? asamblea?.sandbox_usar_unidades_reales
       const soloUnidadesDemoFallback = isDemoAsam === true && !(usarReales === true)
@@ -741,11 +755,14 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       const coeficienteTotal = unidadesData?.reduce((sum, u) => sum + u.coeficiente, 0) || 0
       const idsUnidadesValidas = new Set(unidadesData?.map(u => u.id) || [])
 
+      const preguntaIds = usarPreguntaAbierta
+        ? [ultimaPreguntaAbierta!.id]
+        : preguntasFuente.map((p) => p.id)
       // Obtener unidades que han votado (solo contar votos de unidades del mismo tipo: reales o demo)
       const { data: votosData } = await supabase
         .from('votos')
-        .select('unidad_id, unidades!inner(coeficiente)')
-        .in('pregunta_id', preguntas.map(p => p.id))
+        .select('unidad_id')
+        .in('pregunta_id', preguntaIds)
 
       const votosFiltrados = (votosData || []).filter((v: any) => idsUnidadesValidas.has(v.unidad_id))
       const unidadesVotantesSet = new Set(votosFiltrados.map((v: { unidad_id: string }) => v.unidad_id))
@@ -2059,25 +2076,33 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     setTogglingVerif(true)
     try {
       const nuevoValor = !asamblea.verificacion_asistencia_activa
-      /** Solo quórum / asistencia general (no por pregunta). */
-      const payload: { verificacion_asistencia_activa: boolean; verificacion_pregunta_id: string | null } = {
-        verificacion_asistencia_activa: nuevoValor,
-        verificacion_pregunta_id: null,
-      }
-      const { data: updatedRow, error } = await supabase
-        .from('asambleas')
-        .update(payload)
-        .eq('id', asamblea.id)
-        .select('verificacion_asistencia_activa, verificacion_pregunta_id')
-        .single()
-      if (error) {
-        toast.error('No se pudo actualizar la verificación: ' + (error.message || 'Error en la base de datos'))
+      const res = await fetch('/api/dashboard/toggle-verificacion-asistencia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ asamblea_id: asamblea.id, activar: nuevoValor }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('No se pudo actualizar la verificación: ' + (data?.error || 'Error en el servidor'))
         return
       }
+      const updatedRow = data as {
+        verificacion_asistencia_activa?: boolean
+        verificacion_pregunta_id?: string | null
+      }
       if (updatedRow) {
-        setAsamblea({ ...asamblea, ...payload, verificacion_asistencia_activa: !!updatedRow.verificacion_asistencia_activa, verificacion_pregunta_id: updatedRow.verificacion_pregunta_id ?? null })
+        setAsamblea({
+          ...asamblea,
+          verificacion_asistencia_activa: !!updatedRow.verificacion_asistencia_activa,
+          verificacion_pregunta_id: updatedRow.verificacion_pregunta_id ?? null,
+        })
       } else {
-        setAsamblea({ ...asamblea, ...payload })
+        setAsamblea({
+          ...asamblea,
+          verificacion_asistencia_activa: nuevoValor,
+          verificacion_pregunta_id: null,
+        })
       }
       const verifOverride = { verificacion_asistencia_activa: !!updatedRow?.verificacion_asistencia_activa }
       await cargarStatsVerificacion(verifOverride)
@@ -3251,8 +3276,12 @@ Tu participacion es importante. 🏠`
               )}
 
               {(() => {
-                const preguntasActivas = preguntas.filter((p) => !p.is_archived)
-                const preguntasArchivadas = preguntas.filter((p) => p.is_archived)
+                const preguntasActivas = preguntas
+                  .filter((p) => !p.is_archived)
+                  .sort((a, b) => b.orden - a.orden)
+                const preguntasArchivadas = preguntas
+                  .filter((p) => p.is_archived)
+                  .sort((a, b) => b.orden - a.orden)
                 const noHayNinguna = preguntas.length === 0
                 return noHayNinguna ? (
                 <div className="text-center py-12">
@@ -3349,7 +3378,7 @@ Tu participacion es importante. 🏠`
                     </AlertDescription>
                   </Alert>
 
-                  {preguntasActivas.map((pregunta, index) => (
+                  {preguntasActivas.map((pregunta) => (
                     <div
                       key={pregunta.id}
                       className="border border-gray-200 dark:border-gray-700 rounded-3xl p-4 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
@@ -3359,7 +3388,7 @@ Tu participacion es importante. 🏠`
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-2">
                             <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                              #{index + 1}
+                              #{pregunta.orden}
                             </span>
                             <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded capitalize">
                               {pregunta.tipo_votacion}
