@@ -15,9 +15,10 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL
     : `https://${process.env.NEXT_PUBLIC_SITE_URL}`)
   : "https://asambleas.online";
 
-const DEFAULT_TITLE = "Votaciones de Asambleas Online | Plataforma Legal Ley 675";
+const DEFAULT_TITLE =
+  "Asambleas Online Colombia | Votación Ley 675, quórum, poderes y acta digital";
 const DEFAULT_DESCRIPTION =
-  "La plataforma líder en Colombia para votaciones de asambleas virtuales. Quórum en tiempo real, actas automáticas y notificaciones por WhatsApp.";
+  "Software para asambleas de copropiedad: votación por coeficiente o nominal, verificación de asistencia y quórum en vivo, poderes de representación con auditoría, invitaciones por WhatsApp y QR, acta con sellado en blockchain (OpenTimestamps) y certificados de voto. Pensado para administradores y consejos en Colombia.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -26,7 +27,19 @@ export const metadata: Metadata = {
     template: "%s | Asambleas Online",
   },
   description: DEFAULT_DESCRIPTION,
-  keywords: ["asambleas virtuales", "votaciones online", "propiedad horizontal", "Ley 675", "actas de asamblea", "quórum", "Colombia"],
+  keywords: [
+    "asambleas virtuales Colombia",
+    "votación propiedad horizontal",
+    "Ley 675 votación online",
+    "quórum asamblea copropiedad",
+    "poderes representación asamblea",
+    "acta asamblea digital",
+    "votación por coeficiente",
+    "asambleas de copropietarios",
+    "WhatsApp asamblea",
+    "verificación asistencia asamblea",
+    "OpenTimestamps acta",
+  ],
   openGraph: {
     type: "website",
     locale: "es_CO",
