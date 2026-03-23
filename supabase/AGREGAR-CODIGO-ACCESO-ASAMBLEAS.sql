@@ -150,7 +150,7 @@ BEGIN
   SELECT 
     a.id,
     a.nombre,
-    a.fecha,
+    a.fecha::DATE,
     a.organization_id,
     a.acceso_publico,
     o.name AS nombre_conjunto,

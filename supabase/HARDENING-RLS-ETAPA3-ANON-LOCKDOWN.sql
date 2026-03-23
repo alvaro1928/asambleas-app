@@ -86,6 +86,8 @@ CREATE POLICY opciones_anon_select_publicas
 -- -----------------------------------------------------
 REVOKE ALL ON TABLE public.vista_participacion_votantes FROM anon;
 REVOKE ALL ON TABLE public.vista_poderes_completa FROM anon;
+ALTER VIEW public.vista_participacion_votantes SET (security_invoker = true);
+ALTER VIEW public.vista_poderes_completa SET (security_invoker = true);
 
 COMMIT;
 
