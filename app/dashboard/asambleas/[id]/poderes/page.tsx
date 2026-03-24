@@ -1155,9 +1155,6 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                         >
                           {poder.nombre_otorgante}
                         </Link>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {poder.email_otorgante}
-                        </div>
                       </td>
                       <td className="px-6 py-4 min-w-[200px]">
                         {poder.unidad_receptor_id ? (
