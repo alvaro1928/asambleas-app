@@ -359,6 +359,20 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Transparencia comercial y legal */}
+      <section className="py-12 border-b border-slate-800" style={{ backgroundColor: '#0B0E14' }}>
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
+          <h2 className="text-lg font-semibold text-white">Créditos y condiciones de uso</h2>
+          <p className="mt-3 text-sm text-slate-400 leading-relaxed">
+            Algunas funciones usan créditos digitales (tokens) de la billetera del gestor; el consumo principal por votación pública se relaciona con la aceptación del tratamiento de datos (LOPD) por sesión, con franquicia por unidades según las reglas de la plataforma. Precios, consumos y vigencia del saldo están en los{' '}
+            <Link href="/terminos" className="text-indigo-300 hover:text-white underline underline-offset-2">
+              Términos y documentos legales
+            </Link>
+            .
+          </p>
+        </div>
+      </section>
+
       {/* CTA final */}
       <section className="py-16 border-t border-slate-800" style={{ backgroundColor: '#0B0E14' }}>
         <div className="max-w-3xl mx-auto px-4 text-center rounded-3xl bg-slate-800/50 border p-8 shadow-lg" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
@@ -411,6 +425,9 @@ export default function Home() {
           Asambleas Online — Votaciones y actas para propiedad horizontal en Colombia (Ley 675, quórum, poderes y trazabilidad)
         </p>
         <p className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+          <Link href="/terminos" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">
+            Términos y políticas
+          </Link>
           <Link href="/politica-privacidad" className="text-slate-400 hover:text-white transition-colors underline underline-offset-2">
             Política de Privacidad
           </Link>

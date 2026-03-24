@@ -56,8 +56,30 @@ Asambleas App permite registrar y verificar poderes, pero la validez jurídica m
 7. Disponibilidad y soporte
 Se realizan esfuerzos razonables para mantener continuidad del servicio, sin garantizar disponibilidad ininterrumpida. Pueden ocurrir mantenimientos, actualizaciones o incidentes de terceros.
 
-8. Pagos y créditos
-Algunas funcionalidades requieren créditos/tokens. Los valores, consumos y condiciones comerciales se informan en la plataforma. Los pagos pueden procesarse mediante terceros.
+8. Pagos, créditos (tokens) y operaciones con consumo
+
+8.1 Naturaleza de los créditos
+Los créditos o «tokens» son unidades prepagadas asociadas a la cuenta de la organización (gestor) en la plataforma. Precios, paquetes y condiciones de compra se muestran en la interfaz antes de pagar. Los cobros pueden procesarse mediante pasarelas o proveedores de terceros; recibos, impuestos y políticas de devolución de ese proveedor aplican según sus términos.
+
+8.2 Consumo por consentimiento de tratamiento de datos (LOPD) en sesión de votación pública
+Cuando se habilita la votación pública y un participante acepta el tratamiento de datos personales (LOPD) para acceder a la votación, puede aplicarse consumo de créditos según las reglas técnicas vigentes en la plataforma:
+- Activar la asamblea o el acceso público no descuenta por sí solo los créditos en el concepto de consentimiento LOPD por sesión.
+- Por cada sesión de votación pública, las primeras cinco (5) unidades distintas del conjunto que acepten el LOPD en esa sesión no generan descuento de créditos por ese concepto.
+- A partir de la sexta unidad distinta que acepte el LOPD en esa misma sesión, puede aplicarse un (1) crédito por cada unidad nueva distinta, sin cobro retroactivo sobre las cinco primeras.
+- La misma unidad no se cobra dos veces por usar varios dispositivos en la misma sesión: el débito, si aplica, queda asociado a la unidad por sesión.
+
+8.3 Otras operaciones con consumo
+Según el plan y la configuración, otras acciones pueden debitar créditos (por ejemplo actas u operaciones que la interfaz marque como pagas, envíos masivos por WhatsApp u otras funciones). Cuando una acción consume créditos, la plataforma lo indica antes de ejecutarla cuando el flujo lo permite.
+
+8.4 Saldo, vigencia y caducidad
+Los créditos adquiridos o bonificados permanecen en la billetera mientras el servicio esté disponible para la cuenta, salvo terminación contractual o incumplimiento. Si en el futuro se ofreciera una promoción con vigencia distinta para el saldo, el plazo se informará de forma explícita antes de aceptar esa promoción.
+En Colombia, la protección al consumidor (por ejemplo Ley 1480 de 2011) limita cláusulas abusivas o contrarias a la buena fe. Las reglas sobre vigencia de saldos prepagados deben ser claras y razonables. Este texto no sustituye asesoría jurídica. Mientras el sistema no aplique caducidad automática del saldo por el solo transcurso del tiempo, no operará tal caducidad; cualquier cambio material se publicará en la versión vigente de estos documentos con fecha de actualización.
+
+8.5 Historial y comprobantes
+Los movimientos de consumo pueden registrarse en el historial de la plataforma. Los comprobantes emitidos por la pasarela de pago corresponden a esa entidad.
+
+8.6 Consultas y soporte
+Para dudas sobre cargos o saldo puede usarse el canal de soporte indicado en la plataforma.
 
 9. Propiedad intelectual
 El software, marca, interfaz, código y documentación son propiedad de sus titulares y están protegidos por normas de propiedad intelectual. No se otorga cesión del software.
@@ -152,6 +174,8 @@ El tratamiento se fundamenta en:
 - Ejecución del contrato de servicio.
 - Cumplimiento de obligaciones legales.
 - Consentimiento del titular cuando aplique.
+
+Al participar en la votación pública y aceptar el tratamiento de datos (LOPD) para esa sesión, el sistema registra el consentimiento vinculado a la asamblea y a la sesión técnica. Según las reglas descritas en los Términos y Condiciones, puede aplicarse un consumo de créditos por unidad y sesión; el registro técnico evita doble cobro por la misma unidad en la misma sesión aunque se usen varios dispositivos.
 
 5. Derechos del titular
 El titular puede ejercer derechos de acceso, actualización, rectificación, supresión, revocatoria y consulta según ley aplicable.
