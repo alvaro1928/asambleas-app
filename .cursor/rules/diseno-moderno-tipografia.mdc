@@ -1,0 +1,18 @@
+---
+description: Guía de diseño moderno y criterio tipográfico
+alwaysApply: true
+---
+
+# Diseño Moderno y Tipografía
+
+- Mantén una estética limpia: espaciado consistente, contraste correcto y densidad visual controlada.
+- Evita mezclar demasiados estilos en una sola pantalla; prioriza coherencia de color, radio y sombras.
+- Propón mejoras visuales modernas que no sacrifiquen rendimiento ni legibilidad.
+
+## Tipografía (cuando aplique)
+
+- Si se sugiere fuente nueva, prioriza familias legibles y robustas para producto digital (ej. Inter, Manrope, system-ui).
+- Usa máximo 1-2 familias tipográficas; evita combinaciones innecesarias.
+- Prefiere variantes variables/subsets para reducir costo de carga.
+- Define fallback seguro (`system-ui, -apple-system, Segoe UI, Roboto, sans-serif`).
+- Nunca uses tipografías decorativas en flujos críticos (formularios, tablas, confirmaciones).
