@@ -28,19 +28,16 @@ export function GuiaTokensModal({ open, onOpenChange, colorPrincipalHex = COLOR_
               ¿Qué son los tokens (créditos) y cuándo se consumen?
             </h4>
             <p className="text-sm text-slate-400">
-              Los tokens (créditos) son créditos de tu billetera. El costo equivale al número de unidades de tu conjunto (1 token (crédito) = 1 unidad). <strong className="text-slate-300">Solo se cobran una vez</strong> al realizar esta acción:
+              Los tokens (créditos) son créditos de tu billetera. El costo equivale al número de unidades de tu conjunto (1 token (crédito) = 1 unidad). <strong className="text-slate-300">Activar la asamblea no descuenta tokens.</strong> El consumo principal por votación es cuando los copropietarios <strong className="text-slate-300">aceptan el tratamiento de datos (LOPD)</strong> en la sesión pública: las primeras <strong className="text-slate-300">cinco unidades distintas</strong> en esa sesión no generan cobro; a partir de la sexta unidad nueva en la sesión, <strong className="text-slate-300">1 token por unidad</strong> (sin cobro retroactivo a las cinco primeras).
             </p>
-            <ul className="list-none space-y-2 text-sm text-slate-400">
-              <li className="flex items-start gap-2">
-                <span className="mt-0.5 shrink-0" style={{ color: colorPrincipalHex }}>•</span>
-                <span><strong className="text-slate-300">Activar la asamblea</strong> — Al pasar la asamblea de borrador a activa. Ese pago habilita compartir el enlace de votación y generar el acta <strong className="text-slate-300">cuantas veces quieras</strong> sin nuevo cobro.</span>
-              </li>
-            </ul>
             <p className="text-sm text-slate-400">
-              <strong className="text-slate-300">No consumen tokens (créditos):</strong> entrar a la asamblea, crear preguntas, importar unidades, registrar votos a nombre de un residente ni generar/descargar el acta (una vez activada).
+              <strong className="text-slate-300">También pueden consumir tokens</strong> otras operaciones según tu plan (por ejemplo acta con auditoría avanzada, envíos masivos por WhatsApp, etc.).
+            </p>
+            <p className="text-sm text-slate-400">
+              <strong className="text-slate-300">No consumen tokens (créditos):</strong> entrar al panel, crear preguntas, importar unidades, registrar votos a nombre de un residente, ni activar la asamblea en sí.
             </p>
             <p className="text-xs text-slate-500">
-              Si tu saldo es menor al costo, no podrás activar la asamblea hasta que compres más tokens (créditos). La compra es desde 20 tokens (créditos) en adelante por la pasarela de pagos.
+              Si tu saldo no alcanza para una operación que sí cobra tokens, compra más desde la pasarela (mínimo 20 tokens (créditos) por compra).
             </p>
           </div>
           <div className="space-y-4">
@@ -67,7 +64,7 @@ export function GuiaTokensModal({ open, onOpenChange, colorPrincipalHex = COLOR_
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>
-                <span><strong className="text-slate-300">Actas</strong> — Generar actas con resultados, umbral de aprobación y auditoría. Una vez activada la asamblea, puedes generar e imprimir el acta sin nuevo cobro. <strong className="text-slate-300">Cierra la asamblea</strong> para que el acta quede definitiva.</span>
+                <span><strong className="text-slate-300">Actas</strong> — Generar actas con resultados, umbral de aprobación y auditoría. Con la asamblea activa puedes generar e imprimir el acta; según el tipo de acta puede aplicarse consumo de tokens. <strong className="text-slate-300">Cierra la asamblea</strong> para que el acta quede definitiva.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 shrink-0" style={{ color: '#10b981' }}>✓</span>
@@ -95,6 +92,12 @@ export function GuiaTokensModal({ open, onOpenChange, colorPrincipalHex = COLOR_
               <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#34d399' }}>opentimestamps.org</a>.
             </p>
           </div>
+        </div>
+        <div className="mx-6 mb-6 p-4 rounded-2xl border" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(99,102,241,0.08)' }}>
+          <p className="text-sm font-semibold text-slate-200 mb-1">Documentos legales y transparencia</p>
+          <p className="text-xs text-slate-400">
+            Términos, EULA, política de privacidad y política de cookies se pueden administrar desde Super Admin con versionado de actualización. Esto ayuda a mantener la operación alineada con cumplimiento y comunicación clara hacia tus usuarios.
+          </p>
         </div>
       </DialogContent>
     </Dialog>
