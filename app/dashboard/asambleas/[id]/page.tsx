@@ -40,7 +40,8 @@ import {
   Link2Off,
   RefreshCw,
   Vote,
-  Search
+  Search,
+  Coins,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -62,6 +63,26 @@ import { StickyBanner } from '@/components/StickyBanner'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
 import { WhatsAppGlyph } from '@/components/icons/WhatsAppGlyph'
 import { ModalRegistroAsistencia } from '@/components/ModalRegistroAsistencia'
+
+/**
+ * Mensajes de confirmación al abrir votación pública o modos de sesión.
+ * Alineado con Términos (lib/legal-docs) y reglas en supabase/SESION-Y-TOKENS-CONSENTIMIENTO.sql
+ */
+function mensajeConfirmacionCobroLopd(opts: {
+  isDemo: boolean
+  tipo: 'activar_publico' | 'iniciar_verificacion' | 'iniciar_votacion'
+}): string {
+  const base = opts.isDemo
+    ? 'En esta asamblea de demostración no se descuentan créditos por aceptación LOPD.\n\n'
+    : 'El saldo no se descuenta solo por activar el acceso o abrir un modo. Los créditos se consumen cuando un copropietario acepta el tratamiento de datos (LOPD) en esta sesión pública: las primeras 5 unidades distintas no generan cobro; a partir de la 6.ª unidad nueva en la sesión, 1 crédito por unidad. La misma unidad no paga dos veces en la misma sesión aunque use varios dispositivos.\n\n'
+  if (opts.tipo === 'activar_publico') {
+    return base + 'Se generará un código y un enlace para compartir con los residentes.\n\n¿Activar la votación pública?'
+  }
+  if (opts.tipo === 'iniciar_verificacion') {
+    return base + 'Se abrirá el modo verificación: los votantes podrán identificarse y aceptar privacidad (LOPD).\n\n¿Continuar?'
+  }
+  return base + 'Se abrirá el modo votación: los votantes podrán identificarse, aceptar privacidad y votar según las preguntas abiertas.\n\n¿Continuar?'
+}
 
 interface Asamblea {
   id: string
@@ -855,6 +876,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       )
       if (!ok) return
     }
+    if (accion === 'iniciar_verificacion' || accion === 'iniciar_votacion') {
+      const demo = asamblea.is_demo === true
+      const tipo = accion === 'iniciar_verificacion' ? 'iniciar_verificacion' : 'iniciar_votacion'
+      if (!window.confirm(mensajeConfirmacionCobroLopd({ isDemo: demo, tipo }))) return
+    }
     setSesionAccionLoad(true)
     try {
       const res = await fetch('/api/dashboard/asamblea-sesion', {
@@ -897,7 +923,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const handleActivarVotacion = async () => {
     if (!asamblea) return
-    
+    if (!window.confirm(mensajeConfirmacionCobroLopd({ isDemo: asamblea.is_demo === true, tipo: 'activar_publico' }))) {
+      return
+    }
+
     try {
       const { data, error } = await supabase.rpc('activar_votacion_publica', {
         p_asamblea_id: asamblea.id,
@@ -2909,6 +2938,36 @@ Tu participacion es importante. 🏠`
                             La votación pública no está activada. Los residentes no podrán acceder a votar.
                           </AlertDescription>
                         </Alert>
+                        <Alert className="bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700">
+                          <Coins className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                          <AlertTitle className="text-slate-900 dark:text-slate-100 text-sm">
+                            Cómo se cobran los créditos (tokens)
+                          </AlertTitle>
+                          <AlertDescription className="text-slate-700 dark:text-slate-300 text-xs space-y-2">
+                            {asamblea.is_demo ? (
+                              <p>
+                                En esta asamblea de <strong>demostración</strong> no se descuentan créditos por aceptación LOPD.
+                              </p>
+                            ) : (
+                              <>
+                                <p>
+                                  <strong>Activar el acceso no descuenta saldo por sí solo.</strong> Los créditos se consumen cuando un copropietario{' '}
+                                  <strong>acepta el tratamiento de datos (LOPD)</strong> en la sesión pública actual.
+                                </p>
+                                <ul className="list-disc list-inside space-y-1 pl-0.5">
+                                  <li>Primeras <strong>5 unidades distintas</strong> que acepten en esa sesión: sin cobro por ese concepto.</li>
+                                  <li>
+                                    Desde la <strong>6.ª unidad nueva</strong> en la misma sesión: <strong>1 crédito por unidad</strong> (sin cobro retroactivo
+                                    a las cinco primeras).
+                                  </li>
+                                  <li>
+                                    La <strong>misma unidad</strong> no paga dos veces en la misma sesión aunque use varios dispositivos.
+                                  </li>
+                                </ul>
+                              </>
+                            )}
+                          </AlertDescription>
+                        </Alert>
                         <Button
                           onClick={handleActivarVotacion}
                           className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
@@ -2917,7 +2976,7 @@ Tu participacion es importante. 🏠`
                           Activar Votación Pública
                         </Button>
                         <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                          Esto generará un código único para compartir
+                          Esto generará un código único para compartir. Al confirmar, verás el resumen de cobro otra vez.
                         </p>
                       </>
                     )}
@@ -3140,9 +3199,25 @@ Tu participacion es importante. 🏠`
                     {' · '}
                     Sesión n.º {asamblea.session_seq ?? 1}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                    Los tokens se consumen cuando los votantes aceptan privacidad (tras las primeras 5 unidades distintas en la sesión). Al cerrar sesión o desactivar el acceso público, cambia el número de sesión y se piden de nuevo las aceptaciones.
-                  </p>
+                  <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20 px-3 py-2.5 mb-3">
+                    <p className="text-xs font-medium text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                      <Coins className="w-3.5 h-3.5 shrink-0" />
+                      Cobro por LOPD en esta sesión (n.º {asamblea.session_seq ?? 1})
+                    </p>
+                    {isDemo ? (
+                      <p className="text-xs text-emerald-800/90 dark:text-emerald-300/90 mt-1">
+                        Asamblea demo: no se descuentan créditos por aceptación LOPD.
+                      </p>
+                    ) : (
+                      <ul className="text-xs text-emerald-800/95 dark:text-emerald-300/90 mt-1.5 space-y-1 list-disc list-inside">
+                        <li>Activar el enlace no cobra solo por eso; cobra cuando aceptan privacidad (LOPD).</li>
+                        <li>5 unidades distintas sin cobro; desde la 6.ª, 1 crédito por unidad nueva. Una unidad = un cobro por sesión.</li>
+                      </ul>
+                    )}
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                      Al cerrar sesión o desactivar el acceso público cambia el número de sesión y se vuelven a pedir consentimientos.
+                    </p>
+                  </div>
                   <div className="flex flex-col gap-2">
                     <Button
                       type="button"
@@ -3151,6 +3226,7 @@ Tu participacion es importante. 🏠`
                       className="w-full"
                       disabled={sesionAccionLoad}
                       onClick={() => void handleSesionPublica('iniciar_verificacion')}
+                      title="Se mostrará un resumen de cómo se cobrará antes de continuar"
                     >
                       Iniciar verificación
                     </Button>
@@ -3161,6 +3237,7 @@ Tu participacion es importante. 🏠`
                       className="w-full"
                       disabled={sesionAccionLoad}
                       onClick={() => void handleSesionPublica('iniciar_votacion')}
+                      title="Se mostrará un resumen de cómo se cobrará antes de continuar"
                     >
                       Iniciar votación
                     </Button>
