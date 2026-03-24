@@ -1149,7 +1149,7 @@ export default function AsistirPage() {
                                   <span className="text-xs text-gray-500 ml-1.5 truncate">{u.nombre_propietario}</span>
                                   {votoPropioDelegado && (
                                     <span className="block text-[11px] text-indigo-700 dark:text-indigo-300 truncate">
-                                      Registrado por ti: {textoOpcionUnidad}
+                                      Registrado por ti
                                     </span>
                                   )}
                                 </div>
@@ -1159,11 +1159,6 @@ export default function AsistirPage() {
                                         <span className="text-[11px] px-2 py-0.5 rounded-full border border-emerald-300 text-emerald-700 dark:text-emerald-300 dark:border-emerald-700">
                                           Registrado
                                         </span>
-                                        {votoPropioDelegado && votoUnidadPregunta?.opcion_id && (
-                                          <span className="text-[10px] text-emerald-800 dark:text-emerald-200 truncate max-w-[10rem]" title={textoOpcionUnidad}>
-                                            {textoOpcionUnidad}
-                                          </span>
-                                        )}
                                       </>
                                     ) : (
                                       <span className="text-[11px] px-2 py-0.5 rounded-full border border-amber-300 text-amber-700 dark:text-amber-300 dark:border-amber-700">
