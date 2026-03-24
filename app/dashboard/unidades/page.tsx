@@ -62,6 +62,7 @@ function UnidadesPageContent() {
   const searchParams = useSearchParams()
   const volverAsambleaId = searchParams.get('volver_asamblea')?.trim() || null
   const conjuntoIdFromUrl = searchParams.get('conjunto_id')?.trim() || null
+  const editarUnidadIdFromUrl = searchParams.get('editar_unidad_id')?.trim() || null
   const toast = useToast()
   const [unidades, setUnidades] = useState<Unidad[]>([])
   const [filteredUnidades, setFilteredUnidades] = useState<Unidad[]>([])
@@ -88,6 +89,7 @@ function UnidadesPageContent() {
   // Estados para conjunto
   const [conjuntoName, setConjuntoName] = useState('')
   const [guiaModalOpen, setGuiaModalOpen] = useState(false)
+  const [autoEditAplicado, setAutoEditAplicado] = useState(false)
 
   // Añadir unidad manual (formulario)
   const [showAddUnidad, setShowAddUnidad] = useState(false)
@@ -353,6 +355,14 @@ function UnidadesPageContent() {
       telefono: unidad.telefono || '',
     })
   }
+
+  useEffect(() => {
+    if (autoEditAplicado || !editarUnidadIdFromUrl || unidades.length === 0) return
+    const unidadTarget = unidades.find((u) => u.id === editarUnidadIdFromUrl)
+    if (!unidadTarget) return
+    handleEditClick(unidadTarget)
+    setAutoEditAplicado(true)
+  }, [autoEditAplicado, editarUnidadIdFromUrl, unidades])
 
   const handleSaveEdit = async () => {
     if (!editingUnidad) return

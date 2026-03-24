@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -147,6 +147,16 @@ interface ColaPoderItem {
   archivo: File | null
 }
 
+type PoderSortKey =
+  | 'unidad_otorgante'
+  | 'propietario'
+  | 'apoderado'
+  | 'coeficiente'
+  | 'documento'
+  | 'registrado'
+  | 'estado'
+  | 'acciones'
+
 export default function PoderesPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const toast = useToast()
@@ -187,6 +197,9 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   const [filtroEstadoPoder, setFiltroEstadoPoder] = useState<'activos' | 'pendientes' | 'todos'>('activos')
   /** Filtrar por unidad que otorga el poder (UUID) */
   const [filtroUnidadOtorganteId, setFiltroUnidadOtorganteId] = useState<string>('')
+  const [mostrarInfoPoderes, setMostrarInfoPoderes] = useState(false)
+  const [sortKey, setSortKey] = useState<PoderSortKey>('registrado')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [revocandoPoderId, setRevocandoPoderId] = useState<string | null>(null)
   const [revocando, setRevocando] = useState(false)
   const [activandoPoderId, setActivandoPoderId] = useState<string | null>(null)
@@ -765,6 +778,64 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     )
   })
 
+  const toggleSort = (key: PoderSortKey) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortKey(key)
+    setSortDirection(key === 'registrado' ? 'desc' : 'asc')
+  }
+
+  const getSortIcon = (key: PoderSortKey) => {
+    if (sortKey !== key) return <span className="text-[10px] opacity-70">↕</span>
+    return sortDirection === 'asc'
+      ? <ChevronUp className="w-3.5 h-3.5" />
+      : <ChevronDown className="w-3.5 h-3.5" />
+  }
+
+  const sortedPoderes = useMemo(() => {
+    const normalizar = (v: unknown) => String(v ?? '').toLowerCase().trim()
+    const estadoOrden: Record<string, number> = {
+      pendiente_verificacion: 1,
+      activo: 2,
+      revocado: 3,
+    }
+
+    const valorOrden = (p: Poder, key: PoderSortKey): string | number => {
+      switch (key) {
+        case 'unidad_otorgante':
+          return `${normalizar(p.unidad_otorgante_torre)}|${normalizar(p.unidad_otorgante_numero)}`
+        case 'propietario':
+          return `${normalizar(p.nombre_otorgante)}|${normalizar(p.email_otorgante)}`
+        case 'apoderado':
+          return `${normalizar(p.unidad_receptor_torre)}|${normalizar(p.unidad_receptor_numero)}|${normalizar(p.nombre_receptor)}|${normalizar(p.email_receptor)}`
+        case 'coeficiente':
+          return Number(p.coeficiente_delegado) || 0
+        case 'documento':
+          return p.archivo_poder ? 1 : 0
+        case 'registrado':
+          return new Date(p.created_at).getTime() || 0
+        case 'estado':
+          return estadoOrden[p.estado] ?? 99
+        case 'acciones':
+          return `${normalizar(p.estado)}|${normalizar(p.id)}`
+        default:
+          return ''
+      }
+    }
+
+    return [...filteredPoderes].sort((a, b) => {
+      const va = valorOrden(a, sortKey)
+      const vb = valorOrden(b, sortKey)
+      let res = 0
+      if (typeof va === 'number' && typeof vb === 'number') res = va - vb
+      else res = String(va).localeCompare(String(vb), 'es', { numeric: true, sensitivity: 'base' })
+      if (res === 0) res = new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      return sortDirection === 'asc' ? res : -res
+    })
+  }, [filteredPoderes, sortDirection, sortKey])
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -903,25 +974,40 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
           </div>
         )}
 
-        {/* Info sobre regulación */}
+        {/* Info sobre poderes (colapsable) */}
         <Alert className="mb-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-          <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          <AlertTitle className="text-blue-900 dark:text-blue-100">
-            ℹ️ Sobre los Poderes en Asambleas
-          </AlertTitle>
-          <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">
-            • Cada <strong>unidad que delega</strong> (apartamento que otorga el poder) solo puede tener <strong>un poder activo</strong> a la vez en esta asamblea; para cambiar de apoderado, <strong>revoca o edita</strong> el existente
-            <br />
-            • El <strong>mismo apoderado</strong> (persona o unidad receptora) <strong>sí puede recibir varios poderes</strong> si vienen de <strong>apartamentos distintos</strong>, hasta el límite configurado
-            <br />
-            • Límite actual: máximo <strong>{config.max_poderes_por_apoderado} poderes</strong> por apoderado (configurable en Configuración → Poderes)
-            <br />
-            • El voto del apoderado representa la suma de su coeficiente más el de todas las unidades que representa
-            <br />
-            • Los poderes activos se pueden <strong>editar</strong> (corregir apoderado o unidad) o revocar antes de la votación
-            <br />
-            • Los votantes pueden <strong>declarar un poder recibido</strong> desde «Mis datos»; queda <strong>pendiente de verificación</strong> hasta que usted lo active aquí (tras revisar documento o acta física)
-          </AlertDescription>
+          <button
+            type="button"
+            onClick={() => setMostrarInfoPoderes((v) => !v)}
+            className="w-full flex items-center justify-between gap-3 text-left"
+            aria-expanded={mostrarInfoPoderes}
+            aria-label="Mostrar u ocultar información sobre poderes"
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <AlertTitle className="text-blue-900 dark:text-blue-100 m-0">
+                ℹ️ Sobre los Poderes en Asambleas
+              </AlertTitle>
+            </div>
+            {mostrarInfoPoderes
+              ? <ChevronUp className="h-4 w-4 text-blue-700 dark:text-blue-300" />
+              : <ChevronDown className="h-4 w-4 text-blue-700 dark:text-blue-300" />}
+          </button>
+          {mostrarInfoPoderes && (
+            <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm mt-3">
+              • Cada <strong>unidad que delega</strong> (apartamento que otorga el poder) solo puede tener <strong>un poder activo</strong> a la vez en esta asamblea; para cambiar de apoderado, <strong>revoca o edita</strong> el existente
+              <br />
+              • El <strong>mismo apoderado</strong> (persona o unidad receptora) <strong>sí puede recibir varios poderes</strong> si vienen de <strong>apartamentos distintos</strong>, hasta el límite configurado
+              <br />
+              • Límite actual: máximo <strong>{config.max_poderes_por_apoderado} poderes</strong> por apoderado (configurable en Configuración → Poderes)
+              <br />
+              • El voto del apoderado representa la suma de su coeficiente más el de todas las unidades que representa
+              <br />
+              • Los poderes activos se pueden <strong>editar</strong> (corregir apoderado o unidad) o revocar antes de la votación
+              <br />
+              • Los votantes pueden <strong>declarar un poder recibido</strong> desde «Mis datos»; queda <strong>pendiente de verificación</strong> hasta que usted lo active aquí (tras revisar documento o acta física)
+            </AlertDescription>
+          )}
         </Alert>
 
         {/* Buscador y filtros */}
@@ -1004,33 +1090,57 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                 <thead className="sticky top-0 z-10 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 shadow-sm [&_th]:bg-gray-50 dark:[&_th]:bg-gray-700">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Unidad Otorgante
+                      <button type="button" onClick={() => toggleSort('unidad_otorgante')} className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400">
+                        Unidad Otorgante
+                        {getSortIcon('unidad_otorgante')}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Propietario
+                      <button type="button" onClick={() => toggleSort('propietario')} className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400">
+                        Propietario
+                        {getSortIcon('propietario')}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Apoderado
+                      <button type="button" onClick={() => toggleSort('apoderado')} className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400">
+                        Apoderado
+                        {getSortIcon('apoderado')}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Coeficiente
+                      <button type="button" onClick={() => toggleSort('coeficiente')} className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400">
+                        Coeficiente
+                        {getSortIcon('coeficiente')}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Documento
+                      <button type="button" onClick={() => toggleSort('documento')} className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400">
+                        Documento
+                        {getSortIcon('documento')}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Registrado
+                      <button type="button" onClick={() => toggleSort('registrado')} className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400">
+                        Registrado
+                        {getSortIcon('registrado')}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Estado
+                      <button type="button" onClick={() => toggleSort('estado')} className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400">
+                        Estado
+                        {getSortIcon('estado')}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Acciones
+                      <button type="button" onClick={() => toggleSort('acciones')} className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400">
+                        Acciones
+                        {getSortIcon('acciones')}
+                      </button>
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredPoderes.map((poder) => (
+                  {sortedPoderes.map((poder) => (
                     <tr key={poder.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -1038,9 +1148,13 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 dark:text-white">
+                        <Link
+                          href={`/dashboard/unidades?volver_asamblea=${params.id}&conjunto_id=${asamblea.organization_id}&editar_unidad_id=${poder.unidad_otorgante_id}`}
+                          className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                          title="Editar esta unidad"
+                        >
                           {poder.nombre_otorgante}
-                        </div>
+                        </Link>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
                           {poder.email_otorgante}
                         </div>

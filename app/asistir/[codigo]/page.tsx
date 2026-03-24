@@ -200,6 +200,8 @@ export default function AsistirPage() {
   const [cargandoPreguntas, setCargandoPreguntas] = useState(false)
   const [avanceVotaciones, setAvanceVotaciones] = useState<PreguntaConResultados[]>([])
   const [showAyudaDelegado, setShowAyudaDelegado] = useState(false)
+  const [refrescandoManual, setRefrescandoManual] = useState(false)
+  const [ultimoRefrescoManual, setUltimoRefrescoManual] = useState<string | null>(null)
 
   const [revalidando, setRevalidando] = useState(false)
   /** Una carga a la vez; si llegan más, se programa un repaso al terminar (evita listas cruzadas). */
@@ -487,6 +489,21 @@ export default function AsistirPage() {
     return () => clearInterval(t)
   }, [step, asamblea, revalidar, cargarUnidades, cargarPreguntas])
 
+  const refrescarAhora = useCallback(async () => {
+    if (step !== 'ok' || !asamblea || refrescandoManual) return
+    setRefrescandoManual(true)
+    try {
+      await revalidar({ silent: true })
+      const u = await cargarUnidades()
+      await cargarPreguntas(false, u)
+      setUltimoRefrescoManual(
+        new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+      )
+    } finally {
+      setRefrescandoManual(false)
+    }
+  }, [step, asamblea, refrescandoManual, revalidar, cargarUnidades, cargarPreguntas])
+
   // Pestaña por defecto y validez: asistencia solo si verificación activa, votación solo si hay pregunta abierta
   const mostrarTabAsistencia = !!asamblea?.verificacion_asistencia_activa
   const mostrarTabVotacion = preguntas.length > 0
@@ -727,29 +744,33 @@ export default function AsistirPage() {
                 Modo asistente delegado
               </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowAyudaDelegado(true)}
-                className="p-2 rounded-xl text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors"
-                title="Ayuda"
-                aria-label="Ver ayuda"
-              >
-                <HelpCircle className="w-5 h-5" />
-              </button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  void (async () => {
-                    const u = await cargarUnidades()
-                    await cargarPreguntas(false, u)
-                  })()
-                }}
-                className="rounded-2xl border-gray-300 dark:border-gray-600"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </Button>
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAyudaDelegado(true)}
+                  className="p-2 rounded-xl text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors"
+                  title="Ayuda"
+                  aria-label="Ver ayuda"
+                >
+                  <HelpCircle className="w-5 h-5" />
+                </button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { void refrescarAhora() }}
+                  disabled={refrescandoManual}
+                  className="rounded-2xl border-gray-300 dark:border-gray-600"
+                >
+                  <RefreshCw className={`w-4 h-4 ${refrescandoManual ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">{refrescandoManual ? 'Refrescando...' : 'Refrescar'}</span>
+                </Button>
+              </div>
+              {ultimoRefrescoManual && (
+                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                  Actualizado {ultimoRefrescoManual}
+                </span>
+              )}
             </div>
           </div>
           {/* Tabs: solo si hay más de una pestaña disponible */}
@@ -827,9 +848,9 @@ export default function AsistirPage() {
             <p className="text-gray-600 dark:text-gray-400 text-sm">
               Para registrar asistencia o votos, el administrador debe activar la verificación de asistencia o abrir al menos una pregunta de votación.
             </p>
-            <Button variant="outline" size="sm" className="mt-4 rounded-2xl" onClick={() => revalidar()} disabled={revalidando}>
-              <RefreshCw className={`w-4 h-4 mr-2 ${revalidando ? 'animate-spin' : ''}`} />
-              {revalidando ? 'Comprobando…' : 'Actualizar'}
+            <Button variant="outline" size="sm" className="mt-4 rounded-2xl" onClick={() => { void refrescarAhora() }} disabled={refrescandoManual}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${refrescandoManual ? 'animate-spin' : ''}`} />
+              {refrescandoManual ? 'Refrescando…' : 'Actualizar'}
             </Button>
           </div>
         )}
@@ -997,12 +1018,7 @@ export default function AsistirPage() {
                   <p className="text-gray-500 text-sm">No hay preguntas abiertas en este momento.</p>
                   <button
                     type="button"
-                    onClick={() => {
-                      void (async () => {
-                        const u = await cargarUnidades()
-                        await cargarPreguntas(false, u)
-                      })()
-                    }}
+                    onClick={() => { void refrescarAhora() }}
                     className="mt-2 text-xs text-indigo-600 underline"
                   >
                     Actualizar
