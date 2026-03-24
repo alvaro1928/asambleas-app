@@ -3,8 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * GET /api/votar/consentimiento?codigo=XXX&identificador=YYY
- * Devuelve si el votante ya aceptó el tratamiento de datos para esta asamblea.
- * identificador = email o teléfono (normalizado).
+ * Aceptación LOPD para la sesión actual (session_seq de la asamblea).
  */
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     const { data: asamblea } = await admin
       .from('asambleas')
-      .select('id')
+      .select('id, session_seq')
       .eq('codigo_acceso', codigo.trim().toUpperCase())
       .maybeSingle()
 
@@ -32,15 +31,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ accepted: false })
     }
 
+    const sessionSeq = Number((asamblea as { session_seq?: number }).session_seq ?? 1)
+
     const idNorm = identificador.trim().toLowerCase()
     const { data: row } = await admin
       .from('consentimiento_tratamiento_datos')
       .select('id, accepted_at')
       .eq('asamblea_id', asamblea.id)
       .eq('identificador', idNorm)
+      .eq('session_seq', sessionSeq)
       .maybeSingle()
 
-    return NextResponse.json({ accepted: !!row, accepted_at: row?.accepted_at ?? null })
+    return NextResponse.json({
+      accepted: !!row,
+      accepted_at: row?.accepted_at ?? null,
+      session_seq: sessionSeq,
+    })
   } catch (e) {
     console.error('GET /api/votar/consentimiento:', e)
     return NextResponse.json({ error: 'Error al consultar consentimiento' }, { status: 500 })
@@ -50,7 +56,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/votar/consentimiento
  * Body: { codigo, identificador, ip? }
- * Registra la aceptación del tratamiento de datos para esta asamblea + votante.
+ * RPC atómica: consentimiento + consumos por umbral + billetera gestor.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -68,33 +74,46 @@ export async function POST(request: NextRequest) {
 
     const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
 
-    const { data: asamblea } = await admin
-      .from('asambleas')
-      .select('id')
-      .eq('codigo_acceso', codigo.trim().toUpperCase())
-      .maybeSingle()
+    const { data: rpcData, error: rpcError } = await admin.rpc('registrar_consentimiento_y_consumo_sesion', {
+      p_codigo: codigo.trim().toUpperCase(),
+      p_identificador: identificador.trim(),
+      p_ip: typeof ip === 'string' ? ip : null,
+    })
 
-    if (!asamblea?.id) {
-      return NextResponse.json({ error: 'Código de asamblea no válido' }, { status: 400 })
+    if (rpcError) {
+      console.error('registrar_consentimiento_y_consumo_sesion:', rpcError)
+      return NextResponse.json({ error: rpcError.message }, { status: 500 })
     }
 
-    const idNorm = identificador.trim().toLowerCase()
-    const { error } = await admin.from('consentimiento_tratamiento_datos').upsert(
-      {
-        asamblea_id: asamblea.id,
-        identificador: idNorm,
-        accepted_at: new Date().toISOString(),
-        ip_address: typeof ip === 'string' ? ip : null,
-      },
-      { onConflict: 'asamblea_id,identificador' }
-    )
-
-    if (error) {
-      console.error('POST consentimiento upsert:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    const result = rpcData as Record<string, unknown> | null
+    if (!result || result.ok !== true) {
+      const code = typeof result?.code === 'string' ? result.code : 'ERROR'
+      const message = typeof result?.message === 'string' ? result.message : 'No se pudo registrar el consentimiento'
+      const status =
+        code === 'SESSION_INACTIVE' || code === 'ACCESO_CERRADO'
+          ? 409
+          : code === 'INSUFFICIENT_TOKENS'
+            ? 402
+            : code === 'VOTANTE_INVALIDO' || code === 'SIN_UNIDADES'
+              ? 403
+              : 400
+      return NextResponse.json(
+        {
+          error: message,
+          code,
+          requerido: result?.requerido,
+          saldo: result?.saldo,
+        },
+        { status }
+      )
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({
+      ok: true,
+      session_seq: result.session_seq,
+      tokens_cobrados: result.tokens_cobrados,
+      unidades: result.unidades,
+    })
   } catch (e) {
     console.error('POST /api/votar/consentimiento:', e)
     return NextResponse.json({ error: 'Error al registrar consentimiento' }, { status: 500 })

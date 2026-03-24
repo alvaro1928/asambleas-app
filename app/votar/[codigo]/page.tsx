@@ -66,6 +66,8 @@ interface AsambleaInfo {
   participacion_timer_end_at?: string | null
   participacion_timer_default_minutes?: number
   participacion_timer_enabled?: boolean | null
+  session_mode?: 'inactive' | 'verification' | 'voting'
+  session_seq?: number
 }
 
 interface UnidadInfo {
@@ -164,6 +166,10 @@ export default function VotacionPublicaPage() {
   /** Modal de ayuda al votante; misma UI y ayuda para asambleas reales y sandbox. */
   const [showAyudaVotar, setShowAyudaVotar] = useState(false)
   const [showVotanteMenu, setShowVotanteMenu] = useState(false)
+  /** Modo de sesión en tiempo casi real (inactive / verification / voting) */
+  const [sessionModeLive, setSessionModeLive] = useState<'inactive' | 'verification' | 'voting'>('inactive')
+  /** Solo verificación: acceso aceptado sin preguntas abiertas hasta que el admin pase a votación */
+  const [soloSesionVerificacion, setSoloSesionVerificacion] = useState(false)
   /** URL de la página de votación (origen + /votar/codigo) para mostrar QR y copiar enlace; solo en cliente */
   const [urlVotacionCompartir, setUrlVotacionCompartir] = useState('')
   const [copiandoEnlace, setCopiandoEnlace] = useState(false)
@@ -532,6 +538,7 @@ export default function VotacionPublicaPage() {
   const validarCodigo = async () => {
     const aplicarAsamblea = (asambleaData: AsambleaInfo) => {
       setAsamblea(asambleaData)
+      setSessionModeLive(asambleaData.session_mode ?? 'inactive')
       setParticipationTimerEnabled(asambleaData.participacion_timer_enabled ?? true)
       setParticipationTimerEndAt(asambleaData.participacion_timer_end_at ?? null)
       setParticipationTimerDefaultMinutes(
@@ -546,18 +553,25 @@ export default function VotacionPublicaPage() {
       }
     }
 
-    const interpretarFilaRpc = (row: Record<string, unknown>): AsambleaInfo => ({
-      asamblea_id: String(row.asamblea_id ?? ''),
-      nombre: String(row.nombre ?? ''),
-      fecha: String(row.fecha ?? ''),
-      organization_id: String(row.organization_id ?? ''),
-      nombre_conjunto: String(row.nombre_conjunto ?? ''),
-      acceso_valido: !!row.acceso_valido,
-      mensaje: String(row.mensaje ?? ''),
-      participacion_timer_end_at: (row.participacion_timer_end_at as string | null | undefined) ?? null,
-      participacion_timer_default_minutes: Number(row.participacion_timer_default_minutes ?? 5) || 5,
-      participacion_timer_enabled: row.participacion_timer_enabled as boolean | null | undefined,
-    })
+    const interpretarFilaRpc = (row: Record<string, unknown>): AsambleaInfo => {
+      const mode = (row.session_mode as string | undefined) ?? 'inactive'
+      const m: 'inactive' | 'verification' | 'voting' =
+        mode === 'voting' || mode === 'verification' ? mode : 'inactive'
+      return {
+        asamblea_id: String(row.asamblea_id ?? ''),
+        nombre: String(row.nombre ?? ''),
+        fecha: String(row.fecha ?? ''),
+        organization_id: String(row.organization_id ?? ''),
+        nombre_conjunto: String(row.nombre_conjunto ?? ''),
+        acceso_valido: !!row.acceso_valido,
+        mensaje: String(row.mensaje ?? ''),
+        participacion_timer_end_at: (row.participacion_timer_end_at as string | null | undefined) ?? null,
+        participacion_timer_default_minutes: Number(row.participacion_timer_default_minutes ?? 5) || 5,
+        participacion_timer_enabled: row.participacion_timer_enabled as boolean | null | undefined,
+        session_mode: m,
+        session_seq: Number(row.session_seq ?? 1) || 1,
+      }
+    }
 
     try {
       /** Preferir API (service role): no depende de sesión Supabase en el navegador (misma causa que hardening móvil). */
@@ -654,6 +668,15 @@ export default function VotacionPublicaPage() {
       } catch {
         // Ignorar
       }
+      const modeActual = asamblea?.session_mode ?? sessionModeLive
+      if (modeActual === 'inactive') {
+        setError(
+          'El administrador aún no ha iniciado la sesión de verificación o votación. Vuelve a intentar cuando esté disponible.'
+        )
+        setLoading(false)
+        return
+      }
+
       const identificador = email.trim().toLowerCase()
       const consentRes = await fetch(
         `/api/votar/consentimiento?codigo=${encodeURIComponent(codigo)}&identificador=${encodeURIComponent(identificador)}`,
@@ -662,8 +685,23 @@ export default function VotacionPublicaPage() {
       const consentData = consentRes.ok ? await consentRes.json().catch(() => ({})) : {}
       if (consentData.accepted) {
         saveStoredSessionState({ step: 'votar', consentimientoAceptado: true, ts: Date.now() })
-        setStep('votar')
-        await cargarPreguntas(unidadesConInfo)
+        const stRes = await fetch('/api/votar/estado-verificacion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codigo, soloFlags: true }),
+        })
+        const stJson = await stRes.json().catch(() => ({} as { asamblea?: { session_mode?: string } }))
+        const modeAfter =
+          (stJson.asamblea?.session_mode as AsambleaInfo['session_mode']) || asamblea?.session_mode || sessionModeLive
+        if (modeAfter) setSessionModeLive(modeAfter)
+        if (modeAfter === 'voting') {
+          setSoloSesionVerificacion(false)
+          setStep('votar')
+          await cargarPreguntas(unidadesConInfo)
+        } else {
+          setSoloSesionVerificacion(true)
+          setStep('votar')
+        }
       } else {
         saveStoredSessionState({ step: 'consentimiento', consentimientoAceptado: false, ts: Date.now() })
         setConsentimientoAceptado(false)
@@ -719,12 +757,31 @@ export default function VotacionPublicaPage() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        setError(data.error ?? 'Error al registrar la aceptación')
+        setError(
+          typeof data.error === 'string'
+            ? data.error
+            : 'Error al registrar la aceptación'
+        )
         return
       }
       saveStoredSessionState({ step: 'votar', consentimientoAceptado: true, ts: Date.now() })
-      setStep('votar')
-      await cargarPreguntas(unidades)
+      const stRes = await fetch('/api/votar/estado-verificacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo, soloFlags: true }),
+      })
+      const stJson = await stRes.json().catch(() => ({} as { asamblea?: { session_mode?: string } }))
+      const modeAfter =
+        (stJson.asamblea?.session_mode as AsambleaInfo['session_mode']) || asamblea?.session_mode || sessionModeLive
+      if (modeAfter) setSessionModeLive(modeAfter)
+      if (modeAfter === 'voting') {
+        setSoloSesionVerificacion(false)
+        setStep('votar')
+        await cargarPreguntas(unidades)
+      } else {
+        setSoloSesionVerificacion(true)
+        setStep('votar')
+      }
     } catch (err: any) {
       setError(err?.message ?? 'Error al continuar')
     } finally {
@@ -1221,6 +1278,8 @@ export default function VotacionPublicaPage() {
           participacion_timer_end_at?: string | null
           participacion_timer_default_minutes?: number | null
           participacion_timer_enabled?: boolean | null
+          session_mode?: 'inactive' | 'verification' | 'voting'
+          session_seq?: number
         }
         let a: FlagsAsamblea | null = null
         if (res.ok && json.ok && json.asamblea) {
@@ -1229,7 +1288,7 @@ export default function VotacionPublicaPage() {
           const { data } = await supabase
             .from('asambleas')
             .select(
-              'verificacion_asistencia_activa, verificacion_pregunta_id, participacion_timer_end_at, participacion_timer_default_minutes, participacion_timer_enabled'
+              'verificacion_asistencia_activa, verificacion_pregunta_id, participacion_timer_end_at, participacion_timer_default_minutes, participacion_timer_enabled, session_mode, session_seq'
             )
             .eq('id', asamblea.asamblea_id)
             .single()
@@ -1241,6 +1300,12 @@ export default function VotacionPublicaPage() {
           setParticipationTimerEndAt(a.participacion_timer_end_at ?? null)
           setParticipationTimerDefaultMinutes(Number(a.participacion_timer_default_minutes ?? 5) || 5)
           setParticipationTimerEnabled(a.participacion_timer_enabled ?? true)
+          if (a.session_mode === 'inactive' || a.session_mode === 'verification' || a.session_mode === 'voting') {
+            setSessionModeLive(a.session_mode)
+            setAsamblea((prev) =>
+              prev ? { ...prev, session_mode: a.session_mode, session_seq: a.session_seq ?? prev.session_seq } : prev
+            )
+          }
           if (!primeraLecturaVerificacionRef.current && activa && !prevVerificacionActivaRef.current) setYaVerifico(false)
           primeraLecturaVerificacionRef.current = false
           prevVerificacionActivaRef.current = activa
@@ -1255,6 +1320,14 @@ export default function VotacionPublicaPage() {
     return () => clearInterval(interval)
   }, [asamblea?.asamblea_id, codigo, step, email])
 
+  useEffect(() => {
+    if (step !== 'votar' || !soloSesionVerificacion || !asamblea?.asamblea_id) return
+    if (sessionModeLive !== 'voting') return
+    setSoloSesionVerificacion(false)
+    void cargarPreguntasRef.current(unidades)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- transición única verification → voting
+  }, [step, soloSesionVerificacion, sessionModeLive, asamblea?.asamblea_id, unidades])
+
   // Función auxiliar: refresca verificación general de asistencia + si este votante ya verificó en la sesión actual
   const refrescarVerificacion = async (asambleaId: string, emailVotante?: string) => {
     const aplicarDesdeApi = (json: {
@@ -1264,6 +1337,8 @@ export default function VotacionPublicaPage() {
         participacion_timer_end_at?: string | null
         participacion_timer_default_minutes?: number | null
         participacion_timer_enabled?: boolean | null
+        session_mode?: 'inactive' | 'verification' | 'voting'
+        session_seq?: number
       }
       vData?: StatsVerif[] | null
       yaVerificoRaw?: boolean | null
@@ -1272,6 +1347,18 @@ export default function VotacionPublicaPage() {
       setParticipationTimerEndAt(aData.participacion_timer_end_at ?? null)
       setParticipationTimerDefaultMinutes(Number(aData.participacion_timer_default_minutes ?? 5) || 5)
       setParticipationTimerEnabled(aData.participacion_timer_enabled ?? true)
+      if (aData.session_mode === 'inactive' || aData.session_mode === 'verification' || aData.session_mode === 'voting') {
+        setSessionModeLive(aData.session_mode)
+        setAsamblea((prev) =>
+          prev
+            ? {
+                ...prev,
+                session_mode: aData.session_mode,
+                session_seq: aData.session_seq ?? prev.session_seq,
+              }
+            : prev
+        )
+      }
 
       const activa = !!aData.verificacion_asistencia_activa
       const prevActiva = verificacionActivaRef.current
@@ -1609,6 +1696,14 @@ export default function VotacionPublicaPage() {
           {/* Información de la Asamblea */}
           {asamblea && (
             <div className="bg-gradient-to-r from-primary-light to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl p-4 mb-6 border border-border dark:border-indigo-800">
+              {sessionModeLive === 'inactive' && (
+                <Alert className="mb-3 border-amber-200 dark:border-amber-800 bg-amber-50/90 dark:bg-amber-950/30">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-900 dark:text-amber-100 text-sm">
+                    El administrador aún no ha iniciado la sesión de verificación o votación. Esta página se actualizará sola cuando esté lista.
+                  </AlertDescription>
+                </Alert>
+              )}
               <h2 className="font-bold text-gray-900 dark:text-white mb-2">
                 {asamblea.nombre}
               </h2>
@@ -2083,6 +2178,14 @@ export default function VotacionPublicaPage() {
           {/* ── TAB 1: VOTACIÓN ── */}
           {tabActivo === 'votacion' && (
             <div className="space-y-4">
+              {soloSesionVerificacion && !todasVotadas && (
+                <Alert className="border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/40">
+                  <UserCheck className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                  <AlertDescription className="text-indigo-900 dark:text-indigo-100 text-sm">
+                    Has aceptado el tratamiento de datos. El administrador aún no ha abierto la <strong>votación</strong>: cuando lo haga, las preguntas aparecerán aquí automáticamente. Puedes dejar esta página abierta.
+                  </AlertDescription>
+                </Alert>
+              )}
               {/* Banner de éxito cuando terminó de votar */}
               {todasVotadas && (
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border-2 border-emerald-300 dark:border-emerald-700 text-center">

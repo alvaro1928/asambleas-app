@@ -91,6 +91,10 @@ interface Asamblea {
   verificacion_pregunta_id?: string | null
   /** Token para enlace de asistente delegado (generar/revocar en Acceso Público) */
   token_delegado?: string | null
+  /** Modo de sesión en /votar: inactive | verification | voting */
+  session_mode?: 'inactive' | 'verification' | 'voting'
+  /** Secuencia de sesión (incrementa al cerrar sesión o desactivar acceso público) */
+  session_seq?: number
 }
 
 interface Pregunta {
@@ -318,9 +322,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [emailAdicionalEnvio, setEmailAdicionalEnvio] = useState('')
   const [enviandoCorreoAdicional, setEnviandoCorreoAdicional] = useState(false)
   const [plantillaMensajeInvitacion, setPlantillaMensajeInvitacion] = useState('')
-  /** Config conjunto: mostrar botón reset masivo LOPD */
-  const [permitirResetConsentimientoGeneral, setPermitirResetConsentimientoGeneral] = useState(true)
-  const [resettingConsentimientoLo, setResettingConsentimientoLo] = useState(false)
+  const [sesionAccionLoad, setSesionAccionLoad] = useState(false)
 
   const [billeteraColapsada, setBilleteraColapsada] = useState(true)
   const [openQuorumPanel, setOpenQuorumPanel] = useState(true)
@@ -537,14 +539,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       if (configData?.whatsapp_number != null && typeof configData.whatsapp_number === 'string') setWhatsappNumber(configData.whatsapp_number)
       const { data: configPoderes } = await supabase
         .from('configuracion_poderes')
-        .select('plantilla_mensaje_invitacion, permitir_reset_consentimiento_general')
+        .select('plantilla_mensaje_invitacion')
         .eq('organization_id', orgId)
         .maybeSingle()
       setPlantillaMensajeInvitacion((configPoderes as { plantilla_mensaje_invitacion?: string | null } | null)?.plantilla_mensaje_invitacion?.trim() || '')
-      setPermitirResetConsentimientoGeneral(
-        (configPoderes as { permitir_reset_consentimiento_general?: boolean | null } | null)
-          ?.permitir_reset_consentimiento_general !== false
-      )
 
       // Cargar preguntas
       const { data: preguntasData, error: preguntasError } = await supabase
@@ -849,40 +847,51 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
-  const handleResetConsentimientoTodaAsamblea = async () => {
-    if (!asamblea?.id || !permitirResetConsentimientoGeneral) return
-    if (
-      !window.confirm(
-        '¿Seguro? Se eliminarán TODAS las aceptaciones de tratamiento de datos personales (LOPD) registradas para esta asamblea. Cada votante deberá volver a aceptar al entrar a votar. Esta acción no se puede deshacer.'
+  const handleSesionPublica = async (accion: 'iniciar_verificacion' | 'iniciar_votacion' | 'cerrar_sesion') => {
+    if (!asamblea?.id) return
+    if (accion === 'cerrar_sesion') {
+      const ok = window.confirm(
+        '¿Cerrar la sesión actual?\n\nSe incrementará el número de sesión: quienes ya aceptaron privacidad deberán volver a aceptarla. No desactiva el enlace público (sigue activo si lo tenías activo).'
       )
-    ) {
-      return
+      if (!ok) return
     }
-    setResettingConsentimientoLo(true)
+    setSesionAccionLoad(true)
     try {
-      const res = await fetch('/api/dashboard/reset-consentimiento', {
+      const res = await fetch('/api/dashboard/asamblea-sesion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ asamblea_id: params.id }),
+        body: JSON.stringify({ asamblea_id: asamblea.id, accion }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        toast.error(typeof data?.error === 'string' ? data.error : 'No se pudo resetear el consentimiento')
+        toast.error(typeof data?.error === 'string' ? data.error : 'No se pudo actualizar la sesión')
         return
       }
-      if (data.deleted === 0) {
-        toast.success('No había registros de consentimiento para esta asamblea.')
-      } else {
-        toast.success(
-          `Se eliminaron ${data.deleted} registro(s). Los votantes deberán aceptar de nuevo el tratamiento de datos al entrar.`
+      if (data.session_mode != null || data.session_seq != null) {
+        setAsamblea((prev) =>
+          prev
+            ? {
+                ...prev,
+                session_mode: data.session_mode ?? prev.session_mode,
+                session_seq: data.session_seq ?? prev.session_seq,
+              }
+            : null
         )
       }
+      await loadData()
+      toast.success(
+        accion === 'cerrar_sesion'
+          ? 'Sesión cerrada. Nueva ronda de consentimientos.'
+          : accion === 'iniciar_verificacion'
+            ? 'Modo: verificación de acceso / privacidad.'
+            : 'Modo: votación abierta.'
+      )
     } catch (e) {
       console.error(e)
-      toast.error('Error de red al resetear consentimiento')
+      toast.error('Error de red al actualizar la sesión')
     } finally {
-      setResettingConsentimientoLo(false)
+      setSesionAccionLoad(false)
     }
   }
 
@@ -1767,49 +1776,11 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const handleChangeEstadoAsamblea = async (nuevoEstado: 'borrador' | 'activa' | 'finalizada') => {
     if (!asamblea) return
 
-    // Cobro único: solo al activar la asamblea; eso habilita generar el acta cuantas veces quiera
-    if (nuevoEstado === 'activa') {
-      const yaPagada = asamblea.pago_realizado === true
-      if (!yaPagada && costoOperacion > 0 && tokensDisponibles < costoOperacion) {
-        setSinTokensModalOpen(true)
-        toast.error('Saldo insuficiente para activar la asamblea.')
-        return
-      }
-      if (!yaPagada) {
-        try {
-          const res = await fetch('/api/dashboard/descontar-token-asamblea-pro', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ asamblea_id: asamblea.id }),
-          })
-          const data = await res.json().catch(() => ({}))
-          if (res.status === 402) {
-            setSinTokensModalOpen(true)
-            return
-          }
-          if (res.status === 403) {
-            toast.error('No tienes permiso para este conjunto.')
-            return
-          }
-          if (!res.ok) {
-            toast.error(data.error ?? 'Error al activar asamblea')
-            return
-          }
-          if (data.tokens_restantes != null) setTokensDisponibles(Math.max(0, Number(data.tokens_restantes)))
-          if (data.pago_realizado === true) setAsamblea((prev) => (prev ? { ...prev, pago_realizado: true } : null))
-        } catch (e) {
-          console.error('Descontar token:', e)
-          toast.error('Error al descontar tokens (créditos). Necesitas ' + costoOperacion + ' tokens (créditos) para activar.')
-          return
-        }
-      }
-    }
-
     try {
-      const payload: { estado: string; activated_at?: string } = { estado: nuevoEstado }
+      const payload: { estado: string; activated_at?: string; pago_realizado?: boolean } = { estado: nuevoEstado }
       if (nuevoEstado === 'activa') {
         payload.activated_at = new Date().toISOString()
+        payload.pago_realizado = true
       }
       const { error } = await supabase
         .from('asambleas')
@@ -1818,7 +1789,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
       if (error) throw error
 
-      const updated = { ...asamblea, estado: nuevoEstado, activated_at: payload.activated_at ?? asamblea.activated_at }
+      const updated = {
+        ...asamblea,
+        estado: nuevoEstado,
+        activated_at: payload.activated_at ?? asamblea.activated_at,
+        pago_realizado: nuevoEstado === 'activa' ? true : asamblea.pago_realizado,
+      }
       setAsamblea(updated)
       setSuccessMessage(`Asamblea ${nuevoEstado === 'activa' ? 'activada' : 'actualizada'}`)
       setTimeout(() => setSuccessMessage(''), 3000)
@@ -1904,15 +1880,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
-  const costoReapertura = Math.max(1, Math.ceil(costoOperacion * 0.1))
   const handleReabrirAsamblea = async () => {
     if (!asamblea || asamblea.estado !== 'finalizada' || asamblea.is_demo) return
-    if (tokensDisponibles < costoReapertura) {
-      setShowModalConfirmarReabrir(false)
-      setSinTokensModalOpen(true)
-      toast.error('Saldo insuficiente para reabrir.')
-      return
-    }
     setReabriendo(true)
     try {
       const res = await fetch('/api/dashboard/reabrir-asamblea', {
@@ -1922,11 +1891,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         body: JSON.stringify({ asamblea_id: asamblea.id }),
       })
       const data = await res.json().catch(() => ({}))
-      if (res.status === 402) {
-        setShowModalConfirmarReabrir(false)
-        setSinTokensModalOpen(true)
-        return
-      }
       if (!res.ok) {
         toast.error(data.error ?? 'Error al reabrir')
         return
@@ -1934,10 +1898,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       setShowModalConfirmarReabrir(false)
       if (data.tokens_restantes != null) setTokensDisponibles(Math.max(0, Number(data.tokens_restantes)))
       setAsamblea((prev) =>
-        prev ? { ...prev, estado: 'activa', activated_at: data.activated_at ?? new Date().toISOString() } : null
+        prev ? { ...prev, estado: 'activa', activated_at: data.activated_at ?? new Date().toISOString(), pago_realizado: true } : null
       )
-      setSuccessMessage(`Asamblea reabierta. Se descontaron ${data.costo_reapertura ?? costoReapertura} tokens (créditos) (10% del costo de activación).`)
-      setTimeout(() => setSuccessMessage(''), 5000)
+      setSuccessMessage('Asamblea reabierta. No se cobró tokens al reabrir; el consumo por unidad vuelve al aceptar privacidad en la sesión pública.')
+      setTimeout(() => setSuccessMessage(''), 6000)
       loadData()
     } catch (e: any) {
       toast.error(e?.message ?? 'Error al reabrir la asamblea')
@@ -2367,8 +2331,10 @@ Tu participacion es importante. 🏠`
                 <div className="flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600">
                   <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
                   <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens (créditos)</span>
-                  {costoOperacion > 0 && !asamblea.pago_realizado && (
-                    <span className="text-xs text-slate-500 dark:text-slate-400">(costo: {costoOperacion})</span>
+                  {costoOperacion > 0 && (
+                    <span className="text-xs text-slate-500 dark:text-slate-400" title="Unidades del conjunto (referencia de consumo)">
+                      ({costoOperacion} u.)
+                    </span>
                   )}
                 </div>
                 {asamblea.pago_realizado && (
@@ -2412,34 +2378,19 @@ Tu participacion es importante. 🏠`
 
               {/* 4. Acciones principales según estado */}
               {asamblea.estado === 'borrador' && (
-                (puedeOperar || asamblea.pago_realizado) ? (
-                  <div className="flex flex-col gap-1">
-                    {!asamblea.pago_realizado && costoOperacion > 0 && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Al activar se cobran {costoOperacion} tokens (créditos) (una sola vez); después podrás generar el acta cuantas veces quieras. Saldo: {tokensDisponibles}.
-                      </p>
-                    )}
-                    <Button
-                      onClick={() => handleChangeEstadoAsamblea('activa')}
-                      className="bg-green-600 hover:bg-green-700 shrink-0"
-                    >
-                      <Play className="w-4 h-4 sm:mr-2 shrink-0" />
-                      <span className="hidden sm:inline">Activar asamblea</span>
-                      <span className="sm:hidden">Activar</span>
-                    </Button>
-                  </div>
-                ) : (
-<Button
-                  onClick={() => setSinTokensModalOpen(true)}
-                    variant="outline"
-                    className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 shrink-0"
-                    title="Saldo insuficiente. Clic para comprar tokens (créditos)"
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md">
+                    Activa la asamblea para generar el acta y el código de acceso. Los tokens se consumen cuando los votantes aceptan privacidad en la sesión (las primeras 5 unidades distintas en la sesión no generan cobro).
+                  </p>
+                  <Button
+                    onClick={() => handleChangeEstadoAsamblea('activa')}
+                    className="bg-green-600 hover:bg-green-700 shrink-0"
                   >
-                    <Lock className="w-4 h-4 sm:mr-2 shrink-0" />
-                    <span className="hidden sm:inline">Activar (saldo insuficiente — comprar tokens (créditos))</span>
-                    <span className="sm:hidden">Comprar tokens (créditos)</span>
+                    <Play className="w-4 h-4 sm:mr-2 shrink-0" />
+                    <span className="hidden sm:inline">Activar asamblea</span>
+                    <span className="sm:hidden">Activar</span>
                   </Button>
-                )
+                </div>
               )}
               {asamblea.estado === 'finalizada' && actaDisponible ? (
                 <Link href={`/dashboard/asambleas/${params.id}/acta`} className="shrink-0">
@@ -2451,7 +2402,7 @@ Tu participacion es importante. 🏠`
                 </Link>
               ) : asamblea.estado === 'borrador' && (
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Activa la asamblea para habilitar la generación del acta (cobro único de {costoOperacion} tokens (créditos)).
+                  Activa la asamblea para habilitar la generación del acta y el código de votación.
                 </p>
               )}
               {asamblea.estado === 'activa' && !isDemo && (
@@ -2812,22 +2763,20 @@ Tu participacion es importante. 🏠`
               </button>
               {!billeteraColapsada && (
                 <div className="px-6 pb-6 pt-0 space-y-3 border-t border-gray-100 dark:border-gray-700">
-                  {costoOperacion > 0 && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Costo al activar la asamblea (una vez): <strong>{costoOperacion} tokens (créditos)</strong>. Luego puedes generar el acta sin nuevo cobro.
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Referencia: tu conjunto tiene <strong>{costoOperacion}</strong> unidad(es) reales. El consumo de tokens por aceptación de privacidad en la sesión de votación aplica un umbral (las primeras 5 unidades distintas en la sesión no cobran).
+                  </p>
                   <Button
                     variant="outline"
                     size="sm"
-                    className={`w-full ${costoOperacion > 0 && tokensDisponibles < costoOperacion ? 'border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400' : ''}`}
+                    className="w-full"
                     onClick={() => setSinTokensModalOpen(true)}
                     title="Comprar más tokens (créditos) para tu billetera"
                   >
                     Comprar tokens (créditos)
                   </Button>
                   <p className="text-xs text-gray-500 dark:text-gray-400 pt-1 border-t border-gray-100 dark:border-gray-700 mt-3">
-                    <strong>Guía:</strong> Los tokens (créditos) se cobran <strong>una sola vez al activar la asamblea</strong>; eso habilita generar el acta cuantas veces quieras.
+                    <strong>Guía:</strong> activar la asamblea <strong>no</strong> descuenta tokens; se consumen cuando los votantes aceptan privacidad (tras el umbral de la sesión), salvo operaciones como acta con auditoría o envíos masivos según tu plan.
                   </p>
                 </div>
               )}
@@ -3173,29 +3122,59 @@ Tu participacion es importante. 🏠`
               </div>
               )}
 
-              {permitirResetConsentimientoGeneral && (
+              {asamblea.acceso_publico && asamblea.estado !== 'finalizada' && (
                 <div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center">
-                    <ShieldAlert className="w-4 h-4 mr-2 text-amber-600 dark:text-amber-400" />
-                    Consentimiento de datos (LOPD)
+                    <ShieldCheck className="w-4 h-4 mr-2 text-emerald-600 dark:text-emerald-400" />
+                    Sesión pública y privacidad (LOPD)
                   </h3>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                    Borra todas las aceptaciones de tratamiento de datos guardadas para esta asamblea. No afecta votos ni acta; solo hace que, al entrar a votar, todos deban volver a marcar la casilla de aceptación.
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                    Modo actual:{' '}
+                    <strong>
+                      {asamblea.session_mode === 'voting'
+                        ? 'Votación'
+                        : asamblea.session_mode === 'verification'
+                          ? 'Verificación'
+                          : 'Inactivo'}
+                    </strong>
+                    {' · '}
+                    Sesión n.º {asamblea.session_seq ?? 1}
                   </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                    size="lg"
-                    disabled={resettingConsentimientoLo}
-                    onClick={handleResetConsentimientoTodaAsamblea}
-                  >
-                    <ShieldAlert className="w-4 h-4 mr-2 shrink-0" />
-                    {resettingConsentimientoLo ? 'Procesando…' : 'Resetear consentimiento (toda la asamblea)'}
-                  </Button>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                    Puedes desactivar este botón en Configuración → Poderes y plantilla de correo.
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Los tokens se consumen cuando los votantes aceptan privacidad (tras las primeras 5 unidades distintas en la sesión). Al cerrar sesión o desactivar el acceso público, cambia el número de sesión y se piden de nuevo las aceptaciones.
                   </p>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={sesionAccionLoad}
+                      onClick={() => void handleSesionPublica('iniciar_verificacion')}
+                    >
+                      Iniciar verificación
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={sesionAccionLoad}
+                      onClick={() => void handleSesionPublica('iniciar_votacion')}
+                    >
+                      Iniciar votación
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
+                      disabled={sesionAccionLoad}
+                      onClick={() => void handleSesionPublica('cerrar_sesion')}
+                    >
+                      Cerrar sesión
+                    </Button>
+                  </div>
                 </div>
               )}
 
@@ -4544,7 +4523,7 @@ Tu participacion es importante. 🏠`
               Al cerrar la asamblea el acta queda <strong>definitiva</strong> y podrás descargarla cuantas veces quieras. Si tienes activa la <strong>certificación blockchain (OpenTimestamps)</strong>, el acta se sellará automáticamente en la blockchain de Bitcoin al finalizar.
             </p>
             <p className="text-xs text-muted-foreground/60 mt-1">
-              Para reabrir la asamblea después tendrás un costo del 10% de los tokens originales.
+              Puedes reabrir la asamblea después sin cobro por reactivación; el consumo de tokens sigue el modelo de aceptación de privacidad en sesión.
             </p>
             {(() => {
               const nAbiertas = preguntas.filter((p) => p.estado === 'abierta').length
@@ -4604,7 +4583,7 @@ Tu participacion es importante. 🏠`
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Confirmar reabrir asamblea (solo finalizada; consume 10% tokens) */}
+      {/* Modal: Confirmar reabrir asamblea (solo finalizada) */}
       <Dialog open={showModalConfirmarReabrir} onOpenChange={setShowModalConfirmarReabrir}>
         <DialogContent className="max-w-lg rounded-3xl">
           <DialogHeader>
@@ -4613,7 +4592,7 @@ Tu participacion es importante. 🏠`
               ¿Reabrir asamblea?
             </DialogTitle>
             <DialogDescription>
-              Al reabrir la asamblea se permitirá de nuevo el acceso a la votación con el mismo enlace y código. Esta acción consumirá <strong>{costoReapertura} tokens (créditos)</strong> (10% del costo de la primera activación). Tu saldo actual es <strong>{tokensDisponibles} tokens (créditos)</strong>. ¿Deseas continuar?
+              Al reabrir la asamblea se permitirá de nuevo el acceso a la votación con el mismo enlace y código. <strong>No se descuentan tokens</strong> al reabrir; el consumo por unidad se registra cuando los votantes aceptan privacidad en la sesión pública.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex flex-col-reverse sm:flex-row gap-3">
@@ -4622,10 +4601,10 @@ Tu participacion es importante. 🏠`
             </Button>
             <Button
               className="w-full sm:flex-1 bg-green-600 hover:bg-green-700 text-white"
-              disabled={reabriendo || tokensDisponibles < costoReapertura}
+              disabled={reabriendo}
               onClick={handleReabrirAsamblea}
             >
-              {reabriendo ? 'Reabriendo…' : `Sí, reabrir (${costoReapertura} tokens (créditos))`}
+              {reabriendo ? 'Reabriendo…' : 'Sí, reabrir'}
             </Button>
           </div>
         </DialogContent>
@@ -4668,13 +4647,13 @@ Tu participacion es importante. 🏠`
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Sin tokens al activar / generar acta — CTA usa checkout API; cantidad editable (mín. 20) */}
+      {/* Modal: Comprar tokens — CTA checkout; también se abre desde otras acciones que requieran saldo */}
       <Dialog open={sinTokensModalOpen} onOpenChange={setSinTokensModalOpen}>
         <DialogContent className="max-w-lg rounded-3xl">
           <DialogHeader>
-            <DialogTitle className="text-amber-800 dark:text-amber-200">¡Ups! Te faltan tokens (créditos) para iniciar esta asamblea</DialogTitle>
+            <DialogTitle className="text-amber-800 dark:text-amber-200">Saldo insuficiente de tokens (créditos)</DialogTitle>
             <DialogDescription>
-              Para activar esta asamblea necesitas <strong>{costoOperacion} tokens (créditos)</strong>. Tu saldo actual es <strong>{tokensDisponibles}</strong>. Compra los tokens (créditos) necesarios para activar la votación; después podrás generar el acta sin nuevo cobro.
+              Tu saldo actual es <strong>{tokensDisponibles}</strong>. Compra tokens para cubrir operaciones que lo requieran (privacidad en sesión tras el umbral, acta con costo, etc.).
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex flex-col gap-4">

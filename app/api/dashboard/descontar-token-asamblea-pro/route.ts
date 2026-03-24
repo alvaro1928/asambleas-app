@@ -2,14 +2,12 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { getCostoEnTokens } from '@/lib/costo-tokens'
 
 /**
  * POST /api/dashboard/descontar-token-asamblea-pro
- * Modelo Billetera de Tokens por Gestor.
- * Al activar votación: costo = unidades del conjunto (1 token = 1 unidad).
- * Descuenta del perfil del gestor (todas las filas del mismo user_id).
- * Devuelve 200 si se descontó; 402 si no hay tokens suficientes.
+ * Histórico: cobraba al activar la asamblea (costo = unidades del conjunto).
+ * Modelo actual: no se descuenta al activar; el cobro por unidad va al aceptar LOPD en sesión (ver RPC registrar_consentimiento_y_consumo_sesion).
+ * Esta ruta se mantiene por compatibilidad con el panel: marca la asamblea como "habilitada" sin descontar tokens.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -63,40 +61,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Asamblea no encontrada' }, { status: 404 })
     }
 
-    const asamblea = asambleaRow as { organization_id?: string; estado?: string; pago_realizado?: boolean; is_demo?: boolean }
+    const asamblea = asambleaRow as { organization_id?: string; estado?: string; is_demo?: boolean }
     const orgId = asamblea.organization_id
     if (!orgId) {
       return NextResponse.json({ error: 'Asamblea sin conjunto' }, { status: 400 })
-    }
-
-    if (asamblea.is_demo === true) {
-      return NextResponse.json({
-        ok: true,
-        descontado: false,
-        motivo: 'asamblea_demo',
-        pago_realizado: true,
-        tokens_restantes: 0,
-        unidades: 0,
-      })
-    }
-
-    // Cobro único por asamblea: si ya se pagó, permitir acción sin descontar
-    if (asamblea.pago_realizado === true) {
-      const { data: byUser } = await admin.from('profiles').select('tokens_disponibles').eq('user_id', session.user.id)
-      const { data: byId } = await admin.from('profiles').select('tokens_disponibles').eq('id', session.user.id)
-      const allTokens = [
-        ...(Array.isArray(byUser) ? byUser : byUser ? [byUser] : []),
-        ...(Array.isArray(byId) ? byId : byId ? [byId] : []),
-      ].map((p: { tokens_disponibles?: number }) => Math.max(0, Number(p?.tokens_disponibles ?? 0)))
-      const saldo = allTokens.length ? Math.max(...allTokens) : 0
-      return NextResponse.json({
-        ok: true,
-        descontado: false,
-        motivo: 'asamblea_ya_pagada',
-        pago_realizado: true,
-        tokens_restantes: saldo,
-        unidades: 0,
-      })
     }
 
     const { data: profile } = await supabase
@@ -120,85 +88,29 @@ export async function POST(request: NextRequest) {
 
     const estado = asamblea.estado
     if (estado !== 'borrador') {
-      return NextResponse.json({ ok: true, descontado: false, motivo: 'asamblea_ya_activada' })
+      return NextResponse.json({ ok: true, descontado: false, motivo: 'asamblea_ya_activada', pago_realizado: true })
     }
 
-    // Excluir unidades demo (sandbox) del costo; solo cuentan unidades reales
-    const { count: unidadesCount } = await admin
-      .from('unidades')
-      .select('*', { count: 'exact', head: true })
-      .eq('organization_id', orgId)
-      .eq('is_demo', false)
-
-    const unidades = Math.max(0, unidadesCount ?? 0)
-    const costo = getCostoEnTokens(unidades)
-
-    // Billetera única por gestor: saldo = máximo de tokens en TODOS sus perfiles (igual que organization-status)
     const { data: byUser } = await admin.from('profiles').select('tokens_disponibles').eq('user_id', session.user.id)
     const { data: byId } = await admin.from('profiles').select('tokens_disponibles').eq('id', session.user.id)
     const allTokens = [
       ...(Array.isArray(byUser) ? byUser : byUser ? [byUser] : []),
       ...(Array.isArray(byId) ? byId : byId ? [byId] : []),
     ].map((p: { tokens_disponibles?: number }) => Math.max(0, Number(p?.tokens_disponibles ?? 0)))
-    const tokensActuales = allTokens.length ? Math.max(...allTokens) : 0
-    const costoInt = Math.max(0, Math.floor(Number(costo)))
-    if (tokensActuales < costoInt) {
-      return NextResponse.json(
-        {
-          error: `Saldo insuficiente: Necesitas ${costoInt} tokens y tienes ${tokensActuales}.`,
-          code: 'SIN_TOKENS',
-          costo: costoInt,
-          saldo: tokensActuales,
-          unidades,
-        },
-        { status: 402 }
-      )
-    }
-
-    const nuevoSaldo = Math.max(0, tokensActuales - costoInt)
-
-    const { error: updateByUser } = await admin
-      .from('profiles')
-      .update({ tokens_disponibles: nuevoSaldo })
-      .eq('user_id', session.user.id)
-    let updateError = updateByUser
-    if (updateError) {
-      const { error: updateById } = await admin
-        .from('profiles')
-        .update({ tokens_disponibles: nuevoSaldo })
-        .eq('id', session.user.id)
-      updateError = updateById
-    }
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
-    }
+    const saldo = allTokens.length ? Math.max(...allTokens) : 0
 
     await admin.from('asambleas').update({ pago_realizado: true }).eq('id', asamblea_id)
 
-    try {
-      await admin.from('billing_logs').insert({
-        user_id: session.user.id,
-        tipo_operacion: 'Votación',
-        asamblea_id,
-        organization_id: orgId,
-        tokens_usados: costoInt,
-        saldo_restante: nuevoSaldo,
-        metadata: { unidades, costo_cobrado: costoInt },
-      })
-    } catch (e) {
-      console.error('billing_logs insert:', e)
-    }
-
     return NextResponse.json({
       ok: true,
-      descontado: true,
+      descontado: false,
+      motivo: 'sin_cobro_al_activar',
       pago_realizado: true,
-      tokens_restantes: nuevoSaldo,
-      costo: costoInt,
-      unidades,
+      tokens_restantes: saldo,
+      unidades: 0,
     })
   } catch (e) {
     console.error('descontar-token-asamblea-pro:', e)
-    return NextResponse.json({ error: 'Error al descontar tokens' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al procesar la solicitud' }, { status: 500 })
   }
 }

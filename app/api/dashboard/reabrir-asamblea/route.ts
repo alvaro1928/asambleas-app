@@ -2,15 +2,11 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { getCostoEnTokens } from '@/lib/costo-tokens'
 import { logRouteError, publicErrorMessage } from '@/lib/route-errors'
-
-/** Porcentaje del costo inicial que se cobra al reabrir (10%) */
-const PORCENTAJE_REAPERTURA = 0.1
 
 /**
  * POST /api/dashboard/reabrir-asamblea
- * Reabre una asamblea finalizada. Consume tokens (10% del costo de activación, mínimo 1).
+ * Reabre una asamblea finalizada. Sin cobro de tokens (el modelo de cobro por LOPD en sesión sustituye cargos al activar/reabrir).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -101,16 +97,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { count: unidadesCount } = await admin
-      .from('unidades')
-      .select('*', { count: 'exact', head: true })
-      .eq('organization_id', orgId)
-      .eq('is_demo', false)
-
-    const unidades = Math.max(0, unidadesCount ?? 0)
-    const costoInicial = getCostoEnTokens(unidades)
-    const costoReapertura = Math.max(1, Math.ceil(costoInicial * PORCENTAJE_REAPERTURA))
-
     const { data: byUser } = await admin.from('profiles').select('tokens_disponibles').eq('user_id', session.user.id)
     const { data: byId } = await admin.from('profiles').select('tokens_disponibles').eq('id', session.user.id)
     const allTokens = [
@@ -119,66 +105,22 @@ export async function POST(request: NextRequest) {
     ].map((p: { tokens_disponibles?: number }) => Math.max(0, Number(p?.tokens_disponibles ?? 0)))
     const tokensActuales = allTokens.length ? Math.max(...allTokens) : 0
 
-    if (tokensActuales < costoReapertura) {
-      return NextResponse.json(
-        {
-          error: `Saldo insuficiente para reabrir: necesitas ${costoReapertura} tokens (10% del costo de activación) y tienes ${tokensActuales}.`,
-          code: 'SIN_TOKENS',
-          costo_reapertura: costoReapertura,
-          saldo: tokensActuales,
-        },
-        { status: 402 }
-      )
-    }
-
-    const nuevoSaldo = Math.max(0, tokensActuales - costoReapertura)
-
-    const { error: updateByUser } = await admin
-      .from('profiles')
-      .update({ tokens_disponibles: nuevoSaldo })
-      .eq('user_id', session.user.id)
-    let updateError = updateByUser
-    if (updateError) {
-      const { error: updateById } = await admin
-        .from('profiles')
-        .update({ tokens_disponibles: nuevoSaldo })
-        .eq('id', session.user.id)
-      updateError = updateById
-    }
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
-    }
-
     const activated_at = new Date().toISOString()
     const { error: updateAsamblea } = await admin
       .from('asambleas')
-      .update({ estado: 'activa', activated_at })
+      .update({ estado: 'activa', activated_at, pago_realizado: true })
       .eq('id', asamblea_id)
 
     if (updateAsamblea) {
       return NextResponse.json({ error: updateAsamblea.message }, { status: 500 })
     }
 
-    try {
-      await admin.from('billing_logs').insert({
-        user_id: session.user.id,
-        tipo_operacion: 'Reapertura asamblea',
-        asamblea_id,
-        organization_id: orgId,
-        tokens_usados: costoReapertura,
-        saldo_restante: nuevoSaldo,
-        metadata: { unidades, costo_inicial: costoInicial, porcentaje: PORCENTAJE_REAPERTURA },
-      })
-    } catch (e) {
-      logRouteError('api/dashboard/reabrir-asamblea', e, { phase: 'billing_logs' })
-    }
-
     return NextResponse.json({
       ok: true,
       estado: 'activa',
       activated_at,
-      tokens_restantes: nuevoSaldo,
-      costo_reapertura: costoReapertura,
+      tokens_restantes: tokensActuales,
+      costo_reapertura: 0,
     })
   } catch (e) {
     logRouteError('api/dashboard/reabrir-asamblea', e)

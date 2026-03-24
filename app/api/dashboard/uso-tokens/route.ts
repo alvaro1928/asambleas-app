@@ -85,16 +85,50 @@ export async function GET() {
     const orgNombre: Record<string, string> = {}
     for (const o of orgs) orgNombre[o.id] = o.name ?? '—'
 
-    const uso = rows.map((r) => ({
-      id: r.id,
-      fecha: r.fecha,
-      tipo_operacion: r.tipo_operacion,
-      tokens_usados: Number(r.tokens_usados ?? 0),
-      saldo_restante: Number(r.saldo_restante ?? 0),
-      asamblea_nombre: r.asamblea_id ? (asambleaNombre[r.asamblea_id] ?? '—') : null,
-      conjunto_nombre: r.organization_id ? (orgNombre[r.organization_id] ?? '—') : null,
-      metadata: r.metadata ?? null,
-    }))
+    const unidadIdsFromMeta = new Set<string>()
+    for (const r of rows) {
+      const m = r.metadata as { unidad_ids?: unknown } | null
+      const arr = m?.unidad_ids
+      if (Array.isArray(arr)) {
+        for (const u of arr) {
+          if (typeof u === 'string') unidadIdsFromMeta.add(u)
+        }
+      }
+    }
+    let unidadEtiquetas: Record<string, string> = {}
+    if (unidadIdsFromMeta.size > 0) {
+      const { data: unidadesRows } = await admin
+        .from('unidades')
+        .select('id, torre, numero')
+        .in('id', Array.from(unidadIdsFromMeta))
+      for (const u of unidadesRows ?? []) {
+        const row = u as { id: string; torre?: string | null; numero?: string | null }
+        const t = (row.torre ?? '').trim()
+        const n = (row.numero ?? '').trim()
+        unidadEtiquetas[row.id] = [t, n].filter(Boolean).join(' ') || row.id.slice(0, 8)
+      }
+    }
+
+    const uso = rows.map((r) => {
+      const meta = (r.metadata ?? null) as Record<string, unknown> | null
+      let unidad_labels: string[] | undefined
+      if (meta && Array.isArray(meta.unidad_ids)) {
+        unidad_labels = (meta.unidad_ids as string[])
+          .map((id) => unidadEtiquetas[id] ?? id.slice(0, 8))
+          .filter(Boolean)
+      }
+      return {
+        id: r.id,
+        fecha: r.fecha,
+        tipo_operacion: r.tipo_operacion,
+        tokens_usados: Number(r.tokens_usados ?? 0),
+        saldo_restante: Number(r.saldo_restante ?? 0),
+        asamblea_nombre: r.asamblea_id ? (asambleaNombre[r.asamblea_id] ?? '—') : null,
+        conjunto_nombre: r.organization_id ? (orgNombre[r.organization_id] ?? '—') : null,
+        metadata: meta,
+        unidad_labels: unidad_labels?.length ? unidad_labels : undefined,
+      }
+    })
 
     return NextResponse.json({ uso })
   } catch (e) {

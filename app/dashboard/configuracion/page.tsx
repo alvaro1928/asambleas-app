@@ -68,7 +68,6 @@ export default function ConfiguracionPage() {
   const [maxPoderesPorApoderado, setMaxPoderesPorApoderado] = useState<number>(3)
   const [plantillaAdicionalCorreo, setPlantillaAdicionalCorreo] = useState('')
   const [plantillaMensajeInvitacion, setPlantillaMensajeInvitacion] = useState('')
-  const [permitirResetConsentimientoGeneral, setPermitirResetConsentimientoGeneral] = useState(true)
   const [savingConfigPoderes, setSavingConfigPoderes] = useState(false)
 
   // Configuración asamblea (por usuario y conjunto)
@@ -91,9 +90,11 @@ export default function ConfiguracionPage() {
     asamblea_nombre: string | null
     conjunto_nombre: string | null
     metadata: Record<string, unknown> | null
+    unidad_labels?: string[]
   }
   const [usoTokens, setUsoTokens] = useState<UsoTokenItem[]>([])
   const [usoTokensLoading, setUsoTokensLoading] = useState(false)
+  const [usoTokenDetalleId, setUsoTokenDetalleId] = useState<string | null>(null)
 
   const secciones = [
     { id: 'perfil', label: 'Mi perfil', icon: UserIcon, orden: 1 },
@@ -408,7 +409,6 @@ Tu participacion es importante. 🏠`
             max_poderes_por_apoderado: Math.max(1, Math.min(10, maxPoderesPorApoderado)),
             plantilla_adicional_correo: plantillaAdicionalCorreo.trim() || null,
             plantilla_mensaje_invitacion: plantillaMensajeInvitacion.trim() || null,
-            permitir_reset_consentimiento_general: permitirResetConsentimientoGeneral,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'organization_id' }
@@ -958,22 +958,6 @@ Tu participacion es importante. 🏠`
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">Mostrar Gestión de Poderes en la página de asamblea</span>
               </label>
-              <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-gray-200 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-900/50">
-                <input
-                  type="checkbox"
-                  checked={permitirResetConsentimientoGeneral}
-                  onChange={(e) => setPermitirResetConsentimientoGeneral(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span>
-                  <span className="text-sm text-gray-700 dark:text-gray-300 block">
-                    Permitir reset masivo de consentimiento de datos (LOPD) en la página de asamblea
-                  </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 block mt-1">
-                    Si lo desactivas, no aparecerá el botón para borrar todas las aceptaciones de tratamiento de datos de una asamblea (útil para evitar uso accidental).
-                  </span>
-                </span>
-              </label>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Plantilla del mensaje de invitación (WhatsApp y correo) <span className="text-gray-500 font-normal">(opcional)</span>
@@ -1326,9 +1310,17 @@ Tu participacion es importante. 🏠`
                                   ? 'Ajuste manual'
                                   : row.tipo_operacion === 'WhatsApp'
                                     ? 'WhatsApp'
-                                    : row.tipo_operacion
+                                    : row.tipo_operacion === 'Consentimiento_sesion'
+                                      ? 'Privacidad (LOPD) en sesión'
+                                      : row.tipo_operacion
                       const detalle = [row.asamblea_nombre, row.conjunto_nombre].filter(Boolean).join(' · ') || '—'
+                      const hayDetalleUnidades =
+                        row.tipo_operacion === 'Consentimiento_sesion' &&
+                        Array.isArray(row.unidad_labels) &&
+                        row.unidad_labels.length > 0
+                      const isOpen = usoTokenDetalleId === row.id
                       return (
+                        <>
                         <tr
                           key={row.id}
                           className="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50/50 dark:hover:bg-gray-900/30"
@@ -1337,8 +1329,28 @@ Tu participacion es importante. 🏠`
                           <td className="py-3 px-4 text-gray-700 dark:text-gray-300">{operacionLabel}</td>
                           <td className="py-3 px-4 text-right font-medium text-gray-900 dark:text-white">{row.tokens_usados}</td>
                           <td className="py-3 px-4 text-right text-gray-600 dark:text-gray-400">{row.saldo_restante}</td>
-                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title={detalle}>{detalle}</td>
+                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400 max-w-[220px]">
+                            <div className="truncate" title={detalle}>{detalle}</div>
+                            {hayDetalleUnidades && (
+                              <button
+                                type="button"
+                                onClick={() => setUsoTokenDetalleId(isOpen ? null : row.id)}
+                                className="mt-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                              >
+                                {isOpen ? 'Ocultar unidades' : 'Ver unidades en esta operación'}
+                              </button>
+                            )}
+                          </td>
                         </tr>
+                        {isOpen && hayDetalleUnidades && (
+                          <tr key={`${row.id}-det`}>
+                            <td colSpan={5} className="px-4 pb-3 pt-0 text-xs text-gray-600 dark:text-gray-400 bg-gray-50/80 dark:bg-gray-900/40 rounded-b-lg">
+                              <span className="font-medium text-gray-700 dark:text-gray-300">Unidades (referencia): </span>
+                              {row.unidad_labels!.join(', ')}
+                            </td>
+                          </tr>
+                        )}
+                        </>
                       )
                     })}
                   </tbody>

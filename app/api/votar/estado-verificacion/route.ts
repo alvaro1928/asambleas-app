@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     const { data: aRow, error: aErr } = await admin
       .from('asambleas')
       .select(
-        'verificacion_asistencia_activa, verificacion_pregunta_id, participacion_timer_end_at, participacion_timer_default_minutes, participacion_timer_enabled'
+        'verificacion_asistencia_activa, verificacion_pregunta_id, participacion_timer_end_at, participacion_timer_default_minutes, participacion_timer_enabled, session_mode, session_seq'
       )
       .eq('id', asambleaId)
       .single()
@@ -82,6 +82,11 @@ export async function POST(request: NextRequest) {
       participacion_timer_enabled: !(
         (aRow as { participacion_timer_enabled?: boolean | null }).participacion_timer_enabled === false
       ),
+      session_mode: String((aRow as { session_mode?: string }).session_mode ?? 'inactive') as
+        | 'inactive'
+        | 'verification'
+        | 'voting',
+      session_seq: Number((aRow as { session_seq?: number }).session_seq ?? 1) || 1,
     }
 
     if (soloFlags) {
