@@ -64,24 +64,16 @@ import { GuiaTokensModal } from '@/components/GuiaTokensModal'
 import { WhatsAppGlyph } from '@/components/icons/WhatsAppGlyph'
 import { ModalRegistroAsistencia } from '@/components/ModalRegistroAsistencia'
 
-/**
- * Mensajes de confirmación al abrir votación pública o modos de sesión.
- * Alineado con Términos (lib/legal-docs) y reglas en supabase/SESION-Y-TOKENS-CONSENTIMIENTO.sql
- */
-function mensajeConfirmacionCobroLopd(opts: {
-  isDemo: boolean
-  tipo: 'activar_publico' | 'iniciar_verificacion' | 'iniciar_votacion'
-}): string {
-  const base = opts.isDemo
+/** Confirmación al activar acceso público (cobro LOPD: lib/legal-docs, supabase/SESION-Y-TOKENS-CONSENTIMIENTO.sql). */
+function mensajeConfirmacionActivarVotacionPublica(isDemo: boolean, sessionSeq: number): string {
+  const base = isDemo
     ? 'En esta asamblea de demostración no se descuentan créditos por aceptación LOPD.\n\n'
-    : 'El saldo no se descuenta solo por activar el acceso o abrir un modo. Los créditos se consumen cuando un copropietario acepta el tratamiento de datos (LOPD) en esta sesión pública: las primeras 5 unidades distintas no generan cobro; a partir de la 6.ª unidad nueva en la sesión, 1 crédito por unidad. La misma unidad no paga dos veces en la misma sesión aunque use varios dispositivos.\n\n'
-  if (opts.tipo === 'activar_publico') {
-    return base + 'Se generará un código y un enlace para compartir con los residentes.\n\n¿Activar la votación pública?'
-  }
-  if (opts.tipo === 'iniciar_verificacion') {
-    return base + 'Se abrirá el modo verificación: los votantes podrán identificarse y aceptar privacidad (LOPD).\n\n¿Continuar?'
-  }
-  return base + 'Se abrirá el modo votación: los votantes podrán identificarse, aceptar privacidad y votar según las preguntas abiertas.\n\n¿Continuar?'
+    : 'El saldo no se descuenta solo por activar el acceso. Los créditos se consumen cuando un copropietario acepta el tratamiento de datos (LOPD) al conectarse: las primeras 5 unidades distintas no generan cobro; a partir de la 6.ª unidad nueva en la sesión, 1 crédito por unidad. La misma unidad no paga dos veces en la misma sesión aunque use varios dispositivos.\n\n'
+  const reapertura =
+    sessionSeq > 1
+      ? 'Tras haber cerrado el acceso antes, el número de sesión ya cambió: esta es una nueva ronda de privacidad y los votantes deberán aceptar LOPD de nuevo al entrar.\n\n'
+      : ''
+  return base + reapertura + 'Se generará o mantendrá el código y el enlace para compartir. Los votantes podrán identificarse, aceptar privacidad y votar cuando haya preguntas abiertas.\n\n¿Activar la votación pública?'
 }
 
 interface Asamblea {
@@ -343,7 +335,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [emailAdicionalEnvio, setEmailAdicionalEnvio] = useState('')
   const [enviandoCorreoAdicional, setEnviandoCorreoAdicional] = useState(false)
   const [plantillaMensajeInvitacion, setPlantillaMensajeInvitacion] = useState('')
-  const [sesionAccionLoad, setSesionAccionLoad] = useState(false)
 
   const [billeteraColapsada, setBilleteraColapsada] = useState(true)
   const [openQuorumPanel, setOpenQuorumPanel] = useState(true)
@@ -868,62 +859,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
-  const handleSesionPublica = async (accion: 'iniciar_verificacion' | 'iniciar_votacion' | 'cerrar_sesion') => {
-    if (!asamblea?.id) return
-    if (accion === 'cerrar_sesion') {
-      const ok = window.confirm(
-        '¿Cerrar la sesión actual?\n\nSe incrementará el número de sesión: quienes ya aceptaron privacidad deberán volver a aceptarla. No desactiva el enlace público (sigue activo si lo tenías activo).'
-      )
-      if (!ok) return
-    }
-    if (accion === 'iniciar_verificacion' || accion === 'iniciar_votacion') {
-      const demo = asamblea.is_demo === true
-      const tipo = accion === 'iniciar_verificacion' ? 'iniciar_verificacion' : 'iniciar_votacion'
-      if (!window.confirm(mensajeConfirmacionCobroLopd({ isDemo: demo, tipo }))) return
-    }
-    setSesionAccionLoad(true)
-    try {
-      const res = await fetch('/api/dashboard/asamblea-sesion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ asamblea_id: asamblea.id, accion }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        toast.error(typeof data?.error === 'string' ? data.error : 'No se pudo actualizar la sesión')
-        return
-      }
-      if (data.session_mode != null || data.session_seq != null) {
-        setAsamblea((prev) =>
-          prev
-            ? {
-                ...prev,
-                session_mode: data.session_mode ?? prev.session_mode,
-                session_seq: data.session_seq ?? prev.session_seq,
-              }
-            : null
-        )
-      }
-      await loadData()
-      toast.success(
-        accion === 'cerrar_sesion'
-          ? 'Sesión cerrada. Nueva ronda de consentimientos.'
-          : accion === 'iniciar_verificacion'
-            ? 'Modo: verificación de acceso / privacidad.'
-            : 'Modo: votación abierta.'
-      )
-    } catch (e) {
-      console.error(e)
-      toast.error('Error de red al actualizar la sesión')
-    } finally {
-      setSesionAccionLoad(false)
-    }
-  }
-
   const handleActivarVotacion = async () => {
     if (!asamblea) return
-    if (!window.confirm(mensajeConfirmacionCobroLopd({ isDemo: asamblea.is_demo === true, tipo: 'activar_publico' }))) {
+    if (!window.confirm(mensajeConfirmacionActivarVotacionPublica(asamblea.is_demo === true, asamblea.session_seq ?? 1))) {
       return
     }
 
@@ -935,7 +873,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       
       if (error) throw error
       
-      setSuccessMessage('Votación pública activada exitosamente')
+      setSuccessMessage(
+        'Votación pública activada. El cobro de tokens aplica cuando los votantes aceptan LOPD al conectarse, no solo por activar el acceso.'
+      )
       loadData() // Recargar datos
     } catch (error: any) {
       console.error('Error al activar votación:', error)
@@ -948,9 +888,10 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
     if (
       !confirm(
-        '¿Desactivar el acceso público a la votación?\n\n' +
-          'Todas las personas que estén votando en este momento PERDERÁN el acceso (verán “acceso cerrado” o similar) hasta que vuelvas a activar la votación.\n\n' +
-          'No uses esto durante la asamblea salvo emergencia. ¿Continuar?'
+        '¿Cerrar el acceso público a la votación?\n\n' +
+          '• Quienes estén en línea dejarán de acceder hasta que vuelvas a pulsar «Activar votación pública».\n' +
+          '• El sistema incrementa el número de sesión: la próxima vez que actives el acceso, será una nueva ronda de privacidad (LOPD) y el cobro de tokens volverá a aplicarse según las reglas cuando los votantes se conecten y acepten.\n\n' +
+          'Evita usar esto en plena votación salvo emergencia. ¿Continuar?'
       )
     ) {
       return
@@ -963,7 +904,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       
       if (error) throw error
       
-      setSuccessMessage('Acceso público desactivado')
+      setSuccessMessage(
+        'Acceso público cerrado. La próxima vez que actives la votación pública será una nueva sesión de privacidad (LOPD); el cobro seguirá las reglas cuando los votantes se conecten.'
+      )
       loadData() // Recargar datos
     } catch (error: any) {
       console.error('Error al desactivar votación:', error)
@@ -2904,6 +2847,14 @@ Tu participacion es importante. 🏠`
                   <LinkIcon className="w-4 h-4 mr-2" />
                   Acceso Público
                 </h3>
+                {asamblea.estado === 'activa' && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 leading-relaxed">
+                    Usa el <strong className="text-emerald-700 dark:text-emerald-400">botón verde</strong> para abrir el acceso a la votación y la sección{' '}
+                    <strong className="text-red-700 dark:text-red-400">Desactivar votación</strong> (más abajo) para cerrarlo. Mientras el acceso esté abierto, la
+                    sesión de privacidad (LOPD) es la misma. Al <strong>cerrar</strong>, el sistema prepara una nueva sesión; al <strong>volver a abrir</strong>, los
+                    votantes aceptan LOPD de nuevo y los créditos se cobran <strong>al conectarse y aceptar</strong>, según las reglas del recuadro de tokens.
+                  </p>
+                )}
 
                 {asamblea.estado === 'finalizada' ? (
                   <div className="space-y-2 rounded-2xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50 p-4">
@@ -2970,13 +2921,14 @@ Tu participacion es importante. 🏠`
                         </Alert>
                         <Button
                           onClick={handleActivarVotacion}
-                          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                          className="w-full rounded-full min-h-[2.75rem] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-md"
                         >
                           <Unlock className="w-4 h-4 mr-2" />
                           Activar Votación Pública
                         </Button>
                         <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                          Esto generará un código único para compartir. Al confirmar, verás el resumen de cobro otra vez.
+                          Genera o reutiliza el código y el enlace. La confirmación repite el resumen de cobro. Cerrar el acceso (más abajo) reinicia la privacidad para
+                          la próxima apertura.
                         </p>
                       </>
                     )}
@@ -3003,7 +2955,7 @@ Tu participacion es importante. 🏠`
                           </span>
                         )}
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full sm:ml-auto sm:shrink-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full sm:ml-auto sm:shrink-0">
                         <Button
                           type="button"
                           onClick={onActivarVerificacionClick}
@@ -3012,13 +2964,13 @@ Tu participacion es importante. 🏠`
                           size="sm"
                           className={
                             asamblea.verificacion_asistencia_activa
-                              ? 'w-full min-h-[2.5rem] h-auto py-2 justify-center gap-2 px-3 border-green-600/85 dark:border-green-500/70 bg-green-50/90 dark:bg-green-950/35 text-green-800 dark:text-green-200 hover:bg-green-100 dark:hover:bg-green-950/55 hover:text-green-900 dark:hover:text-green-100 whitespace-normal text-center leading-snug'
-                              : 'w-full min-h-[2.5rem] h-auto py-2 justify-center gap-2 px-3 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 whitespace-normal text-center leading-snug'
+                              ? 'w-full min-h-[2.75rem] rounded-full h-auto py-2.5 justify-center gap-2 px-4 border-2 border-emerald-500/90 dark:border-emerald-400/75 bg-emerald-500/[0.08] dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100 hover:bg-emerald-500/15 dark:hover:bg-emerald-950/55 whitespace-normal text-center leading-snug font-medium'
+                              : 'w-full min-h-[2.75rem] rounded-full h-auto py-2.5 justify-center gap-2 px-4 border border-slate-300 dark:border-slate-600 bg-transparent text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/60 whitespace-normal text-center leading-snug font-medium'
                           }
                         >
                           {togglingVerif ? (
                             <span
-                              className={`animate-spin rounded-full h-3.5 w-3.5 border-2 border-t-transparent inline-block shrink-0 ${asamblea.verificacion_asistencia_activa ? 'border-green-600 dark:border-green-400' : 'border-indigo-600 dark:border-indigo-400'}`}
+                              className={`animate-spin rounded-full h-3.5 w-3.5 border-2 border-t-transparent inline-block shrink-0 ${asamblea.verificacion_asistencia_activa ? 'border-emerald-600 dark:border-emerald-400' : 'border-slate-600 dark:border-slate-400'}`}
                             />
                           ) : (
                             <UserCheck className="w-4 h-4 shrink-0" />
@@ -3029,7 +2981,7 @@ Tu participacion es importante. 🏠`
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="w-full sm:w-auto min-h-[2.5rem] h-auto py-2 justify-center gap-2 px-3 border-gray-400/90 dark:border-gray-500 bg-gray-50/90 dark:bg-gray-900/50 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800/70 whitespace-normal text-center leading-snug"
+                          className="w-full sm:w-auto min-h-[2.75rem] rounded-full h-auto py-2.5 justify-center gap-2 px-4 border border-slate-300 dark:border-slate-600 bg-transparent text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/60 whitespace-normal text-center leading-snug font-medium"
                           onClick={() => setShowModalAsistencia(true)}
                         >
                           <CheckCircle2 className="w-4 h-4 shrink-0" /> Registrar asistencia
@@ -3129,9 +3081,18 @@ Tu participacion es importante. 🏠`
                         {openDesactivarAcceso ? <ChevronUp className="w-4 h-4 text-red-500 shrink-0" /> : <ChevronDown className="w-4 h-4 text-red-500 shrink-0" />}
                       </button>
                       {openDesactivarAcceso && (
-                        <div className="px-3 pb-3 pt-0 border-t border-red-200 dark:border-red-900/50 pt-2">
-                          <Button onClick={handleDesactivarVotacion} variant="outline" size="sm" className="w-full border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
-                            <Lock className="w-4 h-4 mr-1" /> Desactivar votación
+                        <div className="px-3 pb-3 pt-0 border-t border-red-200 dark:border-red-900/50 pt-2 space-y-2">
+                          <p className="text-xs text-red-900/90 dark:text-red-200/90 leading-relaxed">
+                            Equivale a <strong>cerrar</strong> el acceso público: el sistema incrementa el número de sesión y la próxima vez que actives la votación
+                            pública será una nueva ronda de LOPD; el cobro de tokens aplicará de nuevo cuando los votantes entren y acepten.
+                          </p>
+                          <Button
+                            onClick={handleDesactivarVotacion}
+                            variant="outline"
+                            size="sm"
+                            className="w-full min-h-[2.75rem] rounded-full border-2 border-red-400/90 dark:border-red-600/80 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 font-medium"
+                          >
+                            <Lock className="w-4 h-4 mr-1.5 shrink-0" /> Desactivar votación
                           </Button>
                         </div>
                       )}
@@ -3188,18 +3149,18 @@ Tu participacion es importante. 🏠`
                     Sesión pública y privacidad (LOPD)
                   </h3>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                    Modo actual:{' '}
-                    <strong>
-                      {asamblea.session_mode === 'voting'
-                        ? 'Votación'
-                        : asamblea.session_mode === 'verification'
-                          ? 'Verificación'
-                          : 'Inactivo'}
-                    </strong>
-                    {' · '}
                     Sesión n.º {asamblea.session_seq ?? 1}
+                    {asamblea.session_mode === 'voting' && (
+                      <span className="text-gray-500 dark:text-gray-500"> · Votación pública lista</span>
+                    )}
+                    {asamblea.session_mode === 'verification' && (
+                      <span className="text-amber-700 dark:text-amber-300"> · Modo verificación (legacy)</span>
+                    )}
+                    {asamblea.session_mode === 'inactive' && (
+                      <span className="text-gray-500"> · Sesión inactiva</span>
+                    )}
                   </p>
-                  <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20 px-3 py-2.5 mb-3">
+                  <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20 px-3 py-2.5">
                     <p className="text-xs font-medium text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
                       <Coins className="w-3.5 h-3.5 shrink-0" />
                       Cobro por LOPD en esta sesión (n.º {asamblea.session_seq ?? 1})
@@ -3215,42 +3176,9 @@ Tu participacion es importante. 🏠`
                       </ul>
                     )}
                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                      Al cerrar sesión o desactivar el acceso público cambia el número de sesión y se vuelven a pedir consentimientos.
+                      Para cerrar el acceso usa <strong>Desactivar votación</strong> en el mismo panel de Acceso público (bloque rojo colapsable). Cambia el número de
+                      sesión; al volver a activar con el botón verde, los votantes aceptan LOPD otra vez y el cobro es al conectar, no por pulsar activar.
                     </p>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      disabled={sesionAccionLoad}
-                      onClick={() => void handleSesionPublica('iniciar_verificacion')}
-                      title="Se mostrará un resumen de cómo se cobrará antes de continuar"
-                    >
-                      Iniciar verificación
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      disabled={sesionAccionLoad}
-                      onClick={() => void handleSesionPublica('iniciar_votacion')}
-                      title="Se mostrará un resumen de cómo se cobrará antes de continuar"
-                    >
-                      Iniciar votación
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
-                      disabled={sesionAccionLoad}
-                      onClick={() => void handleSesionPublica('cerrar_sesion')}
-                    >
-                      Cerrar sesión
-                    </Button>
                   </div>
                 </div>
               )}
