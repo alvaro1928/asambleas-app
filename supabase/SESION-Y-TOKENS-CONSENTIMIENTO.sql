@@ -23,6 +23,10 @@ ALTER TABLE consentimiento_tratamiento_datos
 ALTER TABLE consentimiento_tratamiento_datos
   DROP CONSTRAINT IF EXISTS consentimiento_tratamiento_datos_asamblea_id_identificador_key;
 
+-- Reejecutable: quitar el único por sesión si ya existía
+ALTER TABLE consentimiento_tratamiento_datos
+  DROP CONSTRAINT IF EXISTS consentimiento_tratamiento_datos_asamblea_ident_session_uq;
+
 ALTER TABLE consentimiento_tratamiento_datos
   ADD CONSTRAINT consentimiento_tratamiento_datos_asamblea_ident_session_uq
   UNIQUE (asamblea_id, identificador, session_seq);
@@ -169,7 +173,7 @@ BEGIN
     codigo_acceso = v_codigo,
     url_publica = v_url,
     acceso_publico = true,
-    session_mode = 'verification'
+    session_mode = 'voting'
   WHERE id = p_asamblea_id;
 
   RETURN QUERY
@@ -389,7 +393,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 COMMENT ON FUNCTION registrar_consentimiento_y_consumo_sesion IS 'LOPD + consumo por umbral 5 unidades; idempotente por unidad/sesión; SECURITY DEFINER';
 
--- 8) Cerrar sesión (sin desactivar enlace público): nueva ronda de consentimientos / contadores
+-- 8) Cerrar sesión (sin desactivar enlace público): nueva ronda de consentimientos / contadores.
+-- Nota: el panel solo usa «Desactivar votación» (desactivar_votacion_publica). Esta RPC queda para scripts o integraciones que necesiten nuevo session_seq sin cerrar acceso_publico.
 CREATE OR REPLACE FUNCTION cerrar_sesion_votacion_publica(p_asamblea_id UUID)
 RETURNS VOID AS $$
 BEGIN
