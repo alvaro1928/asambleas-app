@@ -2699,7 +2699,7 @@ Tu participacion es importante. 🏠`
           <div className="mb-6 flex justify-end">
             <div className="flex flex-col gap-1 items-end">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Registro masivo de votos por unidad no consume tokens (créditos). El consumo principal es por aceptación LOPD cuando los votantes entran por el enlace público; también pueden aplicar acta, WhatsApp u otras operaciones según tu uso.
+                Registro masivo de votos por unidad no consume tokens (créditos). El consumo principal es por aceptación LOPD cuando los votantes entran por el enlace público; también pueden aplicar envíos masivos por WhatsApp u otras operaciones que la interfaz marque como de pago. El acta con auditoría no descuenta tokens adicionales por ese concepto.
               </p>
               <Button
                 variant="outline"
@@ -2750,7 +2750,7 @@ Tu participacion es importante. 🏠`
                     Comprar tokens (créditos)
                   </Button>
                   <p className="text-xs text-gray-500 dark:text-gray-400 pt-1 border-t border-gray-100 dark:border-gray-700 mt-3">
-                    <strong>Guía:</strong> activar la asamblea <strong>no</strong> descuenta tokens; se consumen cuando los votantes aceptan privacidad (tras el umbral de la sesión), salvo operaciones como acta con auditoría o envíos masivos según tu plan.
+                    <strong>Guía:</strong> activar la asamblea <strong>no</strong> descuenta tokens; se consumen cuando los votantes aceptan privacidad (tras el umbral de la sesión), y pueden aplicar envíos masivos u otras operaciones de pago según tu plan. El acta con auditoría no cobra tokens extra por descargarla.
                   </p>
                 </div>
               )}
@@ -4637,7 +4637,7 @@ Tu participacion es importante. 🏠`
           <DialogHeader>
             <DialogTitle className="text-amber-800 dark:text-amber-200">Saldo insuficiente de tokens (créditos)</DialogTitle>
             <DialogDescription>
-              Tu saldo actual es <strong>{tokensDisponibles}</strong>. Compra tokens para cubrir operaciones que lo requieran (privacidad en sesión tras el umbral, acta con costo, etc.).
+              Tu saldo actual es <strong>{tokensDisponibles}</strong>. Compra tokens para cubrir operaciones que lo requieran (privacidad en sesión tras el umbral, envíos masivos, etc.).
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex flex-col gap-4">

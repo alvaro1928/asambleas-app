@@ -1256,7 +1256,7 @@ Tu participacion es importante. 🏠`
                     Uso de tokens
                   </h2>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Historial de operaciones que han consumido tus tokens (votación, acta, WhatsApp, etc.)
+                    Historial de operaciones que han consumido tus tokens (consentimiento LOPD, WhatsApp masivo, etc.)
                   </p>
                 </div>
               </div>
@@ -1277,7 +1277,7 @@ Tu participacion es importante. 🏠`
               </div>
             ) : usoTokens.length === 0 ? (
               <div className="py-8 text-center text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
-                Aún no hay registros de uso de tokens. Aquí aparecerán las operaciones que consuman tu saldo (consentimiento LOPD en sesión de votación, acta, WhatsApp masivo, etc.).
+                Aún no hay registros de uso de tokens. Aquí aparecerán las operaciones que consuman tu saldo (consentimiento LOPD en sesión de votación, WhatsApp masivo, etc.).
               </div>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">

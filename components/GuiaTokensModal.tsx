@@ -158,11 +158,18 @@ export function GuiaTokensModal({
             {showAcceso && (
               <p className="text-sm text-slate-400">
                 El detalle del acceso público y el cobro por LOPD está arriba. Aquí, el resto del uso de la billetera: también pueden consumirse tokens otras operaciones
-                según tu plan (acta con condiciones de pago, envíos masivos por WhatsApp, etc.).
+                según tu plan (por ejemplo envíos masivos por WhatsApp u otras que la interfaz marque como de pago). La descarga del acta con auditoría{' '}
+                <strong className="text-slate-300">no</strong> supone un cargo adicional de tokens por ese concepto.
               </p>
             )}
             <p className="text-sm text-slate-400">
-              <strong className="text-slate-300">También pueden consumir tokens</strong> otras operaciones según tu plan (por ejemplo acta con auditoría avanzada, envíos masivos por WhatsApp, etc.).
+              <strong className="text-slate-300">También pueden consumir tokens</strong> otras operaciones según tu plan (por ejemplo envíos masivos por WhatsApp o funciones que la interfaz indique como pagas).
+              {!showAcceso && (
+                <>
+                  {' '}
+                  Generar o descargar el acta con tabla de auditoría <strong className="text-slate-300">no descuenta tokens extra</strong> por elegir esa versión.
+                </>
+              )}
             </p>
             <p className="text-sm text-slate-400">
               <strong className="text-slate-300">No consumen tokens (créditos):</strong> entrar al panel, crear preguntas, importar unidades, registrar votos a nombre de un residente, ni activar la asamblea en sí.
@@ -206,7 +213,8 @@ export function GuiaTokensModal({
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 mt-0.5 shrink-0">✓</span>
                 <span>
-                  <strong className="text-slate-300">Actas</strong> — Generar actas con resultados, umbral de aprobación y auditoría. Con la asamblea activa puedes generar e imprimir el acta; según el tipo de acta puede aplicarse consumo de tokens.{' '}
+                  <strong className="text-slate-300">Actas</strong> — Resultados, umbral y tabla de auditoría. Puedes generar e imprimir el acta; la versión con auditoría completa{' '}
+                  <strong className="text-slate-300">no consume tokens adicionales</strong> por ese concepto (el requisito de saldo y plan es el que muestra la interfaz).{' '}
                   <strong className="text-slate-300">Cierra la asamblea</strong> para que el acta quede definitiva.
                 </span>
               </li>

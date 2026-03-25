@@ -520,7 +520,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   }
 
   const [printError, setPrintError] = useState<string | null>(null)
-  /** True cuando el usuario ya confirmó y se descontaron tokens por generar el acta (misma sesión no vuelve a cobrar) */
+  /** True cuando el usuario ya confirmó la generación del acta (misma sesión no vuelve a pedir confirmación) */
   const [actaGenerada, setActaGenerada] = useState(false)
   const [generando, setGenerando] = useState(false)
   const [generarError, setGenerarError] = useState<string | null>(null)
@@ -550,7 +550,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     if (showModalTipoActa) setTipoDescargaActaModal('publica')
   }, [showModalTipoActa])
 
-  /** Descontar tokens y marcar acta como generada; luego se puede descargar PDF sin volver a cobrar. */
+  /** Confirmar generación del acta (sin cobro adicional por PDF con auditoría; ver API). */
   const handleGenerarActa = async () => {
     if (!asamblea?.id) return
     setGenerarError(null)
@@ -824,7 +824,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             Tokens insuficientes
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Saldo insuficiente para esta operación. La descarga del acta con auditoría requiere tener en tu billetera al menos tantos tokens como unidades tiene el conjunto (1 token = 1 unidad). Recarga tokens o compra más para acceder.
+            Saldo insuficiente para acceder al acta con el detalle completo. Tu plan exige un saldo mínimo en billetera (habitualmente alineado al tamaño del conjunto). Eso no es un cobro extra por la versión con auditoría: no se descuenta un token adicional por descargar el PDF con tabla de auditoría. Recarga o compra más créditos para cumplir el requisito.
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
             Tu billetera: <strong>{tokensDisponibles} tokens (créditos)</strong>
@@ -841,7 +841,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
     )
   }
 
-  // Puerta: generar acta consume tokens; confirmar antes de mostrar el acta (luego pueden descargar PDF sin volver a cobrar)
+  // Puerta: confirmar antes de mostrar el acta (el cobro por asamblea es al activar; sin cargo extra por versión con auditoría)
   if (!actaGenerada) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-6 print:hidden">

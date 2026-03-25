@@ -69,7 +69,7 @@ Cuando se habilita la votación pública y un participante acepta el tratamiento
 - La misma unidad no se cobra dos veces por usar varios dispositivos en la misma sesión: el débito, si aplica, queda asociado a la unidad por sesión.
 
 8.3 Otras operaciones con consumo
-Según el plan y la configuración, otras acciones pueden debitar créditos (por ejemplo actas u operaciones que la interfaz marque como pagas, envíos masivos por WhatsApp u otras funciones). Cuando una acción consume créditos, la plataforma lo indica antes de ejecutarla cuando el flujo lo permite.
+Según el plan y la configuración, otras acciones pueden debitar créditos (por ejemplo envíos masivos por WhatsApp u operaciones que la interfaz marque como pagas). La generación o descarga del acta con trazabilidad o auditoría no supone por sí misma un débito adicional de créditos distinto de las reglas ya descritas (p. ej. consentimiento LOPD) o de lo que la interfaz indique expresamente. Cuando una acción consume créditos, la plataforma lo indica antes de ejecutarla cuando el flujo lo permite.
 
 8.4 Saldo, vigencia y caducidad
 Los créditos adquiridos o bonificados permanecen en la billetera mientras el servicio esté disponible para la cuenta, salvo terminación contractual o incumplimiento. Si en el futuro se ofreciera una promoción con vigencia distinta para el saldo, el plazo se informará de forma explícita antes de aceptar esa promoción.

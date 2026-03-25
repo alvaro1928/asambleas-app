@@ -89,10 +89,10 @@ export function ComprarTokensCTA({
       : 'Más potencia para tus asambleas'
 
   const subtitulo = isBlocked
-    ? 'Los créditos se usan cuando los votantes aceptan privacidad (LOPD) en la sesión de votación pública, y en otras acciones (acta, WhatsApp masivo, etc.). Activar la asamblea o abrir el acceso público no descuenta por sí solo. Compra más para seguir operando.'
+    ? 'Los créditos se usan cuando los votantes aceptan privacidad (LOPD) en la sesión de votación pública, y en otras acciones (WhatsApp masivo, etc.). El acta con auditoría no descuenta tokens extra por ese concepto. Activar la asamblea o abrir el acceso público no descuenta por sí solo. Compra más para seguir operando.'
     : isLow
-      ? 'Con poco saldo puedes quedarte sin créditos si muchas unidades aceptan LOPD en la misma sesión o si usas acta/WhatsApp. Recarga antes de la asamblea.'
-      : 'Compra tokens para tu billetera. El consumo depende de cada operación (LOPD por sesión, acta, notificaciones, etc.).'
+      ? 'Con poco saldo puedes quedarte sin créditos si muchas unidades aceptan LOPD en la misma sesión o si usas envíos masivos. Recarga antes de la asamblea.'
+      : 'Compra tokens para tu billetera. El consumo depende de cada operación (LOPD por sesión, canales masivos, etc.).'
 
   return (
     <div

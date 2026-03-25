@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No tienes acceso a esta asamblea' }, { status: 403 })
     }
 
-    // No se exigen tokens para registrar votos (solo para activar asamblea y generar acta).
+    // No se exigen tokens para registrar votos (consumo típico: LOPD en sesión, WhatsApp masivo, etc.).
 
     // Unidades con service_role (evita RLS incompleto con sesión del gestor)
     const { data: unidadesRows } = await admin
@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
     const okCount = results.filter((r) => r.success).length
 
     // No se restan tokens al administrador cuando registra votos por una unidad.
-    // Consumo típico de tokens: aceptación LOPD en sesión de votación pública (RPC registrar_consentimiento_y_consumo_sesion), acta, WhatsApp masivo, etc.
+    // Consumo típico de tokens: aceptación LOPD en sesión de votación pública (RPC registrar_consentimiento_y_consumo_sesion), WhatsApp masivo, etc.
 
     return NextResponse.json({
       success: allOk,
