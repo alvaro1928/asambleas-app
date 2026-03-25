@@ -32,22 +32,11 @@ export default function SuperAdminPage() {
   const [estadoSistema, setEstadoSistema] = useState<EstadoSistema | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const isAllowed = (email: string | undefined) => {
-    if (!email) return false
-    const allowed = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? '').trim().toLowerCase()
-    if (!allowed) return false
-    return email.trim().toLowerCase() === allowed
-  }
-
   useEffect(() => {
     const checkAndLoad = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.user?.email) {
-          router.replace('/login?redirect=/super-admin')
-          return
-        }
-        if (!isAllowed(session.user.email)) {
           router.replace('/login?redirect=/super-admin')
           return
         }

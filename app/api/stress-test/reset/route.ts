@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Votos de la asamblea de prueba eliminados. Los tokens del gestor no se devuelven automáticamente (se consumen al activar votación/acta).',
+      message: 'Votos de la asamblea de prueba eliminados. Los tokens del gestor no se devuelven automáticamente (consumo típico: LOPD en sesión, acta, etc.).',
       votos_eliminados: votosDeleted ?? 0,
       historial_eliminado: historialDeleted,
     })

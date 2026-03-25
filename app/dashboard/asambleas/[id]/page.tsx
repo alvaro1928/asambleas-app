@@ -86,7 +86,7 @@ interface Asamblea {
   codigo_acceso?: string
   url_publica?: string
   acceso_publico?: boolean
-  /** Cobro único por asamblea: true = ya se cobró (Activar o Acta); no se vuelve a descontar */
+  /** Marca asamblea “habilitada” en flujos legacy; el cobro por unidades va por LOPD en sesión (ver RPC), no por activar acceso solo */
   pago_realizado?: boolean
   /** Asamblea de simulación: no consume créditos; reversible y reiniciable */
   is_demo?: boolean
@@ -2697,12 +2697,12 @@ Tu participacion es importante. 🏠`
           <div className="mb-6 flex justify-end">
             <div className="flex flex-col gap-1 items-end">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Registro masivo de votos por unidad no consume tokens (créditos). Los tokens (créditos) solo se usan al activar la votación o generar el acta.
+                Registro masivo de votos por unidad no consume tokens (créditos). El consumo principal es por aceptación LOPD cuando los votantes entran por el enlace público; también pueden aplicar acta, WhatsApp u otras operaciones según tu uso.
               </p>
               <Button
                 variant="outline"
                 onClick={handleAbrirRegistroVotoAdmin}
-                className="border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                className="rounded-full min-h-[2.5rem] border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 hover:bg-blue-500/10 dark:hover:bg-blue-950/40"
                 title="Registrar votos en lote para residentes que no pueden votar en línea"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
@@ -2876,7 +2876,7 @@ Tu participacion es importante. 🏠`
                             Para abrir el acceso a la votación primero debes <strong>activar la asamblea</strong> con el botón verde de arriba. Así se genera el código y el enlace para compartir con los residentes.
                           </AlertDescription>
                         </Alert>
-                        <Button disabled className="w-full bg-gray-400 dark:bg-gray-600 cursor-not-allowed" title="Activa primero la asamblea (arriba)">
+                        <Button disabled className="w-full rounded-full min-h-[2.75rem] bg-gray-400 dark:bg-gray-600 cursor-not-allowed" title="Activa primero la asamblea (arriba)">
                           <Unlock className="w-4 h-4 mr-2" />
                           Activar Votación Pública
                         </Button>
@@ -2939,7 +2939,7 @@ Tu participacion es importante. 🏠`
 
                     {/* Verificación de quórum — visible según Config → Asamblea */}
                     {prefsAsamblea.mostrar_quorum !== false && (
-                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center py-2 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center py-3 px-3 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 flex-1">
                         <span className="text-xs font-semibold text-indigo-800 dark:text-indigo-200 flex items-center gap-1.5">
                           <UserCheck className="w-4 h-4 shrink-0" />
@@ -2991,8 +2991,8 @@ Tu participacion es importante. 🏠`
                     )}
 
                     {/* 1. Enlace de votación — colapsable */}
-                    <div className="rounded-2xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50 dark:bg-gray-900/50">
-                      <button type="button" onClick={() => setOpenEnlaceAcceso((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
+                    <div className="rounded-2xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-gray-50/80 dark:bg-gray-900/40">
+                      <button type="button" onClick={() => setOpenEnlaceAcceso((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-3 text-left hover:bg-gray-100/90 dark:hover:bg-gray-800/50 transition-colors rounded-t-2xl">
                         <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
                           <LinkIcon className="w-4 h-4 shrink-0" />
                           Enlace de votación
@@ -3003,7 +3003,7 @@ Tu participacion es importante. 🏠`
                         <div className="px-3 pb-3 pt-0 border-t border-gray-200 dark:border-gray-600 space-y-2">
                           <div className="flex flex-col sm:flex-row gap-2 pt-2">
                             <input type="text" value={asamblea.codigo_acceso ? votarUrlPublica : (asamblea.url_publica || '')} readOnly className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-xs text-gray-700 dark:text-gray-300" />
-                            <Button onClick={() => handleCopiarTexto(asamblea.codigo_acceso ? votarUrlPublica : (asamblea.url_publica || ''), 'URL')} variant="outline" size="sm" title="Copiar enlace" className="shrink-0">
+                            <Button onClick={() => handleCopiarTexto(asamblea.codigo_acceso ? votarUrlPublica : (asamblea.url_publica || ''), 'URL')} variant="outline" size="sm" title="Copiar enlace" className="shrink-0 rounded-full min-h-[2.5rem]">
                               <Copy className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">Copiar</span>
                             </Button>
                           </div>
@@ -3015,13 +3015,13 @@ Tu participacion es importante. 🏠`
                               size="sm"
                               title="Envía el enlace por WhatsApp o correo, un contacto a la vez"
                               aria-label="Enviar enlace de votación por WhatsApp o correo a cada contacto"
-                              className="w-full min-h-[2.5rem] h-auto py-2 border-green-600/85 dark:border-green-500/70 bg-green-50/90 dark:bg-green-950/35 text-green-800 dark:text-green-200 hover:bg-green-100 dark:hover:bg-green-950/55 hover:text-green-900 dark:hover:text-green-100 justify-center gap-2 px-3 whitespace-normal text-center leading-snug"
+                              className="w-full min-h-[2.75rem] rounded-full h-auto py-2.5 border-2 border-green-500/80 dark:border-green-500/60 bg-transparent text-green-800 dark:text-green-200 hover:bg-green-500/10 dark:hover:bg-green-950/40 justify-center gap-2 px-4 whitespace-normal text-center leading-snug font-medium"
                             >
                               <WhatsAppGlyph className="w-4 h-4 shrink-0 text-green-600 dark:text-green-400" />
                               <span>Enviar enlace a contactos</span>
                             </Button>
                             <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="w-full" title="Ver código QR del enlace de votación">
-                              <Button variant="outline" size="sm" className="w-full min-h-[2.5rem] border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 justify-center gap-2">
+                              <Button variant="outline" size="sm" className="w-full min-h-[2.75rem] rounded-full border border-indigo-400/70 dark:border-indigo-500/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/10 justify-center gap-2 font-medium">
                                 <QrCode className="w-4 h-4 shrink-0" /> Ver QR
                               </Button>
                             </Link>
@@ -3073,7 +3073,7 @@ Tu participacion es importante. 🏠`
 
                     {/* 3. Desactivar votación — colapsable */}
                     <div className="rounded-2xl border border-red-200 dark:border-red-900/50 overflow-hidden bg-red-50/50 dark:bg-red-900/10">
-                      <button type="button" onClick={() => setOpenDesactivarAcceso((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors">
+                      <button type="button" onClick={() => setOpenDesactivarAcceso((v) => !v)} className="w-full flex items-center justify-between gap-2 px-3 py-3 text-left hover:bg-red-100/50 dark:hover:bg-red-900/20 transition-colors rounded-t-2xl">
                         <span className="text-xs font-semibold text-red-700 dark:text-red-300 flex items-center gap-2">
                           <Lock className="w-4 h-4 shrink-0" />
                           Desactivar votación

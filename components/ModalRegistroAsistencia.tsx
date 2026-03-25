@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Search, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { matchesUnidadBusquedaCompleta } from '@/lib/matchUnidadSearch'
@@ -38,6 +38,16 @@ export function ModalRegistroAsistencia({
   const [quitandoId, setQuitandoId] = useState<string | null>(null)
   const [cargandoUnidadesAsistencia, setCargandoUnidadesAsistencia] = useState(false)
   const [mensajeAsistencia, setMensajeAsistencia] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
+
+  const unidadesFiltradas = useMemo(
+    () => unidadesParaAsistencia.filter((u) => matchesUnidadBusquedaCompleta(u, busquedaAsistencia, { displaySentinels: true })),
+    [unidadesParaAsistencia, busquedaAsistencia]
+  )
+
+  const pendientesFiltradas = useMemo(
+    () => unidadesFiltradas.filter((u) => !u.ya_verifico),
+    [unidadesFiltradas]
+  )
 
   const cargarDatos = useCallback(async () => {
     setCargandoUnidadesAsistencia(true)
@@ -119,11 +129,7 @@ export function ModalRegistroAsistencia({
   }
 
   const toggleSeleccionarTodas = () => {
-    const filtradas = unidadesParaAsistencia.filter((u) => {
-      if (u.ya_verifico) return false
-      return matchesUnidadBusquedaCompleta(u, busquedaAsistencia, { displaySentinels: true })
-    })
-    const idsVisibles = filtradas.map((u) => u.id)
+    const idsVisibles = pendientesFiltradas.map((u) => u.id)
     const todasSeleccionadas = idsVisibles.every((id) => seleccionadas.has(id))
     if (todasSeleccionadas) {
       setSeleccionadas((prev) => {
@@ -248,17 +254,13 @@ export function ModalRegistroAsistencia({
                 className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
               >
                 {(() => {
-                  const pendientes = unidadesParaAsistencia.filter((u) => {
-                    if (u.ya_verifico) return false
-                    return matchesUnidadBusquedaCompleta(u, busquedaAsistencia, { displaySentinels: true })
-                  })
-                  return pendientes.length > 0 && pendientes.every((u) => seleccionadas.has(u.id))
+                  return pendientesFiltradas.length > 0 && pendientesFiltradas.every((u) => seleccionadas.has(u.id))
                     ? 'Deseleccionar todas'
                     : 'Seleccionar todas'
                 })()}
               </button>
-              <span className="text-xs text-slate-500">
-                {seleccionadas.size} seleccionada{seleccionadas.size !== 1 ? 's' : ''}
+              <span className="text-xs text-slate-500" aria-live="polite">
+                {unidadesFiltradas.length} resultado{unidadesFiltradas.length !== 1 ? 's' : ''} · {seleccionadas.size} seleccionada{seleccionadas.size !== 1 ? 's' : ''}
               </span>
             </div>
           )}
@@ -274,9 +276,7 @@ export function ModalRegistroAsistencia({
             <p className="text-center py-12 text-slate-500 text-sm">No hay unidades registradas.</p>
           ) : (
             <div className="space-y-1">
-              {unidadesParaAsistencia
-                .filter((u) => matchesUnidadBusquedaCompleta(u, busquedaAsistencia, { displaySentinels: true }))
-                .map((u) => {
+              {unidadesFiltradas.map((u) => {
                   const checked = u.ya_verifico || seleccionadas.has(u.id)
                   const disabled = u.ya_verifico
                   return (

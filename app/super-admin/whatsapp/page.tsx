@@ -18,24 +18,11 @@ export default function SuperAdminWhatsAppPage() {
   const [tokensPorMensaje, setTokensPorMensaje] = useState<number | ''>(1)
   const [habilitado, setHabilitado] = useState(true)
 
-  const isAllowed = (email: string | undefined) => {
-    if (!email) return false
-    const admin = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? '').trim().toLowerCase()
-    const superAdmin = (process.env.SUPER_ADMIN_EMAIL ?? '').trim().toLowerCase()
-    if (!admin && !superAdmin) return false
-    const e = email.trim().toLowerCase()
-    return e === admin || e === superAdmin
-  }
-
   useEffect(() => {
     const load = async () => {
       const { supabase } = await import('@/lib/supabase')
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user?.email) {
-        router.replace('/login?redirect=/super-admin/whatsapp')
-        return
-      }
-      if (!isAllowed(session.user.email)) {
         router.replace('/login?redirect=/super-admin/whatsapp')
         return
       }

@@ -19,6 +19,34 @@ export function isSuperAdmin(email: string | undefined): boolean {
 }
 
 /**
+ * Permite múltiples super admins:
+ * - El principal por variable de entorno (SUPER_ADMIN_EMAIL o NEXT_PUBLIC_ADMIN_EMAIL)
+ * - Cuentas adicionales en `super_admin_accounts` con active=true
+ */
+export async function canAccessSuperAdminEmail(
+  supabase: SupabaseClient,
+  email: string | undefined
+): Promise<boolean> {
+  if (!email) return false
+  const normalizedEmail = email.trim().toLowerCase()
+  if (!normalizedEmail) return false
+
+  if (isSuperAdmin(normalizedEmail) || isAdminEmail(normalizedEmail)) {
+    return true
+  }
+
+  const { data, error } = await supabase
+    .from('super_admin_accounts')
+    .select('email, active')
+    .eq('email', normalizedEmail)
+    .eq('active', true)
+    .maybeSingle()
+
+  if (error) return false
+  return Boolean(data?.email)
+}
+
+/**
  * Comprueba si el email corresponde al admin (NEXT_PUBLIC_ADMIN_EMAIL).
  * Usado en la página /super-admin para control de acceso.
  */

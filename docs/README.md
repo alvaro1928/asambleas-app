@@ -26,6 +26,7 @@
 | [guias/GUIA-ESTADISTICAS-QUORUM-PODERES.md](guias/GUIA-ESTADISTICAS-QUORUM-PODERES.md) | Estadísticas, quórum, poderes, **verificación de asistencia** (activar/desactivar, paneles Ya verificaron / Faltan por verificar) y **acceso delegado** (enlace para asistente). |
 | [guias/FUNCIONALIDADES-Y-CAPACIDAD.md](guias/FUNCIONALIDADES-Y-CAPACIDAD.md) | Listado de funcionalidades y validación de capacidad (500+ usuarios). |
 | [guias/GUIA-TOKENS-Y-FUNCIONALIDADES.md](guias/GUIA-TOKENS-Y-FUNCIONALIDADES.md) | Tokens por gestor, cobro al activar asamblea, asamblea de pruebas (sandbox) y compra. |
+| [guias/GUIA-MODALES-Y-LEGAL.md](guias/GUIA-MODALES-Y-LEGAL.md) | Referencia rápida de modales operativos (tokens y asistencia manual) y configuración legal editable en Supabase. |
 
 ---
 
@@ -61,6 +62,8 @@
 | [supabase/PLANTILLAS-EMAIL-SUPABASE.md](supabase/PLANTILLAS-EMAIL-SUPABASE.md) | Plantillas de email (Supabase Auth). |
 | [supabase/PLANTILLAS-EMAIL-RECOVERY.md](supabase/PLANTILLAS-EMAIL-RECOVERY.md) | Plantillas de recuperación de contraseña. |
 | [supabase/AUDITORIA-Y-BLOCKCHAIN.md](supabase/AUDITORIA-Y-BLOCKCHAIN.md) | Auditoría y trazabilidad de votos. |
+| [../supabase/CONFIGURACION-LEGAL-DOCUMENTOS.sql](../supabase/CONFIGURACION-LEGAL-DOCUMENTOS.sql) | Script para crear configuración legal editable (términos, EULA, privacidad y cookies). |
+| [../supabase/ADD-COLUMN-USER-AGENT-VOTOS.sql](../supabase/ADD-COLUMN-USER-AGENT-VOTOS.sql) | Script opcional para trazabilidad de `user_agent` en `votos`. |
 
 ---
 

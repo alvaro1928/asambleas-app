@@ -30,6 +30,17 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
 ## Funcionalidad
 
+### Gestión de Super Admins (`/super-admin/superadmins`)
+
+- Nueva opción de menú para gestionar múltiples super admins.
+- **El super admin principal** sigue siendo el correo definido en `SUPER_ADMIN_EMAIL` / `NEXT_PUBLIC_ADMIN_EMAIL` (Vercel).
+- Desde esa cuenta principal puedes:
+  - Agregar super admins adicionales.
+  - Editar nombre.
+  - Activar/desactivar acceso.
+  - Eliminar cuentas adicionales.
+- Los super admins adicionales pueden acceder al panel según su estado activo.
+
 ### Tabla de conjuntos (cuentas)
 
 - Lista todos los conjuntos con: nombre, plan actual (free/pro/pilot), **tokens de la cuenta** (editable por fila).
@@ -38,6 +49,8 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 - **Activar Cortesía:** pone el plan en `pro` manualmente (sin pasarela).
 - **Exportar** lista en CSV.
 - Filtros por nombre y por plan.
+- **Soporte de asambleas (sin mezclar con las propias):** en `Dashboard > Asambleas` aparece la pestaña **Soporte (Super Admin)** para ver asambleas de otros conjuntos en una vista separada y abrirlas para apoyo operativo.
+- En esa pestaña puedes filtrar por **conjunto**, **estado** y búsqueda por nombre (asamblea o conjunto).
 
 ### Tabla de planes
 
@@ -85,6 +98,8 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 | PATCH | `/api/super-admin/configuracion-smtp` | Body: `{ host?, port?, secure?, user?, pass?, from_address? }`. Guarda SMTP. |
 | GET | `/api/super-admin/configuracion-whatsapp` | Configuración WhatsApp Meta (token, phone_number_id, template_name, tokens_por_mensaje_whatsapp). |
 | PATCH | `/api/super-admin/configuracion-whatsapp` | Body: `{ access_token?, phone_number_id?, template_name?, tokens_por_mensaje_whatsapp? }`. Guarda WhatsApp. |
+| GET | `/api/super-admin/asambleas-disponibles` | Lista asambleas de todos los conjuntos para la pestaña de soporte en Dashboard > Asambleas. |
+| GET/POST/PATCH/DELETE | `/api/super-admin/super-admins` | Gestión de super admins adicionales (solo administrada por el super admin principal). |
 | POST | `/api/super-admin/carga-masiva-piloto` | Body: CSV o JSON con organization_id/nombre. Asigna plan Piloto a las cuentas indicadas. |
 | GET | `/api/planes` | Público: datos de planes para precios en dashboard/landing. |
 
@@ -95,6 +110,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 - **organizations:** `plan_type`, `plan_active_until`, `tokens_disponibles` (tokens de la cuenta). Scripts: `AGREGAR-SUSCRIPCIONES-ORGANIZATIONS.sql`, `PRECIO-POR-ASAMBLEA-Y-TOKENS.sql` (tokens_disponibles), `TOKENS-CONJUNTOS.sql`.
 - **planes:** `precio_por_asamblea_cop`, `tokens_iniciales`, `vigencia_meses`, `max_preguntas_por_asamblea`, `incluye_acta_detallada`. Scripts: `PLANES-TABLA-Y-SEED.sql`, `AGREGAR-LIMITES-PLANES.sql`, `AGREGAR-TOKENS-INICIALES-PLANES.sql`, `AGREGAR-VIGENCIA-PLANES.sql`.
 - **app_config** (o tabla de configuración global): color principal, WhatsApp. Scripts: `CONFIGURACION-GLOBAL-LANDING.sql`, `AGREGAR-COLOR-PRINCIPAL-CONFIG.sql`.
+- **super_admin_accounts:** super admins adicionales gestionables desde panel. Script: `CONFIGURAR-SUPER-ADMINS-MULTIPLES.sql`.
 
 ### Acceso total del super admin (RLS)
 

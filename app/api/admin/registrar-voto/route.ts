@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
     const okCount = results.filter((r) => r.success).length
 
     // No se restan tokens al administrador cuando registra votos por una unidad.
-    // Los tokens solo se descuentan al activar la votación y al generar el acta.
+    // Consumo típico de tokens: aceptación LOPD en sesión de votación pública (RPC registrar_consentimiento_y_consumo_sesion), acta, WhatsApp masivo, etc.
 
     return NextResponse.json({
       success: allOk,

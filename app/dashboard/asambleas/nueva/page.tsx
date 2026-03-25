@@ -295,7 +295,7 @@ export default function NuevaAsambleaPage() {
               <div className="flex items-center gap-2 rounded-3xl bg-amber-100 dark:bg-amber-900/30 px-4 py-3 border border-amber-200 dark:border-amber-800">
                 <Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                 <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                  No hay suficientes tokens (créditos) en tu billetera. Se descontan al activar votación, descargar acta o registrar votos manuales; compra más créditos.
+                  No hay suficientes tokens (créditos) en tu billetera. Se consumen sobre todo cuando los votantes aceptan LOPD en la sesión pública, y en acta o envíos masivos según el caso; compra más créditos.
                 </p>
               </div>
               <ComprarTokensCTA

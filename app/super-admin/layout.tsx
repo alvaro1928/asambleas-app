@@ -12,6 +12,7 @@ import {
   Settings2,
   MessageCircle,
   Scale,
+  UserCog,
   LogOut,
   Menu,
   X,
@@ -26,6 +27,7 @@ const navItems = [
   { href: '/super-admin/ajustes', label: 'Ajustes', icon: Settings2 },
   { href: '/super-admin/whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { href: '/super-admin/legal', label: 'Legal', icon: Scale },
+  { href: '/super-admin/superadmins', label: 'Super Admins', icon: UserCog },
 ]
 
 export default function SuperAdminLayout({

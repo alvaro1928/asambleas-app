@@ -30,23 +30,12 @@ export default function SuperAdminAjustesPage() {
   const [smtpPass, setSmtpPass] = useState('')
   const [smtpFromAddress, setSmtpFromAddress] = useState('')
 
-  const isAllowed = (email: string | undefined) => {
-    if (!email) return false
-    const allowed = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? '').trim().toLowerCase()
-    if (!allowed) return false
-    return email.trim().toLowerCase() === allowed
-  }
-
   useEffect(() => {
     const load = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
       if (!session?.user?.email) {
-        router.replace('/login?redirect=/super-admin/ajustes')
-        return
-      }
-      if (!isAllowed(session.user.email)) {
         router.replace('/login?redirect=/super-admin/ajustes')
         return
       }

@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { isSuperAdmin, isAdminEmail } from '@/lib/super-admin'
+import { canAccessSuperAdminEmail } from '@/lib/super-admin'
 import { getDefaultLegalDocs, LEGAL_DOC_ORDER, LEGAL_DOCS_DEFAULT, type LegalDocKey, type LegalDocument } from '@/lib/legal-docs'
 
 interface LegalRow {
@@ -10,10 +10,6 @@ interface LegalRow {
   titulo: string | null
   contenido: string | null
   ultima_actualizacion: string | null
-}
-
-function canAccessSuperAdmin(email: string | undefined): boolean {
-  return isSuperAdmin(email) || isAdminEmail(email)
 }
 
 function mergeWithDefaults(rows: LegalRow[] | null | undefined): LegalDocument[] {
@@ -53,7 +49,7 @@ export async function GET() {
     const supabase = await buildAuthClient()
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user?.email) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    if (!canAccessSuperAdmin(session.user.email)) return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 })
+    if (!(await canAccessSuperAdminEmail(supabase, session.user.email))) return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 })
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!serviceRoleKey) return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada' }, { status: 500 })
@@ -79,7 +75,7 @@ export async function PATCH(request: NextRequest) {
     const supabase = await buildAuthClient()
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user?.email) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    if (!canAccessSuperAdmin(session.user.email)) return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 })
+    if (!(await canAccessSuperAdminEmail(supabase, session.user.email))) return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 })
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!serviceRoleKey) return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurada' }, { status: 500 })

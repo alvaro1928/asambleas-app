@@ -2,11 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { isSuperAdmin, isAdminEmail } from '@/lib/super-admin'
-
-function canAccessSuperAdmin(email: string | undefined): boolean {
-  return isSuperAdmin(email) || isAdminEmail(email)
-}
+import { canAccessSuperAdminEmail } from '@/lib/super-admin'
 
 /** GET: lista todos los conjuntos (solo super admin) */
 export async function GET() {
@@ -33,7 +29,7 @@ export async function GET() {
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
-    if (!canAccessSuperAdmin(session.user.email)) {
+    if (!(await canAccessSuperAdminEmail(supabase, session.user.email))) {
       return NextResponse.json({ error: 'Acceso denegado. Solo administrador.' }, { status: 403 })
     }
 
@@ -181,7 +177,7 @@ export async function PATCH(request: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
-    if (!canAccessSuperAdmin(session.user.email)) {
+    if (!(await canAccessSuperAdminEmail(supabase, session.user.email))) {
       return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 })
     }
 
@@ -344,7 +340,7 @@ export async function DELETE(request: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
-    if (!canAccessSuperAdmin(session.user.email)) {
+    if (!(await canAccessSuperAdminEmail(supabase, session.user.email))) {
       return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 })
     }
 

@@ -37,6 +37,8 @@ interface Asamblea {
   created_at: string
   is_demo?: boolean
   is_archived?: boolean
+  organization_id?: string
+  organization_name?: string
 }
 
 interface PreguntasCount {
@@ -67,7 +69,11 @@ function AsambleasPageContent() {
   const [creatingDemo, setCreatingDemo] = useState(false)
   /** Tab: 'activas' | 'archivadas' */
   const [tabArchivo, setTabArchivo] = useState<'activas' | 'archivadas'>('activas')
+  const [tabOrigen, setTabOrigen] = useState<'mis' | 'soporte'>('mis')
   const [archivingId, setArchivingId] = useState<string | null>(null)
+  const [asambleasSoporte, setAsambleasSoporte] = useState<Asamblea[]>([])
+  const [cargandoSoporte, setCargandoSoporte] = useState(false)
+  const [filtroConjuntoSoporte, setFiltroConjuntoSoporte] = useState<string>('all')
 
   // Si la URL tiene ?demo=1, abrir el modal de sandbox (desde dashboard o enlace directo)
   useEffect(() => {
@@ -79,6 +85,7 @@ function AsambleasPageContent() {
 
   useEffect(() => {
     loadAsambleas()
+    loadAsambleasSoporte()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, [])
 
@@ -163,6 +170,29 @@ function AsambleasPageContent() {
     } finally {
       setCreatingDemo(false)
     }
+  }
+
+  const loadAsambleasSoporte = async () => {
+    setCargandoSoporte(true)
+    try {
+      const res = await fetch('/api/super-admin/asambleas-disponibles', { credentials: 'include' })
+      if (!res.ok) {
+        setAsambleasSoporte([])
+        return
+      }
+      const data = await res.json().catch(() => ({}))
+      setAsambleasSoporte(Array.isArray(data?.asambleas) ? data.asambleas : [])
+    } catch {
+      setAsambleasSoporte([])
+    } finally {
+      setCargandoSoporte(false)
+    }
+  }
+
+  const abrirAsambleaSoporte = (asamblea: Asamblea) => {
+    if (!asamblea.organization_id) return
+    localStorage.setItem('selectedConjuntoId', asamblea.organization_id)
+    router.push(`/dashboard/asambleas/${asamblea.id}`)
   }
 
   const getEstadoBadge = (estado: string) => {
@@ -299,12 +329,29 @@ function AsambleasPageContent() {
     )
   }
 
-  const asambleasPorTab = asambleas.filter((a) => {
-    const matchNombre = !searchNombre.trim() || a.nombre.toLowerCase().includes(searchNombre.trim().toLowerCase())
+  const baseAsambleas = tabOrigen === 'soporte' ? asambleasSoporte : asambleas
+  const conjuntosSoporte = Array.from(
+    new Map(
+      asambleasSoporte
+        .filter((a) => a.organization_id)
+        .map((a) => [
+          a.organization_id as string,
+          { id: a.organization_id as string, name: a.organization_name || 'Conjunto sin nombre' },
+        ])
+    ).values()
+  ).sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  const asambleasPorTab = baseAsambleas.filter((a) => {
+    const searchTerm = searchNombre.trim().toLowerCase()
+    const matchNombre =
+      !searchTerm ||
+      a.nombre.toLowerCase().includes(searchTerm) ||
+      (tabOrigen === 'soporte' && (a.organization_name || '').toLowerCase().includes(searchTerm))
     const matchEstado = filterEstado === 'all' || a.estado === filterEstado
     const archived = a.is_archived === true
     const matchTab = tabArchivo === 'archivadas' ? archived : !archived
-    return matchNombre && matchEstado && matchTab
+    const matchConjuntoSoporte =
+      tabOrigen !== 'soporte' || filtroConjuntoSoporte === 'all' || a.organization_id === filtroConjuntoSoporte
+    return matchNombre && matchEstado && matchTab && matchConjuntoSoporte
   })
   const asambleasFiltradas = asambleasPorTab
 
@@ -327,7 +374,9 @@ function AsambleasPageContent() {
                   Asambleas
                 </h1>
                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate max-w-full">
-                  {conjuntoName} • {tabArchivo === 'activas' ? 'Activas' : 'Archivadas'}: {asambleasFiltradas.length} asamblea{asambleasFiltradas.length !== 1 ? 's' : ''}
+                  {tabOrigen === 'mis'
+                    ? `${conjuntoName} • ${tabArchivo === 'activas' ? 'Activas' : 'Archivadas'}: ${asambleasFiltradas.length} asamblea${asambleasFiltradas.length !== 1 ? 's' : ''}`
+                    : `Soporte Super Admin • ${tabArchivo === 'activas' ? 'Activas' : 'Archivadas'}: ${asambleasFiltradas.length} asamblea${asambleasFiltradas.length !== 1 ? 's' : ''}`}
                 </p>
               </div>
             </div>
@@ -365,19 +414,64 @@ function AsambleasPageContent() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-w-0 overflow-x-hidden">
-        {asambleas.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-200 dark:border-gray-700">
+          <button
+            type="button"
+            onClick={() => setTabOrigen('mis')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${tabOrigen === 'mis' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-b-2 border-indigo-600' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+          >
+            Mis asambleas
+          </button>
+          {asambleasSoporte.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setTabOrigen('soporte')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${tabOrigen === 'soporte' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-b-2 border-amber-600' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+            >
+              Soporte (Super Admin)
+            </button>
+          )}
+        </div>
+        {tabOrigen === 'soporte' && (
+          <Alert className="mb-4 border-amber-300/70 bg-amber-50 dark:bg-amber-900/20">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Modo soporte</AlertTitle>
+            <AlertDescription>
+              Esta vista muestra asambleas de otros conjuntos para apoyo operativo. Se mantienen separadas de tus asambleas.
+            </AlertDescription>
+          </Alert>
+        )}
+        {baseAsambleas.length > 0 && (
           <>
             <div className="flex flex-col sm:flex-row gap-4 mb-4 min-w-0">
               <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   type="search"
-                  placeholder="Buscar por nombre..."
+                  placeholder={tabOrigen === 'soporte' ? 'Buscar por asamblea o conjunto...' : 'Buscar por nombre...'}
                   value={searchNombre}
                   onChange={(e) => setSearchNombre(e.target.value)}
                   className="pl-9"
                 />
               </div>
+              {tabOrigen === 'soporte' && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">Conjunto:</span>
+                  <select
+                    value={filtroConjuntoSoporte}
+                    onChange={(e) => setFiltroConjuntoSoporte(e.target.value)}
+                    className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-2 text-sm min-w-[180px]"
+                    title="Filtrar por conjunto en modo soporte"
+                  >
+                    <option value="all">Todos</option>
+                    {conjuntosSoporte.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">Estado:</span>
                 <select
@@ -411,21 +505,29 @@ function AsambleasPageContent() {
             </div>
           </>
         )}
-        {asambleas.length === 0 ? (
+        {cargandoSoporte && tabOrigen === 'soporte' ? (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 sm:p-12 text-center border border-gray-200 dark:border-gray-700 min-w-0">
+            <p className="text-gray-600 dark:text-gray-400">Cargando asambleas de soporte...</p>
+          </div>
+        ) : baseAsambleas.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-12 text-center border border-gray-200 dark:border-gray-700 min-w-0">
             <Users className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              No hay asambleas creadas
+              {tabOrigen === 'soporte' ? 'No hay asambleas disponibles en soporte' : 'No hay asambleas creadas'}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Crea tu primera asamblea para comenzar a gestionar votaciones
+              {tabOrigen === 'soporte'
+                ? 'Cuando existan asambleas en otros conjuntos aparecerán aquí para apoyo del super admin.'
+                : 'Crea tu primera asamblea para comenzar a gestionar votaciones'}
             </p>
-            <Link href="/dashboard/asambleas/nueva" title="Crear tu primera asamblea">
-              <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" title="Crear tu primera asamblea">
-                <Plus className="w-4 h-4 mr-2" />
-                Nueva Asamblea
-              </Button>
-            </Link>
+            {tabOrigen === 'mis' && (
+              <Link href="/dashboard/asambleas/nueva" title="Crear tu primera asamblea">
+                <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700" title="Crear tu primera asamblea">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nueva Asamblea
+                </Button>
+              </Link>
+            )}
           </div>
         ) : asambleasFiltradas.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 sm:p-12 text-center border border-gray-200 dark:border-gray-700 min-w-0">
@@ -453,6 +555,11 @@ function AsambleasPageContent() {
               <Link
                 key={asamblea.id}
                 href={`/dashboard/asambleas/${asamblea.id}`}
+                onClick={(e) => {
+                  if (tabOrigen !== 'soporte') return
+                  e.preventDefault()
+                  abrirAsambleaSoporte(asamblea)
+                }}
                 className="group min-w-0"
               >
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700 hover:shadow-2xl hover:border-indigo-300 dark:hover:border-indigo-700 transition-all cursor-pointer min-w-0 overflow-hidden">
@@ -463,6 +570,11 @@ function AsambleasPageContent() {
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                           {asamblea.nombre}
                         </h3>
+                        {tabOrigen === 'soporte' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700">
+                            {asamblea.organization_name || 'Conjunto'}
+                          </span>
+                        )}
                         {asamblea.is_demo === true && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-700" title="Asamblea de demostración: verificación, delegado, colapsables y quórum como en una asamblea real">
                             <FlaskConical className="w-3 h-3 shrink-0" />
@@ -472,7 +584,7 @@ function AsambleasPageContent() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {tabArchivo === 'activas' && (
+                      {tabArchivo === 'activas' && tabOrigen === 'mis' && (
                         <button
                           type="button"
                           onClick={(e) => handleArchivarAsamblea(e, asamblea)}
@@ -487,7 +599,7 @@ function AsambleasPageContent() {
                           )}
                         </button>
                       )}
-                      {tabArchivo === 'archivadas' && (
+                      {tabArchivo === 'archivadas' && tabOrigen === 'mis' && (
                         <button
                           type="button"
                           onClick={(e) => handleDesarchivarAsamblea(e, asamblea)}
@@ -502,7 +614,7 @@ function AsambleasPageContent() {
                           )}
                         </button>
                       )}
-                      {puedeEliminarAsamblea(asamblea) && (
+                      {puedeEliminarAsamblea(asamblea) && tabOrigen === 'mis' && (
                         <button
                           type="button"
                           onClick={(e) => openDeleteModal(e, asamblea)}

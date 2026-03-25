@@ -35,17 +35,11 @@ export default function SuperAdminCreditosPage() {
   const [updatingTokensGestorId, setUpdatingTokensGestorId] = useState<string | null>(null)
   const [searchGestor, setSearchGestor] = useState('')
 
-  const isAllowed = (email: string | undefined) => {
-    if (!email) return false
-    const allowed = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? '').trim().toLowerCase()
-    return allowed && email.trim().toLowerCase() === allowed
-  }
-
   useEffect(() => {
     const load = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (!session?.user?.email || !isAllowed(session.user.email)) {
+        if (!session?.user?.email) {
           router.replace('/login?redirect=/super-admin/creditos')
           return
         }
