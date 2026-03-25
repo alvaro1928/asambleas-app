@@ -1,6 +1,7 @@
 'use client'
 
-import { HelpCircle, Link2, Link as LinkIcon, AlertTriangle, Coins, Unlock, Lock } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ChevronDown, ChevronUp, HelpCircle, Link2, Link as LinkIcon, AlertTriangle, Coins, Unlock, Lock } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 const COLOR_DEFAULT = '#4f46e5'
@@ -28,6 +29,12 @@ export function GuiaTokensModal({
 }: GuiaTokensModalProps) {
   const showAcceso = !!accesoPublicoContext
   const ctx = accesoPublicoContext
+  /** Con contexto de asamblea, el bloque A/B + pies es opcional (lo principal está arriba). */
+  const [verMasExtras, setVerMasExtras] = useState(false)
+
+  useEffect(() => {
+    if (!open) setVerMasExtras(false)
+  }, [open])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -186,6 +193,31 @@ export function GuiaTokensModal({
           </div>
         )}
 
+        {showAcceso && (
+          <div className="px-4 sm:px-5 pt-1 pb-2">
+            <button
+              type="button"
+              onClick={() => setVerMasExtras((v) => !v)}
+              className="w-full flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left hover:bg-white/[0.06] transition-colors"
+              aria-expanded={verMasExtras}
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-slate-200">
+                  {verMasExtras ? 'Ver menos' : 'Ver más'}
+                </span>
+                <span className="block text-xs text-slate-500 mt-0.5">
+                  Billetera, funciones de la app, acta y documentos legales
+                </span>
+              </span>
+              <span className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-slate-400">
+                {verMasExtras ? <ChevronUp className="w-4 h-4" aria-hidden /> : <ChevronDown className="w-4 h-4" aria-hidden />}
+              </span>
+            </button>
+          </div>
+        )}
+
+        {(!showAcceso || verMasExtras) && (
+          <>
         <div className="p-4 sm:p-5 pt-2 grid md:grid-cols-2 gap-6 sm:gap-8">
           <div className="space-y-4">
             <h4 className="font-semibold text-slate-200 flex items-center gap-2">
@@ -208,9 +240,8 @@ export function GuiaTokensModal({
             )}
             {showAcceso && (
               <p className="text-sm text-slate-400">
-                El detalle del acceso público y el cobro por LOPD está arriba. Aquí, el resto del uso de la billetera: también pueden consumirse tokens otras operaciones
-                según tu plan (por ejemplo envíos masivos por WhatsApp u otras que la interfaz marque como de pago). La descarga del acta con auditoría{' '}
-                <strong className="text-slate-300">no</strong> supone un cargo adicional de tokens por ese concepto.
+                Lo esencial de LOPD y cobro por sesión está <strong className="text-slate-300">arriba</strong>. Aquí: otras operaciones que pueden debitar tokens (p. ej. envíos masivos por WhatsApp), qué acciones{' '}
+                <strong className="text-slate-300">no</strong> consumen saldo y un resumen de funciones.
               </p>
             )}
             <p className="text-sm text-slate-400">
@@ -313,6 +344,8 @@ export function GuiaTokensModal({
             Términos, EULA, política de privacidad y política de cookies se pueden administrar desde Super Admin con versionado de actualización. Esto ayuda a mantener la operación alineada con cumplimiento y comunicación clara hacia tus usuarios.
           </p>
         </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )
