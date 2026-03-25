@@ -41,7 +41,6 @@ import {
   RefreshCw,
   Vote,
   Search,
-  Coins,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -3119,47 +3118,6 @@ Tu participacion es importante. 🏠`
                   </>
                 )}
               </div>
-              )}
-
-              {asamblea.acceso_publico && asamblea.estado !== 'finalizada' && (
-                <div className="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center">
-                    <ShieldCheck className="w-4 h-4 mr-2 text-emerald-600 dark:text-emerald-400" />
-                    Sesión pública y privacidad (LOPD)
-                  </h3>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                    Sesión n.º {asamblea.session_seq ?? 1}
-                    {asamblea.session_mode === 'voting' && (
-                      <span className="text-gray-500 dark:text-gray-500"> · Votación pública lista</span>
-                    )}
-                    {asamblea.session_mode === 'verification' && (
-                      <span className="text-amber-700 dark:text-amber-300"> · Modo verificación (legacy)</span>
-                    )}
-                    {asamblea.session_mode === 'inactive' && (
-                      <span className="text-gray-500"> · Sesión inactiva</span>
-                    )}
-                  </p>
-                  <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20 px-3 py-2.5">
-                    <p className="text-xs font-medium text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
-                      <Coins className="w-3.5 h-3.5 shrink-0" />
-                      Cobro por LOPD en esta sesión (n.º {asamblea.session_seq ?? 1})
-                    </p>
-                    {isDemo ? (
-                      <p className="text-xs text-emerald-800/90 dark:text-emerald-300/90 mt-1">
-                        Asamblea demo: no se descuentan créditos por aceptación LOPD.
-                      </p>
-                    ) : (
-                      <ul className="text-xs text-emerald-800/95 dark:text-emerald-300/90 mt-1.5 space-y-1 list-disc list-inside">
-                        <li>Activar el enlace no cobra solo por eso; cobra cuando aceptan privacidad (LOPD).</li>
-                        <li>5 unidades distintas sin cobro; desde la 6.ª, 1 crédito por unidad nueva. Una unidad = un cobro por sesión.</li>
-                      </ul>
-                    )}
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                      Para cerrar el acceso usa <strong>Desactivar votación</strong> en el mismo panel de Acceso público (bloque rojo colapsable). Cambia el número de
-                      sesión; al volver a activar con el botón verde, los votantes aceptan LOPD otra vez y el cobro es al conectar, no por pulsar activar.
-                    </p>
-                  </div>
-                </div>
               )}
 
               {/* 3. Información (abajo) */}
