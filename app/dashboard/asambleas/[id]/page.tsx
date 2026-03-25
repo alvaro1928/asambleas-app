@@ -2331,11 +2331,13 @@ Tu participacion es importante. 🏠`
                 <button
                   type="button"
                   onClick={() => setGuiaModalOpen(true)}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
-                  title="Guía: tokens (créditos) y funcionalidades"
+                  className="inline-flex items-center gap-2.5 pl-2 pr-4 py-2 rounded-full border border-slate-300/90 dark:border-slate-600 bg-slate-50/90 dark:bg-slate-900/80 text-gray-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm"
+                  title="Guía: acceso público, tokens (créditos) y cobro"
                 >
-                  <HelpCircle className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                  <span className="hidden sm:inline">Guía tokens (créditos)</span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white shadow-inner">
+                    <HelpCircle className="w-4 h-4" aria-hidden />
+                  </span>
+                  <span className="hidden sm:inline">Guía: acceso y tokens</span>
                 </button>
                 <button
                   type="button"
@@ -2847,13 +2849,23 @@ Tu participacion es importante. 🏠`
                   <LinkIcon className="w-4 h-4 mr-2" />
                   Acceso Público
                 </h3>
-                {asamblea.estado === 'activa' && (
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 leading-relaxed">
-                    Usa el <strong className="text-emerald-700 dark:text-emerald-400">botón verde</strong> para abrir el acceso a la votación y la sección{' '}
-                    <strong className="text-red-700 dark:text-red-400">Desactivar votación</strong> (más abajo) para cerrarlo. Mientras el acceso esté abierto, la
-                    sesión de privacidad (LOPD) es la misma. Al <strong>cerrar</strong>, el sistema prepara una nueva sesión; al <strong>volver a abrir</strong>, los
-                    votantes aceptan LOPD de nuevo y los créditos se cobran <strong>al conectarse y aceptar</strong>, según las reglas del recuadro de tokens.
-                  </p>
+                {asamblea.estado !== 'finalizada' && (
+                  <div className="mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setGuiaModalOpen(true)}
+                      className="w-full sm:w-auto inline-flex items-center gap-2.5 pl-2 pr-4 py-2.5 rounded-full border border-slate-300/90 dark:border-slate-600 bg-slate-50/90 dark:bg-slate-900/80 text-gray-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm font-medium shadow-sm text-left"
+                      title="Abrir guía: acceso público, LOPD y cobro de tokens"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm">
+                        <HelpCircle className="w-4 h-4" aria-hidden />
+                      </span>
+                      <span className="leading-snug">
+                        Guía: acceso público y cobro de tokens
+                        <span className="block text-xs font-normal text-gray-500 dark:text-slate-400 mt-0.5">LOPD, sesión y reglas en un solo lugar</span>
+                      </span>
+                    </button>
+                  </div>
                 )}
 
                 {asamblea.estado === 'finalizada' ? (
@@ -2883,42 +2895,9 @@ Tu participacion es importante. 🏠`
                       </>
                     ) : (
                       <>
-                        <Alert className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
-                          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                          <AlertDescription className="text-yellow-800 dark:text-yellow-200 text-xs">
-                            La votación pública no está activada. Los residentes no podrán acceder a votar.
-                          </AlertDescription>
-                        </Alert>
-                        <Alert className="bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700">
-                          <Coins className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                          <AlertTitle className="text-slate-900 dark:text-slate-100 text-sm">
-                            Cómo se cobran los créditos (tokens)
-                          </AlertTitle>
-                          <AlertDescription className="text-slate-700 dark:text-slate-300 text-xs space-y-2">
-                            {asamblea.is_demo ? (
-                              <p>
-                                En esta asamblea de <strong>demostración</strong> no se descuentan créditos por aceptación LOPD.
-                              </p>
-                            ) : (
-                              <>
-                                <p>
-                                  <strong>Activar el acceso no descuenta saldo por sí solo.</strong> Los créditos se consumen cuando un copropietario{' '}
-                                  <strong>acepta el tratamiento de datos (LOPD)</strong> en la sesión pública actual.
-                                </p>
-                                <ul className="list-disc list-inside space-y-1 pl-0.5">
-                                  <li>Primeras <strong>5 unidades distintas</strong> que acepten en esa sesión: sin cobro por ese concepto.</li>
-                                  <li>
-                                    Desde la <strong>6.ª unidad nueva</strong> en la misma sesión: <strong>1 crédito por unidad</strong> (sin cobro retroactivo
-                                    a las cinco primeras).
-                                  </li>
-                                  <li>
-                                    La <strong>misma unidad</strong> no paga dos veces en la misma sesión aunque use varios dispositivos.
-                                  </li>
-                                </ul>
-                              </>
-                            )}
-                          </AlertDescription>
-                        </Alert>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                          Pulsa la guía de arriba para ver el aviso de estado, las reglas de LOPD y el cobro por sesión antes de activar.
+                        </p>
                         <Button
                           onClick={handleActivarVotacion}
                           className="w-full rounded-full min-h-[2.75rem] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-md"
@@ -4881,7 +4860,15 @@ Tu participacion es importante. 🏠`
         </DialogContent>
       </Dialog>
 
-      <GuiaTokensModal open={guiaModalOpen} onOpenChange={setGuiaModalOpen} />
+      <GuiaTokensModal
+        open={guiaModalOpen}
+        onOpenChange={setGuiaModalOpen}
+        accesoPublicoContext={{
+          estadoAsamblea: asamblea.estado,
+          accesoPublico: !!asamblea.acceso_publico,
+          isDemo: isDemo,
+        }}
+      />
 
       <ModalRegistroAsistencia
         open={showModalAsistencia}
