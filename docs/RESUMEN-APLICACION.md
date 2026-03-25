@@ -55,7 +55,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - **Poderes** (`/dashboard/asambleas/[id]/poderes`):
   - Asignar apoderados por unidad (quién otorga, email y nombre del apoderado).
   - **Búsqueda y filtros** en la tabla: por torre+número, solo número de unidad (conjuntos sin torre en datos), nombre o correo de otorgante o apoderado; selector por unidad otorgante.
-  - Botón **Guía** (modal): tokens y funcionalidades, incluida línea sobre poderes y búsqueda.
+  - Botón **Guía** (modal `GuiaTokensModal`): tokens, acceso público y LOPD; desde la página de asamblea recibe contexto y muestra **Ver más** con el detalle extendido (billetera, funciones, acta, legales). En poderes: guía sin bloque de acceso público.
   - Límite máximo de poderes por apoderado **configurable** en Dashboard → Configuración → Poderes y correo; validación antes de crear.
   - Revocar poder (con diálogo de confirmación).
   - **Importación masiva** de poderes desde Excel/CSV (`/dashboard/asambleas/[id]/poderes/importar`).
@@ -64,12 +64,12 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 **Dashboard principal**
 - Métricas: conjuntos, unidades, coeficientes, censo.
 - Enlaces rápidos a asambleas, unidades, conjuntos, configuración, y **Probar en sandbox** (asamblea de demostración sin consumir tokens).
-- **Billetera de tokens por gestor:** el saldo (`tokens_disponibles`) está en el perfil del usuario (gestor), no por conjunto. **1 token = 1 unidad de vivienda.** Solo se consumen tokens **al activar una asamblea** (cobro único); después se puede generar el acta y registrar votos sin nuevo cobro. Si el gestor no tiene suficientes tokens al intentar activar, se muestra CTA para comprar más. Los nuevos gestores reciben un bono de bienvenida (ej. 50 tokens). Enlaces a pago/contacto en Super Admin → Ajustes.
+- **Billetera de tokens por gestor:** el saldo (`tokens_disponibles`) está en el perfil del usuario (gestor), no por conjunto. **1 token = 1 unidad de vivienda** como referencia de costos. Consumos relevantes: **activación de asamblea** (requisito de saldo), **aceptación LOPD** en sesión de votación pública (reglas de umbral por sesión), **envíos masivos por WhatsApp** (según config), y otras operaciones que la UI marque como de pago. Generar o descargar el acta **no** supone un cargo extra por elegir la versión con auditoría. Si no hay saldo suficiente donde la app lo exige, CTA para comprar más. Bono de bienvenida configurable en Super Admin → Ajustes.
 
 **Configuración** (`/dashboard/configuracion`)
 - **Mi perfil**, **Contraseña**, **Datos del conjunto**, **Poderes y correo**, **Mis pagos**, **Uso de tokens**.
 - **Poderes y correo:** Máx. poderes por apoderado (parametrizable) y plantilla adicional para correos de votación (ej. enlace Teams/Meet).
-- **Uso de tokens:** Tabla con historial de operaciones que consumieron tokens (fecha/hora, tipo, tokens usados, saldo restante, detalle). Incluye Votación, Acta, Registro manual, Compra, Ajuste manual, WhatsApp.
+- **Uso de tokens:** Tabla con historial de operaciones que consumieron tokens (fecha/hora, tipo, tokens usados, saldo restante, detalle). Incluye consentimiento LOPD/sesión, WhatsApp, compra, ajustes manuales y otros tipos registrados en `billing_logs` / lógica vigente.
 
 ---
 
@@ -113,7 +113,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 
 - **Saldo:** `profiles.tokens_disponibles` (por usuario/gestor). El gestor usa su billetera en todos sus conjuntos. El saldo mostrado es el **máximo** entre todas las filas de perfil del mismo usuario (billetera única).
 - **Equivalencia:** **1 token = 1 unidad de vivienda.** El costo al activar una asamblea = número de unidades del conjunto.
-- **Operaciones que consumen tokens:** **activar la asamblea** (cobro único; se marca `pago_realizado = true`; después acta y votos sin nuevo cobro), **descargar acta** y **enviar WhatsApp** (configurable tokens/mensaje en Super Admin). Las asambleas con `is_demo = true` no consumen tokens.
+- **Operaciones que consumen tokens (resumen):** **activar la asamblea** (validación de saldo vs unidades; `pago_realizado` según flujo), **aceptación LOPD** en votación pública (reglas por sesión en backend), **envío masivo WhatsApp** (tokens por mensaje en Super Admin), y otras que la UI indique. **Descarga del acta con auditoría:** sin débito adicional por ese concepto. Asambleas `is_demo = true`: sin consumo LOPD en reglas demo.
 - **Regalo de bienvenida:** cada nuevo gestor recibe un bono configurado (ej. 50 tokens) al registrarse (trigger o default en `profiles`).
 - **Compra:** la pasarela Wompi; el webhook acredita tokens en `profiles` del gestor según el pago aprobado.
 

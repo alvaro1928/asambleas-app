@@ -10,7 +10,7 @@
 
 | Documento | Descripción |
 |-----------|-------------|
-| **[RESUMEN-APLICACION.md](RESUMEN-APLICACION.md)** | Resumen funcional (por rol: admin, votantes, super-admin) y técnico (stack, rutas, APIs, BD). Incluye **billetera de tokens por gestor** (1 token = 1 unidad; cobro solo al activar asamblea), **asamblea de pruebas (sandbox)** y **ayudas al usuario** (modales: votación pública, asistente delegado, **Guía** de tokens en gestión de poderes). Punto de entrada para entender la app. |
+| **[RESUMEN-APLICACION.md](RESUMEN-APLICACION.md)** | Resumen funcional (por rol: admin, votantes, super-admin) y técnico (stack, rutas, APIs, BD). Incluye **billetera de tokens por gestor**, consumos por **LOPD en sesión** y **WhatsApp**, **asamblea de pruebas (sandbox)** y **ayudas** (modal **Guía** unificado: tokens, acceso público y LOPD; registro de asistencia). Punto de entrada para entender la app. |
 
 ---
 
@@ -25,8 +25,8 @@
 | [guias/GUIA-MODULO-PODERES.md](guias/GUIA-MODULO-PODERES.md) | Módulo de poderes (apoderados por unidad). |
 | [guias/GUIA-ESTADISTICAS-QUORUM-PODERES.md](guias/GUIA-ESTADISTICAS-QUORUM-PODERES.md) | Estadísticas, quórum, poderes, **verificación de asistencia** (activar/desactivar, paneles Ya verificaron / Faltan por verificar) y **acceso delegado** (enlace para asistente). |
 | [guias/FUNCIONALIDADES-Y-CAPACIDAD.md](guias/FUNCIONALIDADES-Y-CAPACIDAD.md) | Listado de funcionalidades y validación de capacidad (500+ usuarios). |
-| [guias/GUIA-TOKENS-Y-FUNCIONALIDADES.md](guias/GUIA-TOKENS-Y-FUNCIONALIDADES.md) | Tokens por gestor, cobro al activar asamblea, asamblea de pruebas (sandbox) y compra. |
-| [guias/GUIA-MODALES-Y-LEGAL.md](guias/GUIA-MODALES-Y-LEGAL.md) | Referencia rápida de modales operativos (tokens y asistencia manual) y configuración legal editable en Supabase. |
+| [guias/GUIA-TOKENS-Y-FUNCIONALIDADES.md](guias/GUIA-TOKENS-Y-FUNCIONALIDADES.md) | Tokens por gestor, activación de asamblea, **LOPD en sesión**, WhatsApp, acta/sandbox y compra. |
+| [guias/GUIA-MODALES-Y-LEGAL.md](guias/GUIA-MODALES-Y-LEGAL.md) | Modales operativos: **GuiaTokensModal** (contexto de asamblea, LOPD, «Ver más») y asistencia manual; configuración legal en Supabase. |
 
 ---
 

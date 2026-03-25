@@ -10,30 +10,27 @@
 
 ## Flujo resumido
 
-1. **Entras** a la asamblea, creas preguntas, importas unidades, registras votos a nombre de residentes → **no se consumen tokens**.
-2. **Activas la asamblea** (borrador → activa) → **se cobran los tokens una sola vez** (costo = unidades del conjunto). La asamblea queda con `pago_realizado = true`.
-3. **Generas el acta** → **no se cobra**. Puedes generar e imprimir el acta **cuantas veces quieras**; el cobro ya se hizo al activar.
+1. **Entras** a la asamblea, creas preguntas, importas unidades, registras votos a nombre de residentes → **no se consumen tokens** por esas acciones en sí.
+2. **Activas la asamblea** (borrador → activa) → debe cumplirse **saldo ≥ unidades del conjunto** (1 token = 1 unidad). Tras activar, la asamblea queda habilitada para enlace, acta, etc.; el detalle de débito en billetera sigue la lógica vigente en backend (habitualmente cobro asociado a esa activación).
+3. **Votación pública y LOPD** — Con el acceso público abierto, el cobro por **aceptación del tratamiento de datos (LOPD)** en la **sesión** actual sigue reglas de umbral: **primeras 5 unidades distintas** que acepten en esa sesión sin cobro por ese concepto; **desde la 6.ª unidad nueva** en la misma sesión, **1 crédito por unidad** (sin cobro retroactivo a las cinco primeras). La **misma unidad** no paga dos veces en la **misma sesión** aunque use varios dispositivos. **Cerrar** el acceso (Desactivar votación) incrementa el número de sesión; al **volver a abrir**, los votantes pasan de nuevo por LOPD y el cobro vuelve a aplicar según esas reglas al conectarse.
+4. **WhatsApp masivo** (p. ej. desde Unidades) — puede debitar tokens según **tokens por mensaje** configurados en Super Admin → WhatsApp.
+5. **Generas o descargas el acta** (PDF) — **no hay cargo adicional de tokens por elegir la versión con tabla de auditoría**; puede existir requisito de saldo/plan para acceder a la vista del acta según la interfaz. **Certificación OpenTimestamps** (si está activada) no implica compra de tokens extra por ese concepto.
 
 ---
 
-## Qué NO consume tokens
+## Qué NO consume tokens (créditos) en la práctica habitual
 
-- Entrar a la asamblea y ver la página.
-- Crear asambleas, preguntas y opciones.
-- Importar unidades.
-- Registrar votos a nombre de un residente (el administrador puede registrar votos por unidad sin que se resten tokens).
-- **Generar el acta** (una vez activada la asamblea).
-
-Solo necesitas saldo suficiente **en el momento de activar la asamblea**.
+- Entrar al panel, crear preguntas, importar unidades, registrar votos a nombre de un residente, **activar la asamblea como acción de menú** (el requisito de saldo es aparte).
+- **Elegir descargar el acta con auditoría** frente a la versión pública — no se descuenta un token *extra* por esa elección.
 
 ---
 
-## Qué SÍ consume tokens (cobro único)
+## Qué SÍ puede consumir tokens (créditos)
 
-- **Activar la asamblea** (pasar de borrador a activa).  
-  Se descuentan los tokens **una sola vez** por esa asamblea. Ese pago habilita:
-  - Compartir el enlace/QR para que voten los residentes.
-  - Generar y descargar el acta **cuantas veces quieras** sin nuevo cobro.
+- **Saldo mínimo al activar la asamblea** — según unidades del conjunto (ver validación en app).
+- **Aceptación LOPD** en sesión de votación pública — tras el umbral de la sesión (ver arriba).
+- **Envíos masivos por WhatsApp** — según configuración (tokens por mensaje).
+- Otras operaciones que la **interfaz** indique explícitamente como de pago antes de ejecutar.
 
 ---
 
@@ -54,15 +51,19 @@ Solo necesitas saldo suficiente **en el momento de activar la asamblea**.
 
 ## Validación en la app
 
-| Acción | ¿Se exige saldo? |
-|--------|-------------------|
-| Entrar a asamblea, crear preguntas, importar unidades, registrar votos por residentes | No |
-| **Activar la asamblea** | Sí. Se exige `tokens_disponibles >= costo (unidades)`. Si no tienes saldo, se muestra el modal para comprar tokens. Las asambleas demo (`is_demo`) no consumen. |
-| Generar el acta | No. Solo está habilitado si la asamblea ya fue activada (cobro único al activar). |
+| Acción | Notas |
+|--------|--------|
+| Entrar a asamblea, crear preguntas, importar unidades, registrar votos por residentes | No consumen tokens por esas acciones en sí. |
+| **Activar la asamblea** | Se exige saldo suficiente (costo alineado a unidades). Asambleas demo (`is_demo`) no consumen. |
+| **Votación pública + LOPD** | Consumo por sesión según umbral (5+1); ver RPC/API de consentimiento. |
+| **WhatsApp masivo** | Según `tokens_por_mensaje_whatsapp`. |
+| **Generar / descargar acta** | Sin cargo extra por versión con auditoría; requisitos de acceso según pantalla. |
 
 ---
 
 ## Referencias
 
 - [RESUMEN-TOKENS.md](../RESUMEN-TOKENS.md) — Resumen técnico y flujo del webhook.
+- [GUIA-MODALES-Y-LEGAL.md](GUIA-MODALES-Y-LEGAL.md) — Modal de guía unificada en dashboard.
 - [integracion-Wompi.md](../integracion-Wompi.md) — Configuración de la pasarela de pagos.
+- `supabase/SESION-Y-TOKENS-CONSENTIMIENTO.sql` — Sesión LOPD y consumos.

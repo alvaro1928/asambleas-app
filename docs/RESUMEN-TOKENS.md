@@ -14,10 +14,12 @@
 
 ## 3. Cómo se usan los tokens
 
-- **Regla:** 1 token = 1 unidad de vivienda.
-- **Costo de una operación** en un conjunto = número de **unidades** de ese conjunto (ej. 50 unidades → 50 tokens al activar).
-- **Operación que consume tokens:** solo **activar la asamblea** (cobro único; al activar se descuentan los tokens y se marca `pago_realizado`; eso habilita generar el acta cuantas veces quieras sin nuevo cobro).
-- **No consumen tokens:** crear asambleas, crear preguntas, importar unidades, **generar el acta** (ya habilitada tras activar), **registrar votos manuales**. Las **asambleas de prueba (sandbox)** con `is_demo = true` tampoco consumen tokens.
+- **Regla base:** 1 token = 1 unidad de vivienda (referencia para costos y validaciones).
+- **Activar la asamblea:** se exige saldo suficiente frente al costo del conjunto (unidades); tras activar, la asamblea queda habilitada para flujo normal (ver API y `descontar-token-acta` / `pago_realizado`).
+- **Consentimiento LOPD en sesión de votación pública:** puede debitar créditos según reglas de sesión (p. ej. primeras 5 unidades distintas sin cobro por ese concepto; desde la 6.ª unidad nueva en la sesión, 1 crédito por unidad; misma unidad una vez por sesión). Implementación: RPC y tablas en `SESION-Y-TOKENS-CONSENTIMIENTO.sql`.
+- **WhatsApp masivo:** tokens por mensaje según `configuracion_whatsapp` (Super Admin).
+- **No consumen por sí mismos:** crear preguntas, importar unidades, registrar votos manuales por admin, **elegir descargar acta con auditoría** (no hay débito extra por esa versión frente a la pública).  
+- **Sandbox (`is_demo`):** no consumen por LOPD en las reglas de negocio demo.
 
 ## 4. Quién puede operar
 

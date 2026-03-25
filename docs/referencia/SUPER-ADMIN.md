@@ -65,10 +65,21 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
 ### Ajustes (`/super-admin/ajustes`)
 
-- **Color principal (hex)** — para la landing y elementos de marca.
-- **WhatsApp de contacto** — botones de contacto en la landing. Vacío = no mostrar.
-- **Correo (SMTP)** — configuración para envío de enlace de votación por correo. Host, puerto, usuario, contraseña y remitente. Tiene prioridad sobre las variables de entorno. Requiere ejecutar `CONFIGURACION-SMTP-SUPER-ADMIN.sql`.
-- La URL de Plan Pro y el precio por token se leen de la tabla de planes y de la configuración global (BD); no se configuran por variables de entorno.
+Configuran la fila **`configuracion_global`** con `key = 'landing'` (API `GET/PATCH /api/super-admin/configuracion-landing`), además de SMTP en su API dedicada.
+
+**Landing (página pública `/` y marca):**
+
+- **Título y subtítulo** — textos hero de la landing.
+- **Color principal (hex)** — marca y acentos en landing y UI.
+- **WhatsApp de contacto** — botones CTA; vacío = no mostrar.
+- **Precio por token (COP)** y **bono de bienvenida (tokens)** — referencia para compras y onboarding.
+- **Texto hero precio** / **Texto ahorro** — copy comercial editable (bloque de precios/valor).
+- **Texto del botón CTA WhatsApp** — por defecto «Contactanos» si se deja vacío.
+- **Certificación blockchain del acta (OpenTimestamps)** — interruptor global: si está activo, al **finalizar** una asamblea se puede generar el certificado `.ots` (Bitcoin/OpenTimestamps); no sustituye la configuración por asamblea en la app de gestión, pero define la política mostrada en producto.
+
+**Correo (SMTP)** — misma pestaña o flujo asociado: host, puerto, usuario, contraseña y remitente para envío del enlace de votación. Tiene prioridad sobre variables de entorno. Script: `CONFIGURACION-SMTP-SUPER-ADMIN.sql`.
+
+La URL de Plan Pro y planes se leen de la tabla **planes** y de esta configuración; no se definen con variables de entorno para precio/WhatsApp/color.
 
 ### WhatsApp (Meta API) (`/super-admin/whatsapp`)
 
@@ -93,7 +104,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 | GET | `/api/super-admin/planes` | Lista planes (nombre, precio_por_asamblea_cop, tokens_iniciales, vigencia_meses, límites). |
 | PATCH | `/api/super-admin/planes` | Body: `{ key, nombre?, precio_por_asamblea_cop?, tokens_iniciales?, vigencia_meses?, max_preguntas_por_asamblea?, incluye_acta_detallada? }`. Actualiza un plan. |
 | GET | `/api/super-admin/configuracion-landing` | Color principal y WhatsApp (para Ajustes). |
-| PATCH | `/api/super-admin/configuracion-landing` | Body: `{ color_principal_hex?, whatsapp_number?, ... }`. Guarda ajustes de landing. |
+| PATCH | `/api/super-admin/configuracion-landing` | Body: `{ titulo?, subtitulo?, color_principal_hex?, whatsapp_number?, precio_por_token_cop?, bono_bienvenida_tokens?, texto_hero_precio?, texto_ahorro?, cta_whatsapp_text?, acta_blockchain_ots_enabled? }`. Guarda ajustes de landing. |
 | GET | `/api/super-admin/configuracion-smtp` | Configuración SMTP para correo (Super Admin). |
 | PATCH | `/api/super-admin/configuracion-smtp` | Body: `{ host?, port?, secure?, user?, pass?, from_address? }`. Guarda SMTP. |
 | GET | `/api/super-admin/configuracion-whatsapp` | Configuración WhatsApp Meta (token, phone_number_id, template_name, tokens_por_mensaje_whatsapp). |
