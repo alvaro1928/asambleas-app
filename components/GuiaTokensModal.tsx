@@ -1,6 +1,6 @@
 'use client'
 
-import { HelpCircle, Link2, Link as LinkIcon, AlertTriangle, Coins, Unlock } from 'lucide-react'
+import { HelpCircle, Link2, Link as LinkIcon, AlertTriangle, Coins, Unlock, Lock } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 const COLOR_DEFAULT = '#4f46e5'
@@ -59,77 +59,128 @@ export function GuiaTokensModal({
         </div>
 
         {showAcceso && ctx && (
-          <div className="px-4 sm:px-5 pb-4 space-y-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-            <div className="rounded-2xl border p-4 space-y-3" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
-              <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                <LinkIcon className="w-4 h-4 shrink-0 opacity-90" style={{ color: colorPrincipalHex }} />
-                Acceso público
-              </h3>
-              {ctx.estadoAsamblea === 'activa' && (
-                <p className="text-sm text-slate-400 leading-relaxed">
-                  Usa el <strong className="text-emerald-400">botón verde «Activar votación pública»</strong> en el panel para abrir el acceso y la sección{' '}
-                  <strong className="text-red-400">Desactivar votación</strong> para cerrarlo. Mientras el acceso esté abierto, la sesión de privacidad (LOPD) es la
-                  misma. Al <strong className="text-slate-200">cerrar</strong>, el sistema prepara una nueva sesión; al <strong className="text-slate-200">volver a abrir</strong>, los votantes aceptan LOPD de nuevo y los créditos se cobran{' '}
-                  <strong className="text-slate-200">al conectarse y aceptar</strong>, según las reglas de abajo.
-                </p>
-              )}
-
-              {ctx.estadoAsamblea === 'borrador' && (
-                <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2.5 flex gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-100/95">
-                    Primero <strong>activa la asamblea</strong> con el botón verde del encabezado. Así podrás generar código y enlace para los residentes.
-                  </p>
+          <div className="px-4 sm:px-5 pb-4 border-b border-white/[0.08]">
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent overflow-hidden">
+              {/* Cabecera de sección */}
+              <div className="flex items-center gap-3 px-4 pt-4 pb-3 sm:px-5 sm:pt-5 border-b border-white/[0.06]">
+                <div
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]"
+                  aria-hidden
+                >
+                  <LinkIcon className="h-5 w-5" style={{ color: colorPrincipalHex }} />
                 </div>
-              )}
-
-              {ctx.estadoAsamblea === 'activa' && !ctx.accesoPublico && (
-                <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 flex gap-2">
-                  <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
-                  <p className="text-xs text-yellow-100/90">
-                    La votación pública <strong>no está activada</strong>. Los residentes no podrán acceder hasta que actives el acceso desde el panel.
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold text-slate-100 tracking-tight">Acceso público</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">LOPD y reglas de cobro por sesión</p>
                 </div>
-              )}
+              </div>
 
-              {ctx.estadoAsamblea === 'activa' && ctx.accesoPublico && (
-                <div className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-3 py-2 flex items-center gap-2">
-                  <Unlock className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <p className="text-xs text-emerald-100/95 font-medium">Votación pública activa — comparte el enlace o el QR desde el panel.</p>
-                </div>
-              )}
+              <div className="px-4 py-4 sm:px-5 space-y-4">
+                {ctx.estadoAsamblea === 'borrador' && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-3.5 py-3 flex gap-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-50/95 leading-relaxed">
+                      Primero <strong className="text-amber-100">activa la asamblea</strong> con el botón verde del encabezado. Así podrás generar código y enlace para los residentes.
+                    </p>
+                  </div>
+                )}
 
-              <div className="rounded-2xl border p-4" style={{ borderColor: 'rgba(99,102,241,0.25)', background: 'rgba(99,102,241,0.06)' }}>
-                <p className="text-sm font-semibold text-slate-200 flex items-center gap-2 mb-2">
-                  <Coins className="w-4 h-4 shrink-0" style={{ color: colorPrincipalHex }} />
-                  Cómo se cobran los créditos (tokens)
-                </p>
-                {ctx.isDemo ? (
-                  <p className="text-sm text-slate-400">En esta asamblea de <strong className="text-slate-300">demostración</strong> no se descuentan créditos por aceptación LOPD.</p>
-                ) : (
+                {/* Instrucciones largas solo si aún no abriste el acceso (evita repetición cuando ya está activo) */}
+                {ctx.estadoAsamblea === 'activa' && !ctx.accesoPublico && (
                   <>
-                    <p className="text-sm text-slate-400 mb-2">
-                      <strong className="text-slate-300">Activar el acceso no descuenta saldo por sí solo.</strong> Los créditos se consumen cuando un copropietario{' '}
-                      <strong className="text-slate-300">acepta el tratamiento de datos (LOPD)</strong> en la sesión pública actual.
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      Usa el <strong className="text-emerald-400">«Activar votación pública»</strong> en el panel y{' '}
+                      <strong className="text-red-400">Desactivar votación</strong> para cerrar. Mientras el acceso esté abierto, la sesión LOPD es la misma; al cerrar y volver a abrir, los votantes aceptan de nuevo y el cobro es al conectarse.
                     </p>
-                    <ul className="text-sm text-slate-400 space-y-1.5 list-disc list-inside marker:text-slate-600">
-                      <li>
-                        Primeras <strong className="text-slate-300">5 unidades distintas</strong> que acepten en esa sesión: sin cobro por ese concepto.
-                      </li>
-                      <li>
-                        Desde la <strong className="text-slate-300">6.ª unidad nueva</strong> en la misma sesión: <strong className="text-slate-300">1 crédito por unidad</strong>{' '}
-                        (sin cobro retroactivo a las cinco primeras).
-                      </li>
-                      <li>
-                        La <strong className="text-slate-300">misma unidad</strong> no paga dos veces en la misma sesión aunque use varios dispositivos.
-                      </li>
-                    </ul>
-                    <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-                      Generar o reutilizar el código y el enlace no cobra solo por eso; la confirmación al activar repite el resumen. Cerrar el acceso (Desactivar votación)
-                      reinicia la privacidad para la próxima apertura.
-                    </p>
+                    <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.07] px-3.5 py-3 flex gap-3">
+                      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-50/95 leading-relaxed">
+                        La votación pública <strong className="text-amber-100">no está activada</strong>. Los residentes no podrán acceder hasta que actives el acceso.
+                      </p>
+                    </div>
                   </>
                 )}
+
+                {ctx.estadoAsamblea === 'activa' && ctx.accesoPublico && (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <div className="inline-flex items-center gap-2.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-3.5 py-2 text-xs font-medium text-emerald-100 min-w-0">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/25">
+                        <Unlock className="w-3.5 h-3.5 text-emerald-300" aria-hidden />
+                      </span>
+                      <span>Votación pública activa — comparte el enlace o el QR desde el panel.</span>
+                    </div>
+                    <p className="text-xs text-slate-500 sm:ml-auto sm:text-right sm:max-w-[min(100%,14rem)] leading-snug">
+                      Al usar <strong className="text-slate-400">Desactivar votación</strong> sube el n.º de sesión; al reabrir, nueva ronda LOPD.
+                    </p>
+                  </div>
+                )}
+
+                {ctx.estadoAsamblea === 'finalizada' && (
+                  <div className="flex items-start gap-3 rounded-xl border border-slate-500/25 bg-slate-500/10 px-3.5 py-3">
+                    <Lock className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" aria-hidden />
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Asamblea <strong className="text-slate-300">cerrada</strong>: no puedes abrir ni cerrar la votación pública desde aquí. Las reglas de abajo sirven de referencia para futuras asambleas.
+                    </p>
+                  </div>
+                )}
+
+                {/* Cobro: tarjeta con rejilla en lugar de lista larga */}
+                <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/[0.06] overflow-hidden">
+                  <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-indigo-500/15 bg-indigo-500/[0.04]">
+                    <Coins className="w-4 h-4 shrink-0 text-indigo-300" aria-hidden />
+                    <span className="text-sm font-semibold text-slate-100">Cómo se cobran los créditos (tokens)</span>
+                  </div>
+                  <div className="p-3.5 sm:p-4">
+                    {ctx.isDemo ? (
+                      <p className="text-sm text-slate-400">
+                        Asamblea de <strong className="text-slate-300">demostración</strong>: no se descuentan créditos por aceptación LOPD.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-sm text-slate-400 mb-3">
+                          <strong className="text-slate-200">Activar el acceso no descuenta saldo por sí solo.</strong> El cobro ocurre cuando alguien{' '}
+                          <strong className="text-slate-200">acepta LOPD</strong> al entrar en esta sesión pública.
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          {[
+                            {
+                              k: '1',
+                              t: 'Primeras 5 unidades distintas',
+                              d: 'Sin cobro por LOPD en la sesión',
+                            },
+                            {
+                              k: '2',
+                              t: 'Desde la 6.ª unidad nueva',
+                              d: '1 crédito por unidad (sin cobro retroactivo)',
+                            },
+                            {
+                              k: '3',
+                              t: 'Misma unidad, varios dispositivos',
+                              d: 'Un solo cobro por unidad y sesión',
+                            },
+                          ].map((item) => (
+                            <div
+                              key={item.k}
+                              className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5 text-left"
+                            >
+                              <span
+                                className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-md text-[10px] font-bold tabular-nums mb-1.5"
+                                style={{ backgroundColor: `${colorPrincipalHex}28`, color: colorPrincipalHex }}
+                              >
+                                {item.k}
+                              </span>
+                              <p className="text-xs font-medium text-slate-200 leading-snug">{item.t}</p>
+                              <p className="text-[11px] text-slate-500 mt-1 leading-snug">{item.d}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-3 leading-relaxed border-t border-white/[0.06] pt-3">
+                          El código y el enlace no cobran por sí solos. Cerrar el acceso (panel → Desactivar votación) reinicia la privacidad para la próxima apertura.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -2912,8 +2912,22 @@ Tu participacion es importante. 🏠`
                     )}
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <span className="inline-block px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">✓ Votación activa</span>
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 dark:border-emerald-700/60 bg-emerald-50 dark:bg-emerald-950/40 pl-1.5 pr-3 py-1.5 text-xs font-medium text-emerald-900 dark:text-emerald-100">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm" aria-hidden>
+                          <Unlock className="w-3.5 h-3.5" />
+                        </span>
+                        Votación pública activa
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setGuiaModalOpen(true)}
+                        className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        Ver reglas LOPD y cobro
+                      </button>
+                    </div>
 
                     {/* Verificación de quórum — visible según Config → Asamblea */}
                     {prefsAsamblea.mostrar_quorum !== false && (
@@ -3076,8 +3090,8 @@ Tu participacion es importante. 🏠`
                       )}
                     </div>
 
-                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center pt-1">
-                      Comparte el enlace o el QR con los residentes para que puedan votar
+                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center pt-0.5">
+                      Enlace y QR están en el bloque desplegable de arriba.
                     </p>
                   </div>
                 )}
