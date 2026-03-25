@@ -1,0 +1,23 @@
+-- =============================================================================
+-- Parche: bloqueo de billetera (profiles) en registrar_consentimiento_y_consumo_sesion
+-- Evita "lost update" del saldo si dos votantes aceptan LOPD al mismo tiempo en
+-- asambleas distintas del mismo gestor.
+--
+-- Aplica: copia la definición completa de la función desde
+-- SESION-Y-TOKENS-CONSENTIMIENTO.sql (sección "-- 7) RPC atómica" hasta el $$;)
+-- o ejecuta ese archivo completo en un entorno que ya tenga el resto aplicado.
+-- =============================================================================
+-- Fragmento esencial (solo si ya tienes la función anterior):
+-- Dentro del bloque IF NOT v_demo AND v_charge_total > 0 THEN ... END IF;
+-- antes de validar saldo, sustituir la lectura de saldo por:
+--
+--   PERFORM 1 FROM profiles p
+--   WHERE p.user_id = v_gestor_user OR p.id = v_gestor_user
+--   FOR UPDATE;
+--   SELECT COALESCE(MAX(p.tokens_disponibles), 0)::INT INTO v_saldo
+--   FROM profiles p
+--   WHERE p.user_id = v_gestor_user OR p.id = v_gestor_user;
+--
+-- Y eliminar el segundo SELECT de saldo antes del UPDATE; usar:
+--   v_nuevo_saldo := GREATEST(0, v_saldo - v_charge_total);
+-- =============================================================================

@@ -314,6 +314,11 @@ BEGIN
       RETURN jsonb_build_object('ok', false, 'code', 'NO_GESTOR', 'message', 'No se encontró billetera del gestor para este conjunto.');
     END IF;
 
+    -- Bloqueo de billetera: sin esto, dos consentimientos en paralelo en *distintas* asambleas del mismo gestor
+    -- podían leer el mismo saldo y sobrescribir tokens_disponibles (lost update).
+    PERFORM 1 FROM profiles p
+    WHERE p.user_id = v_gestor_user OR p.id = v_gestor_user
+    FOR UPDATE;
     SELECT COALESCE(MAX(p.tokens_disponibles), 0)::INT INTO v_saldo
     FROM profiles p
     WHERE p.user_id = v_gestor_user OR p.id = v_gestor_user;
@@ -357,10 +362,6 @@ BEGIN
   END LOOP;
 
   IF NOT v_demo AND v_charge_total > 0 THEN
-    SELECT COALESCE(MAX(p.tokens_disponibles), 0)::INT INTO v_saldo
-    FROM profiles p
-    WHERE p.user_id = v_gestor_user OR p.id = v_gestor_user;
-
     v_nuevo_saldo := GREATEST(0, v_saldo - v_charge_total);
 
     UPDATE profiles SET tokens_disponibles = v_nuevo_saldo
@@ -391,7 +392,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-COMMENT ON FUNCTION registrar_consentimiento_y_consumo_sesion IS 'LOPD + consumo por umbral 5 unidades; idempotente por unidad/sesión; SECURITY DEFINER';
+COMMENT ON FUNCTION registrar_consentimiento_y_consumo_sesion IS 'LOPD + consumo umbral 5 unidades; idempotente por unidad/sesión (UNIQUE + mismo identificador); FOR UPDATE asamblea serializa por código; FOR UPDATE profiles evita lost update entre asambleas; SECURITY DEFINER';
 
 -- 8) Cerrar sesión (sin desactivar enlace público): nueva ronda de consentimientos / contadores.
 -- Nota: el panel solo usa «Desactivar votación» (desactivar_votacion_publica). Esta RPC queda para scripts o integraciones que necesiten nuevo session_seq sin cerrar acceso_publico.
