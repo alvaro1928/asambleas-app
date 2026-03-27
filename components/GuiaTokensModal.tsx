@@ -38,9 +38,9 @@ export function GuiaTokensModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl border p-0 gap-0" style={{ borderColor: 'rgba(255,255,255,0.12)', backgroundColor: '#0B0E14' }}>
+      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl border p-0 gap-0 text-[15px]" style={{ borderColor: 'rgba(255,255,255,0.12)', backgroundColor: '#0B0E14' }}>
         {/* Cabecera estilo píldora (referencia UI moderna) */}
-        <div className="p-4 pb-2 sm:p-5">
+        <div className="p-4 pb-2 sm:p-6">
           <div
             className="flex items-center gap-3 rounded-full border px-4 py-3 sm:py-3.5"
             style={{
@@ -54,11 +54,11 @@ export function GuiaTokensModal({
             >
               <HelpCircle className="h-5 w-5 text-white" aria-hidden />
             </span>
-            <DialogHeader className="text-left space-y-0.5 p-0 flex-1 min-w-0">
-              <DialogTitle className="text-base sm:text-lg font-semibold text-slate-100 leading-snug pr-2">
+            <DialogHeader className="text-left space-y-1 p-0 flex-1 min-w-0">
+              <DialogTitle className="text-lg sm:text-xl font-semibold text-slate-100 leading-snug pr-2">
                 Guía: tokens (créditos), acceso público y cobro
               </DialogTitle>
-              <p className="text-xs text-slate-500 font-normal">
+              <p className="text-sm text-slate-400 font-normal">
                 LOPD, votación en línea y reglas de tu billetera en un solo lugar
               </p>
             </DialogHeader>
@@ -77,8 +77,8 @@ export function GuiaTokensModal({
                   <LinkIcon className="h-5 w-5" style={{ color: colorPrincipalHex }} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-slate-100 tracking-tight">Acceso público</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">LOPD y reglas de cobro por sesión</p>
+                  <h3 className="text-base font-semibold text-slate-100 tracking-tight">Acceso público</h3>
+                  <p className="text-sm text-slate-400 mt-0.5">LOPD y reglas de cobro por sesión</p>
                 </div>
               </div>
 
@@ -86,7 +86,7 @@ export function GuiaTokensModal({
                 {ctx.estadoAsamblea === 'borrador' && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-3.5 py-3 flex gap-3">
                     <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-50/95 leading-relaxed">
+                    <p className="text-sm text-amber-50/95 leading-relaxed">
                       Primero <strong className="text-amber-100">activa la asamblea</strong> con el botón verde del encabezado. Así podrás generar código y enlace para los residentes.
                     </p>
                   </div>
@@ -101,7 +101,7 @@ export function GuiaTokensModal({
                     </p>
                     <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.07] px-3.5 py-3 flex gap-3">
                       <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                      <p className="text-xs text-amber-50/95 leading-relaxed">
+                      <p className="text-sm text-amber-50/95 leading-relaxed">
                         La votación pública <strong className="text-amber-100">no está activada</strong>. Los residentes no podrán acceder hasta que actives el acceso.
                       </p>
                     </div>
@@ -110,13 +110,13 @@ export function GuiaTokensModal({
 
                 {ctx.estadoAsamblea === 'activa' && ctx.accesoPublico && (
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <div className="inline-flex items-center gap-2.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-3.5 py-2 text-xs font-medium text-emerald-100 min-w-0">
+                    <div className="inline-flex items-center gap-2.5 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-3.5 py-2 text-sm font-medium text-emerald-100 min-w-0">
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/25">
                         <Unlock className="w-3.5 h-3.5 text-emerald-300" aria-hidden />
                       </span>
                       <span>Votación pública activa — comparte el enlace o el QR desde el panel.</span>
                     </div>
-                    <p className="text-xs text-slate-500 sm:ml-auto sm:text-right sm:max-w-[min(100%,14rem)] leading-snug">
+                    <p className="text-sm text-slate-400 sm:ml-auto sm:text-right sm:max-w-[min(100%,16rem)] leading-snug">
                       Al usar <strong className="text-slate-400">Desactivar votación</strong> sube el n.º de sesión; al reabrir, nueva ronda LOPD.
                     </p>
                   </div>
@@ -125,7 +125,7 @@ export function GuiaTokensModal({
                 {ctx.estadoAsamblea === 'finalizada' && (
                   <div className="flex items-start gap-3 rounded-xl border border-slate-500/25 bg-slate-500/10 px-3.5 py-3">
                     <Lock className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" aria-hidden />
-                    <p className="text-xs text-slate-400 leading-relaxed">
+                    <p className="text-sm text-slate-400 leading-relaxed">
                       Asamblea <strong className="text-slate-300">cerrada</strong>: no puedes abrir ni cerrar la votación pública desde aquí. Las reglas de abajo sirven de referencia para futuras asambleas.
                     </p>
                   </div>
@@ -176,12 +176,12 @@ export function GuiaTokensModal({
                               >
                                 {item.k}
                               </span>
-                              <p className="text-xs font-medium text-slate-200 leading-snug">{item.t}</p>
-                              <p className="text-[11px] text-slate-500 mt-1 leading-snug">{item.d}</p>
+                          <p className="text-sm font-medium text-slate-200 leading-snug">{item.t}</p>
+                          <p className="text-xs text-slate-400 mt-1 leading-snug">{item.d}</p>
                             </div>
                           ))}
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-3 leading-relaxed border-t border-white/[0.06] pt-3">
+                        <p className="text-xs text-slate-400 mt-3 leading-relaxed border-t border-white/[0.06] pt-3">
                           El código y el enlace no cobran por sí solos. Cerrar el acceso (panel → Desactivar votación) reinicia la privacidad para la próxima apertura.
                         </p>
                       </>
@@ -205,7 +205,7 @@ export function GuiaTokensModal({
                 <span className="block text-sm font-medium text-slate-200">
                   {verMasExtras ? 'Ver menos' : 'Ver más'}
                 </span>
-                <span className="block text-xs text-slate-500 mt-0.5">
+                <span className="block text-sm text-slate-400 mt-0.5">
                   Billetera, funciones de la app, acta y documentos legales
                 </span>
               </span>
@@ -256,7 +256,7 @@ export function GuiaTokensModal({
             <p className="text-sm text-slate-400">
               <strong className="text-slate-300">No consumen tokens (créditos):</strong> entrar al panel, crear preguntas, importar unidades, registrar votos a nombre de un residente, ni activar la asamblea en sí.
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-sm text-slate-400">
               Si tu saldo no alcanza para una operación que sí cobra tokens, compra más desde la pasarela (mínimo 20 tokens (créditos) por compra).
             </p>
           </div>
@@ -329,7 +329,7 @@ export function GuiaTokensModal({
           <Link2 className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#10b981' }} />
           <div>
             <p className="text-sm font-semibold text-slate-200 mb-0.5">Acta definitiva y certificación</p>
-            <p className="text-xs text-slate-400">
+            <p className="text-sm text-slate-400">
               Para que el acta quede <strong className="text-slate-300">definitiva</strong> (y, si está activada, certificada en blockchain), debes <strong className="text-slate-300">cerrar la asamblea</strong> desde el botón &quot;Finalizar Asamblea&quot; en la asamblea correspondiente. A partir de ahí podrás descargar el acta y el certificado .ots desde la página del acta y verificar en{' '}
               <a href="https://opentimestamps.org" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#34d399' }}>
                 opentimestamps.org
@@ -340,7 +340,7 @@ export function GuiaTokensModal({
         </div>
         <div className="mx-4 sm:mx-5 mb-6 p-4 rounded-2xl border" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(99,102,241,0.08)' }}>
           <p className="text-sm font-semibold text-slate-200 mb-1">Documentos legales y transparencia</p>
-          <p className="text-xs text-slate-400">
+          <p className="text-sm text-slate-400">
             Términos, EULA, política de privacidad y política de cookies se pueden administrar desde Super Admin con versionado de actualización. Esto ayuda a mantener la operación alineada con cumplimiento y comunicación clara hacia tus usuarios.
           </p>
         </div>
