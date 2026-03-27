@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/components/providers/ToastProvider'
 import { buildPublicVotarUrl } from '@/lib/publicVotarUrl'
 import { normalizeCodigoAccesoFromUrl } from '@/lib/codigoAcceso'
+import { FOCUS_REFRESH_MIN_MS, POLL_MS_FLAGS, POLL_MS_HEAVY, shouldSkipFocusRefresh } from '@/lib/votacion-live'
 import dynamic from 'next/dynamic'
 
 const QRCodeSVG = dynamic(
@@ -33,9 +34,6 @@ const UMBRAL_APROBACION_DEFECTO = 51
 
 // Cronómetro visual de participación (solo UI, sin bloquear votaciones ni enviar cambios al backend)
 const DEFAULT_TIEMPO_PARTICIPACION_SECONDS = 5 * 60
-
-/** Sondeo en vivo: 3 s para alinear más rápido con cambios del admin (abrir/cerrar/borrar pregunta). */
-const POLL_MS_LIVE = 3000
 
 function formatMMSS(totalSeconds: number) {
   const s = Math.max(0, Math.floor(totalSeconds))
@@ -185,6 +183,8 @@ export default function VotacionPublicaPage() {
    */
   const cargarPreguntasInFlightRef = useRef(false)
   const cargarPreguntasPendienteRef = useRef(false)
+  const pollingPesadoInFlightRef = useRef(false)
+  const ultimaRecargaPesadaRef = useRef(0)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && codigo) {
@@ -1076,6 +1076,18 @@ export default function VotacionPublicaPage() {
     }
   }
 
+  const fetchEstadisticasBatch = async (preguntaIds: string[]): Promise<Record<string, EstadisticasPregunta>> => {
+    const res = await fetch('/api/votar/estadisticas-preguntas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      body: JSON.stringify({ codigo, preguntaIds }),
+    })
+    const json = (await res.json().catch(() => ({}))) as { stats?: Record<string, EstadisticasPregunta> }
+    if (!res.ok || !json.stats || typeof json.stats !== 'object') return {}
+    return json.stats
+  }
+
   const cargarEstadisticas = async (preguntaIds: string[]) => {
     try {
       if (asamblea?.asamblea_id && preguntaIds.length > 0) {
@@ -1090,53 +1102,20 @@ export default function VotacionPublicaPage() {
       }
 
       const estadisticasMap: Record<string, EstadisticasPregunta> = {}
-
+      const statsBatch = await fetchEstadisticasBatch(preguntaIds)
       for (const preguntaId of preguntaIds) {
-        const { data, error } = await supabase.rpc('calcular_estadisticas_pregunta', {
-          p_pregunta_id: preguntaId
-        })
-
-        if (!error && data && data.length > 0) {
-          const statsData = data[0]
-          
-          // Parsear resultados si es string
-          let resultados = []
-          if (typeof statsData.resultados === 'string') {
-            try {
-              resultados = JSON.parse(statsData.resultados)
-            } catch (e) {
-              console.error('Error parsing resultados:', e)
-              resultados = []
-            }
-          } else if (Array.isArray(statsData.resultados)) {
-            resultados = statsData.resultados
-          } else {
-            // Si es un objeto JSONB de PostgreSQL
-            resultados = statsData.resultados || []
-          }
-
-          estadisticasMap[preguntaId] = {
-            total_votos: parseInt(statsData.total_votos) || 0,
-            total_coeficiente: parseFloat(statsData.total_coeficiente) || 0,
-            porcentaje_participacion: parseFloat(statsData.porcentaje_participacion) || 0,
-            tipo_votacion: (statsData.tipo_votacion ?? 'coeficiente') as string,
-            resultados: resultados
-          }
-        } else {
-          // Si no hay datos, crear estructura vacía
-          estadisticasMap[preguntaId] = {
-            total_votos: 0,
-            total_coeficiente: 0,
-            porcentaje_participacion: 0,
-            tipo_votacion: 'coeficiente',
-            resultados: []
-          }
+        estadisticasMap[preguntaId] = statsBatch[preguntaId] ?? {
+          total_votos: 0,
+          total_coeficiente: 0,
+          porcentaje_participacion: 0,
+          tipo_votacion: 'coeficiente',
+          resultados: [],
         }
       }
 
       setEstadisticas(estadisticasMap)
-    } catch (error: any) {
-      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) return
+    } catch (error: unknown) {
+      if (error instanceof Error && (error.message.includes('AbortError') || error.message.includes('aborted'))) return
       console.error('Error cargando estadísticas:', error)
     }
   }
@@ -1155,43 +1134,24 @@ export default function VotacionPublicaPage() {
       }
 
       const estadisticasMap: Record<string, EstadisticasPregunta> = {}
-
+      const statsBatch = await fetchEstadisticasBatch(preguntaIds)
       for (const preguntaId of preguntaIds) {
-        const { data: statsData, error } = await supabase.rpc('calcular_estadisticas_pregunta', {
-          p_pregunta_id: preguntaId
-        })
-
-        if (statsData && !error) {
-          let resultados = []
-          
-          if (typeof statsData.resultados === 'string') {
-            try {
-              const parsed = JSON.parse(statsData.resultados)
-              resultados = Array.isArray(parsed) ? parsed : []
-            } catch (e) {
-              resultados = []
-            }
-          } else if (Array.isArray(statsData.resultados)) {
-            resultados = statsData.resultados
-          } else {
-            resultados = statsData.resultados || []
-          }
-
-          estadisticasMap[preguntaId] = {
-            total_votos: parseInt(statsData.total_votos) || 0,
-            total_coeficiente: parseFloat(statsData.total_coeficiente) || 0,
-            coeficiente_total_conjunto: parseFloat(statsData.coeficiente_total_conjunto) || 100,
-            porcentaje_participacion: parseFloat(statsData.porcentaje_participacion) || 0,
-            tipo_votacion: (statsData.tipo_votacion ?? 'coeficiente') as string,
-            resultados: resultados
-          }
+        const row = statsBatch[preguntaId]
+        if (!row) continue
+        estadisticasMap[preguntaId] = {
+          total_votos: Number(row.total_votos) || 0,
+          total_coeficiente: Number(row.total_coeficiente) || 0,
+          coeficiente_total_conjunto: Number(row.coeficiente_total_conjunto) || 100,
+          porcentaje_participacion: Number(row.porcentaje_participacion) || 0,
+          tipo_votacion: row.tipo_votacion ?? 'coeficiente',
+          resultados: Array.isArray(row.resultados) ? row.resultados : [],
         }
       }
 
       setEstadisticasCerradas(estadisticasMap)
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Ignorar errores de AbortError
-      if (error?.message?.includes('AbortError') || error?.message?.includes('aborted')) return
+      if (error instanceof Error && (error.message.includes('AbortError') || error.message.includes('aborted'))) return
       console.error('Error cargando estadísticas cerradas:', error)
     }
   }
@@ -1221,19 +1181,46 @@ export default function VotacionPublicaPage() {
       const unidad = unidades.find(u => u.id === unidadId)
       if (!unidad) throw new Error('Unidad no encontrada')
 
-      const { error } = await supabase.rpc('registrar_voto_con_trazabilidad', {
-        p_pregunta_id: preguntaId,
-        p_unidad_id: unidadId,
-        p_opcion_id: opcionId,
-        p_votante_email: email.toLowerCase().trim(),
-        p_votante_nombre: unidad.nombre_otorgante || 'Votante',
-        p_es_poder: unidad.es_poder,
-        p_poder_id: null,
-        p_ip_address: clientIp || null,
-        p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
-      })
+      let votoRegistrado = false
+      try {
+        const res = await fetch('/api/votar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            pregunta_id: preguntaId,
+            opcion_id: opcionId,
+            unidad_id: unidadId,
+            votante_email: email.toLowerCase().trim(),
+            votante_nombre: unidad.nombre_otorgante || 'Votante',
+            es_poder: unidad.es_poder,
+            poder_id: null,
+          }),
+        })
+        if (res.ok) {
+          votoRegistrado = true
+        } else if (res.status !== 401) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string }
+          throw new Error(body.error || 'No se pudo registrar el voto')
+        }
+      } catch {
+        // fallback controlado abajo
+      }
 
-      if (error) throw error
+      if (!votoRegistrado) {
+        const { error } = await supabase.rpc('registrar_voto_con_trazabilidad', {
+          p_pregunta_id: preguntaId,
+          p_unidad_id: unidadId,
+          p_opcion_id: opcionId,
+          p_votante_email: email.toLowerCase().trim(),
+          p_votante_nombre: unidad.nombre_otorgante || 'Votante',
+          p_es_poder: unidad.es_poder,
+          p_poder_id: null,
+          p_ip_address: clientIp || null,
+          p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
+        })
+        if (error) throw error
+      }
 
       // Si votó y aún no tenía asistencia verificada, marcarla automáticamente.
       // Cuando la verificación está cerrada, se registra en la última sesión cerrada.
@@ -1330,7 +1317,7 @@ export default function VotacionPublicaPage() {
       }
     }
     fetchActiva()
-    const interval = setInterval(fetchActiva, POLL_MS_LIVE)
+    const interval = setInterval(fetchActiva, POLL_MS_FLAGS)
     return () => clearInterval(interval)
   }, [asamblea?.asamblea_id, codigo, step, email])
 
@@ -1504,7 +1491,7 @@ export default function VotacionPublicaPage() {
     }
   }
 
-  // Polling principal cada 5 s: quórum + preguntas nuevas (siempre recargar preguntas aunque no cambie el número de unidades).
+  // Polling principal pesado: preguntas/votos/historial con menor frecuencia para proteger móvil/red.
   useEffect(() => {
     const enPantallaVotacion = step === 'consentimiento' || step === 'votar'
     if (!enPantallaVotacion || !asamblea || !email.trim()) return
@@ -1513,6 +1500,8 @@ export default function VotacionPublicaPage() {
     refrescarVerificacion(asamblea.asamblea_id, email.trim())
 
     const interval = setInterval(async () => {
+      if (pollingPesadoInFlightRef.current) return
+      pollingPesadoInFlightRef.current = true
       try {
         const s = stepRef.current
         // consentimiento + votar: lista de abiertas debe actualizarse (admin cierra/borra sin recargar la página).
@@ -1536,8 +1525,10 @@ export default function VotacionPublicaPage() {
       } finally {
         // Siempre actualizar verificación (verificacionActiva, yaVerifico) aunque falle el bloque anterior
         await refrescarVerificacion(asamblea.asamblea_id, email.trim())
+        ultimaRecargaPesadaRef.current = Date.now()
+        pollingPesadoInFlightRef.current = false
       }
-    }, POLL_MS_LIVE)
+    }, POLL_MS_HEAVY)
 
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- polling when step or asamblea changes
@@ -1550,10 +1541,13 @@ export default function VotacionPublicaPage() {
 
     const recargarSiVotando = async () => {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
-      await refrescarVerificacion(asamblea.asamblea_id, email.trim())
-      const s = stepRef.current
-      if (s !== 'votar' && s !== 'consentimiento') return
+      if (pollingPesadoInFlightRef.current) return
+      if (shouldSkipFocusRefresh(ultimaRecargaPesadaRef.current, Date.now())) return
+      pollingPesadoInFlightRef.current = true
       try {
+        await refrescarVerificacion(asamblea.asamblea_id, email.trim())
+        const s = stepRef.current
+        if (s !== 'votar' && s !== 'consentimiento') return
         if (s === 'consentimiento') {
           await cargarPreguntas()
           return
@@ -1568,6 +1562,9 @@ export default function VotacionPublicaPage() {
         if (nuevasUnidades && nuevasUnidades.length > 0) await cargarHistorial(nuevasUnidades)
       } catch {
         // ignorar
+      } finally {
+        ultimaRecargaPesadaRef.current = Date.now()
+        pollingPesadoInFlightRef.current = false
       }
     }
 

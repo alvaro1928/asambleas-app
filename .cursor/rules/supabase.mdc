@@ -1,0 +1,45 @@
+---
+description: Convenciones Supabase seguras con RLS y manejo explícito de errores
+alwaysApply: true
+---
+
+# Supabase (Seguridad y acceso a datos)
+
+## Cliente y acceso
+
+- Usa el cliente de Supabase desde `lib/supabase` (server/browser según contexto).
+- No inicialices clientes ad hoc en archivos de features si ya existe helper compartido.
+- Mantén consistencia entre rutas API, acciones server y utilidades de datos.
+
+## Seguridad y RLS
+
+- Diseña todo acceso asumiendo **RLS habilitado**.
+- Nunca uses bypass de seguridad como solución rápida para llegar a datos.
+- Si se requiere privilegio elevado, documenta motivo, alcance y mitigación.
+- Prefiere policies explícitas y mínimas por caso de uso.
+
+## Manejo de errores
+
+- Verifica siempre `error` en respuestas de Supabase.
+- Propaga errores con contexto útil (operación, entidad, identificador), sin exponer secretos.
+- Devuelve estados HTTP coherentes en endpoints (`400`, `401`, `403`, `404`, `500`).
+
+## SQL y mantenibilidad
+
+- En scripts SQL, comenta objetivo y precondiciones brevemente.
+- Evita cambios ambiguos de permisos; define claramente qué rol puede qué operación.
+- Si ajustas policies, valida lectura/escritura para usuario autenticado y no autenticado.
+
+## Ejemplo
+
+```ts
+const { data, error } = await supabase
+  .from("asambleas")
+  .select("id,nombre,estado")
+  .eq("id", asambleaId)
+  .single();
+
+if (error) {
+  throw new Error(`Error consultando asamblea ${asambleaId}: ${error.message}`);
+}
+```

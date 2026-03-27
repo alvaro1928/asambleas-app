@@ -1,0 +1,42 @@
+---
+description: Estándares TypeScript estrictos y tipado consistente con Supabase
+alwaysApply: true
+---
+
+# TypeScript (estricto y mantenible)
+
+## Tipado general
+
+- Usa tipado estricto y evita `any`; cuando no se conozca el tipo, empieza con `unknown`.
+- Tipa parámetros, retornos públicos y estructuras de datos compartidas.
+- Prefiere `interface` sobre `type` para objetos de dominio y contratos extendibles.
+
+## Supabase types
+
+- Usa tipos generados automáticamente de Supabase para tablas, vistas y RPC.
+- Evita duplicar manualmente interfaces que ya existen en tipos generados.
+- Mantén helpers genéricos para mapear respuestas sin perder seguridad de tipos.
+
+## Modelado y utilidades
+
+- Usa unions discriminadas para estados (`idle | loading | success | error`).
+- Evita `as` innecesarios; primero intenta refinar con guards.
+- Centraliza tipos reutilizables de feature para evitar divergencias.
+
+## Ejemplos
+
+```ts
+// ✅ Preferir interface para objetos
+interface AsambleaResumen {
+  id: string;
+  nombre: string;
+  estado: "borrador" | "publicada" | "cerrada";
+}
+```
+
+```ts
+// ✅ unknown + type guard en lugar de any
+function isErrorWithMessage(value: unknown): value is { message: string } {
+  return typeof value === "object" && value !== null && "message" in value;
+}
+```

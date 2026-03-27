@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   identificadorCoincide,
+  normPhone,
   unidadesPropiasParaIdentificador,
   type UnidadVotarRow,
 } from '@/lib/votar-identificador'
@@ -54,11 +55,28 @@ export async function POST(request: NextRequest) {
     const sandboxUsarReales = (asambleaFlags as { sandbox_usar_unidades_reales?: boolean }).sandbox_usar_unidades_reales === true
     const unidadesDemoObjetivo = shouldUseDemoUnits(isDemo, sandboxUsarReales)
 
-    const { data: unidadesRows, error: unidadesErr } = await admin
+    const identLower = ident.toLowerCase()
+    const identPhone = normPhone(identLower)
+    const esEmail = identLower.includes('@')
+    const columnasUnidades =
+      'id, torre, numero, coeficiente, nombre_propietario, email, email_propietario, telefono, telefono_propietario, is_demo'
+
+    let unidadesQuery = admin
       .from('unidades')
-      .select('id, torre, numero, coeficiente, nombre_propietario, email, email_propietario, telefono, telefono_propietario, is_demo')
+      .select(columnasUnidades)
       .eq('organization_id', organizationId)
       .eq('is_demo', unidadesDemoObjetivo)
+
+    // Acota el universo en SQL para evitar traer todas las unidades del conjunto.
+    if (esEmail) {
+      const safeEmail = identLower.replace(/,/g, '')
+      unidadesQuery = unidadesQuery.or(`email.ilike.%${safeEmail}%,email_propietario.ilike.%${safeEmail}%`)
+    } else if (identPhone.length >= 6) {
+      const tail = identPhone.slice(-7)
+      unidadesQuery = unidadesQuery.or(`telefono.ilike.%${tail}%,telefono_propietario.ilike.%${tail}%`)
+    }
+
+    const { data: unidadesRows, error: unidadesErr } = await unidadesQuery.limit(250)
     if (unidadesErr) {
       return NextResponse.json({ error: 'Error consultando unidades' }, { status: 500 })
     }
@@ -66,11 +84,16 @@ export async function POST(request: NextRequest) {
     const unidadesPropias = unidadesPropiasParaIdentificador((unidadesRows ?? []) as UnidadVotarRow[], ident)
     const unidadesElegiblesSet = new Set((unidadesRows ?? []).map((u) => String((u as { id: string }).id)))
 
-    const { data: poderesRows, error: poderesErr } = await admin
+    let poderesQuery = admin
       .from('poderes')
       .select('unidad_otorgante_id, email_receptor')
       .eq('asamblea_id', asambleaId)
       .eq('estado', 'activo')
+    if (esEmail) {
+      const safeEmail = identLower.replace(/,/g, '')
+      poderesQuery = poderesQuery.ilike('email_receptor', `%${safeEmail}%`)
+    }
+    const { data: poderesRows, error: poderesErr } = await poderesQuery.limit(300)
     if (poderesErr) {
       return NextResponse.json({ error: 'Error consultando poderes' }, { status: 500 })
     }
