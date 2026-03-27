@@ -698,9 +698,16 @@ export default function VotacionPublicaPage() {
           setSoloSesionVerificacion(false)
           setStep('votar')
           await cargarPreguntas(unidadesConInfo)
-        } else {
+        } else if (modeAfter === 'verification') {
           setSoloSesionVerificacion(true)
           setStep('votar')
+        } else {
+          setConsentimientoAceptado(false)
+          saveStoredSessionState({ step: 'consentimiento', consentimientoAceptado: false, ts: Date.now() })
+          setError(
+            'La sesión pública se encuentra inactiva en este momento. Espera a que el administrador habilite verificación o votación.'
+          )
+          setStep('email')
         }
       } else {
         saveStoredSessionState({ step: 'consentimiento', consentimientoAceptado: false, ts: Date.now() })
@@ -778,9 +785,16 @@ export default function VotacionPublicaPage() {
         setSoloSesionVerificacion(false)
         setStep('votar')
         await cargarPreguntas(unidades)
-      } else {
+      } else if (modeAfter === 'verification') {
         setSoloSesionVerificacion(true)
         setStep('votar')
+      } else {
+        setConsentimientoAceptado(false)
+        saveStoredSessionState({ step: 'consentimiento', consentimientoAceptado: false, ts: Date.now() })
+        setError(
+          'La sesión pública se encuentra inactiva en este momento. Espera a que el administrador habilite verificación o votación.'
+        )
+        setStep('email')
       }
     } catch (err: any) {
       setError(err?.message ?? 'Error al continuar')

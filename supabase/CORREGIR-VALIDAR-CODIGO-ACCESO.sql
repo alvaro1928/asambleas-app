@@ -1,3 +1,7 @@
+-- ⚠️ OBSOLETO PARA EL FLUJO ACTUAL DE SESIÓN/TOKENS.
+-- No ejecutar en entornos que ya usan session_mode/session_seq.
+-- Usar como fuente canónica: SESION-Y-TOKENS-CONSENTIMIENTO.sql
+-- =====================================================
 -- =====================================================
 -- CORRECCIÓN: validar_codigo_acceso
 -- =====================================================

@@ -229,8 +229,10 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'code', 'BAD_REQUEST', 'message', 'Faltan codigo o identificador');
   END IF;
 
-  SELECT a.id, a.organization_id, COALESCE(a.is_demo, false),
-         COALESCE(a.session_mode, 'inactive'), COALESCE(a.session_seq, 1), a.acceso_publico
+  SELECT a.id, a.organization_id, COALESCE(a.is_demo, false) AS is_demo,
+         COALESCE(a.session_mode, 'inactive') AS session_mode,
+         COALESCE(a.session_seq, 1) AS session_seq,
+         a.acceso_publico
     INTO v_asamblea
   FROM asambleas a
   WHERE a.codigo_acceso = v_codigo

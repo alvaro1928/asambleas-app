@@ -40,15 +40,30 @@ export async function POST(request: NextRequest) {
     const organizationId = codigoData[0].organization_id as string
     const ident = identificador.trim()
 
+    const { data: asambleaFlags, error: asambleaFlagsErr } = await admin
+      .from('asambleas')
+      .select('is_demo, sandbox_usar_unidades_reales')
+      .eq('id', asambleaId)
+      .maybeSingle()
+    if (asambleaFlagsErr || !asambleaFlags) {
+      return NextResponse.json({ error: 'Error consultando configuración de asamblea' }, { status: 500 })
+    }
+
+    const isDemo = (asambleaFlags as { is_demo?: boolean }).is_demo === true
+    const sandboxUsarReales = (asambleaFlags as { sandbox_usar_unidades_reales?: boolean }).sandbox_usar_unidades_reales === true
+    const unidadesDemoObjetivo = isDemo && sandboxUsarReales ? false : isDemo
+
     const { data: unidadesRows, error: unidadesErr } = await admin
       .from('unidades')
-      .select('id, torre, numero, coeficiente, nombre_propietario, email, email_propietario, telefono, telefono_propietario')
+      .select('id, torre, numero, coeficiente, nombre_propietario, email, email_propietario, telefono, telefono_propietario, is_demo')
       .eq('organization_id', organizationId)
+      .eq('is_demo', unidadesDemoObjetivo)
     if (unidadesErr) {
       return NextResponse.json({ error: 'Error consultando unidades' }, { status: 500 })
     }
 
     const unidadesPropias = unidadesPropiasParaIdentificador((unidadesRows ?? []) as UnidadVotarRow[], ident)
+    const unidadesElegiblesSet = new Set((unidadesRows ?? []).map((u) => String((u as { id: string }).id)))
 
     const { data: poderesRows, error: poderesErr } = await admin
       .from('poderes')
@@ -60,7 +75,10 @@ export async function POST(request: NextRequest) {
     }
 
     const unidadesPoderesIds = (poderesRows ?? [])
-      .filter((p) => identificadorCoincide(p.email_receptor, ident))
+      .filter((p) => {
+        const unidadId = String((p as { unidad_otorgante_id?: string }).unidad_otorgante_id ?? '')
+        return unidadId && unidadesElegiblesSet.has(unidadId) && identificadorCoincide(p.email_receptor, ident)
+      })
       .map((p) => p.unidad_otorgante_id as string)
 
     const propiasIds = unidadesPropias.map((u) => u.id).filter(Boolean)

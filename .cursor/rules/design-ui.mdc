@@ -1,0 +1,67 @@
+---
+description: "Reglas de diseño UI/UX para Asambleas App"
+globs:
+  - "app/**/*.tsx"
+  - "components/**/*.tsx"
+alwaysApply: false
+---
+
+# Diseño UI/UX — Asambleas App
+
+## Principios generales
+- Mobile-first siempre. Diseña primero para 375px, luego escala con sm:, md:, lg:
+- Usa Tailwind CSS exclusivamente. Sin inline styles ni CSS modules
+- Usa cn() (clsx + tailwind-merge) para clases condicionales
+- Semantic HTML: nav, main, section, article, header, footer
+- Nunca uses colores hardcodeados, usa siempre las variables del sistema de diseño
+
+## Sistema de colores (basado en tu tailwind.config.ts)
+- Primario: acciones principales, botones CTA, estados activos
+- Secundario: elementos de soporte, badges, etiquetas
+- Destructivo: eliminar, cancelar, alertas críticas
+- Muted: textos secundarios, placeholders, bordes suaves
+- Siempre usa dark: para soporte de modo oscuro
+
+## Componentes
+- Usa shadcn/ui como base. Nunca modifiques archivos en components/ui/ directamente
+- Extiende con variantes usando cva() cuando necesites variaciones
+- Micro-interacciones: siempre agrega transition-colors duration-200 en elementos interactivos
+- Estados hover/focus visibles en todos los elementos clickeables
+- Loading states: usa skeleton loaders, no spinners genéricos
+
+## Tipografía
+- Jerarquía estricta: text-3xl (h1), text-2xl (h2), text-xl (h3), text-base (body)
+- Peso: font-bold títulos, font-medium subtítulos, font-normal cuerpo
+- tracking-tight en títulos grandes
+
+## Espaciado y layout
+- Usa gap en flex/grid, no margin entre siblings
+- Padding de tarjetas: p-4 (móvil), p-6 (desktop)
+- Usa container mx-auto para ancho máximo
+- Grid para layouts de página, flex para layouts de componentes
+
+## Formularios y acciones (crítico para votaciones)
+- Inputs: siempre con label visible, nunca solo placeholder
+- Estados: default, focus (ring-2 ring-primary), error (border-destructive), disabled
+- Botones de acción primaria: w-full en móvil, auto en desktop
+- Confirmaciones destructivas: siempre con AlertDialog, nunca confirm() nativo
+
+## Accesibilidad
+- Contraste mínimo WCAG AA en todos los textos
+- aria-label en iconos sin texto
+- focus-visible en todos los elementos interactivos
+- No dependas solo del color para comunicar estado
+
+## Animaciones
+- Usa Tailwind animate- para animaciones simples
+- Transiciones: 150ms para hover, 200ms para estado, 300ms para entrada/salida
+- Respeta prefers-reduced-motion: usa motion-safe: prefix
+
+## Bonus — regla para generar componentes con buen diseño
+
+Cuando le pidas a Cursor un componente nuevo, usa este prompt:
+```
+Crea un componente [nombre] siguiendo las reglas de design-ui.mdc.
+Debe ser mobile-first, accesible, con estados hover/focus/disabled,
+usar shadcn/ui como base y cn() para clases condicionales.
+```

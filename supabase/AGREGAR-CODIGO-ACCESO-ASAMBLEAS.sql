@@ -1,3 +1,7 @@
+-- ⚠️ HISTÓRICO: contiene versiones anteriores de validar_codigo_acceso.
+-- No ejecutar completo en entornos que ya usan session_mode/session_seq.
+-- Usar como fuente canónica: SESION-Y-TOKENS-CONSENTIMIENTO.sql
+-- =====================================================
 -- =====================================================
 -- SISTEMA DE CÓDIGOS DE ACCESO PARA VOTACIÓN
 -- =====================================================
