@@ -5,6 +5,7 @@ import {
   unidadesPropiasParaIdentificador,
   type UnidadVotarRow,
 } from '@/lib/votar-identificador'
+import { shouldUseDemoUnits } from '@/lib/demo-sandbox'
 
 /**
  * POST /api/votar/validar-identificador
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     const isDemo = (asambleaFlags as { is_demo?: boolean }).is_demo === true
     const sandboxUsarReales = (asambleaFlags as { sandbox_usar_unidades_reales?: boolean }).sandbox_usar_unidades_reales === true
-    const unidadesDemoObjetivo = isDemo && sandboxUsarReales ? false : isDemo
+    const unidadesDemoObjetivo = shouldUseDemoUnits(isDemo, sandboxUsarReales)
 
     const { data: unidadesRows, error: unidadesErr } = await admin
       .from('unidades')

@@ -96,3 +96,39 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
+
+/**
+ * GET /api/dashboard/sandbox-unidades-reales
+ * Devuelve permisos de UI para el selector sandbox (fuente de verdad backend).
+ */
+export async function GET() {
+  try {
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+          set() {},
+          remove() {},
+        },
+      }
+    )
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    if (!session?.user?.id) {
+      return NextResponse.json({ can_use_real_units_in_demo: false }, { status: 200 })
+    }
+
+    const canUse = await canAccessSuperAdminEmail(supabase, session.user.email)
+    return NextResponse.json({ can_use_real_units_in_demo: canUse === true }, { status: 200 })
+  } catch (e) {
+    console.error('sandbox-unidades-reales GET:', e)
+    return NextResponse.json({ can_use_real_units_in_demo: false }, { status: 200 })
+  }
+}

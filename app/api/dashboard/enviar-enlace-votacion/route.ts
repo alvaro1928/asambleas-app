@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { shouldUseDemoUnits } from '@/lib/demo-sandbox'
 import nodemailer from 'nodemailer'
 import { Resend } from 'resend'
 
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
 
     const orgId = asamblea.organization_id
     const asambleaRow = asamblea as { is_demo?: boolean; sandbox_usar_unidades_reales?: boolean }
-    const soloUnidadesDemo = asambleaRow?.is_demo === true && !(asambleaRow?.sandbox_usar_unidades_reales === true)
+    const soloUnidadesDemo = shouldUseDemoUnits(asambleaRow?.is_demo, asambleaRow?.sandbox_usar_unidades_reales)
     const { data: profile } = await supabase
       .from('profiles')
       .select('id')

@@ -53,6 +53,7 @@ import { useToast } from '@/components/providers/ToastProvider'
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { buildPublicAsistirUrl, buildPublicVotarUrl } from '@/lib/publicVotarUrl'
 import { matchesUnidadBusquedaCompleta } from '@/lib/matchUnidadSearch'
+import { shouldUseDemoUnits } from '@/lib/demo-sandbox'
 
 /** URL canónica del sitio para enlaces de votación (WhatsApp, correo, copiar). Ver https://www.asamblea.online */
 const SITE_URL = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL)
@@ -270,12 +271,6 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
 
   const MIN_TOKENS_COMPRA = 20
 
-  const isUiSuperAdmin = (email: string | undefined | null): boolean => {
-    const allowed = (process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? '').trim().toLowerCase()
-    if (!allowed || !email) return false
-    return email.trim().toLowerCase() === allowed
-  }
-
   // Al abrir el modal de sin tokens, prellenar cantidad sugerida (necesaria para esta asamblea o 20)
   useEffect(() => {
     if (sinTokensModalOpen) setCantidadCompraSinTokens(Math.max(MIN_TOKENS_COMPRA, costoOperacion))
@@ -473,7 +468,16 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         return
       }
       setUserId(user.id)
-      setCanUseSandboxReales(isUiSuperAdmin(user.email))
+      try {
+        const superRes = await fetch('/api/dashboard/sandbox-unidades-reales', {
+          method: 'GET',
+          credentials: 'include',
+        })
+        const superJson = await superRes.json().catch(() => ({} as { can_use_real_units_in_demo?: boolean }))
+        setCanUseSandboxReales(superJson.can_use_real_units_in_demo === true)
+      } catch {
+        setCanUseSandboxReales(false)
+      }
 
       const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
       if (!selectedConjuntoId) {
@@ -1194,7 +1198,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     setLoadingUnidadesEnvio(true)
     try {
       // En asambleas no sandbox solo unidades reales; en sandbox según sandbox_usar_unidades_reales (demo o reales)
-      const soloUnidadesDemo = asamblea?.is_demo === true && !(asamblea?.sandbox_usar_unidades_reales === true)
+      const soloUnidadesDemo = shouldUseDemoUnits(asamblea?.is_demo, asamblea?.sandbox_usar_unidades_reales)
       let query = supabase
         .from('unidades')
         .select('id, torre, numero, email_propietario, telefono_propietario, email, telefono')
@@ -2238,7 +2242,7 @@ Tu participacion es importante. 🏠`
   const sandboxMaxPreguntas = 3
   const maxPreguntasParaUI = isDemo ? sandboxMaxPreguntas : planLimits.max_preguntas_por_asamblea
   // Sandbox: por defecto unidades demo; si sandbox_usar_unidades_reales entonces unidades reales del conjunto
-  const soloUnidadesDemo = isDemo && !(asamblea.sandbox_usar_unidades_reales === true)
+  const soloUnidadesDemo = shouldUseDemoUnits(isDemo, asamblea.sandbox_usar_unidades_reales)
   const timerEnabled = asamblea.participacion_timer_enabled ?? true
 
   return (

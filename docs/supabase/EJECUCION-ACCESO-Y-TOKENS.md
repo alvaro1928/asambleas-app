@@ -77,6 +77,15 @@ Estados esperados:
 - En asamblea demo:
   - si `sandbox_usar_unidades_reales=false`: solo unidades demo.
   - si `sandbox_usar_unidades_reales=true`: solo unidades reales.
+  - el cambio a unidades reales debe estar habilitado solo para Super Admin.
+
+## Regla de negocio unificada (demo = sandbox)
+
+- `is_demo=true` identifica entorno de prueba/capacitacion (sandbox).
+- En demo no se descuentan tokens por consentimiento.
+- El acta demo mantiene marca de agua.
+- Por defecto demo usa unidades de demostracion.
+- Solo Super Admin puede habilitar `sandbox_usar_unidades_reales=true`.
 
 ## 6) Prueba de concurrencia recomendada
 
