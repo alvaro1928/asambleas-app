@@ -82,7 +82,6 @@ export async function POST(request: NextRequest) {
     }
 
     const unidadesPropias = unidadesPropiasParaIdentificador((unidadesRows ?? []) as UnidadVotarRow[], ident)
-    const unidadesElegiblesSet = new Set((unidadesRows ?? []).map((u) => String((u as { id: string }).id)))
 
     let poderesQuery = admin
       .from('poderes')
@@ -101,7 +100,7 @@ export async function POST(request: NextRequest) {
     const unidadesPoderesIds = (poderesRows ?? [])
       .filter((p) => {
         const unidadId = String((p as { unidad_otorgante_id?: string }).unidad_otorgante_id ?? '')
-        return unidadId && unidadesElegiblesSet.has(unidadId) && identificadorCoincide(p.email_receptor, ident)
+        return unidadId.length > 0 && identificadorCoincide(p.email_receptor, ident)
       })
       .map((p) => p.unidad_otorgante_id as string)
 
@@ -117,7 +116,26 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const byId = new Map((unidadesRows ?? []).map((u: UnidadVotarRow) => [u.id, u]))
+    const poderesIdsUnicos = Array.from(new Set(unidadesPoderesIds.filter((id) => !!id)))
+    let unidadesPoderRows: UnidadVotarRow[] = []
+    if (poderesIdsUnicos.length > 0) {
+      const { data: unidadesPoderData, error: unidadesPoderErr } = await admin
+        .from('unidades')
+        .select(columnasUnidades)
+        .eq('organization_id', organizationId)
+        .eq('is_demo', unidadesDemoObjetivo)
+        .in('id', poderesIdsUnicos)
+        .limit(300)
+
+      if (unidadesPoderErr) {
+        return NextResponse.json({ error: 'Error consultando unidades de poderes' }, { status: 500 })
+      }
+      unidadesPoderRows = (unidadesPoderData ?? []) as UnidadVotarRow[]
+    }
+
+    const byId = new Map(
+      [...((unidadesRows ?? []) as UnidadVotarRow[]), ...unidadesPoderRows].map((u) => [u.id, u])
+    )
     const unidades = todasIds
       .map((id) => byId.get(id))
       .filter((u): u is UnidadVotarRow => !!u)
