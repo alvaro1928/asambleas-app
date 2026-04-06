@@ -11,7 +11,7 @@ const noStoreHeaders = {
 
 /**
  * POST /api/registrar-poder/validar-codigo
- * Valida código para el portal de registro de poderes (acceso público O registro_poderes_publico).
+ * Valida código para el portal de registro de poderes (código único de asamblea).
  */
 export async function POST(request: NextRequest) {
   try {

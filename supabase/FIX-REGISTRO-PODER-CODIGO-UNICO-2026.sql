@@ -1,0 +1,10 @@
+-- =====================================================
+-- FIX 2026: Registro de poderes por código único
+-- =====================================================
+-- Ejecuta en Supabase SQL Editor el contenido actualizado de REGISTRO-PODERES-PUBLICO.sql
+-- en este orden (CREATE OR REPLACE):
+--   • public.validar_codigo_registro_poderes
+--   • public.validar_votante_registro_poderes
+--   • public.registrar_consentimiento_registro_poderes
+-- El archivo completo del repo ya incluye la lógica corregida.
+-- =====================================================

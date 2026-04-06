@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       asamblea_id?: string
       emails?: string[]
       emails_adicionales?: string[]
-      /** 'registro_poderes' = enlace /registrar-poder/[codigo] (requiere registro_poderes_publico) */
+      /** 'registro_poderes' = enlace /registrar-poder/[codigo] */
       enlace_tipo?: string
     }
     const enlaceTipo = enlaceTipoParam === 'registro_poderes' ? 'registro_poderes' : 'votacion'
@@ -120,23 +120,12 @@ export async function POST(request: NextRequest) {
 
     const { data: asamblea, error: asambleaError } = await supabase
       .from('asambleas')
-      .select('id, nombre, codigo_acceso, url_publica, organization_id, fecha, is_demo, sandbox_usar_unidades_reales, registro_poderes_publico')
+      .select('id, nombre, codigo_acceso, url_publica, organization_id, fecha, is_demo, sandbox_usar_unidades_reales')
       .eq('id', asamblea_id)
       .single()
 
     if (asambleaError || !asamblea) {
       return NextResponse.json({ error: 'Asamblea no encontrada' }, { status: 404 })
-    }
-
-    const registroPoderesPublico = !!(asamblea as { registro_poderes_publico?: boolean }).registro_poderes_publico
-    if (enlaceTipo === 'registro_poderes' && !registroPoderesPublico) {
-      return NextResponse.json(
-        {
-          error:
-            'Activa primero «Registro público de poderes sin abrir votación» en la asamblea antes de enviar este enlace.',
-        },
-        { status: 400 }
-      )
     }
 
     const orgId = asamblea.organization_id

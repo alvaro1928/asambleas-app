@@ -8,9 +8,9 @@ ALTER TABLE public.asambleas
   ADD COLUMN IF NOT EXISTS registro_poderes_publico BOOLEAN NOT NULL DEFAULT false;
 
 COMMENT ON COLUMN public.asambleas.registro_poderes_publico IS
-  'Si true: el código de acceso sirve para declarar poderes (LOPD + pendiente_verificacion) aunque la votación pública esté cerrada.';
+  'Preferencia de administrador (destacar bloque / envío masivo). El portal /registrar-poder/[codigo] funciona con cualquier código de asamblea válido; no depende de este flag.';
 
--- 2) Validar código como validar_codigo_acceso pero acceso_valido si acceso_publico O registro_poderes_publico
+-- 2) Validar código para /registrar-poder: acceso_valido si el código existe (secreto compartido por asamblea).
 CREATE OR REPLACE FUNCTION public.validar_codigo_registro_poderes(p_codigo TEXT)
 RETURNS TABLE (
   asamblea_id UUID,
@@ -34,7 +34,6 @@ STABLE
 AS $$
 DECLARE
   v_asamblea RECORD;
-  v_permite BOOLEAN;
 BEGIN
   SELECT
     a.id,
@@ -64,23 +63,6 @@ BEGIN
     RETURN;
   END IF;
 
-  v_permite := COALESCE(v_asamblea.acceso_publico, false)
-    OR COALESCE(v_asamblea.registro_poderes_publico, false);
-
-  IF NOT v_permite THEN
-    RETURN QUERY
-    SELECT
-      v_asamblea.id, v_asamblea.nombre, v_asamblea.fecha, v_asamblea.organization_id,
-      v_asamblea.nombre_conjunto, false,
-      'El acceso a registro de poderes y votación pública está desactivado'::TEXT,
-      v_asamblea.participacion_timer_end_at,
-      COALESCE(v_asamblea.participacion_timer_default_minutes, 5),
-      COALESCE(v_asamblea.participacion_timer_enabled, true),
-      v_asamblea.session_mode, v_asamblea.session_seq,
-      COALESCE(v_asamblea.registro_poderes_publico, false);
-    RETURN;
-  END IF;
-
   RETURN QUERY
   SELECT
     v_asamblea.id, v_asamblea.nombre, v_asamblea.fecha, v_asamblea.organization_id,
@@ -96,7 +78,7 @@ $$;
 ALTER FUNCTION public.validar_codigo_registro_poderes(TEXT) SET row_security = off;
 
 COMMENT ON FUNCTION public.validar_codigo_registro_poderes(TEXT) IS
-  'Como validar_codigo_acceso pero acceso_valido si acceso_publico o registro_poderes_publico.';
+  'Valida codigo_acceso para /registrar-poder: acceso_valido si la asamblea existe (código único como secreto compartido).';
 
 GRANT EXECUTE ON FUNCTION public.validar_codigo_registro_poderes(TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.validar_codigo_registro_poderes(TEXT) TO authenticated;
@@ -135,11 +117,7 @@ BEGIN
   SELECT a.id, a.organization_id
   INTO v_asamblea_id, v_organization_id
   FROM public.asambleas a
-  WHERE a.codigo_acceso = UPPER(TRIM(p_codigo_asamblea))
-    AND (
-      COALESCE(a.acceso_publico, false)
-      OR COALESCE(a.registro_poderes_publico, false)
-    );
+  WHERE a.codigo_acceso = UPPER(TRIM(p_codigo_asamblea));
 
   IF v_asamblea_id IS NULL THEN
     RETURN QUERY SELECT false, NULL::UUID[], NULL::UUID[], 0, 0::NUMERIC, 'Código de asamblea inválido'::TEXT;
@@ -221,13 +199,13 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.validar_votante_registro_poderes(TEXT, TEXT) IS
-  'Valida identificador para LOPD en portal de registro de poderes; no escribe quorum_asamblea.';
+  'Valida identificador para LOPD en portal de registro de poderes si el código de asamblea existe; no escribe quorum_asamblea.';
 
 GRANT EXECUTE ON FUNCTION public.validar_votante_registro_poderes(TEXT, TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.validar_votante_registro_poderes(TEXT, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.validar_votante_registro_poderes(TEXT, TEXT) TO service_role;
 
--- 4) LOPD + tokens para portal /registrar-poder: requiere registro_poderes_publico; no exige sesión verification/voting
+-- 4) LOPD + tokens para portal /registrar-poder: no exige sesión verification/voting (código único en URL)
 CREATE OR REPLACE FUNCTION public.registrar_consentimiento_registro_poderes(
   p_codigo TEXT,
   p_identificador TEXT,
@@ -275,15 +253,6 @@ BEGIN
 
   IF v_asamblea.id IS NULL THEN
     RETURN jsonb_build_object('ok', false, 'code', 'ASAMBLEA_NOT_FOUND', 'message', 'Código no válido');
-  END IF;
-
-  IF NOT COALESCE(v_asamblea.registro_poderes_publico, false) THEN
-    RETURN jsonb_build_object(
-      'ok', false,
-      'code', 'REGISTRO_PODERES_CERRADO',
-      'message',
-      'El registro público de poderes no está habilitado para esta asamblea. El administrador debe activarlo en el panel.'
-    );
   END IF;
 
   v_org := v_asamblea.organization_id;
@@ -430,6 +399,6 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.registrar_consentimiento_registro_poderes(TEXT, TEXT, TEXT) IS
-  'LOPD para /registrar-poder: requiere registro_poderes_publico; sin exigir session_mode verification/voting.';
+  'LOPD para /registrar-poder: valida código de asamblea e identificador; sin exigir session_mode verification/voting.';
 
 GRANT EXECUTE ON FUNCTION public.registrar_consentimiento_registro_poderes(TEXT, TEXT, TEXT) TO service_role;

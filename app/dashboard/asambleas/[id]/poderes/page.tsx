@@ -910,8 +910,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       setAsamblea((prev) => (prev ? { ...prev, registro_poderes_publico: checked } : prev))
       toast.success(
         checked
-          ? 'Registro público de poderes activado. Ya puedes compartir el enlace.'
-          : 'Registro público de poderes desactivado.'
+          ? 'Preferencia guardada: se destaca el bloque de registro y el envío masivo.'
+          : 'Preferencia guardada: bloque de registro sin destacar.'
       )
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'No se pudo guardar')
@@ -933,10 +933,6 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   const enviarCorreoRegistroPoderes = async () => {
     if (asamblea?.estado === 'finalizada') {
       toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para gestionar poderes.')
-      return
-    }
-    if (!asamblea?.registro_poderes_publico) {
-      toast.error('Activa primero el registro público de poderes.')
       return
     }
     setEnviandoCorreoRegistro(true)
@@ -1081,11 +1077,13 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               <div>
                 <h2 className="text-sm font-bold text-amber-900 dark:text-amber-100 flex items-center gap-2">
                   <FileText className="w-4 h-4 shrink-0" />
-                  Registro público de poderes (sin abrir votación)
+                  Enlace y QR de registro de poderes
                 </h2>
                 <p className="text-xs text-amber-800/90 dark:text-amber-200/90 mt-1 max-w-2xl">
-                  Permite compartir un enlace para que los copropietarios declaren poderes en estado pendiente de aprobación,
-                  aunque la votación pública siga cerrada. Requiere aceptación LOPD igual que en la votación en línea.
+                  Quien tenga el enlace o el código puede declarar poderes (pendiente de aprobación), sin iniciar sesión.
+                  El código en la URL es único por asamblea: no depende de tener la votación pública abierta.
+                  Requiere aceptación LOPD igual que en la votación en línea. El interruptor solo marca si quieres destacar
+                  este bloque y usar el envío masivo por correo.
                 </p>
               </div>
               <label
@@ -1101,7 +1099,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   className="rounded border-amber-400 text-amber-700 focus:ring-amber-600"
                 />
                 <span className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                  {guardandoRegistroPublico ? 'Guardando…' : 'Activado'}
+                  {guardandoRegistroPublico ? 'Guardando…' : 'Destacar / envío masivo'}
                 </span>
               </label>
             </div>
@@ -1141,7 +1139,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                         variant="outline"
                         size="sm"
                         onClick={() => void enviarCorreoRegistroPoderes()}
-                        disabled={!gestionHabilitada || !asamblea.registro_poderes_publico || enviandoCorreoRegistro}
+                        disabled={!gestionHabilitada || enviandoCorreoRegistro}
                         className="border-amber-300 dark:border-amber-700"
                       >
                         <Mail className="w-4 h-4 mr-1.5" />
@@ -1171,11 +1169,6 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                       </Button>
                     </div>
                   </div>
-                  {!asamblea.registro_poderes_publico && (
-                    <p className="text-xs text-amber-700 dark:text-amber-300">
-                      Activa el interruptor arriba para habilitar el enlace y el envío por correo.
-                    </p>
-                  )}
                 </div>
                 {urlRegistroPoderPublico && (
                   <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-white/80 dark:bg-gray-900/50 border border-amber-200/80 dark:border-amber-800/80 mx-auto lg:mx-0">

@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { RegistroPoderPublicoForm, type UnidadInfoRegistroPoder } from '@/components/RegistroPoderPublicoForm'
 import { normalizeCodigoAccesoFromUrl } from '@/lib/codigoAcceso'
 
-type Step = 'validando' | 'error' | 'sin_flag' | 'email' | 'consentimiento' | 'form'
+type Step = 'validando' | 'error' | 'email' | 'consentimiento' | 'form'
 
 interface AsambleaInfo {
   asamblea_id: string
@@ -107,10 +107,6 @@ export default function RegistrarPoderPublicoPage() {
       }
       const info = interpretarFila(json.asamblea)
       setAsamblea(info)
-      if (!info.registro_poderes_publico) {
-        setStep('sin_flag')
-        return
-      }
       setStep('email')
       try {
         const guardado = typeof window !== 'undefined' && localStorage.getItem(STORAGE_EMAIL(codigo))
@@ -267,26 +263,6 @@ export default function RegistrarPoderPublicoPage() {
           <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
           <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-2">No se pudo continuar</h1>
           <p className="text-sm text-gray-600 dark:text-gray-400 text-center">{error}</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (step === 'sin_flag') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-amber-200 dark:border-amber-800">
-          <FileText className="w-10 h-10 text-amber-600 mx-auto mb-3" />
-          <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-2">Registro de poderes no habilitado</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">
-            El administrador debe activar la opción «Registro público de poderes sin abrir votación» en el panel de la asamblea
-            (sección Poderes). Así podrás usar este enlace para declarar poderes antes o durante la asamblea.
-          </p>
-          {asamblea && (
-            <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-              Asamblea: <strong>{asamblea.nombre}</strong>
-            </p>
-          )}
         </div>
       </div>
     )
