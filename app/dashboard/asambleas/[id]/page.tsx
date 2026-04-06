@@ -42,6 +42,7 @@ import {
   Vote,
   Search,
   Settings2,
+  Info,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1348,6 +1349,23 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     } finally {
       setEnviandoCorreoTodos(false)
     }
+  }
+
+  const envioCorreoEnCurso =
+    enviandoCorreoTodos || enviandoCorreoAdicional || enviandoCorreoEmail !== null
+
+  const handleOpenChangeModalEnviarEnlace = (open: boolean) => {
+    if (open) {
+      setShowModalEnviarEnlace(true)
+      return
+    }
+    if (envioCorreoEnCurso) {
+      toast.info(
+        'Espera a que termine el envío de correo. Si cierras ahora, no verás el resumen y podrías creer que el envío ya terminó.'
+      )
+      return
+    }
+    setShowModalEnviarEnlace(false)
   }
 
   const handleCreatePregunta = async () => {
@@ -4335,8 +4353,12 @@ Tu participacion es importante. 🏠`
       </Dialog>
 
       {/* Modal: Enviar enlace por WhatsApp o correo a cada unidad (cada envío por separado) */}
-      <Dialog open={showModalEnviarEnlace} onOpenChange={setShowModalEnviarEnlace}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col rounded-3xl">
+      <Dialog open={showModalEnviarEnlace} onOpenChange={handleOpenChangeModalEnviarEnlace}>
+        <DialogContent
+          showCloseButton={!envioCorreoEnCurso}
+          aria-busy={envioCorreoEnCurso}
+          className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col rounded-3xl"
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
               <LinkIcon className="w-5 h-5" />
@@ -4345,6 +4367,14 @@ Tu participacion es importante. 🏠`
             <DialogDescription>
               Cada envío se abre por separado (WhatsApp o correo) para que nadie vea el teléfono o email de otros. Usa los teléfonos y correos registrados en las unidades del conjunto. Puedes añadir un WhatsApp o un correo adicional (ej. grupo de la copropiedad o un email no registrado en ninguna unidad).
             </DialogDescription>
+            {envioCorreoEnCurso && (
+              <Alert variant="info" className="mt-3 border-indigo-200 dark:border-indigo-800 text-left">
+                <Info className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" aria-hidden />
+                <AlertDescription className="text-indigo-900 dark:text-indigo-100 text-xs sm:text-sm">
+                  <strong>Envío en curso.</strong> No cierres esta ventana hasta que termine «Enviando…», para poder ver el resumen (éxitos y errores por correo).
+                </AlertDescription>
+              </Alert>
+            )}
           </DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-6 py-2">
             {loadingUnidadesEnvio ? (
@@ -4451,7 +4481,16 @@ Tu participacion es importante. 🏠`
                     </h3>
                     <Link
                       href="/dashboard/configuracion#poderes-correo"
-                      onClick={() => setShowModalEnviarEnlace(false)}
+                      onClick={(e) => {
+                        if (envioCorreoEnCurso) {
+                          e.preventDefault()
+                          toast.info(
+                            'Espera a que termine el envío de correo antes de ir a la plantilla, para no perder el resumen.'
+                          )
+                          return
+                        }
+                        setShowModalEnviarEnlace(false)
+                      }}
                       className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200/90 dark:border-indigo-700/80 bg-indigo-50/90 dark:bg-indigo-950/50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors shrink-0"
                       title="Editar plantilla del mensaje (invitación y texto adicional)"
                     >
@@ -4557,8 +4596,13 @@ Tu participacion es importante. 🏠`
             )}
           </div>
           <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-            <Button variant="outline" onClick={() => setShowModalEnviarEnlace(false)} className="w-full">
-              Cerrar
+            <Button
+              variant="outline"
+              disabled={envioCorreoEnCurso}
+              onClick={() => handleOpenChangeModalEnviarEnlace(false)}
+              className="w-full"
+            >
+              {envioCorreoEnCurso ? 'Espera a que termine el envío de correo…' : 'Cerrar'}
             </Button>
           </div>
         </DialogContent>
