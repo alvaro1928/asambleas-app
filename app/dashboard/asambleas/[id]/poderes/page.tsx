@@ -783,9 +783,38 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       const { error } = await supabase.from('poderes').update({ estado: 'activo' }).eq('id', poderId)
       if (error) throw error
 
+      try {
+        const nRes = await fetch('/api/dashboard/notificar-poder-activado', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ poder_id: poderId }),
+        })
+        const nJson = (await nRes.json().catch(() => ({}))) as {
+          aviso?: string
+          enviados?: number
+          errores?: string[]
+        }
+        if (nRes.ok) {
+          if (nJson.aviso) {
+            toast.success('Poder activado')
+            toast.info(nJson.aviso)
+          } else if ((nJson.enviados ?? 0) > 0) {
+            toast.success(`Poder activado. Se enviaron ${nJson.enviados} notificación(es) por correo.`)
+          } else {
+            toast.success('Poder activado')
+          }
+          if (nJson.errores?.length) {
+            console.warn('[notificar-poder]', nJson.errores)
+          }
+        } else {
+          toast.success('Poder activado')
+        }
+      } catch {
+        toast.success('Poder activado')
+      }
       setSuccessMessage('Poder verificado y activado para votación')
       setTimeout(() => setSuccessMessage(''), 4000)
-      toast.success('Poder activado')
       await loadPoderes()
       await loadResumen()
     } catch (error: unknown) {
