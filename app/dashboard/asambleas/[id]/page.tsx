@@ -41,6 +41,7 @@ import {
   RefreshCw,
   Vote,
   Search,
+  Settings2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -4421,10 +4422,21 @@ Tu participacion es importante. 🏠`
                   </ul>
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
-                    <Mail className="w-4 h-4 text-indigo-600" />
-                    Por correo (email de la unidad)
-                  </h3>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1 min-w-0">
+                      <Mail className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <span>Por correo (email de la unidad)</span>
+                    </h3>
+                    <Link
+                      href="/dashboard/configuracion#poderes-correo"
+                      onClick={() => setShowModalEnviarEnlace(false)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200/90 dark:border-indigo-700/80 bg-indigo-50/90 dark:bg-indigo-950/50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors shrink-0"
+                      title="Editar plantilla del mensaje (invitación y texto adicional)"
+                    >
+                      <Settings2 className="w-3.5 h-3.5 opacity-90" aria-hidden />
+                      Plantilla
+                    </Link>
+                  </div>
                   {correosRegistrados.length > 0 && (
                     <div className="mb-2">
                       <Button
