@@ -2760,7 +2760,7 @@ export default function VotacionPublicaPage() {
             <div className="space-y-4">
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
                 <h2 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
                   Poderes y delegación
                 </h2>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">
@@ -2774,9 +2774,9 @@ export default function VotacionPublicaPage() {
               </div>
 
               {unidades.length > 0 && (
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-amber-200 dark:border-amber-800 p-4 shadow-sm space-y-3">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-indigo-200/80 dark:border-indigo-800/70 p-4 shadow-sm space-y-3">
                   <h3 className="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
                     Registrar poder que te otorgaron
                   </h3>
                   <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -2808,7 +2808,7 @@ export default function VotacionPublicaPage() {
                           ))}
                         </select>
                         {opcionesOtorgantesPoder.length === 0 && (
-                          <p className="text-xs text-amber-700 dark:text-amber-300">
+                          <p className="text-xs text-indigo-700 dark:text-indigo-300">
                             No hay más unidades en el censo distintas a las tuyas, o aún se cargan los datos.
                           </p>
                         )}
@@ -2856,7 +2856,7 @@ export default function VotacionPublicaPage() {
                         type="button"
                         onClick={() => void enviarDeclaracionPoder()}
                         disabled={enviandoPoderPendiente || !poderOtorganteId}
-                        className="w-full bg-amber-600 hover:bg-amber-700 text-white text-sm"
+                        className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm shadow-sm"
                       >
                         {enviandoPoderPendiente ? (
                           <span className="flex items-center justify-center gap-2">
@@ -2907,7 +2907,7 @@ export default function VotacionPublicaPage() {
                               Ver documento cargado
                             </a>
                           )}
-                          <p className="text-amber-700 dark:text-amber-300 mt-1.5 font-medium">En espera de verificación del administrador</p>
+                          <p className="text-indigo-700 dark:text-indigo-300 mt-1.5 font-medium">En espera de verificación del administrador</p>
                           <Button
                             type="button"
                             variant="outline"

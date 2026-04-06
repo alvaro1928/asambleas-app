@@ -293,9 +293,9 @@ export default function RegistrarPoderPublicoPage() {
 
   if (step === 'validando') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/70 dark:from-gray-900 dark:to-slate-900 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mb-4" />
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4" />
           <p className="text-gray-600 dark:text-gray-400">Validando código…</p>
         </div>
       </div>
@@ -304,7 +304,7 @@ export default function RegistrarPoderPublicoPage() {
 
   if (step === 'error') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/70 dark:from-gray-900 dark:to-slate-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
           <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
           <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-2">No se pudo continuar</h1>
@@ -316,20 +316,20 @@ export default function RegistrarPoderPublicoPage() {
 
   if (step === 'email') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 overflow-x-hidden">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/70 dark:from-gray-900 dark:to-slate-900 flex items-center justify-center p-4 overflow-x-hidden">
         <div className="max-w-md w-full min-w-0 bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-gray-200 dark:border-gray-700">
           <div className="text-center mb-6 sm:mb-8 min-w-0">
-            <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-r from-amber-500 to-orange-600 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+            <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full flex items-center justify-center mb-3 sm:mb-4">
               <FileText className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">Registro de poderes</h1>
             <p className="text-gray-600 dark:text-gray-400 text-sm">
-              Código: <span className="font-mono font-bold text-amber-700 dark:text-amber-400">{codigo}</span>
+              Código: <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300">{codigo}</span>
             </p>
           </div>
 
           {asamblea && (
-            <div className="bg-amber-50/90 dark:bg-amber-950/30 rounded-xl p-4 mb-6 border border-amber-200 dark:border-amber-800">
+            <div className="bg-indigo-50/90 dark:bg-indigo-950/25 rounded-xl p-4 mb-6 border border-indigo-200/80 dark:border-indigo-800/80">
               <h2 className="font-bold text-gray-900 dark:text-white mb-2">{asamblea.nombre}</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">🏢 {asamblea.nombre_conjunto}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">📅 {formatFecha(asamblea.fecha)}</p>
@@ -337,10 +337,10 @@ export default function RegistrarPoderPublicoPage() {
           )}
 
           <div className="space-y-4">
-            <label className="flex items-start gap-2 cursor-pointer rounded-lg border border-amber-200/80 dark:border-amber-800/80 bg-amber-50/40 dark:bg-amber-950/20 p-3">
+            <label className="flex items-start gap-2 cursor-pointer rounded-lg border border-indigo-200/80 dark:border-indigo-800/60 bg-indigo-50/50 dark:bg-indigo-950/20 p-3">
               <input
                 type="checkbox"
-                className="mt-0.5 rounded border-amber-400 text-amber-700"
+                className="mt-0.5 rounded border-indigo-400 text-indigo-600"
                 checked={modoRegistroExterno}
                 onChange={(e) => {
                   const on = e.target.checked
@@ -354,7 +354,7 @@ export default function RegistrarPoderPublicoPage() {
                   }
                 }}
               />
-              <span className="text-xs text-amber-900 dark:text-amber-100 leading-snug">
+              <span className="text-xs text-slate-800 dark:text-slate-100 leading-snug">
                 <strong>No estoy registrado en la copropiedad</strong> — soy apoderado externo y quiero declarar un poder
                 recibido (el administrador deberá aprobarlo).
               </span>
@@ -454,7 +454,7 @@ export default function RegistrarPoderPublicoPage() {
                   ? !cedulaExterna.trim() && !celularExterna.trim()
                   : !email.trim())
               }
-              className="w-full min-w-0 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-sm sm:text-lg py-4 sm:py-6"
+              className="w-full min-w-0 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-sm sm:text-lg py-4 sm:py-6"
             >
               {loading ? (
                 <>
@@ -476,10 +476,10 @@ export default function RegistrarPoderPublicoPage() {
 
   if (step === 'consentimiento') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 overflow-x-hidden">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/70 dark:from-gray-900 dark:to-slate-900 flex items-center justify-center p-4 overflow-x-hidden">
         <div className="max-w-md w-full min-w-0 bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 sm:p-8 border border-gray-200 dark:border-gray-700">
           <div className="text-center mb-4 sm:mb-6">
-            <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-r from-amber-500 to-orange-600 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+            <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full flex items-center justify-center mb-3 sm:mb-4">
               <Vote className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2">Tratamiento de datos personales</h1>
@@ -506,7 +506,7 @@ export default function RegistrarPoderPublicoPage() {
               type="checkbox"
               checked={consentimientoAceptado}
               onChange={(e) => setConsentimientoAceptado(e.target.checked)}
-              className="mt-1 shrink-0 rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-600"
+              className="mt-1 shrink-0 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-600"
             />
             <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 min-w-0 break-words">
               Acepto el tratamiento de mis datos personales conforme a lo indicado y según la Ley 1581 de 2012.
@@ -523,7 +523,7 @@ export default function RegistrarPoderPublicoPage() {
           <Button
             onClick={() => void handleAceptarConsentimiento()}
             disabled={!consentimientoAceptado || guardandoConsentimiento}
-            className="w-full min-w-0 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-sm sm:text-lg py-4 sm:py-6 px-4"
+            className="w-full min-w-0 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-sm sm:text-lg py-4 sm:py-6 px-4"
           >
             {guardandoConsentimiento ? (
               <>
@@ -543,7 +543,7 @@ export default function RegistrarPoderPublicoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 py-6 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50/70 dark:from-gray-900 dark:to-slate-900 py-6 px-4">
       <div className="max-w-lg mx-auto">
         <div className="text-center mb-4">
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Registro de poderes</h1>
