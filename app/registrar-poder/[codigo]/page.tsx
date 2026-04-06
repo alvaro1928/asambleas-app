@@ -74,7 +74,7 @@ export default function RegistrarPoderPublicoPage() {
   const [consentimientoAceptado, setConsentimientoAceptado] = useState(false)
   const [guardandoConsentimiento, setGuardandoConsentimiento] = useState(false)
   const [clientIp, setClientIp] = useState<string | null>(null)
-  /** Apoderado que no figura en el censo: LOPD + solicitud pendiente con nombre propio */
+  /** Apoderado no registrado en la copropiedad: LOPD + solicitud pendiente con nombre propio */
   const [modoRegistroExterno, setModoRegistroExterno] = useState(false)
   /** Solo modo externo: contacto obligatorio (al menos uno) para trazabilidad y acceso al activar el poder */
   const [cedulaExterna, setCedulaExterna] = useState('')
@@ -219,7 +219,7 @@ export default function RegistrarPoderPublicoPage() {
         unidadesConInfo = await refrescarUnidades(ident)
         if (unidadesConInfo.length === 0) {
           setError(
-            'No se encontraron unidades para este email o teléfono. Si eres apoderado pero no figuras en el censo, usa la opción de abajo.'
+            'No se encontraron unidades para este email o teléfono. Si eres apoderado pero no estás registrado en la copropiedad, usa la opción de abajo.'
           )
           setLoading(false)
           return
@@ -355,7 +355,8 @@ export default function RegistrarPoderPublicoPage() {
                 }}
               />
               <span className="text-xs text-amber-900 dark:text-amber-100 leading-snug">
-                <strong>No figuro en el censo</strong> — soy apoderado externo y quiero declarar un poder recibido (el administrador deberá aprobarlo).
+                <strong>No estoy registrado en la copropiedad</strong> — soy apoderado externo y quiero declarar un poder
+                recibido (el administrador deberá aprobarlo).
               </span>
             </label>
 
@@ -432,8 +433,8 @@ export default function RegistrarPoderPublicoPage() {
                   onKeyDown={(e) => e.key === 'Enter' && void handleValidarEmail()}
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  Si figuras en el censo o ya tienes un poder activo, debe coincidir. Si no figuras, activa la opción de
-                  arriba.
+                  Si estás registrado en la copropiedad o ya tienes un poder activo, debe coincidir. Si no, activa la opción
+                  de arriba.
                 </p>
               </div>
             )}
