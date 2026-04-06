@@ -2766,6 +2766,11 @@ export default function VotacionPublicaPage() {
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">
                   Aquí registras si otro apartamento te delegó el voto, o revisas el estado de tus solicitudes. La votación en sí sigue en la pestaña <strong>Votación</strong>.
                 </p>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 leading-relaxed">
+                  Los poderes se <strong>activan a discreción del administrador</strong> del conjunto. Solo se tendrán en cuenta las
+                  solicitudes presentadas <strong>dentro del plazo</strong> que defina la administración; de forma habitual se solicita
+                  entregar la documentación hasta <strong>24 horas antes</strong> de la asamblea.
+                </p>
               </div>
 
               {unidades.length > 0 && (

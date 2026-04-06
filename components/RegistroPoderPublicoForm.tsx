@@ -194,6 +194,11 @@ export function RegistroPoderPublicoForm({
           Indica si otro apartamento te delegó el voto. La solicitud queda{' '}
           <strong>pendiente de aprobación</strong> por el administrador antes de poder usarse para votar.
         </p>
+        <p className="text-xs text-slate-600 dark:text-slate-400 mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 leading-relaxed">
+          Los poderes se <strong>activan a discreción del administrador</strong> del conjunto. Solo se tendrán en cuenta las
+          solicitudes presentadas <strong>dentro del plazo</strong> que defina la administración; de forma habitual se solicita
+          entregar la documentación hasta <strong>24 horas antes</strong> de la asamblea.
+        </p>
       </div>
 
       {(unidades.length > 0 || modoRegistroExterno) && (
