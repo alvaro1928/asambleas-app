@@ -61,7 +61,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}))
-    const { codigo, identificador, ip } = body as { codigo?: string; identificador?: string; ip?: string }
+    const { codigo, identificador, ip, contexto } = body as {
+      codigo?: string
+      identificador?: string
+      ip?: string
+      contexto?: string
+    }
     if (!codigo?.trim() || !identificador?.trim()) {
       return NextResponse.json({ error: 'Faltan codigo o identificador' }, { status: 400 })
     }
@@ -74,14 +79,25 @@ export async function POST(request: NextRequest) {
 
     const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
 
-    const { data: rpcData, error: rpcError } = await admin.rpc('registrar_consentimiento_y_consumo_sesion', {
-      p_codigo: codigo.trim().toUpperCase(),
-      p_identificador: identificador.trim(),
-      p_ip: typeof ip === 'string' ? ip : null,
-    })
+    const esRegistroPoderes = contexto === 'registro_poderes'
+
+    const { data: rpcData, error: rpcError } = esRegistroPoderes
+      ? await admin.rpc('registrar_consentimiento_registro_poderes', {
+          p_codigo: codigo.trim().toUpperCase(),
+          p_identificador: identificador.trim(),
+          p_ip: typeof ip === 'string' ? ip : null,
+        })
+      : await admin.rpc('registrar_consentimiento_y_consumo_sesion', {
+          p_codigo: codigo.trim().toUpperCase(),
+          p_identificador: identificador.trim(),
+          p_ip: typeof ip === 'string' ? ip : null,
+        })
 
     if (rpcError) {
-      console.error('registrar_consentimiento_y_consumo_sesion:', rpcError)
+      console.error(
+        esRegistroPoderes ? 'registrar_consentimiento_registro_poderes' : 'registrar_consentimiento_y_consumo_sesion',
+        rpcError
+      )
       return NextResponse.json({ error: rpcError.message }, { status: 500 })
     }
 
@@ -90,7 +106,7 @@ export async function POST(request: NextRequest) {
       const code = typeof result?.code === 'string' ? result.code : 'ERROR'
       const message = typeof result?.message === 'string' ? result.message : 'No se pudo registrar el consentimiento'
       const status =
-        code === 'SESSION_INACTIVE' || code === 'ACCESO_CERRADO'
+        code === 'SESSION_INACTIVE' || code === 'ACCESO_CERRADO' || code === 'REGISTRO_PODERES_CERRADO'
           ? 409
           : code === 'INSUFFICIENT_TOKENS'
             ? 402

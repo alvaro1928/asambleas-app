@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       auth: { persistSession: false },
     })
 
-    const { data: codigoData, error: codigoError } = await admin.rpc('validar_codigo_acceso', {
+    const { data: codigoData, error: codigoError } = await admin.rpc('validar_codigo_registro_poderes', {
       p_codigo: codigo.trim(),
     })
     if (codigoError || !codigoData || codigoData.length === 0 || !codigoData[0].acceso_valido) {

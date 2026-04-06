@@ -1,5 +1,6 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useRouter } from 'next/navigation'
@@ -21,7 +22,10 @@ import {
   XCircle,
   Upload,
   Home,
-  HelpCircle
+  HelpCircle,
+  Copy,
+  QrCode,
+  Mail,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,6 +35,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/components/providers/ToastProvider'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
 import { matchesTorreUnidadSearch } from '@/lib/matchUnidadSearch'
+import { buildPublicRegistroPoderUrl } from '@/lib/publicVotarUrl'
 import {
   mensajeErrorInsertPoder,
   emailContactoUnidad,
@@ -49,7 +54,19 @@ interface Asamblea {
   organization_id: string
   is_demo?: boolean
   sandbox_usar_unidades_reales?: boolean
+  codigo_acceso?: string | null
+  registro_poderes_publico?: boolean
 }
+
+const QRCodeSVG = dynamic(
+  () => import('qrcode.react').then((m) => ({ default: m.QRCodeSVG })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[120px] w-[120px] bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg mx-auto" />
+    ),
+  }
+)
 
 interface Unidad {
   id: string
@@ -167,6 +184,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   const [config, setConfig] = useState<ConfigPoderes>({ max_poderes_por_apoderado: 3, requiere_documento: false })
   const [loading, setLoading] = useState(true)
   const [successMessage, setSuccessMessage] = useState('')
+  const [guardandoRegistroPublico, setGuardandoRegistroPublico] = useState(false)
+  const [enviandoCorreoRegistro, setEnviandoCorreoRegistro] = useState(false)
 
   // Modal crear / editar poder
   const [poderModal, setPoderModal] = useState<PoderModalState>({ type: 'none' })
@@ -308,7 +327,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
       // Cargar asamblea (incl. is_demo para filtrar unidades en no-sandbox)
       const { data: asambleaData, error: asambleaError } = await supabase
         .from('asambleas')
-        .select('id, nombre, fecha, estado, organization_id, is_demo, sandbox_usar_unidades_reales')
+        .select('id, nombre, fecha, estado, organization_id, is_demo, sandbox_usar_unidades_reales, codigo_acceso, registro_poderes_publico')
         .eq('id', params.id)
         .eq('organization_id', selectedConjuntoId)
         .single()
@@ -836,6 +855,69 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     })
   }, [filteredPoderes, sortDirection, sortKey])
 
+  const urlRegistroPoderPublico = useMemo(() => {
+    if (!asamblea?.codigo_acceso) return ''
+    return buildPublicRegistroPoderUrl(asamblea.codigo_acceso)
+  }, [asamblea?.codigo_acceso])
+
+  const toggleRegistroPoderesPublico = async (checked: boolean) => {
+    if (!asamblea || asamblea.estado === 'finalizada') return
+    setGuardandoRegistroPublico(true)
+    try {
+      const { error } = await supabase
+        .from('asambleas')
+        .update({ registro_poderes_publico: checked })
+        .eq('id', params.id)
+      if (error) throw error
+      setAsamblea((prev) => (prev ? { ...prev, registro_poderes_publico: checked } : prev))
+      toast.success(
+        checked
+          ? 'Registro público de poderes activado. Ya puedes compartir el enlace.'
+          : 'Registro público de poderes desactivado.'
+      )
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar')
+    } finally {
+      setGuardandoRegistroPublico(false)
+    }
+  }
+
+  const copiarEnlaceRegistroPoder = async () => {
+    if (!urlRegistroPoderPublico) return
+    try {
+      await navigator.clipboard.writeText(urlRegistroPoderPublico)
+      toast.success('Enlace copiado al portapapeles')
+    } catch {
+      toast.error('No se pudo copiar. Copia el enlace manualmente.')
+    }
+  }
+
+  const enviarCorreoRegistroPoderes = async () => {
+    if (!asamblea?.registro_poderes_publico) {
+      toast.error('Activa primero el registro público de poderes.')
+      return
+    }
+    setEnviandoCorreoRegistro(true)
+    try {
+      const res = await fetch('/api/dashboard/enviar-enlace-votacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ asamblea_id: params.id, enlace_tipo: 'registro_poderes' }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string; enviados?: number }
+      if (!res.ok) throw new Error(data.error || 'Error al enviar')
+      toast.success(
+        typeof data.enviados === 'number' && data.enviados >= 1
+          ? `Enviado(s) ${data.enviados} correo(s) con el enlace de registro de poderes.`
+          : 'No se envió ningún correo (revisa que existan emails en las unidades).'
+      )
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Error al enviar')
+    } finally {
+      setEnviandoCorreoRegistro(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -942,6 +1024,120 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               {successMessage}
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* Enlace público: registro de poderes sin abrir votación */}
+        {asamblea.estado !== 'finalizada' && (
+          <div className="mb-6 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+              <div>
+                <h2 className="text-sm font-bold text-amber-900 dark:text-amber-100 flex items-center gap-2">
+                  <FileText className="w-4 h-4 shrink-0" />
+                  Registro público de poderes (sin abrir votación)
+                </h2>
+                <p className="text-xs text-amber-800/90 dark:text-amber-200/90 mt-1 max-w-2xl">
+                  Permite compartir un enlace para que los copropietarios declaren poderes en estado pendiente de aprobación,
+                  aunque la votación pública siga cerrada. Requiere aceptación LOPD igual que en la votación en línea.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 shrink-0 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={!!asamblea.registro_poderes_publico}
+                  disabled={guardandoRegistroPublico}
+                  onChange={(e) => void toggleRegistroPoderesPublico(e.target.checked)}
+                  className="rounded border-amber-400 text-amber-700 focus:ring-amber-600"
+                />
+                <span className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                  {guardandoRegistroPublico ? 'Guardando…' : 'Activado'}
+                </span>
+              </label>
+            </div>
+
+            {!asamblea.codigo_acceso?.trim() ? (
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                Primero debe existir un código de acceso en la asamblea. Ve a{' '}
+                <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="underline font-medium">
+                  Acceso y QR
+                </Link>{' '}
+                para generarlo o activar la votación pública.
+              </p>
+            ) : (
+              <div className="flex flex-col lg:flex-row gap-4 items-start">
+                <div className="flex-1 min-w-0 space-y-2 w-full">
+                  <Label className="text-xs text-amber-900 dark:text-amber-100">Enlace</Label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Input
+                      readOnly
+                      value={urlRegistroPoderPublico}
+                      className="text-xs font-mono bg-white dark:bg-gray-900"
+                    />
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void copiarEnlaceRegistroPoder()}
+                        disabled={!urlRegistroPoderPublico}
+                        className="border-amber-300 dark:border-amber-700"
+                      >
+                        <Copy className="w-4 h-4 mr-1.5" />
+                        Copiar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void enviarCorreoRegistroPoderes()}
+                        disabled={!asamblea.registro_poderes_publico || enviandoCorreoRegistro}
+                        className="border-amber-300 dark:border-amber-700"
+                      >
+                        <Mail className="w-4 h-4 mr-1.5" />
+                        {enviandoCorreoRegistro ? 'Enviando…' : 'Correo a censo'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        asChild
+                        className="border-amber-300 dark:border-amber-700"
+                      >
+                        <a
+                          href={
+                            urlRegistroPoderPublico
+                              ? `https://wa.me/?text=${encodeURIComponent(
+                                  `Registro de poderes — ${asamblea.nombre}\n${urlRegistroPoderPublico}`
+                                )}`
+                              : '#'
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={!urlRegistroPoderPublico ? 'pointer-events-none opacity-50' : ''}
+                        >
+                          WhatsApp
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                  {!asamblea.registro_poderes_publico && (
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Activa el interruptor arriba para habilitar el enlace y el envío por correo.
+                    </p>
+                  )}
+                </div>
+                {urlRegistroPoderPublico && (
+                  <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-white/80 dark:bg-gray-900/50 border border-amber-200/80 dark:border-amber-800/80 mx-auto lg:mx-0">
+                    <span className="text-xs font-medium text-amber-900 dark:text-amber-100 flex items-center gap-1">
+                      <QrCode className="w-3.5 h-3.5" /> QR
+                    </span>
+                    <div className="p-2 bg-white rounded-lg">
+                      <QRCodeSVG value={urlRegistroPoderPublico} size={120} level="M" includeMargin />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Resumen de Poderes */}

@@ -11,6 +11,8 @@ export function getPublicAppBasePath(): string {
   if (votarIdx > 0) return pathname.slice(0, votarIdx)
   const asistirIdx = pathname.indexOf('/asistir/')
   if (asistirIdx > 0) return pathname.slice(0, asistirIdx)
+  const regPoderIdx = pathname.indexOf('/registrar-poder/')
+  if (regPoderIdx > 0) return pathname.slice(0, regPoderIdx)
   return ''
 }
 
@@ -37,6 +39,21 @@ export function buildPublicVotarUrl(codigoAcceso: string): string {
 }
 
 /** Enlace público de asistente delegado (mismo criterio de prefijo que `buildPublicVotarUrl`). */
+/** URL pública para declarar poderes sin abrir votación (mismo prefijo base que /votar). */
+export function buildPublicRegistroPoderUrl(codigoAcceso: string): string {
+  const code = String(codigoAcceso || '').trim()
+  if (!code) return ''
+
+  if (typeof window !== 'undefined') {
+    const { origin } = window.location
+    const basePath = getPublicAppBasePath()
+    return `${origin}${basePath}/registrar-poder/${encodeURIComponent(code)}`
+  }
+
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '') || 'https://www.asamblea.online'
+  return `${siteUrl}/registrar-poder/${encodeURIComponent(code)}`
+}
+
 export function buildPublicAsistirUrl(codigoAcceso: string, tokenDelegado: string): string {
   const code = String(codigoAcceso || '').trim()
   const tok = String(tokenDelegado || '').trim()

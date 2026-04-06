@@ -101,23 +101,42 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { asamblea_id, emails: emailsParam, emails_adicionales: emailsAdicionalesParam } = body as {
+    const {
+      asamblea_id,
+      emails: emailsParam,
+      emails_adicionales: emailsAdicionalesParam,
+      enlace_tipo: enlaceTipoParam,
+    } = body as {
       asamblea_id?: string
       emails?: string[]
       emails_adicionales?: string[]
+      /** 'registro_poderes' = enlace /registrar-poder/[codigo] (requiere registro_poderes_publico) */
+      enlace_tipo?: string
     }
+    const enlaceTipo = enlaceTipoParam === 'registro_poderes' ? 'registro_poderes' : 'votacion'
     if (!asamblea_id) {
       return NextResponse.json({ error: 'Falta asamblea_id' }, { status: 400 })
     }
 
     const { data: asamblea, error: asambleaError } = await supabase
       .from('asambleas')
-      .select('id, nombre, codigo_acceso, url_publica, organization_id, fecha, is_demo, sandbox_usar_unidades_reales')
+      .select('id, nombre, codigo_acceso, url_publica, organization_id, fecha, is_demo, sandbox_usar_unidades_reales, registro_poderes_publico')
       .eq('id', asamblea_id)
       .single()
 
     if (asambleaError || !asamblea) {
       return NextResponse.json({ error: 'Asamblea no encontrada' }, { status: 404 })
+    }
+
+    const registroPoderesPublico = !!(asamblea as { registro_poderes_publico?: boolean }).registro_poderes_publico
+    if (enlaceTipo === 'registro_poderes' && !registroPoderesPublico) {
+      return NextResponse.json(
+        {
+          error:
+            'Activa primero «Registro público de poderes sin abrir votación» en la asamblea antes de enviar este enlace.',
+        },
+        { status: 400 }
+      )
     }
 
     const orgId = asamblea.organization_id
@@ -195,9 +214,12 @@ export async function POST(request: NextRequest) {
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || 'https://www.asamblea.online'
-    const urlVotacion = asamblea.codigo_acceso
-      ? `${siteUrl}/votar/${asamblea.codigo_acceso}`
-      : (asamblea.url_publica ?? '')
+    const urlVotacion =
+      asamblea.codigo_acceso && enlaceTipo === 'registro_poderes'
+        ? `${siteUrl}/registrar-poder/${asamblea.codigo_acceso}`
+        : asamblea.codigo_acceso
+          ? `${siteUrl}/votar/${asamblea.codigo_acceso}`
+          : (asamblea.url_publica ?? '')
     const fechaStr = asamblea.fecha
       ? new Date(asamblea.fecha).toLocaleString('es-CO', {
           year: 'numeric',
@@ -229,7 +251,7 @@ export async function POST(request: NextRequest) {
       ? `<p style="margin: 1rem 0; padding: 0.75rem; background: #f3f4f6; border-radius: 8px;">${esc(textoAdicional).replace(/\n/g, '<br>')}</p>`
       : ''
 
-    const defaultTemplate = `🗳️ VOTACION VIRTUAL ACTIVA
+    const defaultTemplateVotacion = `🗳️ VOTACION VIRTUAL ACTIVA
 
 Asamblea: {asamblea}
 Conjunto: {conjunto}
@@ -241,6 +263,19 @@ Fecha: {fecha}
 ⚠️ Necesitas tu email registrado en el conjunto.
 
 Tu participacion es importante. 🏠`
+
+    const defaultTemplateRegistroPoder = `📋 REGISTRO DE PODERES
+
+Asamblea: {asamblea}
+Conjunto: {conjunto}
+Fecha: {fecha}
+
+👉 Declara o carga aquí los poderes (pendientes de aprobación):
+{url}
+
+⚠️ Usa el mismo email o teléfono registrado en tu unidad.
+
+Gracias. 🏠`
     const renderPlantilla = (tplRaw: string): string =>
       tplRaw
         .replace(/\{asamblea\}/gi, String(asamblea.nombre ?? 'Asamblea'))
@@ -248,8 +283,13 @@ Tu participacion es importante. 🏠`
         .replace(/\{url\}/gi, urlVotacion)
         .replace(/\{conjunto\}/gi, nombreConjunto)
 
-    const subject = `Votación: ${asamblea.nombre ?? 'Asamblea'}`
-    const textBase = renderPlantilla(plantillaMensaje || defaultTemplate)
+    const subject =
+      enlaceTipo === 'registro_poderes'
+        ? `Registro de poderes: ${asamblea.nombre ?? 'Asamblea'}`
+        : `Votación: ${asamblea.nombre ?? 'Asamblea'}`
+    const defaultPlantilla =
+      enlaceTipo === 'registro_poderes' ? defaultTemplateRegistroPoder : defaultTemplateVotacion
+    const textBase = renderPlantilla(plantillaMensaje || defaultPlantilla)
     const textBody = `${textBase}${bloqueAdicionalTexto}`
     const htmlBase = esc(textBase).replace(/\n/g, '<br>')
     const htmlBody = `
@@ -257,9 +297,9 @@ Tu participacion es importante. 🏠`
 <html>
 <head><meta charset="utf-8"></head>
 <body style="font-family: system-ui, sans-serif; max-width: 560px; margin: 0 auto; padding: 1rem;">
-  <h2 style="color: #4338ca;">Votacion virtual activa</h2>
+  <h2 style="color: #4338ca;">${enlaceTipo === 'registro_poderes' ? 'Registro de poderes' : 'Votacion virtual activa'}</h2>
   <p style="line-height:1.6;">${htmlBase}</p>
-  <p><a href="${urlVotacion}" style="display: inline-block; background: #4f46e5; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 8px;">👉 Ir a votar</a></p>
+  <p><a href="${urlVotacion}" style="display: inline-block; background: #4f46e5; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 8px;">${enlaceTipo === 'registro_poderes' ? '👉 Ir al registro de poderes' : '👉 Ir a votar'}</a></p>
   ${bloqueAdicionalHtml}
 </body>
 </html>`
