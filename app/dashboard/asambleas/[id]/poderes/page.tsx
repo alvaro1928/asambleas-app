@@ -1898,7 +1898,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                     PDF o Word (.doc, .docx), máximo 2MB. Puedes reemplazarlo después si lo necesitas.
                   </p>
                   <ChecklistPoderLey675 />
-                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors">
+                  <div className="border-2 border-dashed border-indigo-300 dark:border-indigo-600 rounded-lg p-4 bg-indigo-50/50 dark:bg-indigo-950/30 hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors">
                     <input
                       type="file"
                       accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -1915,10 +1915,12 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                       className="hidden"
                       id="archivo-poder-input"
                     />
-                    <label htmlFor="archivo-poder-input" className="cursor-pointer flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-indigo-500" />
+                    <label htmlFor="archivo-poder-input" className="cursor-pointer flex items-start sm:items-center gap-3">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow">
+                        <Upload className="w-5 h-5" aria-hidden />
+                      </span>
                       {archivoPoder ? (
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                        <span className="text-sm text-gray-800 dark:text-gray-200">
                           {archivoPoder.name} ({(archivoPoder.size / 1024).toFixed(1)} KB)
                           <button
                             type="button"
@@ -1929,8 +1931,13 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                           </button>
                         </span>
                       ) : (
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          Clic para seleccionar o arrastrar
+                        <span>
+                          <span className="block text-sm font-semibold text-indigo-900 dark:text-indigo-100">
+                            Elegir archivo del poder
+                          </span>
+                          <span className="block text-sm text-gray-700 dark:text-gray-300 mt-0.5">
+                            Clic aquí · PDF o Word, máx. 2 MB
+                          </span>
                         </span>
                       )}
                     </label>
@@ -2015,7 +2022,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <ChecklistPoderLey675 />
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
+            <div className="border-2 border-dashed border-indigo-300 dark:border-indigo-600 rounded-lg p-4 bg-indigo-50/50 dark:bg-indigo-950/30">
               <input
                 type="file"
                 accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -2032,10 +2039,12 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                 className="hidden"
                 id="archivo-reemplazo-input"
               />
-              <label htmlFor="archivo-reemplazo-input" className="cursor-pointer flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-500" />
+              <label htmlFor="archivo-reemplazo-input" className="cursor-pointer flex items-start sm:items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow">
+                  <Upload className="w-5 h-5" aria-hidden />
+                </span>
                 {archivoReemplazo ? (
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-sm text-gray-800 dark:text-gray-200">
                     {archivoReemplazo.name} ({(archivoReemplazo.size / 1024).toFixed(1)} KB)
                     <button
                       type="button"
@@ -2046,7 +2055,14 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                     </button>
                   </span>
                 ) : (
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Seleccionar archivo</span>
+                  <span>
+                    <span className="block text-sm font-semibold text-indigo-900 dark:text-indigo-100">
+                      Seleccionar nuevo archivo
+                    </span>
+                    <span className="block text-sm text-gray-700 dark:text-gray-300 mt-0.5">
+                      PDF o Word · máx. 2 MB
+                    </span>
+                  </span>
                 )}
               </label>
             </div>

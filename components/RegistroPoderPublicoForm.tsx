@@ -272,16 +272,33 @@ export function RegistroPoderPublicoForm({
               </div>
               <div className="space-y-1.5">
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Documento escaneado — opcional</span>
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-indigo-600 dark:text-indigo-400">
-                  <Upload className="w-4 h-4" />
-                  <span>{archivoPoderVotante ? archivoPoderVotante.name : 'Elegir PDF o Word (máx. 2 MB)'}</span>
+                <div className="rounded-xl border-2 border-dashed border-amber-400/90 dark:border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 px-3 py-3 sm:px-4 sm:py-4 hover:border-amber-600 dark:hover:border-amber-400 transition-colors">
                   <input
+                    id="poder-archivo-publico-rp"
                     type="file"
                     accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     className="sr-only"
                     onChange={(e) => setArchivoPoderVotante(e.target.files?.[0] ?? null)}
                   />
-                </label>
+                  <label
+                    htmlFor="poder-archivo-publico-rp"
+                    className="flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer"
+                  >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-600 text-white shadow-md ring-2 ring-amber-500/30">
+                      <Upload className="w-6 h-6" aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1 text-left">
+                      <span className="block text-sm font-semibold text-amber-950 dark:text-amber-50">
+                        {archivoPoderVotante ? 'Archivo listo para enviar' : 'Toca para subir el documento'}
+                      </span>
+                      <span className="block text-xs text-gray-700 dark:text-gray-300 mt-1 break-words">
+                        {archivoPoderVotante
+                          ? archivoPoderVotante.name
+                          : 'PDF o Word · máximo 2 MB'}
+                      </span>
+                    </span>
+                  </label>
+                </div>
               </div>
               <Button
                 type="button"
