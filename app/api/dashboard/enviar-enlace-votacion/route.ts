@@ -66,7 +66,9 @@ export async function POST(request: NextRequest) {
 
     const { data: asamblea, error: asambleaError } = await supabase
       .from('asambleas')
-      .select('id, nombre, codigo_acceso, url_publica, organization_id, fecha, is_demo, sandbox_usar_unidades_reales')
+      .select(
+        'id, nombre, codigo_acceso, url_publica, organization_id, fecha, is_demo, sandbox_usar_unidades_reales, registro_poderes_publico'
+      )
       .eq('id', asamblea_id)
       .single()
 
@@ -149,12 +151,18 @@ export async function POST(request: NextRequest) {
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || 'https://www.asamblea.online'
+    const codigo = asamblea.codigo_acceso ? String(asamblea.codigo_acceso).trim() : ''
     const urlVotacion =
-      asamblea.codigo_acceso && enlaceTipo === 'registro_poderes'
-        ? `${siteUrl}/registrar-poder/${asamblea.codigo_acceso}`
-        : asamblea.codigo_acceso
-          ? `${siteUrl}/votar/${asamblea.codigo_acceso}`
+      codigo && enlaceTipo === 'registro_poderes'
+        ? `${siteUrl}/registrar-poder/${codigo}`
+        : codigo
+          ? `${siteUrl}/votar/${codigo}`
           : (asamblea.url_publica ?? '')
+    /** Mismo código: portal para declarar/cargar poderes (solo si está habilitado en la asamblea). */
+    const urlRegistroPoderes = codigo ? `${siteUrl}/registrar-poder/${codigo}` : ''
+    const registroPoderesHabilitado = !!(asamblea as { registro_poderes_publico?: boolean }).registro_poderes_publico
+    const incluirLinkRegistroEnCorreoVotacion =
+      enlaceTipo === 'votacion' && !!codigo && registroPoderesHabilitado && !!urlRegistroPoderes
     const fechaStr = asamblea.fecha
       ? new Date(asamblea.fecha).toLocaleString('es-CO', {
           year: 'numeric',
@@ -195,6 +203,8 @@ Fecha: {fecha}
 👉 Vota aqui:
 {url}
 
+{bloque_registro_poderes}
+
 ⚠️ Necesitas tu email registrado en el conjunto.
 
 Tu participacion es importante. 🏠`
@@ -211,12 +221,21 @@ Fecha: {fecha}
 ⚠️ Usa el mismo email o teléfono registrado en tu unidad.
 
 Gracias. 🏠`
+    const bloqueRegistroPoderesTexto =
+      incluirLinkRegistroEnCorreoVotacion && urlRegistroPoderes
+        ? `📋 Registro o carga de poderes (pendiente de aprobación):
+${urlRegistroPoderes}
+
+`
+        : ''
+
     const renderPlantilla = (tplRaw: string): string =>
       tplRaw
         .replace(/\{asamblea\}/gi, String(asamblea.nombre ?? 'Asamblea'))
         .replace(/\{fecha\}/gi, fechaStr)
         .replace(/\{url\}/gi, urlVotacion)
-        .replace(/\{conjunto\}/gi, nombreConjunto)
+        .replace(/\{url_registro_poderes\}/gi, incluirLinkRegistroEnCorreoVotacion ? urlRegistroPoderes : '')
+        .replace(/\{bloque_registro_poderes\}/gi, bloqueRegistroPoderesTexto)
 
     const subject =
       enlaceTipo === 'registro_poderes'
@@ -224,7 +243,15 @@ Gracias. 🏠`
         : `Votación: ${asamblea.nombre ?? 'Asamblea'}`
     const defaultPlantilla =
       enlaceTipo === 'registro_poderes' ? defaultTemplateRegistroPoder : defaultTemplateVotacion
-    const textBase = renderPlantilla(plantillaMensaje || defaultPlantilla)
+    let textBase = renderPlantilla(plantillaMensaje || defaultPlantilla)
+    if (incluirLinkRegistroEnCorreoVotacion && urlRegistroPoderes) {
+      const tplCustom = plantillaMensaje?.trim()
+      const tienePlaceholderRegistro =
+        !!tplCustom && /\{url_registro_poderes\}|\{bloque_registro_poderes\}/i.test(tplCustom)
+      if (tplCustom && !tienePlaceholderRegistro) {
+        textBase += `\n\n📋 Registro o carga de poderes (pendiente de aprobación):\n${urlRegistroPoderes}`
+      }
+    }
     const textBody = `${textBase}${bloqueAdicionalTexto}`
     const htmlBase = esc(textBase).replace(/\n/g, '<br>')
     const htmlBody = `
@@ -235,6 +262,11 @@ Gracias. 🏠`
   <h2 style="color: #4338ca;">${enlaceTipo === 'registro_poderes' ? 'Registro de poderes' : 'Votacion virtual activa'}</h2>
   <p style="line-height:1.6;">${htmlBase}</p>
   <p><a href="${urlVotacion}" style="display: inline-block; background: #4f46e5; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 8px;">${enlaceTipo === 'registro_poderes' ? '👉 Ir al registro de poderes' : '👉 Ir a votar'}</a></p>
+  ${
+    enlaceTipo === 'votacion' && incluirLinkRegistroEnCorreoVotacion && urlRegistroPoderes
+      ? `<p><a href="${urlRegistroPoderes}" style="display: inline-block; background: #0f766e; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 8px;">📋 Registro o carga de poderes</a></p>`
+      : ''
+  }
   ${bloqueAdicionalHtml}
 </body>
 </html>`
