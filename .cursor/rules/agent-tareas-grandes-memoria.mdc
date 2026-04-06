@@ -1,0 +1,11 @@
+---
+description: Exploración del repo y memoria persistente en tareas grandes o cambios de arquitectura
+alwaysApply: true
+---
+
+# Tareas grandes y arquitectura
+
+- **Cuándo activar**: la tarea afecta muchas piezas (varias capas, rutas API + UI + DB), introduce un flujo nuevo, o **cambia arquitectura** (límites de módulos, datos, auth, despliegue, patrones de acceso a Supabase, etc.). Si solo es un fix local en un archivo, no hace falta un barrido completo.
+- **Exploración**: antes de implementar a ciegas, **localiza el código relevante** (búsqueda semántica, grep, lectura de archivos cercanos). Prioriza `app/`, `lib/`, `components/` y SQL/policies según el tema.
+- **Memoria (Engram / MCP)**: si la herramienta de memoria está disponible, **guarda** decisiones de arquitectura, convenciones nuevas y hallazgos no obvios con `mem_save` (formato **What / Why / Where / Learned**). Usa `topic_key` estable cuando el tema evoluciona (p. ej. `architecture/votacion`). No dupliques ruido: un resumen útil por decisión o cierre de tarea grande.
+- **No sustituye**: mensajes claros del usuario ni reglas existentes en otras `.mdc`; solo refuerza el hábito en trabajo de alto impacto.

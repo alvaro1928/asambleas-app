@@ -2,7 +2,7 @@
 
 **Delegator use only.** Any agent that launches sub-agents reads this registry to resolve compact rules, then injects them directly into sub-agent prompts. Sub-agents do NOT read this registry or individual SKILL.md files.
 
-**Actualizado:** 2026-04-06 (comando `skill-registry`).
+**Actualizado:** 2026-04-06 — incluye regla `agent-tareas-grandes-memoria.mdc`.
 
 ## User Skills
 
@@ -36,6 +36,7 @@
 | frontend-responsive-usabilidad.mdc | `.cursor/rules/frontend-responsive-usabilidad.mdc` | Responsive |
 | design-ui.mdc | `.cursor/rules/design-ui.mdc` | Diseño UI |
 | actualizar-git-al-finalizar.mdc | `.cursor/rules/actualizar-git-al-finalizar.mdc` | Commit/push al cerrar tareas con cambios |
+| agent-tareas-grandes-memoria.mdc | `.cursor/rules/agent-tareas-grandes-memoria.mdc` | Tareas grandes / arquitectura: explorar repo; mem_save en Engram cuando amerite |
 
 No hay `AGENTS.md`, `CLAUDE.md` ni `.cursorrules` en la raíz del repositorio.
 
