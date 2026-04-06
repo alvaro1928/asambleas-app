@@ -192,7 +192,6 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
   const [showPreview, setShowPreview] = useState(false)
   const [asambleaNombre, setAsambleaNombre] = useState('')
   const [organizationId, setOrganizationId] = useState<string | null>(null)
-  const [asambleaFinalizada, setAsambleaFinalizada] = useState(false)
 
   useEffect(() => {
     loadAsamblea()
@@ -218,7 +217,6 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
       }
       setAsambleaNombre(data.nombre)
       setOrganizationId(data.organization_id)
-      setAsambleaFinalizada(data.estado === 'finalizada')
     } catch {
       router.push('/dashboard/asambleas')
     }
@@ -227,11 +225,6 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (asambleaFinalizada) {
-      toast.error('La asamblea está cerrada; no se pueden importar poderes.')
-      e.target.value = ''
-      return
-    }
 
     const extension = file.name.split('.').pop()?.toLowerCase()
     setFileName(file.name)
@@ -292,7 +285,7 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
   }
 
   const handleImport = async () => {
-    if (!organizationId || rows.length === 0 || asambleaFinalizada) return
+    if (!organizationId || rows.length === 0) return
 
     setLoading(true)
     setError('')
@@ -519,16 +512,6 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {asambleaFinalizada && (
-          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-amber-900 dark:text-amber-100">Asamblea cerrada</AlertTitle>
-            <AlertDescription className="text-amber-800 dark:text-amber-200">
-              No se pueden importar poderes. Reabre la asamblea desde el detalle para habilitar la importación.
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="rounded-xl border border-indigo-200/80 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 sm:p-5">
           <div className="flex items-start gap-3">
             <BookOpen className="h-5 w-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
@@ -636,27 +619,20 @@ Nombre apoderado: María Gómez Ruiz`}
 
         {!showPreview ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
-            <label
-              className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl transition-colors ${
-                asambleaFinalizada
-                  ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
-                  : 'border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50'
-              }`}
-            >
+            <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl transition-colors border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50">
               <Upload className="w-12 h-12 text-gray-400 mb-4" />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {asambleaFinalizada ? 'Importación deshabilitada' : 'Arrastra Excel o CSV aquí, o haz clic para seleccionar'}
+                Arrastra Excel o CSV aquí, o haz clic para seleccionar
               </span>
               <input
                 type="file"
                 className="hidden"
                 accept=".xlsx,.xls,.csv"
-                disabled={asambleaFinalizada}
                 onChange={handleFileUpload}
               />
             </label>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <Button variant="outline" onClick={downloadTemplate} disabled={asambleaFinalizada}>
+              <Button variant="outline" onClick={downloadTemplate}>
                 <Download className="w-4 h-4 mr-2" />
                 Descargar plantilla (3 hojas)
               </Button>
@@ -675,7 +651,7 @@ Nombre apoderado: María Gómez Ruiz`}
                 </Button>
                 <Button
                   onClick={handleImport}
-                  disabled={loading || asambleaFinalizada}
+                  disabled={loading}
                   className="bg-indigo-600 hover:bg-indigo-700"
                 >
                   {loading ? 'Importando...' : `Importar ${rows.length} poder(es)`}

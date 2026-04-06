@@ -281,12 +281,12 @@ export default function VotacionPublicaPage() {
         fetch('/api/votar/unidades-delegacion', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ codigo }),
+          body: JSON.stringify({ codigo, ocultar_datos_propietario: true }),
         }),
         fetch('/api/votar/mis-poderes-pendientes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ codigo, identificador: email.trim() }),
+          body: JSON.stringify({ codigo, identificador: email.trim(), ocultar_datos_personales: true }),
         }),
       ])
       const j1 = (await r1.json().catch(() => ({}))) as {
@@ -2795,7 +2795,6 @@ export default function VotacionPublicaPage() {
                           {opcionesOtorgantesPoder.map((u) => (
                             <option key={u.id} value={u.id}>
                               {u.torre || 'S/T'} — {u.numero || 'S/N'}
-                              {u.nombre_propietario ? ` · ${u.nombre_propietario}` : ''}
                             </option>
                           ))}
                         </select>
@@ -2882,9 +2881,6 @@ export default function VotacionPublicaPage() {
                           <div className="font-medium text-gray-900 dark:text-white">
                             {p.unidad_otorgante_torre} — {p.unidad_otorgante_numero}
                           </div>
-                          {p.nombre_otorgante && (
-                            <div className="text-gray-600 dark:text-gray-400 mt-0.5">Prop.: {p.nombre_otorgante}</div>
-                          )}
                           <div className="text-gray-500 dark:text-gray-500 mt-1">
                             Coef. delegado: {Number(p.coeficiente_delegado || 0).toFixed(4)}% ·{' '}
                             {p.created_at
@@ -2989,7 +2985,6 @@ export default function VotacionPublicaPage() {
                             <span className="font-semibold text-gray-900 dark:text-white text-sm">{unidad.torre} - {unidad.numero}</span>
                             <span className="text-xs text-gray-500 dark:text-gray-400">Coef. {unidad.coeficiente.toFixed(4)}%</span>
                           </div>
-                          {unidad.nombre_otorgante && <p className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">Poder de: {unidad.nombre_otorgante}</p>}
                         </div>
                       ))}
                     </div>

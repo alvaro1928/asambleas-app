@@ -320,9 +320,16 @@ export default function RegistrarPoderPublicoPage() {
                 Email, teléfono o identificación registrada
               </label>
               <Input
+                id="registro-poder-identificador"
+                name="registro-poder-identificador"
                 type="text"
-                inputMode="email"
-                autoComplete="email tel"
+                inputMode="text"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                data-lpignore="true"
+                data-1p-ignore="true"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tu@email.com, 3001234567…"
@@ -438,6 +445,9 @@ export default function RegistrarPoderPublicoPage() {
         <div className="text-center mb-4">
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Registro de poderes</h1>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono">{codigo}</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 max-w-md mx-auto">
+            Tu correo o teléfono no se muestra en esta pantalla; solo se usa de forma segura para validar tu sesión.
+          </p>
         </div>
         <RegistroPoderPublicoForm codigo={codigo} email={email.trim()} unidades={unidades} />
       </div>

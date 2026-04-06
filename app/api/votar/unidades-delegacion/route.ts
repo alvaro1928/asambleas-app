@@ -9,7 +9,11 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}))
-    const { codigo } = body as { codigo?: string }
+    const { codigo, ocultar_datos_propietario } = body as {
+      codigo?: string
+      /** Portal público: no exponer nombres de propietarios de otras unidades en el desplegable */
+      ocultar_datos_propietario?: boolean
+    }
 
     if (!codigo?.trim()) {
       return NextResponse.json({ error: 'Código requerido' }, { status: 400 })
@@ -44,13 +48,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No se pudieron cargar las unidades' }, { status: 500 })
     }
 
+    const ocultar = !!ocultar_datos_propietario
     return NextResponse.json({
       unidades: (rows ?? []).map((u) => ({
         id: u.id as string,
         torre: String(u.torre ?? ''),
         numero: String(u.numero ?? ''),
         coeficiente: Number(u.coeficiente) || 0,
-        nombre_propietario: u.nombre_propietario ? String(u.nombre_propietario) : null,
+        nombre_propietario: ocultar ? null : u.nombre_propietario ? String(u.nombre_propietario) : null,
       })),
     })
   } catch (e) {

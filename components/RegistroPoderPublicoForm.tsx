@@ -35,7 +35,6 @@ export function RegistroPoderPublicoForm({ codigo, email, unidades }: Props) {
       id: string
       unidad_otorgante_torre: string
       unidad_otorgante_numero: string
-      nombre_otorgante: string | null
       created_at: string
       archivo_poder: string | null
       observaciones: string | null
@@ -60,12 +59,12 @@ export function RegistroPoderPublicoForm({ codigo, email, unidades }: Props) {
         fetch('/api/votar/unidades-delegacion', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ codigo }),
+          body: JSON.stringify({ codigo, ocultar_datos_propietario: true }),
         }),
         fetch('/api/votar/mis-poderes-pendientes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ codigo, identificador: email.trim() }),
+          body: JSON.stringify({ codigo, identificador: email.trim(), ocultar_datos_personales: true }),
         }),
       ])
       const j1 = (await r1.json().catch(() => ({}))) as {
@@ -76,7 +75,6 @@ export function RegistroPoderPublicoForm({ codigo, email, unidades }: Props) {
           id: string
           unidad_otorgante_torre: string
           unidad_otorgante_numero: string
-          nombre_otorgante: string | null
           created_at: string
           archivo_poder: string | null
           observaciones: string | null
@@ -202,12 +200,11 @@ export function RegistroPoderPublicoForm({ codigo, email, unidades }: Props) {
                   className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm px-3 py-2"
                 >
                   <option value="">— Elige torre y apartamento —</option>
-                  {opcionesOtorgantesPoder.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.torre || 'S/T'} — {u.numero || 'S/N'}
-                      {u.nombre_propietario ? ` · ${u.nombre_propietario}` : ''}
-                    </option>
-                  ))}
+                          {opcionesOtorgantesPoder.map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.torre || 'S/T'} — {u.numero || 'S/N'}
+                            </option>
+                          ))}
                 </select>
                 {opcionesOtorgantesPoder.length === 0 && (
                   <p className="text-xs text-amber-700 dark:text-amber-300">
@@ -289,13 +286,10 @@ export function RegistroPoderPublicoForm({ codigo, email, unidades }: Props) {
                   key={p.id}
                   className="text-xs rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-gray-800/80 p-2.5"
                 >
-                  <div className="font-medium text-gray-900 dark:text-white">
-                    {p.unidad_otorgante_torre} — {p.unidad_otorgante_numero}
-                  </div>
-                  {p.nombre_otorgante && (
-                    <div className="text-gray-600 dark:text-gray-400 mt-0.5">Prop.: {p.nombre_otorgante}</div>
-                  )}
-                  <div className="text-gray-500 dark:text-gray-500 mt-1">
+                          <div className="font-medium text-gray-900 dark:text-white">
+                            Unidad que otorga: {p.unidad_otorgante_torre} — {p.unidad_otorgante_numero}
+                          </div>
+                          <div className="text-gray-500 dark:text-gray-500 mt-1">
                     Coef. delegado: {Number(p.coeficiente_delegado || 0).toFixed(4)}% ·{' '}
                     {p.created_at
                       ? new Date(p.created_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' })

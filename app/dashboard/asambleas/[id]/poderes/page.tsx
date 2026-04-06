@@ -861,7 +861,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   }, [asamblea?.codigo_acceso])
 
   const toggleRegistroPoderesPublico = async (checked: boolean) => {
-    if (!asamblea || asamblea.estado === 'finalizada') return
+    if (!asamblea) return
     setGuardandoRegistroPublico(true)
     try {
       const { error } = await supabase
@@ -975,25 +975,17 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   Consultar Unidades
                 </Button>
               </Link>
-              {asamblea?.estado === 'finalizada' ? (
-                <Button variant="outline" disabled className="opacity-60 cursor-not-allowed border-purple-300 dark:border-purple-700">
+              <Link href={`/dashboard/asambleas/${params.id}/poderes/importar`}>
+                <Button
+                  variant="outline"
+                  className="border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                >
                   <Upload className="w-4 h-4 mr-2" />
                   Importar Excel
                 </Button>
-              ) : (
-                <Link href={`/dashboard/asambleas/${params.id}/poderes/importar`}>
-                  <Button
-                    variant="outline"
-                    className="border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Importar Excel
-                  </Button>
-                </Link>
-              )}
+              </Link>
               <Button
-                onClick={() => asamblea?.estado !== 'finalizada' && openCreatePoderModal()}
-                disabled={asamblea?.estado === 'finalizada'}
+                onClick={() => openCreatePoderModal()}
                 className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -1006,11 +998,11 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {asamblea?.estado === 'finalizada' && (
-          <Alert className="mb-6 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
-            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <AlertTitle className="text-amber-900 dark:text-amber-100">Asamblea cerrada</AlertTitle>
-            <AlertDescription className="text-amber-800 dark:text-amber-200">
-              No puedes agregar, modificar ni revocar poderes. Reabre la asamblea desde el detalle de la asamblea para habilitar la gestión.
+          <Alert className="mb-6 bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-700">
+            <AlertTriangle className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+            <AlertTitle className="text-slate-900 dark:text-slate-100">Asamblea finalizada</AlertTitle>
+            <AlertDescription className="text-slate-700 dark:text-slate-300">
+              La votación puede estar cerrada, pero puedes seguir gestionando poderes, documentos, importación y el enlace público de registro.
             </AlertDescription>
           </Alert>
         )}
@@ -1027,8 +1019,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
         )}
 
         {/* Enlace público: registro de poderes sin abrir votación */}
-        {asamblea.estado !== 'finalizada' && (
-          <div className="mb-6 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-4 sm:p-5">
+        <div className="mb-6 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-4 sm:p-5">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
               <div>
                 <h2 className="text-sm font-bold text-amber-900 dark:text-amber-100 flex items-center gap-2">
@@ -1138,7 +1129,6 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               </div>
             )}
           </div>
-        )}
 
         {/* Resumen de Poderes */}
         {resumen && (
@@ -1401,8 +1391,6 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                                   setReemplazandoPoderId(poder.id)
                                   setArchivoReemplazo(null)
                                 }}
-                                disabled={asamblea?.estado === 'finalizada'}
-                                title={asamblea?.estado === 'finalizada' ? 'Asamblea cerrada' : undefined}
                               >
                                 Reemplazar
                               </Button>
@@ -1416,8 +1404,6 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                                 setReemplazandoPoderId(poder.id)
                                 setArchivoReemplazo(null)
                               }}
-                              disabled={asamblea?.estado === 'finalizada'}
-                              title={asamblea?.estado === 'finalizada' ? 'Asamblea cerrada' : undefined}
                             >
                               Cargar documento
                             </Button>
@@ -1463,12 +1449,9 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() =>
-                                asamblea?.estado !== 'finalizada' && setPoderModal({ type: 'edit', poder })
-                              }
-                              disabled={asamblea?.estado === 'finalizada'}
+                              onClick={() => setPoderModal({ type: 'edit', poder })}
                               className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-                              title={asamblea?.estado === 'finalizada' ? 'Asamblea cerrada' : 'Corregir apoderado, unidad o datos'}
+                              title="Corregir apoderado, unidad o datos"
                             >
                               <Pencil className="w-4 h-4 mr-1" />
                               Editar
@@ -1476,10 +1459,9 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => asamblea?.estado !== 'finalizada' && handleRevocarPoder(poder.id)}
-                              disabled={asamblea?.estado === 'finalizada'}
+                              onClick={() => handleRevocarPoder(poder.id)}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                              title={asamblea?.estado === 'finalizada' ? 'Asamblea cerrada' : 'Revocar este poder'}
+                              title="Revocar este poder"
                             >
                               <XCircle className="w-4 h-4 mr-1" />
                               Revocar
@@ -1491,10 +1473,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() =>
-                                asamblea?.estado !== 'finalizada' && handleActivarPoderPendiente(poder.id)
-                              }
-                              disabled={asamblea?.estado === 'finalizada' || activandoPoderId === poder.id}
+                              onClick={() => handleActivarPoderPendiente(poder.id)}
+                              disabled={activandoPoderId === poder.id}
                               className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                               title="Validar contra documento o acta y activar para votación"
                             >
@@ -1504,8 +1484,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => asamblea?.estado !== 'finalizada' && handleRevocarPoder(poder.id)}
-                              disabled={asamblea?.estado === 'finalizada'}
+                              onClick={() => handleRevocarPoder(poder.id)}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                               title="Rechazar la solicitud"
                             >
@@ -1882,7 +1861,6 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   onClick={() => void agregarPoderALaCola()}
                   disabled={
                     savingPoder ||
-                    asamblea?.estado === 'finalizada' ||
                     !selectedOtorgante ||
                     !emailReceptor.trim() ||
                     !nombreReceptor.trim() ||
@@ -1898,7 +1876,6 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                 onClick={() => void handleSavePoder()}
                 disabled={
                   savingPoder ||
-                  asamblea?.estado === 'finalizada' ||
                   (poderModal.type === 'create'
                     ? colaPoderes.length === 0 &&
                       (!selectedOtorgante ||
@@ -1985,7 +1962,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               <Button variant="outline" onClick={() => { setReemplazandoPoderId(null); setArchivoReemplazo(null) }} disabled={reemplazando}>
                 Cancelar
               </Button>
-              <Button onClick={handleReemplazarDocumento} disabled={!archivoReemplazo || reemplazando || asamblea?.estado === 'finalizada'}>
+              <Button onClick={handleReemplazarDocumento} disabled={!archivoReemplazo || reemplazando}>
                 {reemplazando ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />

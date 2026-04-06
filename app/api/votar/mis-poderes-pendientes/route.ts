@@ -9,7 +9,12 @@ import { identificadorCoincide } from '@/lib/votar-identificador'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}))
-    const { codigo, identificador } = body as { codigo?: string; identificador?: string }
+    const { codigo, identificador, ocultar_datos_personales } = body as {
+      codigo?: string
+      identificador?: string
+      /** Portal público: no devolver emails ni nombres de terceros en la respuesta JSON */
+      ocultar_datos_personales?: boolean
+    }
 
     if (!codigo?.trim() || !identificador?.trim()) {
       return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
@@ -51,7 +56,25 @@ export async function POST(request: NextRequest) {
       identificadorCoincide((r as { email_receptor?: string }).email_receptor, ident)
     )
 
-    return NextResponse.json({ poderes: filtrados })
+    const ocultar = !!ocultar_datos_personales
+    const poderes = ocultar
+      ? filtrados.map((r) => {
+          const x = r as Record<string, unknown>
+          return {
+            id: x.id,
+            unidad_otorgante_id: x.unidad_otorgante_id,
+            unidad_otorgante_numero: x.unidad_otorgante_numero,
+            unidad_otorgante_torre: x.unidad_otorgante_torre,
+            estado: x.estado,
+            archivo_poder: x.archivo_poder,
+            observaciones: x.observaciones,
+            created_at: x.created_at,
+            coeficiente_delegado: x.coeficiente_delegado,
+          }
+        })
+      : filtrados
+
+    return NextResponse.json({ poderes })
   } catch (e) {
     console.error('[api/votar/mis-poderes-pendientes]', e)
     return NextResponse.json({ error: 'Error al cargar poderes' }, { status: 500 })
