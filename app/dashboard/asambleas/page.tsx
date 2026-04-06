@@ -19,7 +19,8 @@ import {
   Copy,
   FlaskConical,
   Archive,
-  ArchiveRestore
+  ArchiveRestore,
+  Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,6 +28,15 @@ import { Breadcrumbs } from '@/components/ui/Breadcrumbs'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useToast } from '@/components/providers/ToastProvider'
+import { Label } from '@/components/ui/label'
+
+/** ISO UTC → valor para input datetime-local (hora local del navegador). */
+function isoToDatetimeLocalValue(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 interface Asamblea {
   id: string
@@ -74,6 +84,13 @@ function AsambleasPageContent() {
   const [asambleasSoporte, setAsambleasSoporte] = useState<Asamblea[]>([])
   const [cargandoSoporte, setCargandoSoporte] = useState(false)
   const [filtroConjuntoSoporte, setFiltroConjuntoSoporte] = useState<string>('all')
+
+  /** Editar datos básicos desde la tarjeta (solo Mis asambleas) */
+  const [asambleaToEdit, setAsambleaToEdit] = useState<Asamblea | null>(null)
+  const [editNombre, setEditNombre] = useState('')
+  const [editDescripcion, setEditDescripcion] = useState('')
+  const [editFechaLocal, setEditFechaLocal] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
 
   // Si la URL tiene ?demo=1, abrir el modal de sandbox (desde dashboard o enlace directo)
   useEffect(() => {
@@ -298,6 +315,72 @@ function AsambleasPageContent() {
       toast.error('Error al archivar la asamblea')
     } finally {
       setArchivingId(null)
+    }
+  }
+
+  const openEditModal = (e: React.MouseEvent, a: Asamblea) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setAsambleaToEdit(a)
+    setEditNombre(a.nombre)
+    setEditDescripcion(a.descripcion ?? '')
+    setEditFechaLocal(isoToDatetimeLocalValue(a.fecha))
+  }
+
+  const resetEditForm = () => {
+    setAsambleaToEdit(null)
+    setEditNombre('')
+    setEditDescripcion('')
+    setEditFechaLocal('')
+  }
+
+  const closeEditModal = () => {
+    if (savingEdit) return
+    resetEditForm()
+  }
+
+  const handleSaveEditAsamblea = async () => {
+    if (!asambleaToEdit) return
+    const nombre = editNombre.trim()
+    if (!nombre) {
+      toast.error('El nombre es obligatorio')
+      return
+    }
+    if (!editFechaLocal.trim()) {
+      toast.error('Indica la fecha y hora de la asamblea')
+      return
+    }
+    const d = new Date(editFechaLocal)
+    if (Number.isNaN(d.getTime())) {
+      toast.error('Fecha u hora no válida')
+      return
+    }
+    const fechaIso = d.toISOString()
+    setSavingEdit(true)
+    try {
+      const { error } = await supabase
+        .from('asambleas')
+        .update({
+          nombre,
+          descripcion: editDescripcion.trim() || null,
+          fecha: fechaIso,
+        })
+        .eq('id', asambleaToEdit.id)
+      if (error) throw error
+      setAsambleas((prev) =>
+        prev.map((x) =>
+          x.id === asambleaToEdit.id
+            ? { ...x, nombre, descripcion: editDescripcion.trim() || undefined, fecha: fechaIso }
+            : x
+        )
+      )
+      resetEditForm()
+      toast.success('Asamblea actualizada')
+    } catch (err) {
+      console.error(err)
+      toast.error(err instanceof Error ? err.message : 'Error al guardar los cambios')
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -570,6 +653,17 @@ function AsambleasPageContent() {
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                           {asamblea.nombre}
                         </h3>
+                        {tabOrigen === 'mis' && (
+                          <button
+                            type="button"
+                            onClick={(e) => openEditModal(e, asamblea)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors shrink-0"
+                            title="Editar nombre, descripción o fecha"
+                          >
+                            <Pencil className="w-4 h-4" aria-hidden />
+                            <span className="sr-only">Editar datos de la asamblea</span>
+                          </button>
+                        )}
                         {tabOrigen === 'soporte' && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700">
                             {asamblea.organization_name || 'Conjunto'}
@@ -754,6 +848,72 @@ function AsambleasPageContent() {
                 'Continuar'
               ) : (
                 'Confirmar eliminación'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Editar datos básicos desde la lista */}
+      <Dialog
+        open={asambleaToEdit !== null}
+        onOpenChange={(open) => {
+          if (!open) closeEditModal()
+        }}
+      >
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar asamblea</DialogTitle>
+            <DialogDescription>
+              Corrige el nombre, la descripción o la fecha. Los cambios se verán en el panel, actas y mensajes que usen estos datos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div className="space-y-2">
+              <Label htmlFor="edit-asamblea-nombre">Nombre</Label>
+              <Input
+                id="edit-asamblea-nombre"
+                value={editNombre}
+                onChange={(e) => setEditNombre(e.target.value)}
+                placeholder="Ej. Asamblea ordinaria 2026"
+                className="rounded-xl"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-asamblea-desc">Descripción (opcional)</Label>
+              <textarea
+                id="edit-asamblea-desc"
+                value={editDescripcion}
+                onChange={(e) => setEditDescripcion(e.target.value)}
+                placeholder="Nota interna o contexto breve"
+                rows={3}
+                className="flex w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-xl min-h-[80px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-asamblea-fecha">Fecha y hora</Label>
+              <Input
+                id="edit-asamblea-fecha"
+                type="datetime-local"
+                value={editFechaLocal}
+                onChange={(e) => setEditFechaLocal(e.target.value)}
+                className="rounded-xl"
+              />
+            </div>
+          </div>
+          <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+            <Button variant="outline" onClick={closeEditModal} disabled={savingEdit} className="w-full sm:flex-1">
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEditAsamblea} disabled={savingEdit} className="w-full sm:flex-1">
+              {savingEdit ? (
+                <>
+                  <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent inline-block mr-2" />
+                  Guardando…
+                </>
+              ) : (
+                'Guardar cambios'
               )}
             </Button>
           </div>
