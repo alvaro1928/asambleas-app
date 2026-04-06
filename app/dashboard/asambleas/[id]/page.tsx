@@ -331,6 +331,12 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   /** Correo adicional (email no registrado en ninguna unidad) */
   const [emailAdicionalEnvio, setEmailAdicionalEnvio] = useState('')
   const [enviandoCorreoAdicional, setEnviandoCorreoAdicional] = useState(false)
+  /** Último resultado de envío por API (éxitos / fallos por destinatario) */
+  const [resultadoEnvioCorreo, setResultadoEnvioCorreo] = useState<{
+    enviados: number
+    total: number
+    errores?: string[]
+  } | null>(null)
   const [plantillaMensajeInvitacion, setPlantillaMensajeInvitacion] = useState('')
 
   const [billeteraColapsada, setBilleteraColapsada] = useState(true)
@@ -1212,6 +1218,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const openModalEnviarEnlace = async () => {
     const tieneEnlace = asamblea?.codigo_acceso || asamblea?.url_publica
     if (!asamblea?.organization_id || !tieneEnlace) return
+    setResultadoEnvioCorreo(null)
     setShowModalEnviarEnlace(true)
     setLoadingUnidadesEnvio(true)
     try {
@@ -1258,13 +1265,28 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     return data as { enviados: number; total: number; errores?: string[] }
   }
 
+  const aplicarResultadoEnvioCorreo = (data: { enviados: number; total: number; errores?: string[] }) => {
+    setResultadoEnvioCorreo(data)
+    const nErr = data.errores?.length ?? 0
+    if (data.total <= 0) return
+    if (data.enviados === data.total && nErr === 0) {
+      toast.success(`Enviados ${data.enviados} de ${data.total} correo(s).`)
+    } else if (data.enviados > 0) {
+      toast.info(
+        `Enviados ${data.enviados} de ${data.total}.${nErr > 0 ? ` Fallaron ${nErr}.` : ''} Revisa el resumen en este cuadro.`
+      )
+    } else {
+      toast.error(`No se envió ningún correo de ${data.total} intento(s). Revisa el resumen en este cuadro.`)
+    }
+  }
+
   const abrirCorreoUnidad = async (emailRaw: string) => {
     const emails = splitEmails(emailRaw)
     if (emails.length === 0) return
     setEnviandoCorreoEmail(emailRaw.trim())
     try {
       const data = await enviarCorreoPorApi(emails)
-      toast.success(data.enviados >= 1 ? `Enviado(s) ${data.enviados} de ${data.total} correo(s).` : 'No se pudo enviar')
+      aplicarResultadoEnvioCorreo(data)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al enviar el correo')
     } finally {
@@ -1295,10 +1317,13 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error((data as { error?: string }).error ?? 'Error al enviar')
-      const d = data as { enviados?: number }
-      const enviados = d.enviados ?? 0
-      toast.success(enviados >= 1 ? 'Correo enviado correctamente' : 'No se pudo enviar')
-      if (enviados >= 1) setEmailAdicionalEnvio('')
+      const d = data as { enviados?: number; total?: number; errores?: string[] }
+      aplicarResultadoEnvioCorreo({
+        enviados: d.enviados ?? 0,
+        total: d.total ?? 0,
+        errores: d.errores,
+      })
+      if ((d.enviados ?? 0) >= 1 && !(d.errores?.length)) setEmailAdicionalEnvio('')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al enviar el correo')
     } finally {
@@ -1317,10 +1342,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     setEnviandoCorreoTodos(true)
     try {
       const data = await enviarCorreoPorApi([])
-      toast.success(`Enviados ${data.enviados} de ${data.total} correo(s).`)
-      if (data.errores?.length) {
-        toast.error(`Algunos fallaron: ${data.errores.slice(0, 2).join(', ')}${data.errores.length > 2 ? '…' : ''}`)
-      }
+      aplicarResultadoEnvioCorreo(data)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al enviar los correos')
     } finally {
@@ -4458,6 +4480,50 @@ Tu participacion es importante. 🏠`
                         Se enviarán por correo electrónico desde el servidor (sin abrir Outlook).
                       </p>
                     </div>
+                  )}
+                  {resultadoEnvioCorreo && resultadoEnvioCorreo.total > 0 && (
+                    <Alert
+                      variant="default"
+                      className={
+                        resultadoEnvioCorreo.errores?.length
+                          ? 'border-amber-300/90 bg-amber-50/90 dark:border-amber-700/80 dark:bg-amber-950/40'
+                          : 'border-emerald-200/90 bg-emerald-50/80 dark:border-emerald-800/70 dark:bg-emerald-950/35'
+                      }
+                    >
+                      {resultadoEnvioCorreo.errores?.length ? (
+                        <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
+                      )}
+                      <AlertTitle className="text-sm">
+                        Resultado del envío: {resultadoEnvioCorreo.enviados} de {resultadoEnvioCorreo.total} correo(s) enviado(s)
+                        {resultadoEnvioCorreo.errores?.length
+                          ? ` · ${resultadoEnvioCorreo.errores.length} con error`
+                          : ''}
+                      </AlertTitle>
+                      <AlertDescription className="space-y-2 text-xs text-gray-700 dark:text-gray-300">
+                        {resultadoEnvioCorreo.errores?.length ? (
+                          <div className="max-h-36 overflow-y-auto rounded-md border border-amber-200/80 bg-white/60 dark:border-amber-900/50 dark:bg-gray-900/40 p-2 font-mono text-[11px] leading-relaxed">
+                            {resultadoEnvioCorreo.errores.map((line, i) => (
+                              <p key={i} className="break-all">
+                                {line}
+                              </p>
+                            ))}
+                          </div>
+                        ) : (
+                          <p>Todos los destinatarios se enviaron correctamente.</p>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => setResultadoEnvioCorreo(null)}
+                        >
+                          Ocultar resumen
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
                   )}
                   <ul className="space-y-1.5 max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 p-2">
                     {unidadesParaEnvio
