@@ -21,6 +21,7 @@ export default function SuperAdminAjustesPage() {
   const [bonoBienvenidaTokens, setBonoBienvenidaTokens] = useState<number | ''>(50)
   const [ctaWhatsappText, setCtaWhatsappText] = useState('Contactanos')
   const [actaBlockchainOtsEnabled, setActaBlockchainOtsEnabled] = useState(false)
+  const [ventanaGraciaActivacionDias, setVentanaGraciaActivacionDias] = useState(5)
   const [savingBlockchain, setSavingBlockchain] = useState(false)
   const [savingSmtp, setSavingSmtp] = useState(false)
   const [smtpHost, setSmtpHost] = useState('')
@@ -54,6 +55,10 @@ export default function SuperAdminAjustesPage() {
       if (data.bono_bienvenida_tokens != null) setBonoBienvenidaTokens(data.bono_bienvenida_tokens)
       setCtaWhatsappText(data.cta_whatsapp_text?.trim() || 'Contactanos')
       setActaBlockchainOtsEnabled(data.acta_blockchain_ots_enabled === true)
+      if (data.ventana_gracia_activacion_dias != null) {
+        const d = Number(data.ventana_gracia_activacion_dias)
+        if (Number.isFinite(d) && d >= 1 && d <= 90) setVentanaGraciaActivacionDias(Math.floor(d))
+      }
       const smtpRes = await fetch('/api/super-admin/configuracion-smtp', { credentials: 'include' })
       if (smtpRes.ok) {
         const smtpData = await smtpRes.json()
@@ -85,6 +90,10 @@ export default function SuperAdminAjustesPage() {
           bono_bienvenida_tokens: typeof bonoBienvenidaTokens === 'number' ? bonoBienvenidaTokens : (typeof bonoBienvenidaTokens === 'string' && bonoBienvenidaTokens !== '' ? parseInt(bonoBienvenidaTokens, 10) : null),
           cta_whatsapp_text: ctaWhatsappText.trim() || 'Contactanos',
           acta_blockchain_ots_enabled: actaBlockchainOtsEnabled,
+          ventana_gracia_activacion_dias:
+            typeof ventanaGraciaActivacionDias === 'number' && ventanaGraciaActivacionDias >= 1 && ventanaGraciaActivacionDias <= 90
+              ? ventanaGraciaActivacionDias
+              : 5,
         }),
       })
       if (!res.ok) {
@@ -282,6 +291,26 @@ export default function SuperAdminAjustesPage() {
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Tokens (créditos) gratuitos que recibe cada nuevo gestor.</p>
               </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Días de ventana de gracia (tras activar asamblea)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={90}
+                  value={ventanaGraciaActivacionDias}
+                  onChange={(e) =>
+                    setVentanaGraciaActivacionDias(
+                      e.target.value === '' ? 5 : Math.min(90, Math.max(1, parseInt(e.target.value, 10) || 5))
+                    )
+                  }
+                  className="w-full max-w-xs rounded-3xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-gray-900 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Por defecto 5 días. Mientras dure, el gestor puede editar preguntas y unidades; al vencer el plazo la estructura se congela o al pulsar &quot;Finalizar Asamblea&quot;. Valor entre 1 y 90.
+                </p>
+              </div>
             </div>
             <Button onClick={handleSave} disabled={saving} className="gap-2">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -294,7 +323,7 @@ export default function SuperAdminAjustesPage() {
               Certificación blockchain del acta
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Si está activado, cada vez que se <strong>cierre una asamblea</strong> (botón &quot;Finalizar Asamblea&quot; o cierre automático a las 72 h), el acta se sellará automáticamente en la blockchain de Bitcoin mediante OpenTimestamps. La prueba .ots se guarda en la asamblea; los gestores pueden descargarla desde la página del acta y verificar en opentimestamps.org. Es gratuito y tecnología abierta.
+              Si está activado, cada vez que se <strong>cierre una asamblea</strong> (botón &quot;Finalizar Asamblea&quot; o cierre automático al vencer la ventana de gracia configurada arriba), el acta se sellará automáticamente en la blockchain de Bitcoin mediante OpenTimestamps. La prueba .ots se guarda en la asamblea; los gestores pueden descargarla desde la página del acta y verificar en opentimestamps.org. Es gratuito y tecnología abierta.
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Los usuarios no ven esta opción: solo deben cerrar la asamblea para que el acta quede definitiva y certificada (si está activada aquí).

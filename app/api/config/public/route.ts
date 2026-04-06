@@ -16,11 +16,23 @@ export async function GET() {
 
     const supabase = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } })
 
-    const { data, error } = await supabase
+    const selectBase =
+      'titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens, texto_hero_precio, texto_ahorro, cta_whatsapp_text'
+
+    let { data, error } = await supabase
       .from('configuracion_global')
-      .select('titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens, texto_hero_precio, texto_ahorro, cta_whatsapp_text')
+      .select(`${selectBase}, ventana_gracia_activacion_dias`)
       .eq('key', 'landing')
       .maybeSingle()
+
+    if (
+      error &&
+      (error.code === '42703' || String(error.message).includes('ventana_gracia_activacion_dias'))
+    ) {
+      const retry = await supabase.from('configuracion_global').select(selectBase).eq('key', 'landing').maybeSingle()
+      data = retry.data
+      error = retry.error
+    }
 
     if (error) {
       console.error('GET /api/config/public:', error)
@@ -37,9 +49,13 @@ export async function GET() {
       texto_hero_precio?: string | null
       texto_ahorro?: string | null
       cta_whatsapp_text?: string | null
+      ventana_gracia_activacion_dias?: number | null
     } | null
 
     const precioPorTokenCop = row?.precio_por_token_cop != null ? Number(row.precio_por_token_cop) : 1500
+    const rawDias = row?.ventana_gracia_activacion_dias != null ? Number(row.ventana_gracia_activacion_dias) : 5
+    const ventanaGraciaDias =
+      Number.isFinite(rawDias) && rawDias >= 1 && rawDias <= 90 ? Math.floor(rawDias) : 5
 
     const res = NextResponse.json({
       titulo: row?.titulo ?? null,
@@ -51,6 +67,7 @@ export async function GET() {
       texto_hero_precio: row?.texto_hero_precio ?? null,
       texto_ahorro: row?.texto_ahorro ?? null,
       cta_whatsapp_text: row?.cta_whatsapp_text?.trim() || 'Escribir por WhatsApp',
+      ventana_gracia_activacion_dias: ventanaGraciaDias,
     })
     res.headers.set('Cache-Control', 'no-store, max-age=0')
     return res

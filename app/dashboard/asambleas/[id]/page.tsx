@@ -92,7 +92,7 @@ interface Asamblea {
   is_demo?: boolean
   /** Solo sandbox: true = usar unidades reales del conjunto; false = usar 10 unidades demo */
   sandbox_usar_unidades_reales?: boolean
-  /** Timestamp de activación; ventana de gracia 3 días para ajustes */
+  /** Timestamp de activación; ventana de gracia (días) configurable en Super Admin */
   activated_at?: string | null
   /** Cuando true, aparece popup de verificación en la página de votación */
   verificacion_asistencia_activa?: boolean
@@ -268,6 +268,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [checkoutLoadingSinTokens, setCheckoutLoadingSinTokens] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [canUseSandboxReales, setCanUseSandboxReales] = useState(false)
+  /** Días de edición tras activar; valor desde configuracion_global (default 5) */
+  const [ventanaGraciaDias, setVentanaGraciaDias] = useState(5)
 
   const MIN_TOKENS_COMPRA = 20
 
@@ -479,6 +481,19 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         setCanUseSandboxReales(false)
       }
 
+      let diasGraciaConfig = 5
+      try {
+        const cfgRes = await fetch('/api/config/public')
+        if (cfgRes.ok) {
+          const cfg = await cfgRes.json()
+          const d = Number(cfg?.ventana_gracia_activacion_dias)
+          if (Number.isFinite(d) && d >= 1 && d <= 90) diasGraciaConfig = Math.floor(d)
+        }
+      } catch {
+        /* default 5 */
+      }
+      setVentanaGraciaDias(diasGraciaConfig)
+
       const selectedConjuntoId = localStorage.getItem('selectedConjuntoId')
       if (!selectedConjuntoId) {
         router.push('/dashboard')
@@ -499,8 +514,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         return
       }
 
-      // Si está activa y pasaron 72 h desde activated_at, pasar automáticamente a finalizada (solo no-demo)
-      const GRACE_MS_LOAD = 3 * 24 * 60 * 60 * 1000
+      // Si está activa y pasó la ventana de gracia desde activated_at, pasar automáticamente a finalizada (solo no-demo)
+      const GRACE_MS_LOAD = diasGraciaConfig * 24 * 60 * 60 * 1000
       const activadaEn = (asambleaData as { activated_at?: string | null }).activated_at
       const esDemo = (asambleaData as { is_demo?: boolean }).is_demo === true
       if (
@@ -515,7 +530,9 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           .eq('id', params.id)
         if (!updateErr) {
           setAsamblea({ ...asambleaData, estado: 'finalizada' } as typeof asambleaData)
-          setSuccessMessage('La asamblea pasó automáticamente a finalizada (72 h). El acta definitiva está disponible.')
+          setSuccessMessage(
+            `La asamblea pasó automáticamente a finalizada (tras ${diasGraciaConfig} día${diasGraciaConfig !== 1 ? 's' : ''}). El acta definitiva está disponible.`
+          )
           setTimeout(() => setSuccessMessage(''), 7000)
           // Certificar acta en blockchain (en segundo plano; el usuario puede ver el resultado en la página del acta)
           fetch('/api/dashboard/acta-certificar-blockchain', {
@@ -525,7 +542,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
             body: JSON.stringify({ asamblea_id: params.id }),
           }).then(async (certRes) => {
             const certData = await certRes.json().catch(() => ({}))
-            if (!certRes.ok) console.warn('Certificación blockchain (72h):', certData?.error)
+            if (!certRes.ok) console.warn('Certificación blockchain (cierre automático):', certData?.error)
             else if (certData.skipped) console.info('Certificación blockchain desactivada en Ajustes.')
           }).catch(() => {})
         } else {
@@ -1780,7 +1797,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
-  const GRACE_MS = 3 * 24 * 60 * 60 * 1000 // 72 horas
+  const GRACE_MS = ventanaGraciaDias * 24 * 60 * 60 * 1000
+  const horasGracia = ventanaGraciaDias * 24
   const withinGracePeriod = asamblea?.estado === 'activa'
     ? (
         // Para sandbox: si por algún motivo `activated_at` viene vacío,
@@ -1790,7 +1808,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           : (asamblea.activated_at ? (Date.now() - new Date(asamblea.activated_at).getTime() < GRACE_MS) : false)
       )
     : false
-  // Solo lectura cuando está finalizada (o en demo según reglas). Mientras esté activa se puede editar; al pasar 72 h se cierra automáticamente.
+  // Solo lectura cuando está finalizada (o en demo según reglas). Mientras esté activa se puede editar; al vencer la ventana se cierra automáticamente.
   const isReadOnlyStructure = asamblea
     ? (asamblea.estado === 'finalizada' || (asamblea.is_demo && asamblea.estado === 'activa' && !withinGracePeriod))
     : false
@@ -3247,7 +3265,7 @@ Tu participacion es importante. 🏠`
                   )}
                   {!isDemo && isReadOnlyStructure && (
                     <p className="text-sm text-amber-700 dark:text-amber-300 mt-3 max-w-md mx-auto">
-                      La estructura está cerrada: pasaron más de 72 h desde la activación o la asamblea está finalizada. No se pueden agregar ni editar preguntas (solo consultar y generar acta).
+                      La estructura está cerrada: pasaron más de {horasGracia} h desde la activación o la asamblea está finalizada. No se pueden agregar ni editar preguntas (solo consultar y generar acta).
                     </p>
                   )}
                 </div>
@@ -4273,7 +4291,7 @@ Tu participacion es importante. 🏠`
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Asamblea activada — ventana de gracia 3 días */}
+      {/* Modal: Asamblea activada — ventana de gracia (días configurables) */}
       <Dialog open={showModalAsambleaActivada} onOpenChange={setShowModalAsambleaActivada}>
         <DialogContent className="max-w-lg rounded-3xl">
           <DialogHeader>
@@ -4282,7 +4300,7 @@ Tu participacion es importante. 🏠`
               ¡Asamblea Activada!
             </DialogTitle>
             <DialogDescription>
-              Tienes <strong>3 días (72 horas)</strong> para realizar ajustes finales antes de que la estructura se congele. Puedes agregar, editar o archivar preguntas y unidades durante este periodo. Después, o al pulsar &quot;Finalizar Asamblea&quot;, la asamblea quedará en solo lectura y podrás generar el acta cuando quieras.
+              Tienes <strong>{ventanaGraciaDias} día{ventanaGraciaDias !== 1 ? 's' : ''} ({horasGracia} horas)</strong> para realizar ajustes finales antes de que la estructura se congele. Puedes agregar, editar o archivar preguntas y unidades durante este periodo. Después, o al pulsar &quot;Finalizar Asamblea&quot;, la asamblea quedará en solo lectura y podrás generar el acta cuando quieras.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4">

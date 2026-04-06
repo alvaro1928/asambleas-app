@@ -44,11 +44,23 @@ export async function GET() {
       { auth: { persistSession: false } }
     )
 
-    const { data, error } = await admin
+    const selectBase =
+      'id, key, titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens, texto_hero_precio, texto_ahorro, cta_whatsapp_text, acta_blockchain_ots_enabled'
+
+    let { data, error } = await admin
       .from('configuracion_global')
-      .select('id, key, titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens, texto_hero_precio, texto_ahorro, cta_whatsapp_text, acta_blockchain_ots_enabled')
+      .select(`${selectBase}, ventana_gracia_activacion_dias`)
       .eq('key', 'landing')
       .maybeSingle()
+
+    if (
+      error &&
+      (error.code === '42703' || String(error.message).includes('ventana_gracia_activacion_dias'))
+    ) {
+      const retry = await admin.from('configuracion_global').select(selectBase).eq('key', 'landing').maybeSingle()
+      data = retry.data
+      error = retry.error
+    }
 
     if (error) {
       console.error('super-admin configuracion-landing GET:', error)
@@ -68,7 +80,13 @@ export async function GET() {
       texto_ahorro?: string | null
       cta_whatsapp_text?: string | null
       acta_blockchain_ots_enabled?: boolean | null
+      ventana_gracia_activacion_dias?: number | null
     } | null
+
+    const diasGracia =
+      row?.ventana_gracia_activacion_dias != null && Number.isFinite(Number(row.ventana_gracia_activacion_dias))
+        ? Math.min(90, Math.max(1, Math.floor(Number(row.ventana_gracia_activacion_dias))))
+        : 5
 
     return NextResponse.json({
       id: row?.id ?? null,
@@ -83,6 +101,7 @@ export async function GET() {
       texto_ahorro: row?.texto_ahorro ?? '',
       cta_whatsapp_text: row?.cta_whatsapp_text?.trim() || 'Contactanos',
       acta_blockchain_ots_enabled: row?.acta_blockchain_ots_enabled === true,
+      ventana_gracia_activacion_dias: diasGracia,
     })
   } catch (e) {
     console.error('super-admin configuracion-landing GET:', e)
@@ -125,7 +144,19 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens, texto_hero_precio, texto_ahorro, cta_whatsapp_text, acta_blockchain_ots_enabled } = body as {
+    const {
+      titulo,
+      subtitulo,
+      whatsapp_number,
+      color_principal_hex,
+      precio_por_token_cop,
+      bono_bienvenida_tokens,
+      texto_hero_precio,
+      texto_ahorro,
+      cta_whatsapp_text,
+      acta_blockchain_ots_enabled,
+      ventana_gracia_activacion_dias,
+    } = body as {
       titulo?: string
       subtitulo?: string
       whatsapp_number?: string
@@ -136,6 +167,7 @@ export async function PATCH(request: NextRequest) {
       texto_ahorro?: string
       cta_whatsapp_text?: string
       acta_blockchain_ots_enabled?: boolean
+      ventana_gracia_activacion_dias?: number
     }
 
     const admin = createClient(
@@ -155,6 +187,11 @@ export async function PATCH(request: NextRequest) {
     if (texto_ahorro !== undefined) updates.texto_ahorro = typeof texto_ahorro === 'string' ? texto_ahorro : null
     if (cta_whatsapp_text !== undefined) updates.cta_whatsapp_text = typeof cta_whatsapp_text === 'string' ? (cta_whatsapp_text.trim() || 'Contactanos') : null
     if (acta_blockchain_ots_enabled !== undefined) updates.acta_blockchain_ots_enabled = acta_blockchain_ots_enabled === true
+    if (ventana_gracia_activacion_dias !== undefined) {
+      const n = Number(ventana_gracia_activacion_dias)
+      updates.ventana_gracia_activacion_dias =
+        Number.isFinite(n) && n >= 1 && n <= 90 ? Math.floor(n) : 5
+    }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'Falta al menos un campo para actualizar' }, { status: 400 })
@@ -183,6 +220,10 @@ export async function PATCH(request: NextRequest) {
           texto_ahorro: updates.texto_ahorro ?? null,
           cta_whatsapp_text: updates.cta_whatsapp_text ?? 'Contactanos',
           acta_blockchain_ots_enabled: updates.acta_blockchain_ots_enabled ?? false,
+          ventana_gracia_activacion_dias:
+            typeof updates.ventana_gracia_activacion_dias === 'number'
+              ? updates.ventana_gracia_activacion_dias
+              : 5,
         })
         .select()
         .single()
