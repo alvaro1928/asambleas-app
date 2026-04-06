@@ -4,6 +4,7 @@ import {
   filaSinDatosImport,
   normalizeHeaderKey,
   cleanHeaderKey,
+  cellFlexible,
 } from './import-unidades-sheet'
 
 describe('normalizeHeaderKey', () => {
@@ -66,6 +67,17 @@ describe('extractUnidadImportRow', () => {
     })
     expect(r.numero).toBe('12')
     expect(r.coeficienteStr).toBe('3.5')
+  })
+})
+
+describe('cellFlexible', () => {
+  it('empareja encabezado sin tilde con clave esperada con tilde', () => {
+    const r = cellFlexible({ 'Numero otorga': '201' }, 'Número otorga')
+    expect(r).toBe('201')
+  })
+
+  it('empareja Número recibe con columna Numero recibe', () => {
+    expect(cellFlexible({ 'Numero recibe': '305' }, 'Número recibe')).toBe('305')
   })
 })
 

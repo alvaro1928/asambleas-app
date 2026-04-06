@@ -37,6 +37,30 @@ export function cellExact(row: Record<string, unknown>, ...keys: string[]): stri
   return ''
 }
 
+/**
+ * Como cellExact, pero si no hay coincidencia de clave literal, busca columnas cuyo encabezado
+ * normalizado coincida (ej. `Numero` sin tilde ↔ `Número`, espacios/BOM).
+ */
+export function cellFlexible(row: Record<string, unknown>, ...keys: string[]): string {
+  for (const k of keys) {
+    const v = row[k]
+    const s = cellString(v)
+    if (s !== '') return s
+  }
+  const wanted = new Set(
+    keys.map((k) => normalizeHeaderKey(cleanHeaderKey(k))).filter((x) => x.length > 0)
+  )
+  if (wanted.size === 0) return ''
+  for (const [rawKey, v] of Object.entries(row)) {
+    if (rawKey.startsWith('__')) continue
+    const s = cellString(v)
+    if (s === '') continue
+    const nk = normalizeHeaderKey(cleanHeaderKey(rawKey))
+    if (wanted.has(nk)) return s
+  }
+  return ''
+}
+
 const TORRE_EXACT: string[] = [
   'torre',
   'Torre',
@@ -276,16 +300,16 @@ function rowWithCleanKeys(row: Record<string, unknown>): Record<string, unknown>
 export function extractUnidadImportRow(row: Record<string, unknown>): ExtractedUnidadImportRow {
   const rowClean = rowWithCleanKeys(row)
 
-  let torre = cellExact(rowClean, ...TORRE_EXACT)
+  let torre = cellFlexible(rowClean, ...TORRE_EXACT)
   if (!torre) torre = pickByScore(rowClean, scoreTorreColumn)
 
-  let numero = cellExact(rowClean, ...NUMERO_EXACT)
+  let numero = cellFlexible(rowClean, ...NUMERO_EXACT)
   if (!numero) numero = pickByScore(rowClean, scoreNumeroColumn)
 
-  let coeficienteStr = cellExact(rowClean, ...COEF_EXACT)
+  let coeficienteStr = cellFlexible(rowClean, ...COEF_EXACT)
   if (!coeficienteStr) coeficienteStr = pickByScore(rowClean, scoreCoefColumn)
 
-  let tipo = cellExact(rowClean, ...TIPO_EXACT)
+  let tipo = cellFlexible(rowClean, ...TIPO_EXACT)
   if (!tipo) {
     const t = pickByScore(rowClean, (nk) => {
       if (/tipo|clase|clasificacion/.test(nk) && !/propietario|unidad|coeficiente/.test(nk)) return 6
@@ -294,7 +318,7 @@ export function extractUnidadImportRow(row: Record<string, unknown>): ExtractedU
     tipo = t || 'apartamento'
   }
 
-  let nombre_propietario = cellExact(rowClean, ...NOMBRE_EXACT)
+  let nombre_propietario = cellFlexible(rowClean, ...NOMBRE_EXACT)
   if (!nombre_propietario) {
     nombre_propietario = pickByScore(rowClean, (nk) => {
       if (/nombre|propietario|titular|copropietario|residente/.test(nk) && !/unidad|numero|coeficiente/.test(nk)) return 8
@@ -302,7 +326,7 @@ export function extractUnidadImportRow(row: Record<string, unknown>): ExtractedU
     })
   }
 
-  let email = cellExact(rowClean, ...EMAIL_EXACT)
+  let email = cellFlexible(rowClean, ...EMAIL_EXACT)
   if (!email) {
     email = pickByScore(rowClean, (nk) => {
       if (/correo|email|^e mail$|^mail$/.test(nk)) return 10
@@ -310,7 +334,7 @@ export function extractUnidadImportRow(row: Record<string, unknown>): ExtractedU
     })
   }
 
-  let telefono = cellExact(rowClean, ...TELEFONO_EXACT)
+  let telefono = cellFlexible(rowClean, ...TELEFONO_EXACT)
   if (!telefono) {
     telefono = pickByScore(rowClean, (nk) => {
       if (/telefono|tel|celular|movil|whatsapp/.test(nk)) return 10

@@ -30,6 +30,7 @@ import {
   normalizarEmailReceptor,
   validarLimiteReceptoresLote,
 } from '@/lib/poderes-registro'
+import { cellFlexible } from '@/lib/import-unidades-sheet'
 
 type TipoApoderadoImport = 'unidad' | 'tercero'
 
@@ -42,14 +43,6 @@ interface PoderRow {
   identificador_apoderado: string
   nombre_apoderado: string
   observaciones?: string
-}
-
-function cell(row: Record<string, unknown>, ...keys: string[]): string {
-  for (const k of keys) {
-    const v = row[k]
-    if (v != null && String(v).trim() !== '') return String(v).trim()
-  }
-  return ''
 }
 
 /** Normaliza texto de columna "Tipo apoderado" */
@@ -90,28 +83,31 @@ function processData(jsonData: unknown[]): { rows: PoderRow[]; errores: string[]
     const row = raw as Record<string, unknown>
     const rowNum = index + 2
 
-    const torreOtorga = cell(row, 'Torre otorga', 'torre_otorga', 'torre_otorgante', 'Torre otorgante')
-    const numeroOtorga = cell(
+    const torreOtorga = cellFlexible(row, 'Torre otorga', 'torre_otorga', 'torre_otorgante', 'Torre otorgante')
+    const numeroOtorga = cellFlexible(
       row,
       'Número otorga',
       'numero_otorga',
       'numero_otorgante',
       'Número otorgante',
       'Numero otorga',
+      'Numero otorgante',
       'Unidad (otorga)'
     )
-    const torreRecibe = cell(row, 'Torre recibe', 'torre_recibe', 'torre_receptor', 'Torre/Bloque recibe', 'Torre receptora')
-    const numeroRecibe = cell(
+    const torreRecibe = cellFlexible(row, 'Torre recibe', 'torre_recibe', 'torre_receptor', 'Torre/Bloque recibe', 'Torre receptora')
+    const numeroRecibe = cellFlexible(
       row,
       'Número recibe',
       'numero_recibe',
       'numero_receptor',
       'Número receptora',
+      'Numero recibe',
+      'Numero receptora',
       'Unidad (recibe)',
       'Unidad (Apto/Casa)',
       'unidad'
     )
-    const tipoRaw = cell(row, 'Tipo apoderado', 'tipo_apoderado', 'Tipo', 'tipo')
+    const tipoRaw = cellFlexible(row, 'Tipo apoderado', 'tipo_apoderado', 'Tipo', 'tipo')
     const tipoExplicito = tipoRaw ? parseTipoApoderado(tipoRaw) : null
     if (tipoRaw && !tipoExplicito) {
       errores.push(
@@ -119,7 +115,7 @@ function processData(jsonData: unknown[]): { rows: PoderRow[]; errores: string[]
       )
       return
     }
-    const identificadorTercero = cell(
+    const identificadorTercero = cellFlexible(
       row,
       'Identificador apoderado',
       'identificador_apoderado',
@@ -128,8 +124,8 @@ function processData(jsonData: unknown[]): { rows: PoderRow[]; errores: string[]
       'Identificador',
       'identificador'
     )
-    const nombreTercero = cell(row, 'Nombre apoderado', 'nombre_apoderado', 'Nombre del apoderado')
-    const observaciones = cell(row, 'Observaciones', 'observaciones') || undefined
+    const nombreTercero = cellFlexible(row, 'Nombre apoderado', 'nombre_apoderado', 'Nombre del apoderado')
+    const observaciones = cellFlexible(row, 'Observaciones', 'observaciones') || undefined
 
     if (!numeroOtorga) {
       errores.push(`Fila ${rowNum}: Falta número de unidad que otorga el poder`)
@@ -258,7 +254,11 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
           setError('No se encontró ninguna hoja en el archivo.')
           return
         }
-        jsonData = XLSX.utils.sheet_to_json(worksheet)
+        jsonData = XLSX.utils.sheet_to_json(worksheet, {
+          defval: '',
+          blankrows: false,
+          raw: false,
+        })
       }
 
       const filas = jsonData.filter((r) => {
