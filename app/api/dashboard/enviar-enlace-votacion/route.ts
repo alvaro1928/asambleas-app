@@ -188,11 +188,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
     const textoAdicional = (configPoderes as { plantilla_adicional_correo?: string | null } | null)?.plantilla_adicional_correo?.trim() || ''
     const plantillaMensaje = (configPoderes as { plantilla_mensaje_invitacion?: string | null } | null)?.plantilla_mensaje_invitacion?.trim() || ''
-    const bloqueAdicionalTexto = textoAdicional ? `\n\n${textoAdicional}\n\n` : '\n\n'
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-    const bloqueAdicionalHtml = textoAdicional
-      ? `<p style="margin: 1rem 0; padding: 0.75rem; background: #f3f4f6; border-radius: 8px;">${esc(textoAdicional).replace(/\n/g, '<br>')}</p>`
-      : ''
 
     const defaultTemplateVotacion = `🗳️ VOTACION VIRTUAL ACTIVA
 
@@ -229,14 +225,28 @@ ${urlRegistroPoderes}
 `
         : ''
 
-    const renderPlantilla = (tplRaw: string): string =>
-      tplRaw
-        .replace(/\{asamblea\}/gi, String(asamblea.nombre ?? 'Asamblea'))
+    const nombreAsambleaLinea = String(asamblea.nombre ?? 'Asamblea').trim() || 'Asamblea'
+
+    const renderPlantilla = (tplRaw: string): string => {
+      let t = tplRaw
+        .replace(/\{asamblea\}/gi, nombreAsambleaLinea)
         .replace(/\{conjunto\}/gi, nombreConjunto)
         .replace(/\{fecha\}/gi, fechaStr)
         .replace(/\{url\}/gi, urlVotacion)
         .replace(/\{url_registro_poderes\}/gi, incluirLinkRegistroEnCorreoVotacion ? urlRegistroPoderes : '')
         .replace(/\{bloque_registro_poderes\}/gi, bloqueRegistroPoderesTexto)
+      // Si la plantilla se guardó con el nombre escrito a mano (sin {asamblea}), alinear a la asamblea actual
+      t = t
+        .replace(/^Asamblea:\s*.*$/gim, `Asamblea: ${nombreAsambleaLinea}`)
+        .replace(/^Conjunto:\s*.*$/gim, `Conjunto: ${nombreConjunto}`)
+      return t
+    }
+
+    const textoAdicionalRenderizado = textoAdicional ? renderPlantilla(textoAdicional) : ''
+    const bloqueAdicionalTexto = textoAdicionalRenderizado ? `\n\n${textoAdicionalRenderizado}\n\n` : '\n\n'
+    const bloqueAdicionalHtml = textoAdicionalRenderizado
+      ? `<p style="margin: 1rem 0; padding: 0.75rem; background: #f3f4f6; border-radius: 8px;">${esc(textoAdicionalRenderizado).replace(/\n/g, '<br>')}</p>`
+      : ''
 
     const subject =
       enlaceTipo === 'registro_poderes'
