@@ -232,6 +232,7 @@ ${urlRegistroPoderes}
     const renderPlantilla = (tplRaw: string): string =>
       tplRaw
         .replace(/\{asamblea\}/gi, String(asamblea.nombre ?? 'Asamblea'))
+        .replace(/\{conjunto\}/gi, nombreConjunto)
         .replace(/\{fecha\}/gi, fechaStr)
         .replace(/\{url\}/gi, urlVotacion)
         .replace(/\{url_registro_poderes\}/gi, incluirLinkRegistroEnCorreoVotacion ? urlRegistroPoderes : '')
