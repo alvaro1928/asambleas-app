@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { sumaCoeficientesValida, rangoCoeficientesAceptado } from '@/lib/coeficientes'
+import {
+  extractUnidadImportRow,
+  filaSinDatosImport,
+} from '@/lib/import-unidades-sheet'
 import ConjuntoSelector from '@/components/ConjuntoSelector'
 import Papa from 'papaparse'
 import { Button } from '@/components/ui/button'
@@ -38,25 +42,6 @@ interface Unidad {
   nombre_propietario?: string
   email?: string
   telefono?: string
-}
-
-/** Primera celda no vacía entre varios nombres de columna posibles (Excel/CSV con distintos encabezados). */
-function cell(row: Record<string, unknown>, ...keys: string[]): string {
-  for (const k of keys) {
-    const v = row[k]
-    if (v != null && String(v).trim() !== '') return String(v).trim()
-  }
-  return ''
-}
-
-/** Fila sin ningún dato útil (Excel suele devolver filas vacías al final). */
-function filaSinDatos(row: Record<string, unknown>): boolean {
-  for (const v of Object.values(row)) {
-    if (v == null) continue
-    if (typeof v === 'number' && !Number.isNaN(v)) return false
-    if (String(v).trim() !== '') return false
-  }
-  return true
 }
 
 export default function ImportarUnidadesPage() {
@@ -180,58 +165,23 @@ export default function ImportarUnidadesPage() {
 
     jsonData.forEach((raw, index) => {
       const row = raw as Record<string, unknown>
-      if (filaSinDatos(row)) return
+      if (filaSinDatosImport(row)) return
 
       const rowNum = index + 2
 
-      const torre = cell(
-        row,
-        'torre',
-        'Torre',
-        'TORRE',
-        'bloque',
-        'Bloque',
-        'BLOQUE',
-        'Torre/Bloque',
-        'Torre / Bloque'
-      )
-      const numero = cell(
-        row,
-        'numero',
-        'Numero',
-        'NUMERO',
-        'unidad',
-        'Unidad',
-        'UNIDAD',
-        'Unidad (Apto/Casa)',
-        'Número',
-        'Número unidad',
-        'Número de unidad',
-        'Nº Unidad',
-        'N° Unidad',
-        'Nº',
-        'N°',
-        'Apartamento',
-        'APTO',
-        'Apto',
-        'No. Unidad',
-        'No Unidad'
-      )
-      const coeficienteStr = cell(
-        row,
-        'coeficiente',
-        'Coeficiente',
-        'COEFICIENTE',
-        'coef',
-        'Coef',
-        'COEF',
-        'Coef.',
-        'Participación'
-      )
+      const {
+        torre,
+        numero,
+        coeficienteStr,
+        tipo: tipoRaw,
+        nombre_propietario,
+        email,
+        telefono,
+      } = extractUnidadImportRow(row)
 
       if (!numero) {
         errores.push(
-          `Fila ${rowNum}: Falta el número de unidad (columna esperada: numero, Unidad, Unidad (Apto/Casa), etc.). Si la celda está fusionada, copia el valor en cada fila o elimina la fila vacía.`
+          `Fila ${rowNum}: Falta el número de unidad. Usa una columna reconocible (número, unidad, apartamento, etc.) o revisa celdas fusionadas y filas vacías.`
         )
         return
       }
@@ -259,33 +209,7 @@ export default function ImportarUnidadesPage() {
       }
 
       // Tipo: normalizar a minúsculas para evitar violar check en BD (Apartamento -> apartamento, Apto -> apto, etc.)
-      const tipoRaw = cell(row, 'tipo', 'Tipo', 'TIPO') || 'apartamento'
-      const tipo = String(tipoRaw).trim().toLowerCase() || 'apartamento'
-
-      const nombre_propietario = cell(
-        row,
-        'Nombre Propietario',
-        'propietario',
-        'Propietario',
-        'PROPIETARIO',
-        'Nombre',
-        'Propietario(s)'
-      )
-      const email = cell(
-        row,
-        'email',
-        'Email',
-        'EMAIL',
-        'correo',
-        'Correo',
-        'CORREO',
-        'Correo electrónico',
-        'correo electrónico',
-        'E-mail',
-        'e-mail',
-        'Correos'
-      )
-      const telefono = cell(row, 'telefono', 'Telefono', 'Teléfono', 'TELEFONO', 'Tel', 'Celular', 'Móvil')
+      const tipo = String(tipoRaw || 'apartamento').trim().toLowerCase() || 'apartamento'
 
       unidadesProcesadas.push({
         torre: torre || undefined,
@@ -334,7 +258,11 @@ export default function ImportarUnidadesPage() {
         const workbook = XLSX.read(data)
         const sheetName = workbook.SheetNames[0]
         const worksheet = workbook.Sheets[sheetName]
-        jsonData = XLSX.utils.sheet_to_json(worksheet)
+        jsonData = XLSX.utils.sheet_to_json(worksheet, {
+          defval: '',
+          blankrows: false,
+          raw: false,
+        })
       }
 
       const { unidadesProcesadas, errores } = processData(jsonData)
