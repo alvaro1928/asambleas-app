@@ -2,7 +2,7 @@
 
 **Delegator use only.** Any agent that launches sub-agents reads this registry to resolve compact rules, then injects them directly into sub-agent prompts. Sub-agents do NOT read this registry or individual SKILL.md files.
 
-**Actualizado:** 2026-04-06 — incluye regla `agent-tareas-grandes-memoria.mdc`.
+**Actualizado:** 2026-04-06 — `sdd-init` (Engram): contexto `sdd-init/asambleas-app` + `sdd/asambleas-app/testing-capabilities`; regla `agent-tareas-grandes-memoria.mdc`.
 
 ## User Skills
 
@@ -39,6 +39,17 @@
 | agent-tareas-grandes-memoria.mdc | `.cursor/rules/agent-tareas-grandes-memoria.mdc` | Tareas grandes / arquitectura: explorar repo; mem_save en Engram cuando amerite |
 
 No hay `AGENTS.md`, `CLAUDE.md` ni `.cursorrules` en la raíz del repositorio.
+
+## SDD (Spec-Driven Development)
+
+| Aspecto | Valor |
+|---------|--------|
+| Persistencia | **Engram** (`mem_save`); no hay carpeta `openspec/` en el repo |
+| Contexto proyecto | Topic `sdd-init/asambleas-app` |
+| Capacidades de prueba | Topic `sdd/asambleas-app/testing-capabilities` |
+| Strict TDD (skill) | Habilitable: hay **Vitest** + Playwright + Testing Library |
+
+Skills `sdd-explore`, `sdd-propose`, `sdd-spec`, `sdd-design`, `sdd-tasks`, `sdd-apply`, `sdd-verify`, `sdd-archive` viven en `~/.claude/skills/`; el orquestador debe pasar `artifact store mode: engram` para alinear con este proyecto.
 
 ## Compact Rules
 
