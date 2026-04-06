@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     let poderesQuery = admin
       .from('poderes')
-      .select('unidad_otorgante_id, email_receptor')
+      .select('id, unidad_otorgante_id, email_receptor')
       .eq('asamblea_id', asambleaId)
       .eq('estado', 'activo')
     if (esEmail) {
@@ -97,12 +97,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Error consultando poderes' }, { status: 500 })
     }
 
-    const unidadesPoderesIds = (poderesRows ?? [])
-      .filter((p) => {
-        const unidadId = String((p as { unidad_otorgante_id?: string }).unidad_otorgante_id ?? '')
-        return unidadId.length > 0 && identificadorCoincide(p.email_receptor, ident)
-      })
-      .map((p) => p.unidad_otorgante_id as string)
+    const poderesFiltrados = (poderesRows ?? []).filter((p) => {
+      const unidadId = String((p as { unidad_otorgante_id?: string }).unidad_otorgante_id ?? '')
+      return unidadId.length > 0 && identificadorCoincide(p.email_receptor, ident)
+    })
+
+    /** Unidad otorgante → id del poder activo (trazabilidad en `votos.poder_id`). */
+    const unidadOtorganteToPoderId = new Map<string, string>()
+    for (const p of poderesFiltrados) {
+      const row = p as { id?: string; unidad_otorgante_id?: string }
+      const uid = String(row.unidad_otorgante_id ?? '')
+      const pid = String(row.id ?? '')
+      if (uid && pid) unidadOtorganteToPoderId.set(uid, pid)
+    }
+
+    const unidadesPoderesIds = poderesFiltrados.map((p) => p.unidad_otorgante_id as string)
 
     const propiasIds = unidadesPropias.map((u) => u.id).filter(Boolean)
     const poderesIds = unidadesPoderesIds.filter((id) => !!id)
@@ -145,6 +154,7 @@ export async function POST(request: NextRequest) {
         numero: u.numero,
         coeficiente: Number(u.coeficiente) || 0,
         es_poder: poderesIdsSet.has(u.id),
+        poder_id: poderesIdsSet.has(u.id) ? unidadOtorganteToPoderId.get(u.id) ?? null : null,
         nombre_otorgante: u.nombre_propietario ?? undefined,
       }))
 

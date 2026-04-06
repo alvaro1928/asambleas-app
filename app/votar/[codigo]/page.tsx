@@ -74,6 +74,8 @@ interface UnidadInfo {
   numero: string
   coeficiente: number
   es_poder: boolean
+  /** Fila `poderes.id` cuando el votante actúa por poder; null si es unidad propia. */
+  poder_id?: string | null
   nombre_otorgante?: string
 }
 
@@ -1181,6 +1183,8 @@ export default function VotacionPublicaPage() {
       const unidad = unidades.find(u => u.id === unidadId)
       if (!unidad) throw new Error('Unidad no encontrada')
 
+      const poderIdVoto = unidad.es_poder ? unidad.poder_id ?? null : null
+
       let votoRegistrado = false
       try {
         const res = await fetch('/api/votar', {
@@ -1194,7 +1198,7 @@ export default function VotacionPublicaPage() {
             votante_email: email.toLowerCase().trim(),
             votante_nombre: unidad.nombre_otorgante || 'Votante',
             es_poder: unidad.es_poder,
-            poder_id: null,
+            poder_id: poderIdVoto,
           }),
         })
         if (res.ok) {
@@ -1215,7 +1219,7 @@ export default function VotacionPublicaPage() {
           p_votante_email: email.toLowerCase().trim(),
           p_votante_nombre: unidad.nombre_otorgante || 'Votante',
           p_es_poder: unidad.es_poder,
-          p_poder_id: null,
+          p_poder_id: poderIdVoto,
           p_ip_address: clientIp || null,
           p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null
         })

@@ -179,6 +179,38 @@ export async function POST(request: NextRequest) {
       return resErr
     }
 
+    const esPoderFlag = !!es_poder
+    const uuidRe = /^[0-9a-f-]{36}$/i
+    const poderIdRaw = typeof poder_id === 'string' ? poder_id.trim() : ''
+    const poderIdParsed = esPoderFlag && poderIdRaw && uuidRe.test(poderIdRaw) ? poderIdRaw : null
+
+    if (esPoderFlag && poderIdParsed) {
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (serviceRoleKey && supabaseUrl) {
+        const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
+        const { data: pr, error: prErr } = await admin
+          .from('poderes')
+          .select('id')
+          .eq('id', poderIdParsed)
+          .eq('asamblea_id', preguntaRow.asamblea_id)
+          .eq('unidad_otorgante_id', unidad_id)
+          .eq('estado', 'activo')
+          .maybeSingle()
+        if (prErr || !pr) {
+          const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startMs)
+          const resErr = NextResponse.json(
+            { error: 'El poder indicado no es válido para esta unidad y asamblea' },
+            { status: 403 }
+          )
+          resErr.headers.set('X-Response-Time-Ms', String(elapsed))
+          return resErr
+        }
+      }
+    }
+
+    const poderIdParaRpc = esPoderFlag ? poderIdParsed : null
+
     // Votos reales: un solo roundtrip RPC (valida pregunta abierta, INSERT/UPDATE + historial)
     const { data, error } = await supabase.rpc('registrar_voto_con_trazabilidad', {
       p_pregunta_id: pregunta_id,
@@ -186,8 +218,8 @@ export async function POST(request: NextRequest) {
       p_opcion_id: opcion_id,
       p_votante_email: emailNorm,
       p_votante_nombre: nombreVotante,
-      p_es_poder: !!es_poder,
-      p_poder_id: poder_id || null,
+      p_es_poder: esPoderFlag,
+      p_poder_id: poderIdParaRpc,
       p_ip_address: ip,
       p_user_agent: userAgent,
     })
