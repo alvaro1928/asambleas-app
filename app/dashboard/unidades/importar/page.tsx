@@ -40,6 +40,25 @@ interface Unidad {
   telefono?: string
 }
 
+/** Primera celda no vacía entre varios nombres de columna posibles (Excel/CSV con distintos encabezados). */
+function cell(row: Record<string, unknown>, ...keys: string[]): string {
+  for (const k of keys) {
+    const v = row[k]
+    if (v != null && String(v).trim() !== '') return String(v).trim()
+  }
+  return ''
+}
+
+/** Fila sin ningún dato útil (Excel suele devolver filas vacías al final). */
+function filaSinDatos(row: Record<string, unknown>): boolean {
+  for (const v of Object.values(row)) {
+    if (v == null) continue
+    if (typeof v === 'number' && !Number.isNaN(v)) return false
+    if (String(v).trim() !== '') return false
+  }
+  return true
+}
+
 export default function ImportarUnidadesPage() {
   const router = useRouter()
   const toast = useToast()
@@ -159,28 +178,69 @@ export default function ImportarUnidadesPage() {
     const unidadesVistas = new Set<string>() // Cambiado: ahora guarda torre+numero
     const errores: string[] = []
 
-    jsonData.forEach((row, index) => {
+    jsonData.forEach((raw, index) => {
+      const row = raw as Record<string, unknown>
+      if (filaSinDatos(row)) return
+
       const rowNum = index + 2
 
-      // Validar campos requeridos
-      if (!row.numero && !row.Numero && !row.NUMERO && !row.unidad && !row.Unidad && !row.UNIDAD) {
-        errores.push(`Fila ${rowNum}: Falta el número de unidad`)
+      const torre = cell(
+        row,
+        'torre',
+        'Torre',
+        'TORRE',
+        'bloque',
+        'Bloque',
+        'BLOQUE',
+        'Torre/Bloque',
+        'Torre / Bloque'
+      )
+      const numero = cell(
+        row,
+        'numero',
+        'Numero',
+        'NUMERO',
+        'unidad',
+        'Unidad',
+        'UNIDAD',
+        'Unidad (Apto/Casa)',
+        'Número',
+        'Número unidad',
+        'Número de unidad',
+        'Nº Unidad',
+        'N° Unidad',
+        'Nº',
+        'N°',
+        'Apartamento',
+        'APTO',
+        'Apto',
+        'No. Unidad',
+        'No Unidad'
+      )
+      const coeficienteStr = cell(
+        row,
+        'coeficiente',
+        'Coeficiente',
+        'COEFICIENTE',
+        'coef',
+        'Coef',
+        'COEF',
+        'Coef.',
+        'Participación'
+      )
+
+      if (!numero) {
+        errores.push(
+          `Fila ${rowNum}: Falta el número de unidad (columna esperada: numero, Unidad, Unidad (Apto/Casa), etc.). Si la celda está fusionada, copia el valor en cada fila o elimina la fila vacía.`
+        )
         return
       }
 
-      if (!row.coeficiente && !row.Coeficiente && !row.COEFICIENTE) {
+      if (!coeficienteStr) {
         errores.push(`Fila ${rowNum}: Falta el coeficiente`)
         return
       }
 
-      // Obtener valores (soportar diferentes casos)
-      const torre = (row.torre || row.Torre || row.TORRE || row.bloque || row.Bloque || row.BLOQUE || '').toString().trim()
-      const numero = String(
-        row.numero || row.Numero || row.NUMERO || 
-        row.unidad || row.Unidad || row.UNIDAD
-      ).trim()
-      
-      const coeficienteStr = String(row.coeficiente || row.Coeficiente || row.COEFICIENTE)
       const coeficiente = parseFloat(coeficienteStr.replace(',', '.'))
 
       // Validar duplicado: torre + numero
@@ -199,22 +259,42 @@ export default function ImportarUnidadesPage() {
       }
 
       // Tipo: normalizar a minúsculas para evitar violar check en BD (Apartamento -> apartamento, Apto -> apto, etc.)
-      const tipoRaw = row.tipo ?? row.Tipo ?? row.TIPO ?? 'apartamento'
+      const tipoRaw = cell(row, 'tipo', 'Tipo', 'TIPO') || 'apartamento'
       const tipo = String(tipoRaw).trim().toLowerCase() || 'apartamento'
 
-      // Agregar unidad
+      const nombre_propietario = cell(
+        row,
+        'Nombre Propietario',
+        'propietario',
+        'Propietario',
+        'PROPIETARIO',
+        'Nombre',
+        'Propietario(s)'
+      )
+      const email = cell(
+        row,
+        'email',
+        'Email',
+        'EMAIL',
+        'correo',
+        'Correo',
+        'CORREO',
+        'Correo electrónico',
+        'correo electrónico',
+        'E-mail',
+        'e-mail',
+        'Correos'
+      )
+      const telefono = cell(row, 'telefono', 'Telefono', 'Teléfono', 'TELEFONO', 'Tel', 'Celular', 'Móvil')
+
       unidadesProcesadas.push({
         torre: torre || undefined,
         numero,
         coeficiente,
         tipo,
-        nombre_propietario: row['Nombre Propietario'] || row.propietario || row.Propietario || row.PROPIETARIO || '',
-        email: (
-          row.email ?? row.Email ?? row.EMAIL ??
-          row.correo ?? row.Correo ?? row.CORREO ??
-          row['Correo electrónico'] ?? row['correo electrónico'] ?? row['E-mail'] ?? row['e-mail'] ?? ''
-        ).toString().trim(),
-        telefono: row.telefono || row.Telefono || row['Teléfono'] || row.TELEFONO || '',
+        nombre_propietario,
+        email,
+        telefono,
       })
     })
 
