@@ -8,6 +8,26 @@ import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { RegistroPoderPublicoForm, type UnidadInfoRegistroPoder } from '@/components/RegistroPoderPublicoForm'
 import { normalizeCodigoAccesoFromUrl } from '@/lib/codigoAcceso'
+import { normDoc, normPhone } from '@/lib/votar-identificador'
+
+/** Apoderado externo: al menos cédula o celular; el identificador de sesión prioriza celular (para ingreso al votar). */
+function resolverIdentificadorExterno(
+  cedula: string,
+  celular: string
+): { ok: true; value: string } | { ok: false; message: string } {
+  const tel = normPhone(celular)
+  const doc = normDoc(cedula)
+  if (tel.length >= 7) return { ok: true, value: tel }
+  if (doc.length >= 4) return { ok: true, value: doc }
+  if (cedula.trim() || celular.trim()) {
+    return {
+      ok: false,
+      message:
+        'Revisa el celular (mínimo 7 dígitos) o la cédula (mínimo 4 caracteres). Debes indicar al menos uno de los dos.',
+    }
+  }
+  return { ok: false, message: 'Indica tu número de celular y/o tu cédula. Necesitamos al menos uno para validarte cuando el poder esté activo.' }
+}
 
 type Step = 'validando' | 'error' | 'email' | 'consentimiento' | 'form'
 
@@ -56,6 +76,9 @@ export default function RegistrarPoderPublicoPage() {
   const [clientIp, setClientIp] = useState<string | null>(null)
   /** Apoderado que no figura en el censo: LOPD + solicitud pendiente con nombre propio */
   const [modoRegistroExterno, setModoRegistroExterno] = useState(false)
+  /** Solo modo externo: contacto obligatorio (al menos uno) para trazabilidad y acceso al activar el poder */
+  const [cedulaExterna, setCedulaExterna] = useState('')
+  const [celularExterna, setCelularExterna] = useState('')
 
   const formatFecha = (fecha: string) => {
     const date = new Date(fecha + 'T00:00:00')
@@ -126,8 +149,8 @@ export default function RegistrarPoderPublicoPage() {
     void validarCodigo()
   }, [validarCodigo])
 
-  const refrescarUnidades = async (): Promise<UnidadInfoRegistroPoder[]> => {
-    const identificador = email.trim().toLowerCase()
+  const refrescarUnidades = async (identificadorOverride?: string): Promise<UnidadInfoRegistroPoder[]> => {
+    const identificador = (identificadorOverride ?? email).trim().toLowerCase()
     const res = await fetch('/api/votar/validar-identificador', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -167,19 +190,33 @@ export default function RegistrarPoderPublicoPage() {
   }
 
   const handleValidarEmail = async () => {
-    if (!email.trim()) {
-      setError('Por favor ingresa tu email o número de teléfono')
-      return
-    }
     setLoading(true)
     setError('')
+    let ident = ''
+    if (modoRegistroExterno) {
+      const res = resolverIdentificadorExterno(cedulaExterna, celularExterna)
+      if (!res.ok) {
+        setError(res.message)
+        setLoading(false)
+        return
+      }
+      ident = res.value
+      setEmail(ident)
+    } else {
+      if (!email.trim()) {
+        setError('Por favor ingresa tu email o número de teléfono')
+        setLoading(false)
+        return
+      }
+      ident = email.trim().toLowerCase()
+    }
     try {
       let unidadesConInfo: UnidadInfoRegistroPoder[] = []
       if (modoRegistroExterno) {
         setUnidades([])
         unidadesConInfo = []
       } else {
-        unidadesConInfo = await refrescarUnidades()
+        unidadesConInfo = await refrescarUnidades(ident)
         if (unidadesConInfo.length === 0) {
           setError(
             'No se encontraron unidades para este email o teléfono. Si eres apoderado pero no figuras en el censo, usa la opción de abajo.'
@@ -189,7 +226,7 @@ export default function RegistrarPoderPublicoPage() {
         }
       }
       try {
-        if (typeof window !== 'undefined') localStorage.setItem(STORAGE_EMAIL(codigo), email.trim())
+        if (typeof window !== 'undefined') localStorage.setItem(STORAGE_EMAIL(codigo), ident)
       } catch {
         /* ignore */
       }
@@ -201,7 +238,7 @@ export default function RegistrarPoderPublicoPage() {
         /* ignore */
       }
 
-      const identificador = email.trim().toLowerCase()
+      const identificador = ident
       const consentRes = await fetch(
         `/api/votar/consentimiento?codigo=${encodeURIComponent(codigo)}&identificador=${encodeURIComponent(identificador)}`,
         { credentials: 'include' }
@@ -227,7 +264,7 @@ export default function RegistrarPoderPublicoPage() {
     setGuardandoConsentimiento(true)
     setError('')
     try {
-      const identificador = email.trim().toLowerCase()
+      const identificador = modoRegistroExterno ? email.trim() : email.trim().toLowerCase()
       const res = await fetch('/api/votar/consentimiento', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -300,48 +337,106 @@ export default function RegistrarPoderPublicoPage() {
           )}
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Email, teléfono o identificación registrada
-              </label>
-              <Input
-                id="registro-poder-identificador"
-                name="registro-poder-identificador"
-                type="text"
-                inputMode="text"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                data-lpignore="true"
-                data-1p-ignore="true"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com, 3001234567…"
-                className="w-full text-lg"
-                onKeyDown={(e) => e.key === 'Enter' && void handleValidarEmail()}
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                {modoRegistroExterno
-                  ? 'Como apoderado externo usamos este dato para contacto y trazabilidad; el administrador validará tu solicitud.'
-                  : 'Si figuras en el censo o ya tienes un poder activo, debe coincidir. Si no figuras, activa la opción siguiente.'}
-              </p>
-            </div>
-
             <label className="flex items-start gap-2 cursor-pointer rounded-lg border border-amber-200/80 dark:border-amber-800/80 bg-amber-50/40 dark:bg-amber-950/20 p-3">
               <input
                 type="checkbox"
                 className="mt-0.5 rounded border-amber-400 text-amber-700"
                 checked={modoRegistroExterno}
                 onChange={(e) => {
-                  setModoRegistroExterno(e.target.checked)
+                  const on = e.target.checked
+                  setModoRegistroExterno(on)
                   setError('')
+                  if (on) {
+                    setEmail('')
+                  } else {
+                    setCedulaExterna('')
+                    setCelularExterna('')
+                  }
                 }}
               />
               <span className="text-xs text-amber-900 dark:text-amber-100 leading-snug">
                 <strong>No figuro en el censo</strong> — soy apoderado externo y quiero declarar un poder recibido (el administrador deberá aprobarlo).
               </span>
             </label>
+
+            {modoRegistroExterno ? (
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  Cédula o celular <span className="text-red-500">*</span>
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Indica al menos uno. Con ese dato podrás identificarte cuando el poder esté activo (priorizamos el celular si
+                  indicas ambos).
+                </p>
+                <div>
+                  <label
+                    htmlFor="registro-poder-celular-ext"
+                    className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
+                    Celular
+                  </label>
+                  <Input
+                    id="registro-poder-celular-ext"
+                    name="registro-poder-celular-ext"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    value={celularExterna}
+                    onChange={(e) => setCelularExterna(e.target.value)}
+                    placeholder="Ej. 300 123 4567"
+                    className="w-full text-lg"
+                    onKeyDown={(e) => e.key === 'Enter' && void handleValidarEmail()}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="registro-poder-cedula-ext"
+                    className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
+                    Cédula de ciudadanía
+                  </label>
+                  <Input
+                    id="registro-poder-cedula-ext"
+                    name="registro-poder-cedula-ext"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={cedulaExterna}
+                    onChange={(e) => setCedulaExterna(e.target.value)}
+                    placeholder="Ej. 12.345.678"
+                    className="w-full text-lg"
+                    onKeyDown={(e) => e.key === 'Enter' && void handleValidarEmail()}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Email, teléfono o identificación registrada
+                </label>
+                <Input
+                  id="registro-poder-identificador"
+                  name="registro-poder-identificador"
+                  type="text"
+                  inputMode="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tu@email.com, 3001234567…"
+                  className="w-full text-lg"
+                  onKeyDown={(e) => e.key === 'Enter' && void handleValidarEmail()}
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Si figuras en el censo o ya tienes un poder activo, debe coincidir. Si no figuras, activa la opción de
+                  arriba.
+                </p>
+              </div>
+            )}
 
             {error && (
               <Alert className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
@@ -352,7 +447,12 @@ export default function RegistrarPoderPublicoPage() {
 
             <Button
               onClick={() => void handleValidarEmail()}
-              disabled={loading || !email.trim()}
+              disabled={
+                loading ||
+                (modoRegistroExterno
+                  ? !cedulaExterna.trim() && !celularExterna.trim()
+                  : !email.trim())
+              }
               className="w-full min-w-0 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-sm sm:text-lg py-4 sm:py-6"
             >
               {loading ? (
@@ -456,6 +556,11 @@ export default function RegistrarPoderPublicoPage() {
           email={email.trim()}
           unidades={unidades}
           modoRegistroExterno={modoRegistroExterno}
+          datosContactoExterno={
+            modoRegistroExterno
+              ? { cedula: cedulaExterna.trim(), celular: celularExterna.trim() }
+              : undefined
+          }
         />
       </div>
     </div>

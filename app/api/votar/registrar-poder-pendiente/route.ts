@@ -6,6 +6,7 @@ import {
   type UnidadVotarRow,
 } from '@/lib/votar-identificador'
 import { emailContactoUnidad, extensionDocPoder, esDocumentoPoderValido } from '@/lib/poderes-registro'
+import { normDoc, normPhone } from '@/lib/votar-identificador'
 
 /**
  * POST /api/votar/registrar-poder-pendiente (multipart/form-data)
@@ -90,6 +91,17 @@ export async function POST(request: NextRequest) {
       if (nombreReceptor.length < 2) {
         return NextResponse.json(
           { error: 'Indica tu nombre completo como apoderado (campo nombre del receptor).' },
+          { status: 400 }
+        )
+      }
+      const tel = normPhone(ident)
+      const doc = normDoc(ident)
+      if (tel.length < 7 && doc.length < 4) {
+        return NextResponse.json(
+          {
+            error:
+              'Como apoderado externo debes indicar un celular válido (mín. 7 dígitos) o un documento (cédula) con al menos 4 caracteres.',
+          },
           { status: 400 }
         )
       }

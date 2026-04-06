@@ -19,9 +19,17 @@ interface Props {
   unidades: UnidadInfoRegistroPoder[]
   /** No está en censo: envía registro_externo al API y exige nombre completo */
   modoRegistroExterno?: boolean
+  /** Datos declarados en el paso anterior (se añaden a observaciones para el administrador) */
+  datosContactoExterno?: { cedula: string; celular: string }
 }
 
-export function RegistroPoderPublicoForm({ codigo, email, unidades, modoRegistroExterno = false }: Props) {
+export function RegistroPoderPublicoForm({
+  codigo,
+  email,
+  unidades,
+  modoRegistroExterno = false,
+  datosContactoExterno,
+}: Props) {
   const toast = useToast()
   const [unidadesDelegacionOpciones, setUnidadesDelegacionOpciones] = useState<
     Array<{ id: string; torre: string; numero: string; nombre_propietario: string | null }>
@@ -110,13 +118,22 @@ export function RegistroPoderPublicoForm({ codigo, email, unidades, modoRegistro
     }
     setEnviandoPoderPendiente(true)
     try {
+      let obsFinal = observacionesPoder.trim()
+      if (modoRegistroExterno && datosContactoExterno) {
+        const partes: string[] = []
+        if (datosContactoExterno.cedula) partes.push(`Cédula declarada: ${datosContactoExterno.cedula}`)
+        if (datosContactoExterno.celular) partes.push(`Celular declarado: ${datosContactoExterno.celular}`)
+        if (partes.length) {
+          obsFinal = [partes.join(' · '), obsFinal].filter(Boolean).join('\n')
+        }
+      }
       const fd = new FormData()
       fd.append('codigo', codigo)
       fd.append('identificador', email.trim())
       fd.append('unidad_otorgante_id', poderOtorganteId)
       if (modoRegistroExterno) fd.append('registro_externo', 'true')
       if (nombreReceptorPoder.trim()) fd.append('nombre_receptor', nombreReceptorPoder.trim())
-      if (observacionesPoder.trim()) fd.append('observaciones', observacionesPoder.trim())
+      if (obsFinal) fd.append('observaciones', obsFinal)
       if (archivoPoderVotante) fd.append('archivo', archivoPoderVotante)
       const res = await fetch('/api/votar/registrar-poder-pendiente', { method: 'POST', body: fd })
       const data = (await res.json().catch(() => ({}))) as { error?: string; mensaje?: string }
@@ -187,7 +204,8 @@ export function RegistroPoderPublicoForm({ codigo, email, unidades, modoRegistro
           </h3>
           {modoRegistroExterno && (
             <p className="text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 rounded-lg px-2 py-1.5 border border-amber-200/80 dark:border-amber-800/80">
-              Modo <strong>apoderado externo</strong>: elige la unidad que te delegó; indica tu nombre completo. El administrador
+              Modo <strong>apoderado externo</strong>: ya indicaste cédula y/o celular en el paso anterior; elige la unidad
+              que te delegó y tu nombre completo. Con ese contacto podrás ingresar cuando el poder esté activo. El administrador
               validará la solicitud.
             </p>
           )}
@@ -343,7 +361,7 @@ export function RegistroPoderPublicoForm({ codigo, email, unidades, modoRegistro
         </div>
       )}
 
-      {unidades.length === 0 && (
+      {unidades.length === 0 && !modoRegistroExterno && (
         <p className="text-sm text-gray-600 dark:text-gray-400 text-center py-6">
           Tu identificador no está asociado a una unidad ni a un poder activo en este conjunto; no puedes declarar poderes
           recibidos desde aquí. Si necesitas ayuda, contacta al administrador.
