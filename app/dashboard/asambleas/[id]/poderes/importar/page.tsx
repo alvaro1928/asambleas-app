@@ -191,6 +191,7 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
   const [rows, setRows] = useState<PoderRow[]>([])
   const [showPreview, setShowPreview] = useState(false)
   const [asambleaNombre, setAsambleaNombre] = useState('')
+  const [asambleaEstado, setAsambleaEstado] = useState<string | null>(null)
   const [organizationId, setOrganizationId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -216,6 +217,7 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
         return
       }
       setAsambleaNombre(data.nombre)
+      setAsambleaEstado(data.estado)
       setOrganizationId(data.organization_id)
     } catch {
       router.push('/dashboard/asambleas')
@@ -225,6 +227,12 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    if (asambleaEstado === 'finalizada') {
+      toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para importar poderes.')
+      e.target.value = ''
+      return
+    }
 
     const extension = file.name.split('.').pop()?.toLowerCase()
     setFileName(file.name)
@@ -286,6 +294,11 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
 
   const handleImport = async () => {
     if (!organizationId || rows.length === 0) return
+
+    if (asambleaEstado === 'finalizada') {
+      toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para importar poderes.')
+      return
+    }
 
     setLoading(true)
     setError('')
@@ -492,6 +505,8 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
     setError('')
   }
 
+  const importacionBloqueada = asambleaEstado === 'finalizada'
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
@@ -512,6 +527,19 @@ export default function ImportarPoderesPage({ params }: { params: { id: string }
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {importacionBloqueada && (
+          <Alert className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30">
+            <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+            <AlertTitle className="text-amber-950 dark:text-amber-100">Importación no disponible</AlertTitle>
+            <AlertDescription className="text-amber-900/90 dark:text-amber-100/90">
+              La asamblea está finalizada.{' '}
+              <Link href={`/dashboard/asambleas/${params.id}`} className="underline font-medium">
+                Reabre la asamblea
+              </Link>{' '}
+              desde el panel principal para poder importar o registrar poderes.
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="rounded-xl border border-indigo-200/80 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 sm:p-5">
           <div className="flex items-start gap-3">
             <BookOpen className="h-5 w-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
@@ -619,15 +647,24 @@ Nombre apoderado: María Gómez Ruiz`}
 
         {!showPreview ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
-            <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl transition-colors border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50">
+            <label
+              className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl transition-colors border-gray-300 dark:border-gray-600 ${
+                importacionBloqueada
+                  ? 'opacity-60 cursor-not-allowed pointer-events-none'
+                  : 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              }`}
+            >
               <Upload className="w-12 h-12 text-gray-400 mb-4" />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Arrastra Excel o CSV aquí, o haz clic para seleccionar
+                {importacionBloqueada
+                  ? 'Importación desactivada (asamblea finalizada)'
+                  : 'Arrastra Excel o CSV aquí, o haz clic para seleccionar'}
               </span>
               <input
                 type="file"
                 className="hidden"
                 accept=".xlsx,.xls,.csv"
+                disabled={importacionBloqueada}
                 onChange={handleFileUpload}
               />
             </label>
@@ -651,7 +688,7 @@ Nombre apoderado: María Gómez Ruiz`}
                 </Button>
                 <Button
                   onClick={handleImport}
-                  disabled={loading}
+                  disabled={importacionBloqueada || loading}
                   className="bg-indigo-600 hover:bg-indigo-700"
                 >
                   {loading ? 'Importando...' : `Importar ${rows.length} poder(es)`}

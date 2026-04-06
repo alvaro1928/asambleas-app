@@ -26,6 +26,7 @@ import {
   Copy,
   QrCode,
   Mail,
+  Lock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -281,6 +282,10 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   }
 
   const openCreatePoderModal = () => {
+    if (asamblea?.estado === 'finalizada') {
+      toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para gestionar poderes.')
+      return
+    }
     resetPoderForm()
     setColaPoderes([])
     setOtorgantePickerNonce(0)
@@ -447,6 +452,10 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
    */
   const agregarPoderALaCola = async () => {
     if (poderModal.type !== 'create') return
+    if (asamblea?.estado === 'finalizada') {
+      toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para gestionar poderes.')
+      return
+    }
     const item = buildColaItemFromForm()
     if (!item) {
       toast.error('Completa unidad otorgante, apoderado, correo/identificación y nombre para añadir a la cola.')
@@ -494,6 +503,10 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
   const handleCreatePoder = async () => {
     if (poderModal.type !== 'create') return
+    if (asamblea?.estado === 'finalizada') {
+      toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para gestionar poderes.')
+      return
+    }
 
     const desdeCola = [...colaPoderes]
     const desdeForm = buildColaItemFromForm()
@@ -564,6 +577,10 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
   const handleUpdatePoder = async () => {
     if (poderModal.type !== 'edit') return
+    if (asamblea?.estado === 'finalizada') {
+      toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para gestionar poderes.')
+      return
+    }
     const poderExistente = poderModal.poder
 
     if (!selectedOtorgante) {
@@ -654,6 +671,10 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   }
 
   const handleRevocarPoder = async (poderId: string) => {
+    if (asamblea?.estado === 'finalizada') {
+      toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para gestionar poderes.')
+      return
+    }
     if (!confirm('¿Estás seguro de revocar este poder? Esta acción no se puede deshacer.')) {
       return
     }
@@ -663,6 +684,11 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
   const confirmarRevocarPoder = async () => {
     if (!revocandoPoderId) return
+    if (asamblea?.estado === 'finalizada') {
+      toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para gestionar poderes.')
+      setRevocandoPoderId(null)
+      return
+    }
     setRevocando(true)
     try {
       await revocarPoder(revocandoPoderId)
@@ -674,6 +700,10 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
   const handleReemplazarDocumento = async () => {
     if (!reemplazandoPoderId || !archivoReemplazo) return
+    if (asamblea?.estado === 'finalizada') {
+      toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para gestionar poderes.')
+      return
+    }
     if (!esDocumentoPoderValido(archivoReemplazo)) {
       toast.error('El documento debe ser PDF o Word (.doc, .docx) y máximo 2MB')
       return
@@ -728,6 +758,10 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   }
 
   const handleActivarPoderPendiente = async (poderId: string) => {
+    if (asamblea?.estado === 'finalizada') {
+      toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para gestionar poderes.')
+      return
+    }
     if (!asamblea?.organization_id) return
     const poder = poderes.find((p) => p.id === poderId)
     if (!poder || poder.estado !== 'pendiente_verificacion') return
@@ -862,6 +896,10 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
   const toggleRegistroPoderesPublico = async (checked: boolean) => {
     if (!asamblea) return
+    if (asamblea.estado === 'finalizada') {
+      toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para gestionar poderes.')
+      return
+    }
     setGuardandoRegistroPublico(true)
     try {
       const { error } = await supabase
@@ -893,6 +931,10 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   }
 
   const enviarCorreoRegistroPoderes = async () => {
+    if (asamblea?.estado === 'finalizada') {
+      toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para gestionar poderes.')
+      return
+    }
     if (!asamblea?.registro_poderes_publico) {
       toast.error('Activa primero el registro público de poderes.')
       return
@@ -932,6 +974,9 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   if (!asamblea) {
     return null
   }
+
+  /** Borrador y activa: gestión permitida; finalizada: solo consulta (reabrir para editar). */
+  const gestionHabilitada = asamblea.estado !== 'finalizada'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -975,18 +1020,26 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   Consultar Unidades
                 </Button>
               </Link>
-              <Link href={`/dashboard/asambleas/${params.id}/poderes/importar`}>
-                <Button
-                  variant="outline"
-                  className="border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                >
+              {gestionHabilitada ? (
+                <Link href={`/dashboard/asambleas/${params.id}/poderes/importar`}>
+                  <Button
+                    variant="outline"
+                    className="border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Importar Excel
+                  </Button>
+                </Link>
+              ) : (
+                <Button variant="outline" disabled className="opacity-60 cursor-not-allowed">
                   <Upload className="w-4 h-4 mr-2" />
                   Importar Excel
                 </Button>
-              </Link>
+              )}
               <Button
                 onClick={() => openCreatePoderModal()}
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                disabled={!gestionHabilitada}
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-60"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Registrar Poder
@@ -998,11 +1051,15 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {asamblea?.estado === 'finalizada' && (
-          <Alert className="mb-6 bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-700">
-            <AlertTriangle className="h-4 w-4 text-slate-600 dark:text-slate-400" />
-            <AlertTitle className="text-slate-900 dark:text-slate-100">Asamblea finalizada</AlertTitle>
-            <AlertDescription className="text-slate-700 dark:text-slate-300">
-              La votación puede estar cerrada, pero puedes seguir gestionando poderes, documentos, importación y el enlace público de registro.
+          <Alert className="mb-6 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+            <Lock className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+            <AlertTitle className="text-amber-950 dark:text-amber-100">Asamblea finalizada — gestión de poderes cerrada</AlertTitle>
+            <AlertDescription className="text-amber-900/90 dark:text-amber-100/90">
+              Solo puedes <strong>consultar</strong> el listado y documentos. Para registrar, importar o cambiar poderes,{' '}
+              <Link href={`/dashboard/asambleas/${params.id}`} className="underline font-medium">
+                reabre la asamblea
+              </Link>{' '}
+              desde el panel principal.
             </AlertDescription>
           </Alert>
         )}
@@ -1031,11 +1088,15 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   aunque la votación pública siga cerrada. Requiere aceptación LOPD igual que en la votación en línea.
                 </p>
               </div>
-              <label className="flex items-center gap-2 shrink-0 cursor-pointer select-none">
+              <label
+                className={`flex items-center gap-2 shrink-0 select-none ${
+                  gestionHabilitada && !guardandoRegistroPublico ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'
+                }`}
+              >
                 <input
                   type="checkbox"
                   checked={!!asamblea.registro_poderes_publico}
-                  disabled={guardandoRegistroPublico}
+                  disabled={!gestionHabilitada || guardandoRegistroPublico}
                   onChange={(e) => void toggleRegistroPoderesPublico(e.target.checked)}
                   className="rounded border-amber-400 text-amber-700 focus:ring-amber-600"
                 />
@@ -1080,7 +1141,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                         variant="outline"
                         size="sm"
                         onClick={() => void enviarCorreoRegistroPoderes()}
-                        disabled={!asamblea.registro_poderes_publico || enviandoCorreoRegistro}
+                        disabled={!gestionHabilitada || !asamblea.registro_poderes_publico || enviandoCorreoRegistro}
                         className="border-amber-300 dark:border-amber-700"
                       >
                         <Mail className="w-4 h-4 mr-1.5" />
@@ -1261,6 +1322,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   onClick={() => openCreatePoderModal()}
                   variant="outline"
                   className="mt-4"
+                  disabled={!gestionHabilitada}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Registrar Primer Poder
@@ -1387,6 +1449,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                                 variant="outline"
                                 size="sm"
                                 className="text-xs"
+                                disabled={!gestionHabilitada}
                                 onClick={() => {
                                   setReemplazandoPoderId(poder.id)
                                   setArchivoReemplazo(null)
@@ -1400,6 +1463,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                               variant="outline"
                               size="sm"
                               className="text-xs"
+                              disabled={!gestionHabilitada}
                               onClick={() => {
                                 setReemplazandoPoderId(poder.id)
                                 setArchivoReemplazo(null)
@@ -1450,6 +1514,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                               variant="outline"
                               size="sm"
                               onClick={() => setPoderModal({ type: 'edit', poder })}
+                              disabled={!gestionHabilitada}
                               className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                               title="Corregir apoderado, unidad o datos"
                             >
@@ -1460,6 +1525,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                               variant="outline"
                               size="sm"
                               onClick={() => handleRevocarPoder(poder.id)}
+                              disabled={!gestionHabilitada}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                               title="Revocar este poder"
                             >
@@ -1474,7 +1540,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                               variant="outline"
                               size="sm"
                               onClick={() => handleActivarPoderPendiente(poder.id)}
-                              disabled={activandoPoderId === poder.id}
+                              disabled={!gestionHabilitada || activandoPoderId === poder.id}
                               className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                               title="Validar contra documento o acta y activar para votación"
                             >
@@ -1485,6 +1551,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                               variant="outline"
                               size="sm"
                               onClick={() => handleRevocarPoder(poder.id)}
+                              disabled={!gestionHabilitada}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                               title="Rechazar la solicitud"
                             >
@@ -1538,7 +1605,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                       </span>
                       <button
                         type="button"
-                        className="text-red-600 dark:text-red-400 shrink-0 hover:underline"
+                        className="text-red-600 dark:text-red-400 shrink-0 hover:underline disabled:opacity-40 disabled:pointer-events-none"
+                        disabled={!gestionHabilitada}
                         onClick={() => setColaPoderes((prev) => prev.filter((x) => x.id !== c.id))}
                       >
                         Quitar
@@ -1860,6 +1928,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
                   variant="secondary"
                   onClick={() => void agregarPoderALaCola()}
                   disabled={
+                    !gestionHabilitada ||
                     savingPoder ||
                     !selectedOtorgante ||
                     !emailReceptor.trim() ||
@@ -1875,6 +1944,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               <Button
                 onClick={() => void handleSavePoder()}
                 disabled={
+                  !gestionHabilitada ||
                   savingPoder ||
                   (poderModal.type === 'create'
                     ? colaPoderes.length === 0 &&
@@ -1962,7 +2032,10 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               <Button variant="outline" onClick={() => { setReemplazandoPoderId(null); setArchivoReemplazo(null) }} disabled={reemplazando}>
                 Cancelar
               </Button>
-              <Button onClick={handleReemplazarDocumento} disabled={!archivoReemplazo || reemplazando}>
+              <Button
+                onClick={handleReemplazarDocumento}
+                disabled={!gestionHabilitada || !archivoReemplazo || reemplazando}
+              >
                 {reemplazando ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
@@ -1996,7 +2069,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
             <Button
               className="bg-red-600 hover:bg-red-700"
               onClick={confirmarRevocarPoder}
-              disabled={revocando}
+              disabled={!gestionHabilitada || revocando}
             >
               {revocando ? (
                 <>
