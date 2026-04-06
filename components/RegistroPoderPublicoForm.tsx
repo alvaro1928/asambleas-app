@@ -17,9 +17,11 @@ interface Props {
   codigo: string
   email: string
   unidades: UnidadInfoRegistroPoder[]
+  /** No está en censo: envía registro_externo al API y exige nombre completo */
+  modoRegistroExterno?: boolean
 }
 
-export function RegistroPoderPublicoForm({ codigo, email, unidades }: Props) {
+export function RegistroPoderPublicoForm({ codigo, email, unidades, modoRegistroExterno = false }: Props) {
   const toast = useToast()
   const [unidadesDelegacionOpciones, setUnidadesDelegacionOpciones] = useState<
     Array<{ id: string; torre: string; numero: string; nombre_propietario: string | null }>
@@ -98,6 +100,10 @@ export function RegistroPoderPublicoForm({ codigo, email, unidades }: Props) {
       toast.error('Elige el apartamento que te otorgó el poder.')
       return
     }
+    if (modoRegistroExterno && !nombreReceptorPoder.trim()) {
+      toast.error('Indica tu nombre completo como receptor del poder.')
+      return
+    }
     if (archivoPoderVotante && archivoPoderVotante.size > 2 * 1024 * 1024) {
       toast.error('El documento no puede superar 2 MB.')
       return
@@ -108,6 +114,7 @@ export function RegistroPoderPublicoForm({ codigo, email, unidades }: Props) {
       fd.append('codigo', codigo)
       fd.append('identificador', email.trim())
       fd.append('unidad_otorgante_id', poderOtorganteId)
+      if (modoRegistroExterno) fd.append('registro_externo', 'true')
       if (nombreReceptorPoder.trim()) fd.append('nombre_receptor', nombreReceptorPoder.trim())
       if (observacionesPoder.trim()) fd.append('observaciones', observacionesPoder.trim())
       if (archivoPoderVotante) fd.append('archivo', archivoPoderVotante)
@@ -172,12 +179,18 @@ export function RegistroPoderPublicoForm({ codigo, email, unidades }: Props) {
         </p>
       </div>
 
-      {unidades.length > 0 && (
+      {(unidades.length > 0 || modoRegistroExterno) && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-amber-200 dark:border-amber-800 p-4 shadow-sm space-y-3">
           <h3 className="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-2">
             <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
             Declarar poder recibido
           </h3>
+          {modoRegistroExterno && (
+            <p className="text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 rounded-lg px-2 py-1.5 border border-amber-200/80 dark:border-amber-800/80">
+              Modo <strong>apoderado externo</strong>: elige la unidad que te delegó; indica tu nombre completo. El administrador
+              validará la solicitud.
+            </p>
+          )}
           <p className="text-xs text-gray-600 dark:text-gray-400">
             La solicitud <strong>no activa el poder para votar</strong> hasta que un administrador lo verifique en la tabla de
             poderes.
@@ -214,7 +227,7 @@ export function RegistroPoderPublicoForm({ codigo, email, unidades }: Props) {
               </div>
               <div className="space-y-1.5">
                 <label htmlFor="poder-nombre-receptor-rp" className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                  Tu nombre (apoderado) — opcional
+                  Tu nombre (apoderado){modoRegistroExterno ? ' — obligatorio' : ' — opcional'}
                 </label>
                 <input
                   id="poder-nombre-receptor-rp"
@@ -222,6 +235,7 @@ export function RegistroPoderPublicoForm({ codigo, email, unidades }: Props) {
                   value={nombreReceptorPoder}
                   onChange={(e) => setNombreReceptorPoder(e.target.value)}
                   placeholder="Como figura en el poder o documento"
+                  required={modoRegistroExterno}
                   className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm px-3 py-2"
                 />
               </div>

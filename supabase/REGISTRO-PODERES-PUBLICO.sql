@@ -205,11 +205,14 @@ GRANT EXECUTE ON FUNCTION public.validar_votante_registro_poderes(TEXT, TEXT) TO
 GRANT EXECUTE ON FUNCTION public.validar_votante_registro_poderes(TEXT, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.validar_votante_registro_poderes(TEXT, TEXT) TO service_role;
 
--- 4) LOPD + tokens para portal /registrar-poder: no exige sesión verification/voting (código único en URL)
+-- 4) LOPD + tokens para portal /registrar-poder (incl. apoderado externo sin censo: p_registro_externo)
+DROP FUNCTION IF EXISTS public.registrar_consentimiento_registro_poderes(TEXT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION public.registrar_consentimiento_registro_poderes(
   p_codigo TEXT,
   p_identificador TEXT,
-  p_ip TEXT DEFAULT NULL
+  p_ip TEXT DEFAULT NULL,
+  p_registro_externo BOOLEAN DEFAULT FALSE
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -244,8 +247,7 @@ BEGIN
     a.id,
     a.organization_id,
     COALESCE(a.is_demo, false) AS is_demo,
-    COALESCE(a.session_seq, 1) AS session_seq,
-    COALESCE(a.registro_poderes_publico, false) AS registro_poderes_publico
+    COALESCE(a.session_seq, 1) AS session_seq
   INTO v_asamblea
   FROM public.asambleas a
   WHERE a.codigo_acceso = v_codigo
@@ -259,83 +261,89 @@ BEGIN
   v_demo := v_asamblea.is_demo;
   v_seq := v_asamblea.session_seq;
 
-  SELECT * INTO v_val FROM public.validar_votante_registro_poderes(v_codigo, p_identificador) LIMIT 1;
+  IF COALESCE(p_registro_externo, false) THEN
+    v_unidades := ARRAY[]::UUID[];
+    v_charge_total := 0;
+    v_n_existentes := 0;
+  ELSE
+    SELECT * INTO v_val FROM public.validar_votante_registro_poderes(v_codigo, p_identificador) LIMIT 1;
 
-  IF v_val.puede_votar IS NOT TRUE THEN
-    RETURN jsonb_build_object('ok', false, 'code', 'VOTANTE_INVALIDO', 'message', COALESCE(v_val.mensaje, 'Votante no válido'));
-  END IF;
-
-  SELECT COALESCE(array_agg(id ORDER BY id), ARRAY[]::UUID[])
-  INTO v_unidades
-  FROM (
-    SELECT DISTINCT unnest(
-      COALESCE(v_val.unidades_propias, ARRAY[]::UUID[]) ||
-      COALESCE(v_val.unidades_poderes, ARRAY[]::UUID[])
-    ) AS id
-  ) s;
-
-  IF v_unidades IS NULL OR coalesce(array_length(v_unidades, 1), 0) = 0 THEN
-    RETURN jsonb_build_object('ok', false, 'code', 'SIN_UNIDADES', 'message', 'No hay unidades para este identificador');
-  END IF;
-
-  SELECT o.owner_id INTO v_owner_profile_id FROM public.organizations o WHERE o.id = v_org;
-  IF v_owner_profile_id IS NOT NULL THEN
-    SELECT p.user_id INTO v_gestor_user FROM public.profiles p WHERE p.id = v_owner_profile_id LIMIT 1;
-  END IF;
-  IF v_gestor_user IS NULL THEN
-    SELECT p.user_id INTO v_gestor_user
-    FROM public.profiles p
-    WHERE p.organization_id = v_org AND p.user_id IS NOT NULL
-    ORDER BY p.created_at NULLS LAST
-    LIMIT 1;
-  END IF;
-
-  SELECT COUNT(DISTINCT unidad_id)::INT INTO v_n_existentes
-  FROM public.sesion_token_consumos
-  WHERE asamblea_id = v_asamblea.id AND session_seq = v_seq;
-
-  v_ord := v_n_existentes;
-  v_charge_total := 0;
-
-  FOREACH u IN ARRAY v_unidades LOOP
-    IF EXISTS (
-      SELECT 1 FROM public.sesion_token_consumos c
-      WHERE c.asamblea_id = v_asamblea.id AND c.session_seq = v_seq AND c.unidad_id = u
-    ) THEN
-      CONTINUE;
+    IF v_val.puede_votar IS NOT TRUE THEN
+      RETURN jsonb_build_object('ok', false, 'code', 'VOTANTE_INVALIDO', 'message', COALESCE(v_val.mensaje, 'Votante no válido'));
     END IF;
 
-    v_ord := v_ord + 1;
-    IF v_demo THEN
-      v_tokens_unit := 0;
-    ELSE
-      v_tokens_unit := CASE WHEN v_ord <= 5 THEN 0 ELSE 1 END;
+    SELECT COALESCE(array_agg(id ORDER BY id), ARRAY[]::UUID[])
+    INTO v_unidades
+    FROM (
+      SELECT DISTINCT unnest(
+        COALESCE(v_val.unidades_propias, ARRAY[]::UUID[]) ||
+        COALESCE(v_val.unidades_poderes, ARRAY[]::UUID[])
+      ) AS id
+    ) s;
+
+    IF v_unidades IS NULL OR coalesce(array_length(v_unidades, 1), 0) = 0 THEN
+      RETURN jsonb_build_object('ok', false, 'code', 'SIN_UNIDADES', 'message', 'No hay unidades para este identificador');
     END IF;
 
-    v_charge_total := v_charge_total + v_tokens_unit;
-  END LOOP;
-
-  IF NOT v_demo AND v_charge_total > 0 THEN
+    SELECT o.owner_id INTO v_owner_profile_id FROM public.organizations o WHERE o.id = v_org;
+    IF v_owner_profile_id IS NOT NULL THEN
+      SELECT p.user_id INTO v_gestor_user FROM public.profiles p WHERE p.id = v_owner_profile_id LIMIT 1;
+    END IF;
     IF v_gestor_user IS NULL THEN
-      RETURN jsonb_build_object('ok', false, 'code', 'NO_GESTOR', 'message', 'No se encontró billetera del gestor para este conjunto.');
+      SELECT p.user_id INTO v_gestor_user
+      FROM public.profiles p
+      WHERE p.organization_id = v_org AND p.user_id IS NOT NULL
+      ORDER BY p.created_at NULLS LAST
+      LIMIT 1;
     END IF;
 
-    PERFORM 1 FROM public.profiles p
-    WHERE p.user_id = v_gestor_user OR p.id = v_gestor_user
-    FOR UPDATE;
+    SELECT COUNT(DISTINCT unidad_id)::INT INTO v_n_existentes
+    FROM public.sesion_token_consumos
+    WHERE asamblea_id = v_asamblea.id AND session_seq = v_seq;
 
-    SELECT COALESCE(MAX(p.tokens_disponibles), 0)::INT INTO v_saldo
-    FROM public.profiles p
-    WHERE p.user_id = v_gestor_user OR p.id = v_gestor_user;
+    v_ord := v_n_existentes;
+    v_charge_total := 0;
 
-    IF v_saldo < v_charge_total THEN
-      RETURN jsonb_build_object(
-        'ok', false,
-        'code', 'INSUFFICIENT_TOKENS',
-        'message', format('Saldo insuficiente: se requieren %s tokens y hay %s.', v_charge_total, v_saldo),
-        'requerido', v_charge_total,
-        'saldo', v_saldo
-      );
+    FOREACH u IN ARRAY v_unidades LOOP
+      IF EXISTS (
+        SELECT 1 FROM public.sesion_token_consumos c
+        WHERE c.asamblea_id = v_asamblea.id AND c.session_seq = v_seq AND c.unidad_id = u
+      ) THEN
+        CONTINUE;
+      END IF;
+
+      v_ord := v_ord + 1;
+      IF v_demo THEN
+        v_tokens_unit := 0;
+      ELSE
+        v_tokens_unit := CASE WHEN v_ord <= 5 THEN 0 ELSE 1 END;
+      END IF;
+
+      v_charge_total := v_charge_total + v_tokens_unit;
+    END LOOP;
+
+    IF NOT v_demo AND v_charge_total > 0 THEN
+      IF v_gestor_user IS NULL THEN
+        RETURN jsonb_build_object('ok', false, 'code', 'NO_GESTOR', 'message', 'No se encontró billetera del gestor para este conjunto.');
+      END IF;
+
+      PERFORM 1 FROM public.profiles p
+      WHERE p.user_id = v_gestor_user OR p.id = v_gestor_user
+      FOR UPDATE;
+
+      SELECT COALESCE(MAX(p.tokens_disponibles), 0)::INT INTO v_saldo
+      FROM public.profiles p
+      WHERE p.user_id = v_gestor_user OR p.id = v_gestor_user;
+
+      IF v_saldo < v_charge_total THEN
+        RETURN jsonb_build_object(
+          'ok', false,
+          'code', 'INSUFFICIENT_TOKENS',
+          'message', format('Saldo insuficiente: se requieren %s tokens y hay %s.', v_charge_total, v_saldo),
+          'requerido', v_charge_total,
+          'saldo', v_saldo
+        );
+      END IF;
     END IF;
   END IF;
 
@@ -345,60 +353,63 @@ BEGIN
   DO UPDATE SET accepted_at = EXCLUDED.accepted_at, ip_address = COALESCE(EXCLUDED.ip_address, consentimiento_tratamiento_datos.ip_address)
   RETURNING id INTO v_consent_id;
 
-  v_ord := v_n_existentes;
+  IF NOT COALESCE(p_registro_externo, false) THEN
+    v_ord := v_n_existentes;
 
-  FOREACH u IN ARRAY v_unidades LOOP
-    IF EXISTS (
-      SELECT 1 FROM public.sesion_token_consumos c
-      WHERE c.asamblea_id = v_asamblea.id AND c.session_seq = v_seq AND c.unidad_id = u
-    ) THEN
-      CONTINUE;
+    FOREACH u IN ARRAY v_unidades LOOP
+      IF EXISTS (
+        SELECT 1 FROM public.sesion_token_consumos c
+        WHERE c.asamblea_id = v_asamblea.id AND c.session_seq = v_seq AND c.unidad_id = u
+      ) THEN
+        CONTINUE;
+      END IF;
+
+      v_ord := v_ord + 1;
+      IF v_demo THEN
+        v_tokens_unit := 0;
+      ELSE
+        v_tokens_unit := CASE WHEN v_ord <= 5 THEN 0 ELSE 1 END;
+      END IF;
+
+      INSERT INTO public.sesion_token_consumos (asamblea_id, session_seq, unidad_id, identificador, tokens_cobrados, consentimiento_id)
+      VALUES (v_asamblea.id, v_seq, u, v_id_norm, v_tokens_unit, v_consent_id);
+    END LOOP;
+
+    IF NOT v_demo AND v_charge_total > 0 THEN
+      v_nuevo_saldo := GREATEST(0, v_saldo - v_charge_total);
+
+      UPDATE public.profiles SET tokens_disponibles = v_nuevo_saldo
+      WHERE user_id = v_gestor_user OR id = v_gestor_user;
+
+      INSERT INTO public.billing_logs (user_id, tipo_operacion, asamblea_id, organization_id, tokens_usados, saldo_restante, metadata)
+      VALUES (
+        v_gestor_user,
+        'Consentimiento_sesion',
+        v_asamblea.id,
+        v_org,
+        v_charge_total,
+        v_nuevo_saldo,
+        jsonb_build_object(
+          'session_seq', v_seq,
+          'unidad_ids', to_jsonb(v_unidades),
+          'tokens_cobrados_en_operacion', v_charge_total,
+          'contexto', 'registro_poderes'
+        )
+      );
     END IF;
-
-    v_ord := v_ord + 1;
-    IF v_demo THEN
-      v_tokens_unit := 0;
-    ELSE
-      v_tokens_unit := CASE WHEN v_ord <= 5 THEN 0 ELSE 1 END;
-    END IF;
-
-    INSERT INTO public.sesion_token_consumos (asamblea_id, session_seq, unidad_id, identificador, tokens_cobrados, consentimiento_id)
-    VALUES (v_asamblea.id, v_seq, u, v_id_norm, v_tokens_unit, v_consent_id);
-  END LOOP;
-
-  IF NOT v_demo AND v_charge_total > 0 THEN
-    v_nuevo_saldo := GREATEST(0, v_saldo - v_charge_total);
-
-    UPDATE public.profiles SET tokens_disponibles = v_nuevo_saldo
-    WHERE user_id = v_gestor_user OR id = v_gestor_user;
-
-    INSERT INTO public.billing_logs (user_id, tipo_operacion, asamblea_id, organization_id, tokens_usados, saldo_restante, metadata)
-    VALUES (
-      v_gestor_user,
-      'Consentimiento_sesion',
-      v_asamblea.id,
-      v_org,
-      v_charge_total,
-      v_nuevo_saldo,
-      jsonb_build_object(
-        'session_seq', v_seq,
-        'unidad_ids', to_jsonb(v_unidades),
-        'tokens_cobrados_en_operacion', v_charge_total,
-        'contexto', 'registro_poderes'
-      )
-    );
   END IF;
 
   RETURN jsonb_build_object(
     'ok', true,
     'session_seq', v_seq,
     'tokens_cobrados', CASE WHEN v_demo THEN 0 ELSE v_charge_total END,
-    'unidades', to_jsonb(v_unidades)
+    'unidades', to_jsonb(v_unidades),
+    'registro_externo', COALESCE(p_registro_externo, false)
   );
 END;
 $$;
 
-COMMENT ON FUNCTION public.registrar_consentimiento_registro_poderes(TEXT, TEXT, TEXT) IS
-  'LOPD para /registrar-poder: valida código de asamblea e identificador; sin exigir session_mode verification/voting.';
+COMMENT ON FUNCTION public.registrar_consentimiento_registro_poderes(TEXT, TEXT, TEXT, BOOLEAN) IS
+  'LOPD /registrar-poder: p_registro_externo=true acepta identificador sin estar en censo (solo código válido).';
 
-GRANT EXECUTE ON FUNCTION public.registrar_consentimiento_registro_poderes(TEXT, TEXT, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.registrar_consentimiento_registro_poderes(TEXT, TEXT, TEXT, BOOLEAN) TO service_role;

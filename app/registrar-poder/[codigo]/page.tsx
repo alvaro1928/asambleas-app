@@ -54,6 +54,8 @@ export default function RegistrarPoderPublicoPage() {
   const [consentimientoAceptado, setConsentimientoAceptado] = useState(false)
   const [guardandoConsentimiento, setGuardandoConsentimiento] = useState(false)
   const [clientIp, setClientIp] = useState<string | null>(null)
+  /** Apoderado que no figura en el censo: LOPD + solicitud pendiente con nombre propio */
+  const [modoRegistroExterno, setModoRegistroExterno] = useState(false)
 
   const formatFecha = (fecha: string) => {
     const date = new Date(fecha + 'T00:00:00')
@@ -172,13 +174,19 @@ export default function RegistrarPoderPublicoPage() {
     setLoading(true)
     setError('')
     try {
-      const unidadesConInfo = await refrescarUnidades()
-      if (unidadesConInfo.length === 0) {
-        setError(
-          'No se encontraron unidades para este email o teléfono. Verifica el dato o contacta al administrador.'
-        )
-        setLoading(false)
-        return
+      let unidadesConInfo: UnidadInfoRegistroPoder[] = []
+      if (modoRegistroExterno) {
+        setUnidades([])
+        unidadesConInfo = []
+      } else {
+        unidadesConInfo = await refrescarUnidades()
+        if (unidadesConInfo.length === 0) {
+          setError(
+            'No se encontraron unidades para este email o teléfono. Si eres apoderado pero no figuras en el censo, usa la opción de abajo.'
+          )
+          setLoading(false)
+          return
+        }
       }
       try {
         if (typeof window !== 'undefined') localStorage.setItem(STORAGE_EMAIL(codigo), email.trim())
@@ -229,6 +237,7 @@ export default function RegistrarPoderPublicoPage() {
           identificador,
           ip: clientIp ?? undefined,
           contexto: 'registro_poderes',
+          registro_externo: modoRegistroExterno,
         }),
       })
       if (!res.ok) {
@@ -313,9 +322,26 @@ export default function RegistrarPoderPublicoPage() {
                 onKeyDown={(e) => e.key === 'Enter' && void handleValidarEmail()}
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Debe coincidir con el censo del conjunto o con un poder ya activo, igual que en la votación en línea.
+                {modoRegistroExterno
+                  ? 'Como apoderado externo usamos este dato para contacto y trazabilidad; el administrador validará tu solicitud.'
+                  : 'Si figuras en el censo o ya tienes un poder activo, debe coincidir. Si no figuras, activa la opción siguiente.'}
               </p>
             </div>
+
+            <label className="flex items-start gap-2 cursor-pointer rounded-lg border border-amber-200/80 dark:border-amber-800/80 bg-amber-50/40 dark:bg-amber-950/20 p-3">
+              <input
+                type="checkbox"
+                className="mt-0.5 rounded border-amber-400 text-amber-700"
+                checked={modoRegistroExterno}
+                onChange={(e) => {
+                  setModoRegistroExterno(e.target.checked)
+                  setError('')
+                }}
+              />
+              <span className="text-xs text-amber-900 dark:text-amber-100 leading-snug">
+                <strong>No figuro en el censo</strong> — soy apoderado externo y quiero declarar un poder recibido (el administrador deberá aprobarlo).
+              </span>
+            </label>
 
             {error && (
               <Alert className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
@@ -425,7 +451,12 @@ export default function RegistrarPoderPublicoPage() {
             Tu correo o teléfono no se muestra en esta pantalla; solo se usa de forma segura para validar tu sesión.
           </p>
         </div>
-        <RegistroPoderPublicoForm codigo={codigo} email={email.trim()} unidades={unidades} />
+        <RegistroPoderPublicoForm
+          codigo={codigo}
+          email={email.trim()}
+          unidades={unidades}
+          modoRegistroExterno={modoRegistroExterno}
+        />
       </div>
     </div>
   )

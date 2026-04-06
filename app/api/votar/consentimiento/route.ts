@@ -61,11 +61,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}))
-    const { codigo, identificador, ip, contexto } = body as {
+    const { codigo, identificador, ip, contexto, registro_externo } = body as {
       codigo?: string
       identificador?: string
       ip?: string
       contexto?: string
+      /** Solo registro de poderes: quien no está en censo (apoderado externo) */
+      registro_externo?: boolean
     }
     if (!codigo?.trim() || !identificador?.trim()) {
       return NextResponse.json({ error: 'Faltan codigo o identificador' }, { status: 400 })
@@ -86,6 +88,7 @@ export async function POST(request: NextRequest) {
           p_codigo: codigo.trim().toUpperCase(),
           p_identificador: identificador.trim(),
           p_ip: typeof ip === 'string' ? ip : null,
+          p_registro_externo: !!registro_externo,
         })
       : await admin.rpc('registrar_consentimiento_y_consumo_sesion', {
           p_codigo: codigo.trim().toUpperCase(),

@@ -21,6 +21,9 @@ export async function POST(request: NextRequest) {
     const unidadOtorganteId = String(form.get('unidad_otorgante_id') ?? '').trim()
     const nombreReceptor = String(form.get('nombre_receptor') ?? '').trim()
     const observaciones = String(form.get('observaciones') ?? '').trim()
+    const registroExterno =
+      String(form.get('registro_externo') ?? '').toLowerCase() === 'true' ||
+      String(form.get('registro_externo') ?? '') === '1'
     const rawArchivo = form.get('archivo')
 
     if (!codigo || !identificador || !unidadOtorganteId) {
@@ -60,25 +63,34 @@ export async function POST(request: NextRequest) {
     const propias = unidadesPropiasParaIdentificador(lista, ident)
     const propiasIds = new Set(propias.map((u) => u.id))
 
-    if (propias.length === 0) {
-      const { data: poderesActivosReceptor, error: paErr } = await admin
-        .from('poderes')
-        .select('id, email_receptor')
-        .eq('asamblea_id', asambleaId)
-        .eq('estado', 'activo')
-      if (paErr) {
-        return NextResponse.json({ error: 'Error validando tu sesión de votación' }, { status: 500 })
+    if (!registroExterno) {
+      if (propias.length === 0) {
+        const { data: poderesActivosReceptor, error: paErr } = await admin
+          .from('poderes')
+          .select('id, email_receptor')
+          .eq('asamblea_id', asambleaId)
+          .eq('estado', 'activo')
+        if (paErr) {
+          return NextResponse.json({ error: 'Error validando tu sesión de votación' }, { status: 500 })
+        }
+        const coincideComoApoderado = (poderesActivosReceptor ?? []).some((p) =>
+          identificadorCoincide(p.email_receptor, ident)
+        )
+        if (!coincideComoApoderado) {
+          return NextResponse.json(
+            {
+              error:
+                'Tu identificador no está asociado a una unidad ni a un poder vigente; no puedes declarar poderes recibidos.',
+            },
+            { status: 403 }
+          )
+        }
       }
-      const coincideComoApoderado = (poderesActivosReceptor ?? []).some((p) =>
-        identificadorCoincide(p.email_receptor, ident)
-      )
-      if (!coincideComoApoderado) {
+    } else {
+      if (nombreReceptor.length < 2) {
         return NextResponse.json(
-          {
-            error:
-              'Tu identificador no está asociado a una unidad ni a un poder vigente; no puedes declarar poderes recibidos.',
-          },
-          { status: 403 }
+          { error: 'Indica tu nombre completo como apoderado (campo nombre del receptor).' },
+          { status: 400 }
         )
       }
     }
