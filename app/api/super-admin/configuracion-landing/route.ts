@@ -47,27 +47,7 @@ export async function GET() {
     const selectBase =
       'id, key, titulo, subtitulo, whatsapp_number, color_principal_hex, precio_por_token_cop, bono_bienvenida_tokens, texto_hero_precio, texto_ahorro, cta_whatsapp_text, acta_blockchain_ots_enabled'
 
-    let { data, error } = await admin
-      .from('configuracion_global')
-      .select(`${selectBase}, ventana_gracia_activacion_dias`)
-      .eq('key', 'landing')
-      .maybeSingle()
-
-    if (
-      error &&
-      (error.code === '42703' || String(error.message).includes('ventana_gracia_activacion_dias'))
-    ) {
-      const retry = await admin.from('configuracion_global').select(selectBase).eq('key', 'landing').maybeSingle()
-      data = retry.data
-      error = retry.error
-    }
-
-    if (error) {
-      console.error('super-admin configuracion-landing GET:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    const row = data as {
+    type LandingConfigRow = {
       id?: string
       key?: string
       titulo?: string | null
@@ -81,7 +61,32 @@ export async function GET() {
       cta_whatsapp_text?: string | null
       acta_blockchain_ots_enabled?: boolean | null
       ventana_gracia_activacion_dias?: number | null
-    } | null
+    }
+
+    const primera = await admin
+      .from('configuracion_global')
+      .select(`${selectBase}, ventana_gracia_activacion_dias`)
+      .eq('key', 'landing')
+      .maybeSingle()
+
+    let data: LandingConfigRow | null = primera.data as LandingConfigRow | null
+    let error = primera.error
+
+    if (
+      error &&
+      (error.code === '42703' || String(error.message).includes('ventana_gracia_activacion_dias'))
+    ) {
+      const retry = await admin.from('configuracion_global').select(selectBase).eq('key', 'landing').maybeSingle()
+      data = retry.data as LandingConfigRow | null
+      error = retry.error
+    }
+
+    if (error) {
+      console.error('super-admin configuracion-landing GET:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    const row = data
 
     const diasGracia =
       row?.ventana_gracia_activacion_dias != null && Number.isFinite(Number(row.ventana_gracia_activacion_dias))
