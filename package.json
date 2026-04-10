@@ -13,7 +13,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
-    "test:stress": "node scripts/stress-test.js"
+    "test:stress": "node scripts/stress-test.js",
+    "test:pilot-load": "node scripts/pilot-votacion-load.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.1.0",
