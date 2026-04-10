@@ -14,7 +14,10 @@
  *   $env:DRY_RUN="1" — solo imprime ids y emparejamientos, no envía votos
  *   $env:CONCURRENCY="15" — peticiones en paralelo (default 15)
  *
- * IDs en Supabase: ver scripts/sql/pilot-ids-asamblea.sql
+ * IDs en Supabase: scripts/sql/pilot-ids-asamblea.sql (incluye snapshot opciones piloto).
+ * Ejemplo con ids ya conocidos (voto "A favor"):
+ *   $env:PREGUNTA_ID="f4c607cc-a33d-4235-9464-ab432d227046"
+ *   $env:OPCION_ID="1572d107-ff19-4a2f-afed-0dcd944fed41"
  */
 
 import { createClient } from '@supabase/supabase-js'

@@ -29,3 +29,11 @@ ORDER BY pr.orden, o.orden;
 SELECT id, nombre, estado, is_demo, sandbox_usar_unidades_reales, organization_id
 FROM public.asambleas
 WHERE id = '967b8219-a731-4a27-b16c-289044a19cc5';
+
+-- 4) Referencia (snapshot piloto — validar en BD si cambian preguntas/opciones)
+--    pregunta_id: f4c607cc-a33d-4235-9464-ab432d227046  |  texto: test
+--    opciones:
+--      1572d107-ff19-4a2f-afed-0dcd944fed41  orden 1  A favor
+--      bdf47914-c999-4bf1-b6c8-54fe1fa700ae  orden 2  En contra
+--      73e41e16-51f7-48be-82b6-8fe96599973b  orden 3  Me abstengo
+--    Para stress /api/votar suele usarse la opción orden 1 (A favor), salvo que pruebes otra.
