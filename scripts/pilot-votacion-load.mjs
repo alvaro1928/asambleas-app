@@ -14,6 +14,8 @@
  *   $env:DRY_RUN="1" — solo imprime ids y emparejamientos, no envía votos
  *   $env:CONCURRENCY="15" — peticiones en paralelo (default 15)
  *   $env:REPORT_ONLY="1" — solo informe por correo (sin POST); sale 0 aunque falten unidades
+ *   $env:ROTATE_OPCIONES_ROUNDS="9" — varias rondas rotando A favor → En contra → Me abstengo (ciclo);
+ *        usa RPC `registrar_voto_con_trazabilidad` (actualiza voto si ya existía). No usa STRESS_TEST_SECRET.
  *
  * IDs en Supabase: scripts/sql/pilot-ids-asamblea.sql (incluye snapshot opciones piloto).
  * Ejemplo con ids ya conocidos (voto "A favor"):
@@ -319,10 +321,92 @@ async function runInChunks(items, concurrency, fn) {
   const results = []
   for (let i = 0; i < items.length; i += concurrency) {
     const chunk = items.slice(i, i + concurrency)
-    const part = await Promise.all(chunk.map(fn))
+    const part = await Promise.all(chunk.map((item, j) => fn(item, i + j)))
     results.push(...part)
   }
   return results
+}
+
+/** Opciones de la pregunta (orden fijo en BD). */
+async function fetchOpcionesPregunta(supabase, preguntaId) {
+  const { data, error } = await supabase
+    .from('opciones_pregunta')
+    .select('id, orden, texto_opcion')
+    .eq('pregunta_id', preguntaId)
+    .order('orden', { ascending: true })
+  if (error) throw new Error(`opciones_pregunta: ${error.message}`)
+  return data ?? []
+}
+
+/**
+ * Estrés realista: muchas rondas cambiando opción (misma pregunta, mismas unidades).
+ * Usa la misma RPC que el producto (insert o update + historial).
+ */
+async function runRotateOpcionesRounds(supabase, preguntaId, paresEnvio, opciones, rounds, concurrency) {
+  if (opciones.length === 0) throw new Error('La pregunta no tiene opciones.')
+  console.log(
+    `\n=== Rotación de opciones: ${rounds} ronda(s), ${opciones.length} opción(es), ${paresEnvio.length} unidad(es), concurrencia ${concurrency} ===\n`,
+  )
+  console.log('Orden de opciones:', opciones.map((o) => `${o.orden}:${o.texto_opcion}`).join(' | '))
+
+  let totalOk = 0
+  let totalFail = 0
+  let allRoundsOk = true
+
+  for (let r = 0; r < rounds; r++) {
+    const op = opciones[r % opciones.length]
+    console.log(`\n--- Ronda ${r + 1}/${rounds} → "${op.texto_opcion}" (${op.id}) ---`)
+
+    const results = await runInChunks(paresEnvio, concurrency, async (p, idx) => {
+      const start = performance.now()
+      const { data, error } = await supabase.rpc('registrar_voto_con_trazabilidad', {
+        p_pregunta_id: preguntaId,
+        p_unidad_id: p.unidad_id,
+        p_opcion_id: op.id,
+        p_votante_email: p.email,
+        p_votante_nombre: `R${r + 1}-${idx + 1}`,
+        p_es_poder: false,
+        p_poder_id: null,
+        p_ip_address: '127.0.0.1',
+        p_user_agent: 'pilot-votacion-load/rotate-opciones',
+      })
+      const latencyMs = Math.round(performance.now() - start)
+      const ok = !error
+      const errMsg = error?.message ?? ''
+      const accion = Array.isArray(data) && data[0]?.accion ? String(data[0].accion) : ''
+      return { ok, latencyMs, errMsg, accion }
+    })
+
+    const okRound = results.filter((x) => x.ok).length
+    const failRound = results.length - okRound
+    totalOk += okRound
+    totalFail += failRound
+    if (failRound > 0) allRoundsOk = false
+
+    const latOk = results.filter((x) => x.ok).map((x) => x.latencyMs)
+    const crear = results.filter((x) => x.accion === 'crear').length
+    const modificar = results.filter((x) => x.accion === 'modificar').length
+
+    console.log(`  Éxitos: ${okRound}/${results.length}  |  crear: ${crear}  modificar: ${modificar}`)
+    if (latOk.length) {
+      console.log(`  Latencia p50: ${percentile(latOk, 50)} ms  p95: ${percentile(latOk, 95)} ms`)
+    }
+    if (failRound > 0) {
+      const errMap = {}
+      results
+        .filter((x) => !x.ok)
+        .forEach((x) => {
+          const k = x.errMsg || 'error'
+          errMap[k] = (errMap[k] || 0) + 1
+        })
+      console.log('  Errores:', errMap)
+    }
+  }
+
+  console.log('\n--- Resumen rotación ---')
+  console.log('RPC OK totales (suma por ronda):', totalOk)
+  console.log('RPC fallos totales:', totalFail)
+  return allRoundsOk && totalFail === 0
 }
 
 async function main() {
@@ -335,12 +419,14 @@ async function main() {
   const concurrency = Math.max(1, parseInt(process.env.CONCURRENCY || '15', 10))
   const preguntaIdEnv = process.env.PREGUNTA_ID?.trim()
   const opcionIdEnv = process.env.OPCION_ID?.trim()
+  const rotateRounds = parseInt(process.env.ROTATE_OPCIONES_ROUNDS || '0', 10)
 
   console.log('=== Piloto: carga votación (stress bypass) ===')
   console.log('ASAMBLEA_ID:', ASAMBLEA_ID)
   console.log('BASE_URL:', baseUrl)
   console.log('DRY_RUN:', dryRun)
   console.log('REPORT_ONLY:', reportOnly)
+  console.log('ROTATE_OPCIONES_ROUNDS:', rotateRounds)
 
   if (!supabaseUrl || !serviceKey) {
     if (!supabaseUrl) console.error('Falta NEXT_PUBLIC_SUPABASE_URL (en .env.local o en el entorno).')
@@ -352,8 +438,10 @@ async function main() {
     }
     process.exit(1)
   }
-  if (!dryRun && !stressSecret) {
-    console.error('Para enviar votos hace falta STRESS_TEST_SECRET (igual que en Vercel).')
+  if (!dryRun && rotateRounds === 0 && !stressSecret) {
+    console.error(
+      'Para el modo HTTP (/api/votar stress) hace falta STRESS_TEST_SECRET. Para rotar opciones vía RPC usa ROTATE_OPCIONES_ROUNDS (>0) sin ese secreto.',
+    )
     process.exit(1)
   }
 
@@ -400,11 +488,6 @@ async function main() {
     process.exit(0)
   }
 
-  if (dryRun) {
-    console.log('\nDRY_RUN: no se enviaron peticiones.')
-    process.exit(missing.length > 0 ? 2 : 0)
-  }
-
   if (pairs.length === 0) {
     console.error('No hay pares para enviar.')
     process.exit(1)
@@ -420,6 +503,35 @@ async function main() {
     console.log(
       `\n(Nota: ${pairs.length} correos emparejados → ${paresEnvio.length} unidades únicas; un voto por unidad.)\n`,
     )
+  }
+
+  if (dryRun) {
+    if (rotateRounds > 0) {
+      try {
+        const opcionesDry = await fetchOpcionesPregunta(supabase, resolved.pregunta_id)
+        console.log(
+          `\nDRY_RUN: ROTATE_OPCIONES_ROUNDS=${rotateRounds} simularía ${rotateRounds} ronda(s) con opciones:`,
+          opcionesDry.map((o) => o.texto_opcion).join(' → '),
+        )
+      } catch (e) {
+        console.log('\nDRY_RUN: no se pudieron cargar opciones:', e instanceof Error ? e.message : e)
+      }
+    }
+    console.log('\nDRY_RUN: no se enviaron peticiones.')
+    process.exit(missing.length > 0 ? 2 : 0)
+  }
+
+  if (rotateRounds > 0) {
+    const opciones = await fetchOpcionesPregunta(supabase, resolved.pregunta_id)
+    const okRotate = await runRotateOpcionesRounds(
+      supabase,
+      resolved.pregunta_id,
+      paresEnvio,
+      opciones,
+      rotateRounds,
+      concurrency,
+    )
+    process.exit(okRotate ? 0 : 1)
   }
 
   const payloads = paresEnvio.map((p, i) => ({
