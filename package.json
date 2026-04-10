@@ -14,7 +14,8 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:stress": "node scripts/stress-test.js",
-    "test:pilot-load": "node scripts/pilot-votacion-load.mjs"
+    "test:pilot-load": "node scripts/pilot-votacion-load.mjs",
+    "verify:votos-pregunta": "node scripts/verify-votos-pregunta.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.1.0",
