@@ -281,6 +281,40 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
     setColaPoderes([])
   }
 
+  /**
+   * Desde edición: nuevo registro (INSERT) con los mismos datos del apoderado;
+   * la unidad que otorga queda vacía para elegir otro apartamento.
+   */
+  const abrirRegistrarOtroPoderDesdeEdicion = () => {
+    if (poderModal.type !== 'edit') return
+    if (asamblea?.estado === 'finalizada') {
+      toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para gestionar poderes.')
+      return
+    }
+    const p = poderModal.poder
+    const isTercero = !p.unidad_receptor_id
+    setApoderadoEsTercero(isTercero)
+    if (p.unidad_receptor_id) {
+      const ur = unidades.find((u) => u.id === p.unidad_receptor_id)
+      setSelectedReceptor(ur ?? null)
+    } else {
+      setSelectedReceptor(null)
+    }
+    setEmailReceptor(p.email_receptor)
+    setNombreReceptor(p.nombre_receptor)
+    setObservaciones(p.observaciones ?? '')
+    setSelectedOtorgante(null)
+    setSearchOtorgante('')
+    setSearchReceptor('')
+    setArchivoPoder(null)
+    setColaPoderes([])
+    setOtorgantePickerNonce((n) => n + 1)
+    setPoderModal({ type: 'create' })
+    if (config.requiere_documento) {
+      toast.info('Para el nuevo registro deberás volver a adjuntar el documento del poder.')
+    }
+  }
+
   const openCreatePoderModal = () => {
     if (asamblea?.estado === 'finalizada') {
       toast.error('La asamblea está finalizada. Reabre la asamblea desde el panel principal para gestionar poderes.')
@@ -1611,6 +1645,14 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
             </DialogDescription>
           </DialogHeader>
 
+          {poderModal.type === 'edit' && (
+            <Alert className="mt-2 border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-950/30">
+              <AlertDescription className="text-sm text-indigo-900 dark:text-indigo-100">
+                ¿El mismo apoderado representará otro apartamento? Usa «Registrar otro poder (otra unidad)» abajo: se copian los datos del apoderado; solo elige la unidad que otorga el poder y, si aplica, vuelve a adjuntar el documento.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {poderModal.type === 'create' && colaPoderes.length > 0 && (
             <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 px-3 py-2 text-sm">
               <p className="font-medium text-indigo-900 dark:text-indigo-100 mb-1">Pendientes de registrar ({colaPoderes.length})</p>
@@ -1951,6 +1993,19 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               <Button variant="outline" onClick={() => closePoderModal()} disabled={savingPoder}>
                 Cancelar
               </Button>
+              {poderModal.type === 'edit' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={abrirRegistrarOtroPoderDesdeEdicion}
+                  disabled={!gestionHabilitada || savingPoder}
+                  className="border-indigo-300 dark:border-indigo-700"
+                  aria-label="Registrar otro poder para otra unidad con el mismo apoderado"
+                >
+                  <Copy className="w-4 h-4 mr-2 shrink-0" aria-hidden />
+                  Registrar otro poder (otra unidad)
+                </Button>
+              )}
               {poderModal.type === 'create' && (
                 <Button
                   type="button"
