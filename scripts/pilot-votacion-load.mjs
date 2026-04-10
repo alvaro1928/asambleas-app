@@ -18,9 +18,40 @@
  * Ejemplo con ids ya conocidos (voto "A favor"):
  *   $env:PREGUNTA_ID="f4c607cc-a33d-4235-9464-ab432d227046"
  *   $env:OPCION_ID="1572d107-ff19-4a2f-afed-0dcd944fed41"
+ *
+ * Si ejecutas desde la raíz del repo (`npm run test:pilot-load`), el script intenta cargar
+ * `.env.local` y `.env.pilot.local` (sin depender de `node --env-file`). Añade ahí
+ * SUPABASE_SERVICE_ROLE_KEY (Supabase → Settings → API → service_role); no la subas a git.
  */
 
+import { readFileSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
+
+/** Carga KEY=VAL desde la raíz del proyecto (no sobrescribe variables ya definidas). */
+function loadEnvFromRoot(fileName) {
+  const p = join(process.cwd(), fileName)
+  if (!existsSync(p)) return
+  const text = readFileSync(p, 'utf8')
+  for (const line of text.split(/\n/)) {
+    const s = line.trim()
+    if (!s || s.startsWith('#')) continue
+    const eq = s.indexOf('=')
+    if (eq <= 0) continue
+    const key = s.slice(0, eq).trim()
+    let val = s.slice(eq + 1).trim()
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1)
+    }
+    if (process.env[key] === undefined) process.env[key] = val
+  }
+}
+
+loadEnvFromRoot('.env.local')
+loadEnvFromRoot('.env.pilot.local')
 
 const ASAMBLEA_ID = '967b8219-a731-4a27-b16c-289044a19cc5'
 
@@ -205,7 +236,13 @@ async function main() {
   console.log('DRY_RUN:', dryRun)
 
   if (!supabaseUrl || !serviceKey) {
-    console.error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY.')
+    if (!supabaseUrl) console.error('Falta NEXT_PUBLIC_SUPABASE_URL (en .env.local o en el entorno).')
+    if (!serviceKey) {
+      console.error(
+        'Falta SUPABASE_SERVICE_ROLE_KEY — en Supabase: Project Settings → API → service_role (secret).',
+      )
+      console.error('Añádela a .env.local en la raíz del repo (una línea: SUPABASE_SERVICE_ROLE_KEY=...).')
+    }
     process.exit(1)
   }
   if (!dryRun && !stressSecret) {
