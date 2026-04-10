@@ -13,6 +13,7 @@
  *   $env:PREGUNTA_ID / $env:OPCION_ID — si ya los tienes, evita la consulta a preguntas/opciones
  *   $env:DRY_RUN="1" — solo imprime ids y emparejamientos, no envía votos
  *   $env:CONCURRENCY="15" — peticiones en paralelo (default 15)
+ *   $env:REPORT_ONLY="1" — solo informe por correo (sin POST); sale 0 aunque falten unidades
  *
  * IDs en Supabase: scripts/sql/pilot-ids-asamblea.sql (incluye snapshot opciones piloto).
  * Ejemplo con ids ya conocidos (voto "A favor"):
@@ -91,15 +92,51 @@ marthaserrato@yahoo.com
 diana.pachecof@gmail.com
 `
 
-function parseEmails(raw) {
-  const set = new Set()
+/** Correos únicos en orden de primera aparición en el listado. */
+function parseEmailsOrdered(raw) {
+  const seen = new Set()
+  const ordered = []
   for (const line of raw.trim().split(/\n/)) {
     for (const part of line.split(/[;,]/)) {
       const e = part.trim().toLowerCase()
-      if (e) set.add(e)
+      if (e && !seen.has(e)) {
+        seen.add(e)
+        ordered.push(e)
+      }
     }
   }
-  return [...set]
+  return ordered
+}
+
+function parseEmails(raw) {
+  return parseEmailsOrdered(raw)
+}
+
+function localPart(email) {
+  const i = email.indexOf('@')
+  return i > 0 ? email.slice(0, i) : email
+}
+
+/** Pistas cuando el correo del piloto no coincide con ningún correo de unidades. */
+function suggestNearMatches(pilotEmail, unidades) {
+  const n = pilotEmail.trim().toLowerCase()
+  const lp = localPart(n)
+  const suggestions = []
+  for (const u of unidades) {
+    for (const em of emailsExpandidosDesdeUnidad(u)) {
+      if (!em) continue
+      if (em === n) continue
+      const lp2 = localPart(em)
+      if (lp && lp2 && lp === lp2) {
+        suggestions.push({
+          razon: 'mismo usuario local (@…), distinto dominio o cuenta',
+          email_bd: em,
+          u,
+        })
+      }
+    }
+  }
+  return suggestions.slice(0, 5)
 }
 
 function shouldUseDemoUnits(isDemo, sandboxUsarUnidadesReales) {
@@ -110,6 +147,21 @@ function unidadEmailNorm(u) {
   return String(u.email_propietario ?? u.email ?? '')
     .trim()
     .toLowerCase()
+}
+
+/** Todos los correos declarados en la unidad (varios a veces van en un solo campo con ; o ,). */
+function emailsExpandidosDesdeUnidad(u) {
+  const raw = `${String(u.email_propietario ?? '').trim()} ${String(u.email ?? '').trim()}`
+  const out = []
+  const seen = new Set()
+  for (const chunk of raw.split(/[;,]/)) {
+    const e = chunk.trim().toLowerCase()
+    if (e && !seen.has(e)) {
+      seen.add(e)
+      out.push(e)
+    }
+  }
+  return out
 }
 
 function percentile(arr, p) {
@@ -132,21 +184,74 @@ async function fetchPairs(supabase, asamblea) {
   const { data: unidades, error } = await q
   if (error) throw new Error(`unidades: ${error.message}`)
 
+  const list = unidades ?? []
   const byEmail = new Map()
-  for (const u of unidades ?? []) {
-    const em = unidadEmailNorm(u)
-    if (em && !byEmail.has(em)) byEmail.set(em, u)
+  for (const u of list) {
+    for (const em of emailsExpandidosDesdeUnidad(u)) {
+      if (!byEmail.has(em)) byEmail.set(em, u)
+    }
   }
 
-  const emails = parseEmails(PILOT_EMAIL_RAW)
+  const emails = parseEmailsOrdered(PILOT_EMAIL_RAW)
   const pairs = []
   const missing = []
-  for (const email of emails) {
+  /** @type {{ idx: number, email: string, ok: boolean, torre?: string | null, numero?: string | null, unidad_id?: string, sugerencias?: { razon: string, email_bd: string }[] }[]} */
+  const detallePorCorreo = []
+
+  emails.forEach((email, idx) => {
     const u = byEmail.get(email)
-    if (u) pairs.push({ email, unidad_id: u.id, torre: u.torre, numero: u.numero })
-    else missing.push(email)
+    if (u) {
+      pairs.push({ email, unidad_id: u.id, torre: u.torre, numero: u.numero })
+      detallePorCorreo.push({
+        idx: idx + 1,
+        email,
+        ok: true,
+        torre: u.torre,
+        numero: u.numero,
+        unidad_id: u.id,
+      })
+    } else {
+      missing.push(email)
+      const sug = suggestNearMatches(email, list).map((s) => ({
+        razon: s.razon,
+        email_bd: s.email_bd,
+      }))
+      detallePorCorreo.push({
+        idx: idx + 1,
+        email,
+        ok: false,
+        sugerencias: sug.length ? sug : undefined,
+      })
+    }
+  })
+
+  return {
+    pairs,
+    missing,
+    totalEmails: emails.length,
+    unidadesCargadas: list.length,
+    detallePorCorreo,
   }
-  return { pairs, missing, totalEmails: emails.length }
+}
+
+function printDetalleCorreos(detallePorCorreo) {
+  console.log('\n--- Detalle por correo (todos, orden del listado) ---')
+  console.log(
+    '(✓ = email coincide con una unidad de la copropiedad; ✗ = no hay unidad con ese email exacto)\n',
+  )
+  for (const row of detallePorCorreo) {
+    const tag = row.ok ? '✓' : '✗'
+    const torreNum =
+      row.ok && (row.torre != null || row.numero != null)
+        ? ` torre=${row.torre ?? '—'} número=${row.numero ?? '—'} unidad_id=${row.unidad_id}`
+        : ''
+    console.log(`${String(row.idx).padStart(2, '0')}. ${tag} ${row.email}${torreNum}`)
+    if (!row.ok && row.sugerencias?.length) {
+      for (const s of row.sugerencias) {
+        console.log(`       → pista: ${s.razon} | en BD: ${s.email_bd}`)
+      }
+    }
+  }
 }
 
 async function resolvePreguntaOpcion(supabase, preguntaIdEnv, opcionIdEnv) {
@@ -226,6 +331,7 @@ async function main() {
   const baseUrl = process.env.BASE_URL || 'http://localhost:3000'
   const stressSecret = process.env.STRESS_TEST_SECRET
   const dryRun = process.env.DRY_RUN === '1' || process.env.DRY_RUN === 'true'
+  const reportOnly = process.env.REPORT_ONLY === '1' || process.env.REPORT_ONLY === 'true'
   const concurrency = Math.max(1, parseInt(process.env.CONCURRENCY || '15', 10))
   const preguntaIdEnv = process.env.PREGUNTA_ID?.trim()
   const opcionIdEnv = process.env.OPCION_ID?.trim()
@@ -234,6 +340,7 @@ async function main() {
   console.log('ASAMBLEA_ID:', ASAMBLEA_ID)
   console.log('BASE_URL:', baseUrl)
   console.log('DRY_RUN:', dryRun)
+  console.log('REPORT_ONLY:', reportOnly)
 
   if (!supabaseUrl || !serviceKey) {
     if (!supabaseUrl) console.error('Falta NEXT_PUBLIC_SUPABASE_URL (en .env.local o en el entorno).')
@@ -274,13 +381,23 @@ async function main() {
   }
   if (resolved.opcion_meta) console.log('opción (texto):', resolved.opcion_meta.texto_opcion)
 
-  const { pairs, missing, totalEmails } = await fetchPairs(supabase, asamblea)
+  const { pairs, missing, totalEmails, unidadesCargadas, detallePorCorreo } = await fetchPairs(
+    supabase,
+    asamblea,
+  )
   console.log('\n--- Emparejamiento correo → unidad ---')
+  console.log('Unidades en copropiedad (filtro demo/real):', unidadesCargadas)
   console.log('Correos únicos en listado:', totalEmails)
   console.log('Emparejados:', pairs.length)
   if (missing.length) {
-    console.log('Sin unidad en BD (revisar email en copropiedad):', missing.length)
-    missing.forEach((m) => console.log('  -', m))
+    console.log('Sin unidad en BD (email exacto):', missing.length)
+  }
+
+  printDetalleCorreos(detallePorCorreo)
+
+  if (reportOnly) {
+    console.log('\nREPORT_ONLY: no se enviaron peticiones.')
+    process.exit(0)
   }
 
   if (dryRun) {
@@ -293,7 +410,19 @@ async function main() {
     process.exit(1)
   }
 
-  const payloads = pairs.map((p, i) => ({
+  /** Un voto por unidad (evita violar UNIQUE(pregunta_id, unidad_id) si hay varios correos por unidad). */
+  const porUnidad = new Map()
+  for (const p of pairs) {
+    if (!porUnidad.has(p.unidad_id)) porUnidad.set(p.unidad_id, p)
+  }
+  const paresEnvio = [...porUnidad.values()]
+  if (paresEnvio.length < pairs.length) {
+    console.log(
+      `\n(Nota: ${pairs.length} correos emparejados → ${paresEnvio.length} unidades únicas; un voto por unidad.)\n`,
+    )
+  }
+
+  const payloads = paresEnvio.map((p, i) => ({
     pregunta_id: resolved.pregunta_id,
     opcion_id: resolved.opcion_id,
     unidad_id: p.unidad_id,
