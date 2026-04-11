@@ -37,3 +37,6 @@ WHERE id = '967b8219-a731-4a27-b16c-289044a19cc5';
 --      6b6a230c-794f-4e0f-8691-c52d3e0b8741  orden 2  En contra
 --      541a93ce-09a6-470a-89a4-cce4dc2eb651  orden 3  Me abstengo
 --    Para stress /api/votar suele usarse la opción orden 1 (A favor), salvo que pruebes otra.
+--
+-- 5) Código de acceso (/votar/{codigo}) — el script npm run simular:lopd-tokens lo obtiene solo si omites CODIGO
+-- SELECT codigo_acceso FROM public.asambleas WHERE id = '967b8219-a731-4a27-b16c-289044a19cc5';

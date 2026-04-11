@@ -4,11 +4,15 @@
  * sin tocar BD por defecto (dry-run). Sirve para comprobar tokens requeridos vs saldo del gestor.
  *
  * Uso (PowerShell):
- *   $env:CODIGO="ABC123"
+ *   npm run simular:lopd-tokens
+ *   (con solo .env.local: usa asamblea piloto, codigo_acceso desde BD y primer correo de la lista piloto)
+ *
+ * O explícito:
+ *   $env:CODIGO="ABC-XXXX"
  *   $env:IDENTIFICADOR="correo@ejemplo.com"
- *   node scripts/simular-cobro-lopd.mjs
  *
  * Opcional:
+ *   ASAMBLEA_ID=uuid — si no pasas CODIGO, se lee codigo_acceso de esta asamblea (default: piloto en scripts/pilot-votacion-load.mjs)
  *   DRY_RUN=0 APPLY=1  — ejecuta el RPC real (solo en staging / asamblea de prueba; inserta consentimiento y descuenta si aplica)
  *   DEMO_ONLY_APPLY=1 — con APPLY=1, solo ejecuta si is_demo=true (cobro 0; no bloquea por saldo)
  *
@@ -42,8 +46,11 @@ function loadEnvFromRoot(fileName) {
 loadEnvFromRoot('.env.local')
 loadEnvFromRoot('.env.pilot.local')
 
-const codigo = process.env.CODIGO?.trim()
-const identificador = process.env.IDENTIFICADOR?.trim()
+/** Misma asamblea que scripts/pilot-votacion-load.mjs y scripts/sql/pilot-ids-asamblea.sql */
+const DEFAULT_ASAMBLEA_ID_PILOTO = '967b8219-a731-4a27-b16c-289044a19cc5'
+/** Primer correo de PILOT_EMAIL_RAW en pilot-votacion-load.mjs (misma lista que la prueba de carga) */
+const DEFAULT_IDENTIFICADOR_PILOTO = 'administraciones@arinmobiliaria.com.co'
+
 const dryRun = process.env.DRY_RUN !== '0' && process.env.DRY_RUN !== 'false'
 const apply = process.env.APPLY === '1' || process.env.APPLY === 'true'
 const demoOnlyApply = process.env.DEMO_ONLY_APPLY === '1' || process.env.DEMO_ONLY_APPLY === 'true'
@@ -54,12 +61,42 @@ if (!url || !key) {
   console.error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en .env.local')
   process.exit(1)
 }
-if (!codigo || !identificador) {
-  console.error('Define CODIGO e IDENTIFICADOR (correo o tel normalizado como en /votar).')
-  process.exit(1)
-}
 
 const supabase = createClient(url, key, { auth: { persistSession: false } })
+
+/**
+ * @returns {{ codigo: string, identificador: string, notas: string[] }}
+ */
+async function resolverCodigoEIdentificador() {
+  const notas = []
+  let codigo = process.env.CODIGO?.trim()
+  let identificador = process.env.IDENTIFICADOR?.trim()
+  const asambleaId = process.env.ASAMBLEA_ID?.trim() || DEFAULT_ASAMBLEA_ID_PILOTO
+
+  if (!codigo) {
+    const { data: row, error } = await supabase
+      .from('asambleas')
+      .select('codigo_acceso')
+      .eq('id', asambleaId)
+      .maybeSingle()
+    if (error) throw new Error(`asambleas (codigo por id): ${error.message}`)
+    const c = row?.codigo_acceso?.trim()
+    if (!c) {
+      throw new Error(
+        `No hay codigo_acceso para ASAMBLEA_ID=${asambleaId}. Pasa CODIGO manualmente o revisa la asamblea en BD.`
+      )
+    }
+    codigo = c
+    notas.push(`CODIGO leído de BD (ASAMBLEA_ID=${asambleaId})`)
+  }
+
+  if (!identificador) {
+    identificador = DEFAULT_IDENTIFICADOR_PILOTO
+    notas.push(`IDENTIFICADOR por defecto: primer correo piloto (${DEFAULT_IDENTIFICADOR_PILOTO})`)
+  }
+
+  return { codigo, identificador, notas }
+}
 
 /**
  * Réplica del bucle en SESION-Y-TOKENS-CONSENTIMIENTO.sql (primeras 5 unidades distintas en sesión = 0; luego 1).
@@ -126,6 +163,11 @@ async function resolverSaldoGestor(organizationId) {
 }
 
 async function main() {
+  const { codigo, identificador, notas } = await resolverCodigoEIdentificador()
+  for (const n of notas) {
+    console.error(`[simular-cobro-lopd] ${n}`)
+  }
+
   const codigoNorm = codigo.toUpperCase()
   const { data: asm, error: eAsm } = await supabase
     .from('asambleas')
@@ -172,6 +214,7 @@ async function main() {
   const bloquearia = !isDemo && sim.chargeTotal > 0 && (!gestorUserId || saldo < sim.chargeTotal)
 
   const reporte = {
+    resolucion: notas.length ? notas : ['CODIGO e IDENTIFICADOR pasados por env'],
     asamblea_id: asm.id,
     codigo: codigoNorm,
     is_demo: isDemo,
