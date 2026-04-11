@@ -765,7 +765,16 @@ export default function VotacionPublicaPage() {
         }),
       })
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string
+          code?: string
+        }
+        if (res.status === 402 && data.code === 'INSUFFICIENT_TOKENS') {
+          setError(
+            'El administrador de tu conjunto no tiene créditos suficientes en la plataforma para completar esta aceptación en la sesión actual. Avísale para que recargue tokens e intenta de nuevo en unos minutos.'
+          )
+          return
+        }
         setError(
           typeof data.error === 'string'
             ? data.error
