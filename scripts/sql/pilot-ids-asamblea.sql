@@ -31,9 +31,9 @@ FROM public.asambleas
 WHERE id = '967b8219-a731-4a27-b16c-289044a19cc5';
 
 -- 4) Referencia (snapshot piloto — validar en BD si cambian preguntas/opciones)
---    pregunta_id: f4c607cc-a33d-4235-9464-ab432d227046  |  texto: test
+--    pregunta_id: 4ce21e5e-9c1f-45ca-87fa-29b4c1b11ebb
 --    opciones:
---      1572d107-ff19-4a2f-afed-0dcd944fed41  orden 1  A favor
---      bdf47914-c999-4bf1-b6c8-54fe1fa700ae  orden 2  En contra
---      73e41e16-51f7-48be-82b6-8fe96599973b  orden 3  Me abstengo
+--      407466c1-d46d-4c18-9e82-1eacc1e91219  orden 1  A favor
+--      6b6a230c-794f-4e0f-8691-c52d3e0b8741  orden 2  En contra
+--      541a93ce-09a6-470a-89a4-cce4dc2eb651  orden 3  Me abstengo
 --    Para stress /api/votar suele usarse la opción orden 1 (A favor), salvo que pruebes otra.

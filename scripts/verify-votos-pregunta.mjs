@@ -33,7 +33,7 @@ loadEnvFromRoot('.env.local')
 loadEnvFromRoot('.env.pilot.local')
 
 const PREGUNTA_ID =
-  process.env.PREGUNTA_ID?.trim() || 'f4c607cc-a33d-4235-9464-ab432d227046'
+  process.env.PREGUNTA_ID?.trim() || '4ce21e5e-9c1f-45ca-87fa-29b4c1b11ebb'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY

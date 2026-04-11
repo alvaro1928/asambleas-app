@@ -10,7 +10,8 @@
  *   $env:STRESS_TEST_SECRET="(mismo valor que en Vercel)"
  *
  * Opcional:
- *   $env:PREGUNTA_ID / $env:OPCION_ID — si ya los tienes, evita la consulta a preguntas/opciones
+ *   $env:PREGUNTA_ID / $env:OPCION_ID — si no defines ninguno, se usan los ids por defecto del snapshot;
+ *     si defines ambos, se evita la consulta a preguntas/opciones; si solo uno, se resuelve desde BD
  *   $env:DRY_RUN="1" — solo imprime ids y emparejamientos, no envía votos
  *   $env:CONCURRENCY="15" — peticiones en paralelo (default 15)
  *   $env:REPORT_ONLY="1" — solo informe por correo (sin POST); sale 0 aunque falten unidades
@@ -18,9 +19,9 @@
  *        usa RPC `registrar_voto_con_trazabilidad` (actualiza voto si ya existía). No usa STRESS_TEST_SECRET.
  *
  * IDs en Supabase: scripts/sql/pilot-ids-asamblea.sql (incluye snapshot opciones piloto).
- * Ejemplo con ids ya conocidos (voto "A favor"):
- *   $env:PREGUNTA_ID="f4c607cc-a33d-4235-9464-ab432d227046"
- *   $env:OPCION_ID="1572d107-ff19-4a2f-afed-0dcd944fed41"
+ * Ejemplo con ids explícitos (voto "A favor"):
+ *   $env:PREGUNTA_ID="4ce21e5e-9c1f-45ca-87fa-29b4c1b11ebb"
+ *   $env:OPCION_ID="407466c1-d46d-4c18-9e82-1eacc1e91219"
  *
  * Si ejecutas desde la raíz del repo (`npm run test:pilot-load`), el script intenta cargar
  * `.env.local` y `.env.pilot.local` (sin depender de `node --env-file`). Añade ahí
@@ -57,6 +58,10 @@ loadEnvFromRoot('.env.local')
 loadEnvFromRoot('.env.pilot.local')
 
 const ASAMBLEA_ID = '967b8219-a731-4a27-b16c-289044a19cc5'
+
+/** Pregunta/opción por defecto para carga (voto «A favor»). Actualizar si cambias la pregunta en BD. */
+const DEFAULT_PREGUNTA_ID = '4ce21e5e-9c1f-45ca-87fa-29b4c1b11ebb'
+const DEFAULT_OPCION_ID_A_FAVOR = '407466c1-d46d-4c18-9e82-1eacc1e91219'
 
 /** Filas del listado piloto (separadores ; o ,). Se normalizan a minúsculas. */
 const PILOT_EMAIL_RAW = `
@@ -417,8 +422,16 @@ async function main() {
   const dryRun = process.env.DRY_RUN === '1' || process.env.DRY_RUN === 'true'
   const reportOnly = process.env.REPORT_ONLY === '1' || process.env.REPORT_ONLY === 'true'
   const concurrency = Math.max(1, parseInt(process.env.CONCURRENCY || '15', 10))
-  const preguntaIdEnv = process.env.PREGUNTA_ID?.trim()
-  const opcionIdEnv = process.env.OPCION_ID?.trim()
+  const preguntaIdRaw = process.env.PREGUNTA_ID?.trim()
+  const opcionIdRaw = process.env.OPCION_ID?.trim()
+  const preguntaIdEnv =
+    preguntaIdRaw === undefined && opcionIdRaw === undefined
+      ? DEFAULT_PREGUNTA_ID
+      : preguntaIdRaw
+  const opcionIdEnv =
+    preguntaIdRaw === undefined && opcionIdRaw === undefined
+      ? DEFAULT_OPCION_ID_A_FAVOR
+      : opcionIdRaw
   const rotateRounds = parseInt(process.env.ROTATE_OPCIONES_ROUNDS || '0', 10)
 
   console.log('=== Piloto: carga votación (stress bypass) ===')
