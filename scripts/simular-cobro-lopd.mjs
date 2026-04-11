@@ -48,8 +48,8 @@ loadEnvFromRoot('.env.pilot.local')
 
 /** Misma asamblea que scripts/pilot-votacion-load.mjs y scripts/sql/pilot-ids-asamblea.sql */
 const DEFAULT_ASAMBLEA_ID_PILOTO = '967b8219-a731-4a27-b16c-289044a19cc5'
-/** Primer correo de PILOT_EMAIL_RAW en pilot-votacion-load.mjs (misma lista que la prueba de carga) */
-const DEFAULT_IDENTIFICADOR_PILOTO = 'administraciones@arinmobiliaria.com.co'
+/** Correo piloto que valida en el conjunto (el primero del listado no siempre está en censo) */
+const DEFAULT_IDENTIFICADOR_PILOTO = 'alida1410@hotmail.com'
 
 const dryRun = process.env.DRY_RUN !== '0' && process.env.DRY_RUN !== 'false'
 const apply = process.env.APPLY === '1' || process.env.APPLY === 'true'
