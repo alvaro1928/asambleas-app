@@ -218,6 +218,8 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
   /** Filtrar por unidad que otorga el poder (UUID) */
   const [filtroUnidadOtorganteId, setFiltroUnidadOtorganteId] = useState<string>('')
   const [mostrarInfoPoderes, setMostrarInfoPoderes] = useState(false)
+  const [mostrarBloqueEnlaceQr, setMostrarBloqueEnlaceQr] = useState(true)
+  const [mostrarResumenStats, setMostrarResumenStats] = useState(true)
   const [sortKey, setSortKey] = useState<PoderSortKey>('registrado')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [revocandoPoderId, setRevocandoPoderId] = useState<string | null>(null)
@@ -1134,25 +1136,31 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
           </Alert>
         )}
 
-        {/* Enlace público: registro de poderes sin abrir votación */}
+        {/* Enlace público: registro de poderes sin abrir votación (colapsable) */}
         <div className="mb-6 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-4 sm:p-5">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
-              <div>
-                <h2 className="text-sm font-bold text-amber-900 dark:text-amber-100 flex items-center gap-2">
-                  <FileText className="w-4 h-4 shrink-0" />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setMostrarBloqueEnlaceQr((v) => !v)}
+                className="flex items-center gap-2 text-left min-w-0 flex-1 rounded-lg -m-1 p-1 hover:bg-amber-100/60 dark:hover:bg-amber-900/30 transition-colors"
+                aria-expanded={mostrarBloqueEnlaceQr}
+                aria-label="Mostrar u ocultar enlace y QR de registro de poderes"
+              >
+                <FileText className="w-4 h-4 shrink-0 text-amber-900 dark:text-amber-100" />
+                <span className="text-sm font-bold text-amber-900 dark:text-amber-100">
                   Enlace y QR de registro de poderes
-                </h2>
-                <p className="text-xs text-amber-800/90 dark:text-amber-200/90 mt-1 max-w-2xl">
-                  Quien tenga el enlace o el código puede declarar poderes (pendiente de aprobación), sin iniciar sesión.
-                  El código en la URL es único por asamblea: no depende de tener la votación pública abierta.
-                  Requiere aceptación LOPD igual que en la votación en línea. El interruptor solo marca si quieres destacar
-                  este bloque y usar el envío masivo por correo.
-                </p>
-              </div>
+                </span>
+                {mostrarBloqueEnlaceQr ? (
+                  <ChevronUp className="w-4 h-4 shrink-0 text-amber-800 dark:text-amber-200" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 shrink-0 text-amber-800 dark:text-amber-200" />
+                )}
+              </button>
               <label
                 className={`flex items-center gap-2 shrink-0 select-none ${
                   gestionHabilitada && !guardandoRegistroPublico ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'
                 }`}
+                onClick={(e) => e.stopPropagation()}
               >
                 <input
                   type="checkbox"
@@ -1167,113 +1175,144 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               </label>
             </div>
 
-            {!asamblea.codigo_acceso?.trim() ? (
-              <p className="text-xs text-amber-800 dark:text-amber-200">
-                Primero debe existir un código de acceso en la asamblea. Ve a{' '}
-                <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="underline font-medium">
-                  Acceso y QR
-                </Link>{' '}
-                para generarlo o activar la votación pública.
-              </p>
-            ) : (
-              <div className="flex flex-col lg:flex-row gap-4 items-start">
-                <div className="flex-1 min-w-0 space-y-2 w-full">
-                  <Label className="text-xs text-amber-900 dark:text-amber-100">Enlace</Label>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Input
-                      readOnly
-                      value={urlRegistroPoderPublico}
-                      className="text-xs font-mono bg-white dark:bg-gray-900"
-                    />
-                    <div className="flex flex-wrap gap-2 shrink-0">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void copiarEnlaceRegistroPoder()}
-                        disabled={!urlRegistroPoderPublico}
-                        className="border-amber-300 dark:border-amber-700"
-                      >
-                        <Copy className="w-4 h-4 mr-1.5" />
-                        Copiar
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void enviarCorreoRegistroPoderes()}
-                        disabled={!gestionHabilitada || enviandoCorreoRegistro}
-                        className="border-amber-300 dark:border-amber-700"
-                      >
-                        <Mail className="w-4 h-4 mr-1.5" />
-                        {enviandoCorreoRegistro ? 'Enviando…' : 'Correo a censo'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        asChild
-                        className="border-amber-300 dark:border-amber-700"
-                      >
-                        <a
-                          href={
-                            urlRegistroPoderPublico
-                              ? `https://wa.me/?text=${encodeURIComponent(
-                                  `Registro de poderes — ${asamblea.nombre}\n${urlRegistroPoderPublico}`
-                                )}`
-                              : '#'
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={!urlRegistroPoderPublico ? 'pointer-events-none opacity-50' : ''}
-                        >
-                          WhatsApp
-                        </a>
-                      </Button>
+            {mostrarBloqueEnlaceQr && (
+              <>
+                <p className="text-xs text-amber-800/90 dark:text-amber-200/90 mt-3 mb-3 max-w-2xl">
+                  Quien tenga el enlace o el código puede declarar poderes (pendiente de aprobación), sin iniciar sesión.
+                  El código en la URL es único por asamblea: no depende de tener la votación pública abierta.
+                  Requiere aceptación LOPD igual que en la votación en línea. El interruptor solo marca si quieres destacar
+                  este bloque y usar el envío masivo por correo.
+                </p>
+
+                {!asamblea.codigo_acceso?.trim() ? (
+                  <p className="text-xs text-amber-800 dark:text-amber-200">
+                    Primero debe existir un código de acceso en la asamblea. Ve a{' '}
+                    <Link href={`/dashboard/asambleas/${params.id}/acceso`} className="underline font-medium">
+                      Acceso y QR
+                    </Link>{' '}
+                    para generarlo o activar la votación pública.
+                  </p>
+                ) : (
+                  <div className="flex flex-col lg:flex-row gap-4 items-start">
+                    <div className="flex-1 min-w-0 space-y-2 w-full">
+                      <Label className="text-xs text-amber-900 dark:text-amber-100">Enlace</Label>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Input
+                          readOnly
+                          value={urlRegistroPoderPublico}
+                          className="text-xs font-mono bg-white dark:bg-gray-900"
+                        />
+                        <div className="flex flex-wrap gap-2 shrink-0">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void copiarEnlaceRegistroPoder()}
+                            disabled={!urlRegistroPoderPublico}
+                            className="border-amber-300 dark:border-amber-700"
+                          >
+                            <Copy className="w-4 h-4 mr-1.5" />
+                            Copiar
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void enviarCorreoRegistroPoderes()}
+                            disabled={!gestionHabilitada || enviandoCorreoRegistro}
+                            className="border-amber-300 dark:border-amber-700"
+                          >
+                            <Mail className="w-4 h-4 mr-1.5" />
+                            {enviandoCorreoRegistro ? 'Enviando…' : 'Correo a censo'}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="border-amber-300 dark:border-amber-700"
+                          >
+                            <a
+                              href={
+                                urlRegistroPoderPublico
+                                  ? `https://wa.me/?text=${encodeURIComponent(
+                                      `Registro de poderes — ${asamblea.nombre}\n${urlRegistroPoderPublico}`
+                                    )}`
+                                  : '#'
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={!urlRegistroPoderPublico ? 'pointer-events-none opacity-50' : ''}
+                            >
+                              WhatsApp
+                            </a>
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-                {urlRegistroPoderPublico && (
-                  <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-white/80 dark:bg-gray-900/50 border border-amber-200/80 dark:border-amber-800/80 mx-auto lg:mx-0">
-                    <span className="text-xs font-medium text-amber-900 dark:text-amber-100 flex items-center gap-1">
-                      <QrCode className="w-3.5 h-3.5" /> QR
-                    </span>
-                    <div className="p-2 bg-white rounded-lg">
-                      <QRCodeSVG value={urlRegistroPoderPublico} size={120} level="M" includeMargin />
-                    </div>
+                    {urlRegistroPoderPublico && (
+                      <div className="flex flex-col items-center gap-1 p-3 rounded-lg bg-white/80 dark:bg-gray-900/50 border border-amber-200/80 dark:border-amber-800/80 mx-auto lg:mx-0">
+                        <span className="text-xs font-medium text-amber-900 dark:text-amber-100 flex items-center gap-1">
+                          <QrCode className="w-3.5 h-3.5" /> QR
+                        </span>
+                        <div className="p-2 bg-white rounded-lg">
+                          <QRCodeSVG value={urlRegistroPoderPublico} size={120} level="M" includeMargin />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </>
             )}
           </div>
 
-        {/* Resumen de Poderes */}
+        {/* Resumen de Poderes (colapsable) */}
         {resumen && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Poderes Activos</p>
-              <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-                {resumen.total_poderes_activos}
-              </p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Unidades Delegadas</p>
-              <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-                {resumen.total_unidades_delegadas}
-              </p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Coeficiente Delegado</p>
-              <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                {resumen.coeficiente_total_delegado.toFixed(2)}%
-              </p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Límite por Apoderado</p>
-              <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                {config.max_poderes_por_apoderado}
-              </p>
-            </div>
+          <div className="mb-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/40 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setMostrarResumenStats((v) => !v)}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-100/80 dark:hover:bg-gray-800/60 transition-colors"
+              aria-expanded={mostrarResumenStats}
+              aria-label="Mostrar u ocultar resumen de poderes"
+            >
+              <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                Resumen de indicadores
+              </span>
+              {mostrarResumenStats ? (
+                <ChevronUp className="w-4 h-4 shrink-0 text-gray-600 dark:text-gray-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 shrink-0 text-gray-600 dark:text-gray-400" />
+              )}
+            </button>
+            {mostrarResumenStats && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 pt-0 border-t border-gray-200/80 dark:border-gray-700/80">
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Poderes Activos</p>
+                  <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+                    {resumen.total_poderes_activos}
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Unidades Delegadas</p>
+                  <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                    {resumen.total_unidades_delegadas}
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Coeficiente Delegado</p>
+                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                    {resumen.coeficiente_total_delegado.toFixed(2)}%
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Límite por Apoderado</p>
+                  <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                    {config.max_poderes_por_apoderado}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
