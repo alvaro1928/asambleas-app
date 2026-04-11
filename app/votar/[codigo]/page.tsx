@@ -824,20 +824,46 @@ export default function VotacionPublicaPage() {
         if (unidadesConInfo.length === 0) {
           throw new Error('Sin unidades válidas en sesión')
         }
-        if (stored.step === 'votar') {
+        const identificador = email.trim().toLowerCase()
+        const consentRes = await fetch(
+          `/api/votar/consentimiento?codigo=${encodeURIComponent(codigo)}&identificador=${encodeURIComponent(identificador)}`,
+          { credentials: 'include' }
+        )
+        const consentData = consentRes.ok ? await consentRes.json().catch(() => ({})) : {}
+        if (!consentData.accepted) {
+          saveStoredSessionState({ step: 'consentimiento', consentimientoAceptado: false, ts: Date.now() })
+          setConsentimientoAceptado(false)
+          setStep('consentimiento')
+          return
+        }
+        const stRes = await fetch('/api/votar/estado-verificacion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codigo, soloFlags: true }),
+        })
+        const stJson = await stRes.json().catch(() => ({} as { asamblea?: { session_mode?: string } }))
+        const modeAfter =
+          (stJson.asamblea?.session_mode as AsambleaInfo['session_mode']) || asamblea?.session_mode || sessionModeLive
+        if (modeAfter) setSessionModeLive(modeAfter)
+        if (modeAfter === 'voting') {
+          setSoloSesionVerificacion(false)
           setConsentimientoAceptado(true)
           saveStoredSessionState({ step: 'votar', consentimientoAceptado: true, ts: Date.now() })
           setStep('votar')
           await cargarPreguntas(unidadesConInfo)
-          return
+        } else if (modeAfter === 'verification') {
+          setSoloSesionVerificacion(true)
+          setConsentimientoAceptado(true)
+          saveStoredSessionState({ step: 'votar', consentimientoAceptado: true, ts: Date.now() })
+          setStep('votar')
+        } else {
+          setConsentimientoAceptado(false)
+          saveStoredSessionState({ step: 'consentimiento', consentimientoAceptado: false, ts: Date.now() })
+          setError(
+            'La sesión pública se encuentra inactiva en este momento. Espera a que el administrador habilite verificación o votación.'
+          )
+          setStep('email')
         }
-        setConsentimientoAceptado(!!stored.consentimientoAceptado)
-        saveStoredSessionState({
-          step: 'consentimiento',
-          consentimientoAceptado: !!stored.consentimientoAceptado,
-          ts: Date.now(),
-        })
-        setStep('consentimiento')
       } catch {
         clearStoredSession(codigo)
         setError('Tu sesión de votación expiró o cambió. Valida nuevamente tu dato para continuar.')
