@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Centro de Control',
+  title: 'Inicio',
   description: 'Gestiona tus conjuntos, unidades, asambleas y votaciones online. Quórum en tiempo real, actas y cumplimiento Ley 675.',
 }
 

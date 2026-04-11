@@ -7,12 +7,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const nombre = await getAsambleaNombreForTitle(id)
   return {
-    title: `Votación · ${nombre}`,
-    description: `Panel de control de la asamblea "${nombre}". Quórum, preguntas de votación y gestión de poderes.`,
+    title: `Poderes · ${nombre}`,
+    description: `Gestión de poderes de representación de la asamblea "${nombre}".`,
   }
 }
 
-export default function AsambleaLayout({
+export default function PoderesSegmentLayout({
   children,
 }: {
   children: React.ReactNode
