@@ -16,7 +16,8 @@
     "test:stress": "node scripts/stress-test.js",
     "test:pilot-load": "node scripts/pilot-votacion-load.mjs",
     "verify:votos-pregunta": "node scripts/verify-votos-pregunta.mjs",
-    "simular:lopd-tokens": "node scripts/simular-cobro-lopd.mjs"
+    "simular:lopd-tokens": "node scripts/simular-cobro-lopd.mjs",
+    "simular:lopd-secuencia": "node scripts/simular-lopd-secuencia-piloto.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.1.0",
