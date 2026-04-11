@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/react";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 import { AuthSessionListener } from "@/components/providers/AuthSessionListener";
 
@@ -16,9 +17,9 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL
   : "https://asambleas.online";
 
 const DEFAULT_TITLE =
-  "Asambleas Online Colombia | Votación Ley 675, quórum, poderes y acta digital";
+  "Asambleas Online Colombia | Votaci?n Ley 675, qu?rum, poderes y acta digital";
 const DEFAULT_DESCRIPTION =
-  "Software para asambleas de copropiedad: votación por coeficiente o nominal, verificación de asistencia y quórum en vivo, poderes de representación con auditoría, invitaciones por WhatsApp y QR, acta con sellado en blockchain (OpenTimestamps) y certificados de voto. Pensado para administradores y consejos en Colombia.";
+  "Software para asambleas de copropiedad: votaci?n por coeficiente o nominal, verificaci?n de asistencia y qu?rum en vivo, poderes de representaci?n con auditor?a, invitaciones por WhatsApp y QR, acta con sellado en blockchain (OpenTimestamps) y certificados de voto. Pensado para administradores y consejos en Colombia.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -29,15 +30,15 @@ export const metadata: Metadata = {
   description: DEFAULT_DESCRIPTION,
   keywords: [
     "asambleas virtuales Colombia",
-    "votación propiedad horizontal",
-    "Ley 675 votación online",
-    "quórum asamblea copropiedad",
-    "poderes representación asamblea",
+    "votaci?n propiedad horizontal",
+    "Ley 675 votaci?n online",
+    "qu?rum asamblea copropiedad",
+    "poderes representaci?n asamblea",
     "acta asamblea digital",
-    "votación por coeficiente",
+    "votaci?n por coeficiente",
     "asambleas de copropietarios",
     "WhatsApp asamblea",
-    "verificación asistencia asamblea",
+    "verificaci?n asistencia asamblea",
     "OpenTimestamps acta",
   ],
   openGraph: {
@@ -92,6 +93,7 @@ export default function RootLayout({
           <AuthSessionListener />
           {children}
         </ToastProvider>
+        <Analytics />
       </body>
     </html>
   );
