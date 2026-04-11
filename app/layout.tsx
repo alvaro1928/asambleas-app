@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 import { AuthSessionListener } from "@/components/providers/AuthSessionListener";
 
@@ -94,6 +95,8 @@ export default function RootLayout({
           {children}
         </ToastProvider>
         <Analytics />
+        {/* Piloto: retirar SpeedInsights cuando ya no haga falta la m?trica */}
+        <SpeedInsights />
       </body>
     </html>
   );
