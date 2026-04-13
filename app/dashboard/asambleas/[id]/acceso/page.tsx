@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -33,6 +33,7 @@ import { useToast } from '@/components/providers/ToastProvider'
 import type { BarChartData } from '@/components/charts/VotacionBarChart'
 import { ModalRegistroAsistencia } from '@/components/ModalRegistroAsistencia'
 import { buildPublicVotarUrl } from '@/lib/publicVotarUrl'
+import { POLL_MS_FLAGS, POLL_MS_HEAVY, shouldSkipFocusRefresh } from '@/lib/votacion-live'
 
 const QRCodeSVG = dynamic(
   () => import('qrcode.react').then((m) => ({ default: m.QRCodeSVG })),
@@ -249,6 +250,9 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   }
   const [statsVerificacion, setStatsVerificacion] = useState<VerificacionStats | null>(null)
   const [statsDesglose, setStatsDesglose] = useState<VerificacionDesglose | null>(null)
+  const [showSesionActivaPanel, setShowSesionActivaPanel] = useState(true)
+  const pollingPesadoInFlightRef = useRef(false)
+  const ultimaRecargaPesadaRef = useRef(0)
 
   // Enlace delegado
   const [showModalAsistencia, setShowModalAsistencia] = useState(false)
@@ -274,25 +278,59 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   }, [visualTheme])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    const saved = window.localStorage.getItem('acceso_show_sesion_activa')
+    if (saved === '0') setShowSesionActivaPanel(false)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem('acceso_show_sesion_activa', showSesionActivaPanel ? '1' : '0')
+  }, [showSesionActivaPanel])
+
+  useEffect(() => {
     loadAsamblea()
     loadAsistentes()
     loadAvanceVotaciones()
 
-    const interval = setInterval(() => {
+    const intervalFlags = setInterval(() => {
       loadAsamblea()
-      loadAsistentes(true)
-      loadAvanceVotaciones()
-    }, 10000)
+    }, POLL_MS_FLAGS)
+
+    const intervalHeavy = setInterval(async () => {
+      if (pollingPesadoInFlightRef.current) return
+      pollingPesadoInFlightRef.current = true
+      try {
+        await loadAsistentes(true)
+        await loadAvanceVotaciones()
+        ultimaRecargaPesadaRef.current = Date.now()
+      } finally {
+        pollingPesadoInFlightRef.current = false
+      }
+    }, POLL_MS_HEAVY)
 
     const onVisibility = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         loadAsamblea()
+        if (pollingPesadoInFlightRef.current) return
+        if (shouldSkipFocusRefresh(ultimaRecargaPesadaRef.current, Date.now())) return
+        pollingPesadoInFlightRef.current = true
+        void (async () => {
+          try {
+            await loadAsistentes(true)
+            await loadAvanceVotaciones()
+            ultimaRecargaPesadaRef.current = Date.now()
+          } finally {
+            pollingPesadoInFlightRef.current = false
+          }
+        })()
       }
     }
     document.addEventListener('visibilitychange', onVisibility)
 
     return () => {
-      clearInterval(interval)
+      clearInterval(intervalFlags)
+      clearInterval(intervalHeavy)
       document.removeEventListener('visibilitychange', onVisibility)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run on mount and when id changes; loaders are stable
@@ -1166,7 +1204,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
             </div>
 
-          {/* Paneles: con verificación de quórum activa → 2 paneles (Ya verificaron | Faltan por verificar); si no → 3 paneles (Sesión Activa | Ya Votaron | Pendientes) */}
+          {/* Paneles: con verificación de quórum activa → 2 paneles; si no → Pendientes, Ya votaron y Sesión activa (ocultable) */}
           <div className="lg:col-span-2">
             {verificacionActiva ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[calc(100vh-12rem)] min-h-[480px]">
@@ -1268,50 +1306,45 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </Card>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[calc(100vh-12rem)] min-h-[480px]">
-                {/* Sesión Activa: unidades con ping de quórum activo */}
-                <Card className="flex flex-col overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
-                  <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-green-50 dark:bg-green-900/20">
-                    <div className="flex items-center justify-between gap-2">
-                      <CardTitle className="text-sm flex items-center gap-1.5">
-                        <Radio className="w-4 h-4 text-green-600" />
-                        Sesión Activa
-                        <span className="font-bold tabular-nums">({asistentes.length})</span>
-                      </CardTitle>
-                      <span className="text-xs font-bold text-green-700 dark:text-green-400 bg-green-200 dark:bg-green-800/50 px-2 py-0.5 rounded-full">
-                        EN VIVO
-                      </span>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-h-[480px]">
+                {/* Pendientes (Faltantes) */}
+                <Card className="flex flex-col overflow-hidden rounded-3xl border border-amber-500/50 border-[rgba(255,255,255,0.1)] md:row-span-2" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                  <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-amber-50 dark:bg-amber-900/20">
+                    <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
+                      <UserX className="w-4 h-4" />
+                      Pendientes (Faltantes)
+                      <span className="font-bold tabular-nums">({faltantes.length})</span>
+                    </CardTitle>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Conectados ahora (ping quórum)
+                      Unidades que aún no han votado — para localizar y alcanzar quórum
                     </p>
                     <div className="relative mt-2">
                       <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
                       <input
                         type="search"
                         placeholder="Buscar..."
-                        aria-label="Buscar en sesión activa"
-                        value={searchSesion}
-                        onChange={(e) => setSearchSesion(e.target.value)}
+                        aria-label="Buscar en pendientes"
+                        value={searchFaltantes}
+                        onChange={(e) => setSearchFaltantes(e.target.value)}
                         className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
                       />
                     </div>
                   </CardHeader>
                   <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                    <div className="flex-1 overflow-y-auto overscroll-contain">
-                      {asistentesFiltrados.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-gray-500">
-                          <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                          Esperando el primer ingreso...
+                    <div className="flex-1 overflow-y-auto overscroll-contain max-h-[60vh]">
+                      {faltantesFiltrados.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500 flex items-center gap-2 justify-center">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                          {faltantes.length === 0 ? 'Todas las unidades ya votaron.' : 'Ninguna unidad coincide con la búsqueda.'}
                         </div>
                       ) : (
                         <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                          {asistentesFiltrados.map((a) => (
-                            <li key={a.id} className="px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                              <div className="font-medium text-gray-900 dark:text-white">{a.torre} - {a.numero}</div>
-                              <div className="text-gray-600 dark:text-gray-400 truncate">{a.nombre_propietario}</div>
-                              <div className="text-xs text-gray-500 truncate">{a.email_propietario}</div>
-                              <div className="text-xs font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">{a.coeficiente.toFixed(2)}%</div>
+                          {faltantesFiltrados.map((u) => (
+                            <li key={u.id} className="px-4 py-2 text-sm hover:bg-amber-50/50 dark:hover:bg-amber-900/10">
+                              <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
+                              <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
+                              <div className="text-xs text-gray-500 truncate">{u.email_propietario}</div>
+                              <div className="text-xs font-mono text-amber-600 dark:text-amber-400 mt-0.5">{u.coeficiente.toFixed(2)}%</div>
                             </li>
                           ))}
                         </ul>
@@ -1344,7 +1377,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     </div>
                   </CardHeader>
                   <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                    <div className="flex-1 overflow-y-auto overscroll-contain">
+                    <div className="flex-1 overflow-y-auto overscroll-contain max-h-[28vh]">
                       {yaVotaronFiltrados.length === 0 ? (
                         <div className="p-4 text-center text-sm text-gray-500">Ninguna unidad ha votado aún.</div>
                       ) : (
@@ -1363,50 +1396,71 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   </CardContent>
                 </Card>
 
-                {/* Pendientes (Faltantes) */}
-                <Card className="flex flex-col overflow-hidden rounded-3xl border border-amber-500/50 border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
-                  <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-amber-50 dark:bg-amber-900/20">
-                    <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
-                      <UserX className="w-4 h-4" />
-                      Pendientes (Faltantes)
-                      <span className="font-bold tabular-nums">({faltantes.length})</span>
-                    </CardTitle>
+                {/* Sesión Activa: unidades con ping de quórum activo (ocultable) */}
+                <Card className="flex flex-col overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                  <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-green-50 dark:bg-green-900/20">
+                    <div className="flex items-center justify-between gap-2">
+                      <CardTitle className="text-sm flex items-center gap-1.5">
+                        <Radio className="w-4 h-4 text-green-600" />
+                        Sesión Activa
+                        <span className="font-bold tabular-nums">({asistentes.length})</span>
+                      </CardTitle>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-green-700 dark:text-green-400 bg-green-200 dark:bg-green-800/50 px-2 py-0.5 rounded-full">
+                          EN VIVO
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowSesionActivaPanel((v) => !v)}
+                          className="h-7 rounded-xl px-2 text-xs"
+                          title={showSesionActivaPanel ? 'Ocultar sesión activa' : 'Mostrar sesión activa'}
+                        >
+                          {showSesionActivaPanel ? 'Ocultar' : 'Mostrar'}
+                        </Button>
+                      </div>
+                    </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Unidades que aún no han votado — para localizar y alcanzar quórum
+                      Conectados ahora (ping quórum)
                     </p>
-                    <div className="relative mt-2">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
-                      <input
-                        type="search"
-                        placeholder="Buscar..."
-                        aria-label="Buscar en pendientes"
-                        value={searchFaltantes}
-                        onChange={(e) => setSearchFaltantes(e.target.value)}
-                        className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
-                      />
-                    </div>
+                    {showSesionActivaPanel && (
+                      <div className="relative mt-2">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
+                        <input
+                          type="search"
+                          placeholder="Buscar..."
+                          aria-label="Buscar en sesión activa"
+                          value={searchSesion}
+                          onChange={(e) => setSearchSesion(e.target.value)}
+                          className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800"
+                        />
+                      </div>
+                    )}
                   </CardHeader>
-                  <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                    <div className="flex-1 overflow-y-auto overscroll-contain">
-                      {faltantesFiltrados.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-gray-500 flex items-center gap-2 justify-center">
-                          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                          {faltantes.length === 0 ? 'Todas las unidades ya votaron.' : 'Ninguna unidad coincide con la búsqueda.'}
-                        </div>
-                      ) : (
-                        <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                          {faltantesFiltrados.map((u) => (
-                            <li key={u.id} className="px-4 py-2 text-sm hover:bg-amber-50/50 dark:hover:bg-amber-900/10">
-                              <div className="font-medium text-gray-900 dark:text-white">{u.torre} - {u.numero}</div>
-                              <div className="text-gray-600 dark:text-gray-400 truncate">{u.nombre_propietario}</div>
-                              <div className="text-xs text-gray-500 truncate">{u.email_propietario}</div>
-                              <div className="text-xs font-mono text-amber-600 dark:text-amber-400 mt-0.5">{u.coeficiente.toFixed(2)}%</div>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </CardContent>
+                  {showSesionActivaPanel && (
+                    <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
+                      <div className="flex-1 overflow-y-auto overscroll-contain max-h-[28vh]">
+                        {asistentesFiltrados.length === 0 ? (
+                          <div className="p-4 text-center text-sm text-gray-500">
+                            <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                            Esperando el primer ingreso...
+                          </div>
+                        ) : (
+                          <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                            {asistentesFiltrados.map((a) => (
+                              <li key={a.id} className="px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                <div className="font-medium text-gray-900 dark:text-white">{a.torre} - {a.numero}</div>
+                                <div className="text-gray-600 dark:text-gray-400 truncate">{a.nombre_propietario}</div>
+                                <div className="text-xs text-gray-500 truncate">{a.email_propietario}</div>
+                                <div className="text-xs font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">{a.coeficiente.toFixed(2)}%</div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </CardContent>
+                  )}
                 </Card>
               </div>
             )}
