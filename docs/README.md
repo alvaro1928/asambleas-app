@@ -26,7 +26,7 @@
 | [guias/GUIA-ESTADISTICAS-QUORUM-PODERES.md](guias/GUIA-ESTADISTICAS-QUORUM-PODERES.md) | Estadísticas, quórum, poderes, **verificación de asistencia** (activar/desactivar, paneles Ya verificaron / Faltan por verificar) y **acceso delegado** (enlace para asistente). |
 | [guias/FUNCIONALIDADES-Y-CAPACIDAD.md](guias/FUNCIONALIDADES-Y-CAPACIDAD.md) | Listado de funcionalidades y validación de capacidad (500+ usuarios). |
 | [guias/GUIA-TOKENS-Y-FUNCIONALIDADES.md](guias/GUIA-TOKENS-Y-FUNCIONALIDADES.md) | Tokens por gestor, activación de asamblea, **LOPD en sesión**, WhatsApp, acta/sandbox y compra. |
-| [guias/GUIA-MODALES-Y-LEGAL.md](guias/GUIA-MODALES-Y-LEGAL.md) | Modales operativos: **GuiaTokensModal** (contexto de asamblea, LOPD, «Ver más») y asistencia manual; configuración legal en Supabase. |
+| [guias/GUIA-MODALES-Y-LEGAL.md](guias/GUIA-MODALES-Y-LEGAL.md) | Modales operativos: **GuiaTokensModal** (contexto de asamblea, LOPD, «Ver más»), asistencia manual y comportamiento del registro de uso de tokens agrupado por sesión (`session_seq`); configuración legal en Supabase. |
 
 ---
 

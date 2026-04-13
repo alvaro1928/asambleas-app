@@ -109,26 +109,131 @@ export async function GET() {
       }
     }
 
-    const uso = rows.map((r) => {
-      const meta = (r.metadata ?? null) as Record<string, unknown> | null
-      let unidad_labels: string[] | undefined
-      if (meta && Array.isArray(meta.unidad_ids)) {
-        unidad_labels = (meta.unidad_ids as string[])
-          .map((id) => unidadEtiquetas[id] ?? id.slice(0, 8))
-          .filter(Boolean)
+    interface UsoTokenRow {
+      id: string
+      fecha: string
+      tipo_operacion: string
+      tokens_usados: number
+      saldo_restante: number
+      asamblea_nombre: string | null
+      conjunto_nombre: string | null
+      metadata: Record<string, unknown> | null
+      unidad_labels?: string[]
+    }
+
+    interface ConsentGroup {
+      id: string
+      fecha: string
+      tipo_operacion: 'Consentimiento_sesion'
+      tokens_usados: number
+      saldo_restante: number
+      asamblea_id: string | null
+      organization_id: string | null
+      session_seq: number
+      unidad_ids: Set<string>
+    }
+
+    const parseSessionSeq = (meta: Record<string, unknown> | null): number | null => {
+      const raw = meta?.session_seq
+      if (typeof raw === 'number' && Number.isFinite(raw)) return Math.trunc(raw)
+      if (typeof raw === 'string') {
+        const parsed = Number(raw)
+        if (Number.isFinite(parsed)) return Math.trunc(parsed)
       }
+      return null
+    }
+
+    const groupedConsent = new Map<string, ConsentGroup>()
+    const passthroughRows: UsoTokenRow[] = []
+
+    for (const r of rows) {
+      const meta = (r.metadata ?? null) as Record<string, unknown> | null
+
+      if (r.tipo_operacion !== 'Consentimiento_sesion') {
+        let unidad_labels: string[] | undefined
+        if (meta && Array.isArray(meta.unidad_ids)) {
+          unidad_labels = (meta.unidad_ids as string[])
+            .map((id) => unidadEtiquetas[id] ?? id.slice(0, 8))
+            .filter(Boolean)
+        }
+        passthroughRows.push({
+          id: r.id,
+          fecha: r.fecha,
+          tipo_operacion: r.tipo_operacion,
+          tokens_usados: Number(r.tokens_usados ?? 0),
+          saldo_restante: Number(r.saldo_restante ?? 0),
+          asamblea_nombre: r.asamblea_id ? (asambleaNombre[r.asamblea_id] ?? '—') : null,
+          conjunto_nombre: r.organization_id ? (orgNombre[r.organization_id] ?? '—') : null,
+          metadata: meta,
+          unidad_labels: unidad_labels?.length ? unidad_labels : undefined,
+        })
+        continue
+      }
+
+      const sessionSeq = parseSessionSeq(meta)
+      if (!r.asamblea_id || sessionSeq == null) {
+        passthroughRows.push({
+          id: r.id,
+          fecha: r.fecha,
+          tipo_operacion: r.tipo_operacion,
+          tokens_usados: Number(r.tokens_usados ?? 0),
+          saldo_restante: Number(r.saldo_restante ?? 0),
+          asamblea_nombre: r.asamblea_id ? (asambleaNombre[r.asamblea_id] ?? '—') : null,
+          conjunto_nombre: r.organization_id ? (orgNombre[r.organization_id] ?? '—') : null,
+          metadata: meta,
+        })
+        continue
+      }
+
+      const groupKey = `${r.asamblea_id}::${sessionSeq}`
+      const ids = Array.isArray(meta?.unidad_ids) ? (meta!.unidad_ids as string[]).filter((id) => typeof id === 'string') : []
+
+      const current = groupedConsent.get(groupKey)
+      if (!current) {
+        groupedConsent.set(groupKey, {
+          id: `consent:${groupKey}`,
+          fecha: r.fecha,
+          tipo_operacion: 'Consentimiento_sesion',
+          tokens_usados: Number(r.tokens_usados ?? 0),
+          saldo_restante: Number(r.saldo_restante ?? 0),
+          asamblea_id: r.asamblea_id ?? null,
+          organization_id: r.organization_id ?? null,
+          session_seq: sessionSeq,
+          unidad_ids: new Set(ids),
+        })
+      } else {
+        current.tokens_usados += Number(r.tokens_usados ?? 0)
+        for (const id of ids) current.unidad_ids.add(id)
+        if (new Date(r.fecha).getTime() > new Date(current.fecha).getTime()) {
+          current.fecha = r.fecha
+          current.saldo_restante = Number(r.saldo_restante ?? 0)
+          current.id = `consent:${groupKey}:${r.id}`
+        }
+      }
+    }
+
+    const consentRows: UsoTokenRow[] = Array.from(groupedConsent.values()).map((g) => {
+      const unidadIds = Array.from(g.unidad_ids)
       return {
-        id: r.id,
-        fecha: r.fecha,
-        tipo_operacion: r.tipo_operacion,
-        tokens_usados: Number(r.tokens_usados ?? 0),
-        saldo_restante: Number(r.saldo_restante ?? 0),
-        asamblea_nombre: r.asamblea_id ? (asambleaNombre[r.asamblea_id] ?? '—') : null,
-        conjunto_nombre: r.organization_id ? (orgNombre[r.organization_id] ?? '—') : null,
-        metadata: meta,
-        unidad_labels: unidad_labels?.length ? unidad_labels : undefined,
+        id: g.id,
+        fecha: g.fecha,
+        tipo_operacion: g.tipo_operacion,
+        tokens_usados: g.tokens_usados,
+        saldo_restante: g.saldo_restante,
+        asamblea_nombre: g.asamblea_id ? (asambleaNombre[g.asamblea_id] ?? '—') : null,
+        conjunto_nombre: g.organization_id ? (orgNombre[g.organization_id] ?? '—') : null,
+        metadata: {
+          session_seq: g.session_seq,
+          unidad_ids: unidadIds,
+          operaciones_agrupadas: true,
+        },
+        unidad_labels: unidadIds.map((id) => unidadEtiquetas[id] ?? id.slice(0, 8)).filter(Boolean),
       }
     })
+
+    const uso = [...passthroughRows, ...consentRows].sort(
+      (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+    )
 
     return NextResponse.json({ uso })
   } catch (e) {

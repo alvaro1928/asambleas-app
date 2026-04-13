@@ -23,6 +23,8 @@ import {
   Link2,
   ChevronDown,
   ChevronUp,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -250,6 +252,26 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
   // Enlace delegado
   const [showModalAsistencia, setShowModalAsistencia] = useState(false)
+  const [visualTheme, setVisualTheme] = useState<'dark' | 'light'>('dark')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const saved = window.localStorage.getItem('acceso_visual_theme')
+    if (saved === 'light' || saved === 'dark') {
+      setVisualTheme(saved)
+      return
+    }
+    const preferDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    setVisualTheme(preferDark ? 'dark' : 'light')
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem('acceso_visual_theme', visualTheme)
+    const root = document.documentElement
+    if (visualTheme === 'dark') root.classList.add('dark')
+    else root.classList.remove('dark')
+  }, [visualTheme])
 
   useEffect(() => {
     loadAsamblea()
@@ -906,7 +928,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const saldoInsuficiente = totalUnidadesConjunto > 0 && tokensDisponibles < totalUnidadesConjunto
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#0B0E14' }}>
+    <div className={`min-h-screen ${visualTheme === 'light' ? 'acceso-theme-light' : 'acceso-theme-dark'}`} style={{ backgroundColor: '#0B0E14' }}>
       <header className="shadow-sm border-b border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: '#0B0E14' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between mb-4">
@@ -922,24 +944,36 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 <p className="text-sm text-gray-500 dark:text-gray-400">{asamblea?.nombre}</p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                setRecargando(true)
-                try {
-                  await loadAvanceVotaciones()
-                  await loadAsistentes(true)
-                } finally {
-                  setRecargando(false)
-                }
-              }}
-              disabled={recargando}
-              className="rounded-3xl border-gray-200 dark:border-[rgba(255,255,255,0.1)]"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
-              {recargando ? 'Actualizando…' : 'Actualizar'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVisualTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+                className="rounded-3xl border-gray-200 dark:border-[rgba(255,255,255,0.18)] bg-white/90 dark:bg-slate-900/60"
+                title="Cambiar rápido entre modo claro y oscuro (proyector)"
+              >
+                {visualTheme === 'dark' ? <Sun className="w-4 h-4 mr-1.5" /> : <Moon className="w-4 h-4 mr-1.5" />}
+                {visualTheme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  setRecargando(true)
+                  try {
+                    await loadAvanceVotaciones()
+                    await loadAsistentes(true)
+                  } finally {
+                    setRecargando(false)
+                  }
+                }}
+                disabled={recargando}
+                className="rounded-3xl border-gray-200 dark:border-[rgba(255,255,255,0.1)]"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${recargando ? 'animate-spin' : ''}`} />
+                {recargando ? 'Actualizando…' : 'Actualizar'}
+              </Button>
+            </div>
           </div>
 
           {saldoInsuficiente && (
@@ -1617,6 +1651,38 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         asambleaId={params.id}
         onGuardado={loadAvanceVotaciones}
       />
+
+      <style jsx global>{`
+        .acceso-theme-light {
+          background: #f8fafc !important;
+        }
+        .acceso-theme-light header,
+        .acceso-theme-light main {
+          background: #f8fafc !important;
+        }
+        .acceso-theme-light [style*="backgroundColor: 'rgba(15,23,42,0.6)'"],
+        .acceso-theme-light [style*="backgroundColor: 'rgba(15,23,42,0.6)';"] {
+          background: #ffffff !important;
+        }
+        .acceso-theme-light .text-slate-200,
+        .acceso-theme-light .text-slate-300,
+        .acceso-theme-light .text-slate-400,
+        .acceso-theme-light .text-slate-500 {
+          color: #0f172a !important;
+        }
+        .acceso-theme-light .bg-white\/5 {
+          background: #f1f5f9 !important;
+        }
+        .acceso-theme-light .border-white\/10,
+        .acceso-theme-light .border-\[rgba\(255\,255\,255\,0\.1\)\] {
+          border-color: #cbd5e1 !important;
+        }
+        .acceso-theme-light .text-indigo-200,
+        .acceso-theme-light .text-indigo-300,
+        .acceso-theme-light .text-emerald-200 {
+          color: #1e3a8a !important;
+        }
+      `}</style>
     </div>
   )
 }

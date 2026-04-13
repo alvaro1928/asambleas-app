@@ -2359,6 +2359,15 @@ Tu participacion es importante. 🏠`
                   <span className="sm:hidden">Unidades</span>
                 </Link>
               )}
+              <Link
+                href={`/dashboard/configuracion?volver_asamblea=${params.id}#asamblea`}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-medium transition-colors shrink-0 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                title="Ir a Configuración y volver rápido a esta asamblea"
+              >
+                <Settings2 className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">Configuración</span>
+                <span className="sm:hidden">Config</span>
+              </Link>
 
               {/* 2. Estados: billetera y badges */}
               <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -3306,7 +3315,7 @@ Tu participacion es importante. 🏠`
                   )}
                   {!isDemo && isReadOnlyStructure && (
                     <p className="text-sm text-amber-700 dark:text-amber-300 mt-3 max-w-md mx-auto">
-                      La estructura está cerrada: pasaron más de {horasGracia} h desde la activación o la asamblea está finalizada. No se pueden agregar ni editar preguntas (solo consultar y generar acta).
+                      La estructura está cerrada: pasaron más de {horasGracia} h desde la activación o la asamblea está finalizada. No se pueden agregar ni editar preguntas, pero sí archivar y desarchivar para controlar qué entra al acta final.
                     </p>
                   )}
                 </div>
@@ -3337,8 +3346,8 @@ Tu participacion es importante. 🏠`
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleDesarchivarPregunta(pregunta.id)}
-                                disabled={archivingPreguntaId === pregunta.id || isReadOnlyStructure}
-                                title={isReadOnlyStructure ? 'Estructura congelada' : 'Devolver al orden del día'}
+                                disabled={archivingPreguntaId === pregunta.id}
+                                title="Devolver al orden del día"
                               >
                                 {archivingPreguntaId === pregunta.id ? (
                                   <span className="inline-block w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -3645,9 +3654,9 @@ Tu participacion es importante. 🏠`
                           variant="outline"
                           size="sm"
                           onClick={() => handleArchivarPregunta(pregunta.id)}
-                          disabled={archivingPreguntaId === pregunta.id || isReadOnlyStructure}
+                          disabled={archivingPreguntaId === pregunta.id}
                           className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-1"
-                          title={isReadOnlyStructure ? 'Estructura congelada' : 'Las preguntas archivadas no aparecerán en el acta final'}
+                          title="Las preguntas archivadas no aparecerán en el acta final"
                         >
                           {archivingPreguntaId === pregunta.id ? (
                             <span className="inline-block w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
@@ -3693,8 +3702,8 @@ Tu participacion es importante. 🏠`
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleDesarchivarPregunta(pregunta.id)}
-                                disabled={archivingPreguntaId === pregunta.id || isReadOnlyStructure}
-                                title={isReadOnlyStructure ? 'Estructura congelada' : 'Devolver al orden del día'}
+                                disabled={archivingPreguntaId === pregunta.id}
+                                title="Devolver al orden del día"
                               >
                                 {archivingPreguntaId === pregunta.id ? (
                                   <span className="inline-block w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />

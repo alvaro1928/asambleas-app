@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import Link from 'next/link'
@@ -31,6 +31,8 @@ export default function ConfiguracionPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const volverAsambleaId = searchParams.get('volver_asamblea')?.trim() || null
 
   // Estados del formulario de perfil
   const [fullName, setFullName] = useState('')
@@ -537,6 +539,16 @@ Tu participacion es importante. 🏠`
                   />
                 </svg>
               </Link>
+              {volverAsambleaId && (
+                <Link
+                  href={`/dashboard/asambleas/${volverAsambleaId}`}
+                  className="inline-flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                  title="Volver a la asamblea"
+                >
+                  <ChevronUp className="w-4 h-4 rotate-90" />
+                  Volver a la asamblea
+                </Link>
+              )}
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                 Configuración
               </h1>

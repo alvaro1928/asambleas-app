@@ -38,8 +38,10 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - **Crear asamblea** (`/dashboard/asambleas/nueva`): nombre, descripción, fecha.
 - **Detalle de asamblea** (`/dashboard/asambleas/[id]`):
   - Agregar, editar y eliminar **preguntas** y **opciones** (tipos: coeficiente o nominal; estados: pendiente, abierta, cerrada).
+  - Con asamblea cerrada/finalizada se mantiene el **archivo/desarchivo de preguntas** para controlar qué entra al acta final.
   - Umbral de aprobación por pregunta.
   - Activar/desactivar **votación pública** (genera código de acceso y URL).
+  - Acceso directo a **Configuración** desde la cabecera de la asamblea y retorno rápido a la misma asamblea.
   - En la sección **Acceso Público**, botones de **Verificación de quórum**: **Activar/Desactivar verificación** y **Registrar asistencia** (enlace a la página de acceso para el modal de registro manual); se muestra el resumen de asistencia verificada y si se alcanzó quórum (Ley 675).
   - Ver **quórum** (unidades que votaron, coeficiente, porcentaje nominal/coeficiente) y **historial de validaciones de quórum (asamblea en general)** en el panel colapsable. La visibilidad de las tarjetas de quórum y del historial se configura en **Configuración → Asamblea** (para tu usuario y este conjunto).
   - Ver estadísticas por pregunta (votos por opción, porcentajes).
@@ -69,7 +71,8 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 **Configuración** (`/dashboard/configuracion`)
 - **Mi perfil**, **Contraseña**, **Datos del conjunto**, **Poderes y correo**, **Mis pagos**, **Uso de tokens**.
 - **Poderes y correo:** Máx. poderes por apoderado (parametrizable) y plantilla adicional para correos de votación (ej. enlace Teams/Meet).
-- **Uso de tokens:** Tabla con historial de operaciones que consumieron tokens (fecha/hora, tipo, tokens usados, saldo restante, detalle). Incluye consentimiento LOPD/sesión, WhatsApp, compra, ajustes manuales y otros tipos registrados en `billing_logs` / lógica vigente.
+- **Uso de tokens:** Tabla con historial de operaciones que consumieron tokens (fecha/hora, tipo, tokens usados, saldo restante, detalle). Para `Consentimiento_sesion`, el historial se agrupa por **asamblea + sesión (`session_seq`)** para mostrar una fila consolidada por ronda de acceso público. Incluye también WhatsApp, compra, ajustes manuales y otros tipos registrados en `billing_logs`.
+- Si llegas desde una asamblea (`?volver_asamblea=`), Configuración muestra enlace para **volver a la asamblea** sin pasar por el dashboard.
 
 ---
 
@@ -100,6 +103,7 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - **Tabla de conjuntos (cuentas):** listado; los **tokens** están en **profiles** (billetera por gestor), no por conjunto. El super admin puede gestionar planes y precios.
 - **Tabla de planes:** edición de nombre, **precio por token (COP)** (`precio_por_asamblea_cop`), etc.; botón Guardar por plan. El webhook acredita tokens en el perfil del gestor cuando la referencia es `REF_<user_id>_<timestamp>`.
 - **Ajustes** (`/super-admin/ajustes`): color principal, WhatsApp, precio por token, bono de bienvenida. **Correo (SMTP):** host, puerto, usuario, contraseña para envío de enlace de votación.
+- **Landing / información comercial:** textos operativos (precio, WhatsApp, branding principal) se reflejan desde configuración global y consumen `app/page.tsx` para mantener coherencia entre panel y página de inicio.
 - **WhatsApp** (`/super-admin/whatsapp`): Token Meta, Phone Number ID, nombre de plantilla, tokens por mensaje. Meta cobra por mensaje marketing; se configura tokens_por_mensaje para no perder dinero.
 - **Exportar lista** de conjuntos (CSV).
 - Filtros por nombre de conjunto.

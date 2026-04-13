@@ -59,6 +59,12 @@
 | **WhatsApp masivo** | Según `tokens_por_mensaje_whatsapp`. |
 | **Generar / descargar acta** | Sin cargo extra por versión con auditoría; requisitos de acceso según pantalla. |
 
+### Registro de uso de tokens (pantalla Configuración)
+
+- El historial de `Consentimiento_sesion` se muestra agrupado por **asamblea + sesión** (`session_seq`).
+- Una fila equivale a una ronda de acceso público activa; al desactivar y volver a activar, se crea una fila nueva.
+- El detalle conserva la lista consolidada de unidades involucradas en esa sesión para trazabilidad.
+
 ---
 
 ## Referencias

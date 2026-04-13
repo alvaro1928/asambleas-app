@@ -53,10 +53,11 @@ Documento de referencia para retomar el trabajo en este chat. **Proyecto:** Asam
 
 - **Saldo:** `profiles.tokens_disponibles` (por gestor/usuario).
 - **Regla:** 1 token = 1 unidad de vivienda. Costo = número de unidades del conjunto.
-- **Consume tokens:** solo **activar la asamblea** (cobro único; `pago_realizado = true`).
-- **No consume:** crear asambleas, preguntas, importar unidades, generar acta (tras activar), registrar votos manuales, sandbox.
+- **Consume tokens:** activación (según flujo vigente), **consentimiento LOPD por sesión pública** (umbral por sesión: 5 primeras unidades nuevas sin cobro; desde la 6.ª, 1 token por unidad nueva), WhatsApp masivo y otras operaciones explícitas.
+- **No consume:** crear asambleas, editar preguntas, importar unidades, registrar votos manuales, sandbox.
 - **Límites:** si `tokens < unidades`: máx 2 preguntas, sin acta detallada. Si `tokens >= unidades`: 999 preguntas, acta detallada (`lib/plan-limits.ts`).
 - **Compra mínima:** 20 tokens (modal "Sin tokens").
+- **Historial en Configuración:** `Consentimiento_sesion` se presenta agrupado por `asamblea_id + session_seq` para que cada activación/reapertura de votación pública tenga una sola fila consolidada.
 
 ---
 
@@ -67,7 +68,7 @@ Documento de referencia para retomar el trabajo en este chat. **Proyecto:** Asam
 
 ### 4.2 Activar votación pública
 - RPC `activar_votacion_publica`: genera código, `url_publica`, `codigo_acceso`.  
-- Consume tokens (si no es demo); marca `pago_realizado`.
+- Reinicia contexto operativo de acceso público cuando corresponde y la sesión de LOPD se gestiona por `session_seq`.
 
 ### 4.3 Votación pública (`/votar/[codigo]`)
 1. `validar_codigo_acceso` → asamblea_id, organization_id.
@@ -94,6 +95,11 @@ Documento de referencia para retomar el trabajo en este chat. **Proyecto:** Asam
 ### 4.7 Acta
 - Descarga con resultados, quórum, **registros de verificación** (general y por pregunta), auditoría (quién votó, IP, user-agent), unidades que no participaron por pregunta, indicador "Poder" en votos.
 - En sandbox: marca "BORRADOR DE PRUEBA — SIN VALIDEZ LEGAL".
+
+### 4.8 Navegación rápida asamblea/configuración
+- Desde `app/dashboard/asambleas/[id]/page.tsx` existe botón directo a Configuración con `?volver_asamblea=<id>`.
+- En `app/dashboard/configuracion/page.tsx`, cuando viene ese parámetro, se muestra enlace "Volver a la asamblea".
+- Objetivo: evitar fricción de tener que volver al dashboard para cambiar ajustes y regresar al flujo operativo.
 
 ---
 
@@ -126,10 +132,10 @@ Documento de referencia para retomar el trabajo en este chat. **Proyecto:** Asam
 
 ## 7. Cambios recientes (esta sesión)
 
-- **Registrar voto:** Filtro unidades por `is_demo` (real sin demo; sandbox solo demo).
-- **Auto-fill registrar voto:** Campo inicial "Torre y unidad"; al seleccionar rellena email y nombre.
-- **Poderes:** Eliminado useEffect duplicado de auto-fill.
-- **Asamblea [id]:** Eliminado panel duplicado "Credenciales de Prueba"; responsive en botones; modal guía Quórum/Preguntas/Poderes; SEO y metadatos dinámicos.
+- **Preguntas en asamblea cerrada:** se permite archivar/desarchivar incluso con estructura cerrada/finalizada (manteniendo bloqueos de edición estructural).
+- **Uso de tokens:** agrupación de `Consentimiento_sesion` por asamblea y `session_seq` en `GET /api/dashboard/uso-tokens`.
+- **Navegación operativa:** acceso directo Asamblea → Configuración y retorno Configuración → Asamblea usando `volver_asamblea`.
+- **Texto UX:** aviso de estructura cerrada actualizado para aclarar que archivar/desarchivar sí está permitido.
 
 ---
 

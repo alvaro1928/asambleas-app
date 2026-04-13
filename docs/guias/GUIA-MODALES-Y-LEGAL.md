@@ -42,6 +42,19 @@ Mejoras vigentes:
 - Contador visible de resultados filtrados y seleccionados.
 - Mensajes de estado para éxito/error durante guardado.
 
+## 2.1) Registro de uso de tokens (Configuración)
+
+Pantalla: `app/dashboard/configuracion/page.tsx`  
+API: `app/api/dashboard/uso-tokens/route.ts`
+
+Comportamiento vigente para `Consentimiento_sesion`:
+- El historial se muestra **agrupado por asamblea y sesión** (`session_seq`), no por consumo individual.
+- Cada fila representa una ronda de votación pública (desde que se activa hasta que se desactiva).
+- La columna de tokens suma el total consumido en esa ronda y el detalle permite expandir unidades vinculadas.
+- Si la asamblea se desactiva y se vuelve a activar, se crea una nueva sesión y por tanto un nuevo registro agrupado.
+
+Esto evita ruido visual (muchas filas de 1 token) y facilita auditoría operativa por sesión.
+
 ## 3) Configuración legal editable
 
 Script base: `supabase/CONFIGURACION-LEGAL-DOCUMENTOS.sql`
@@ -65,5 +78,6 @@ Recomendación operativa:
 - Verificar textos finales en **GuiaTokensModal** y en **ModalRegistroAsistencia**.
 - Con asamblea real: abrir la guía desde la página de asamblea y comprobar bloque superior + «Ver más» + cierre del diálogo (estado del acordeón se resetea al cerrar).
 - Confirmar contraste y navegación por teclado en los diálogos.
+- Verificar que el historial de uso de tokens muestre una fila por sesión de LOPD (agrupación por `session_seq`).
 - Ejecutar script legal en Supabase (`CONFIGURACION-LEGAL-DOCUMENTOS.sql`).
 - Validar lectura pública de documentos y edición solo desde backend seguro.
