@@ -138,36 +138,46 @@ function ResumenLineaAvanceGrafica({
   totalUnidadesConjunto,
   tipoV,
   size,
+  tone = 'default',
 }: {
   av: PreguntaAvance
   totalUnidadesConjunto: number | null | undefined
   tipoV: 'coeficiente' | 'nominal'
   size: 'sm' | 'md'
+  /** Mayor contraste sobre fondo oscuro (modal vista grande / proyector). */
+  tone?: 'default' | 'proyectorModal'
 }) {
   const pend = Math.max(0, 100 - av.porcentaje_participacion)
   const tu = totalUnidadesConjunto
   const sinVotar = tu != null && tu >= 0 ? Math.max(0, tu - av.total_votos) : null
+  const hi = tone === 'proyectorModal'
   const cls =
     size === 'md'
-      ? 'text-sm text-slate-400 leading-snug'
-      : 'text-xs text-slate-400 mt-1 leading-snug'
+      ? hi
+        ? 'text-sm text-slate-200 leading-snug'
+        : 'text-sm text-slate-400 leading-snug'
+      : hi
+        ? 'text-xs text-slate-200 mt-1 leading-snug'
+        : 'text-xs text-slate-400 mt-1 leading-snug'
+  const numCls = hi ? 'font-bold tabular-nums text-slate-100' : 'font-bold tabular-nums text-slate-300'
+  const denCls = hi ? 'tabular-nums text-slate-100' : 'tabular-nums text-slate-300'
   return (
     <p className={cls}>
       {tu != null ? (
         <>
-          <span className="font-bold tabular-nums text-slate-300">{av.total_votos}</span>
-          /<span className="tabular-nums text-slate-300">{tu}</span> en esta pregunta
+          <span className={numCls}>{av.total_votos}</span>
+          /<span className={denCls}>{tu}</span> en esta pregunta
           {sinVotar != null && sinVotar > 0 && (
             <>
               {' '}
-              · <span className="font-bold tabular-nums">{sinVotar}</span> sin votar
+              · <span className={hi ? 'font-bold tabular-nums text-amber-200' : 'font-bold tabular-nums'}>{sinVotar}</span> sin votar
             </>
           )}
           {sinVotar === 0 && tu > 0 && ' · todas las unidades votaron'}
         </>
       ) : (
         <>
-          <span className="font-bold tabular-nums text-slate-300">{av.total_votos}</span>{' '}
+          <span className={numCls}>{av.total_votos}</span>{' '}
           {av.total_votos === 1 ? 'unidad' : 'unidades'} en esta pregunta
         </>
       )}
@@ -1628,73 +1638,123 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               <X className="w-5 h-5" />
             </Button>
           </DialogHeader>
-          <div className="space-y-10 pt-4">
-            {preguntasConResultados.map((preg) => {
-              const av = preguntasAvance.find((a) => a.id === preg.id)
-              const pctRelevante = (r: ResultadoOpcion) =>
-                preg.tipo_votacion === 'nominal' ? (r.porcentaje_nominal_total ?? 0) : r.porcentaje_coeficiente_total
-              const data: BarChartData[] = preg.resultados.map((r) => {
-                const pct = pctRelevante(r)
-                return {
-                  name: r.opcion_texto.length > 28 ? r.opcion_texto.slice(0, 26) + '…' : r.opcion_texto,
-                  fullName: r.opcion_texto,
-                  porcentaje: Math.round(pct * 100) / 100,
-                  votosCantidad: Number(r.votos_cantidad) || 0,
-                  coeficienteSum: Number(r.votos_coeficiente) || 0,
-                  color: r.color,
-                  aprueba: preg.umbral_aprobacion != null && pct >= preg.umbral_aprobacion
-                }
-              })
-              const umbral = preg.umbral_aprobacion ?? 51
-              const tipoVModal = (preg.tipo_votacion ?? av?.tipo_votacion ?? 'coeficiente') === 'nominal' ? 'nominal' : 'coeficiente'
-              return (
-                <div key={preg.id} className="space-y-4">
-                  <p className="text-xl sm:text-2xl font-bold text-slate-100 leading-snug">
-                    {preg.texto_pregunta}
-                  </p>
-                  {av && (
-                    <ResumenLineaAvanceGrafica
-                      av={av}
-                      totalUnidadesConjunto={quorum?.total_unidades}
-                      tipoV={tipoVModal}
-                      size="md"
-                    />
-                  )}
-                  <div className="min-h-[50vh] h-[55vh] w-full">
-                    <VotacionBarChart
-                      data={data}
-                      umbral={umbral}
-                      tipoVotacion={preg.tipo_votacion ?? 'coeficiente'}
-                      variant="proyector"
-                    />
-                  </div>
-                  {data.some((d) => d.aprueba) && (
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {data.filter((d) => d.aprueba).map((d, i) => (
-                        <span
-                          key={i}
-                          className="inline-flex items-center px-4 py-2 rounded-3xl text-base font-bold text-emerald-200 bg-emerald-900/40 border border-emerald-600"
-                          style={{ boxShadow: '0 0 16px rgba(16, 185, 129, 0.5)' }}
-                        >
-                          MAYORÍA ALCANZADA — {d.fullName}:{' '}
-                          {preg.tipo_votacion === 'nominal' ? (
-                            <>
-                              {d.porcentaje}% · {d.votosCantidad}{' '}
-                              {d.votosCantidad !== 1 ? 'unidades' : 'unidad'}
-                            </>
-                          ) : (
-                            <>
-                              {d.porcentaje}% del conjunto · {d.votosCantidad}{' '}
-                              {d.votosCantidad !== 1 ? 'unidades' : 'unidad'}
-                            </>
-                          )}
-                        </span>
-                      ))}
+          <div className="flex flex-col xl:flex-row xl:items-start gap-6 xl:gap-8 pt-4">
+            <div className="order-2 xl:order-1 flex-1 min-w-0 space-y-10">
+              {preguntasConResultados.map((preg) => {
+                const av = preguntasAvance.find((a) => a.id === preg.id)
+                const pctRelevante = (r: ResultadoOpcion) =>
+                  preg.tipo_votacion === 'nominal' ? (r.porcentaje_nominal_total ?? 0) : r.porcentaje_coeficiente_total
+                const data: BarChartData[] = preg.resultados.map((r) => {
+                  const pct = pctRelevante(r)
+                  return {
+                    name: r.opcion_texto.length > 28 ? r.opcion_texto.slice(0, 26) + '…' : r.opcion_texto,
+                    fullName: r.opcion_texto,
+                    porcentaje: Math.round(pct * 100) / 100,
+                    votosCantidad: Number(r.votos_cantidad) || 0,
+                    coeficienteSum: Number(r.votos_coeficiente) || 0,
+                    color: r.color,
+                    aprueba: preg.umbral_aprobacion != null && pct >= preg.umbral_aprobacion
+                  }
+                })
+                const umbral = preg.umbral_aprobacion ?? 51
+                const tipoVModal = (preg.tipo_votacion ?? av?.tipo_votacion ?? 'coeficiente') === 'nominal' ? 'nominal' : 'coeficiente'
+                return (
+                  <div key={preg.id} className="space-y-4">
+                    <p className="text-xl sm:text-2xl font-bold text-slate-100 leading-snug">
+                      {preg.texto_pregunta}
+                    </p>
+                    {av && (
+                      <ResumenLineaAvanceGrafica
+                        av={av}
+                        totalUnidadesConjunto={quorum?.total_unidades}
+                        tipoV={tipoVModal}
+                        size="md"
+                        tone="proyectorModal"
+                      />
+                    )}
+                    <div className="min-h-[min(50vh,420px)] h-[min(55vh,480px)] xl:min-h-[50vh] xl:h-[55vh] w-full">
+                      <VotacionBarChart
+                        data={data}
+                        umbral={umbral}
+                        tipoVotacion={preg.tipo_votacion ?? 'coeficiente'}
+                        variant="proyector"
+                      />
                     </div>
-                  )}
+                    {data.some((d) => d.aprueba) && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {data.filter((d) => d.aprueba).map((d, i) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center px-4 py-2 rounded-3xl text-base font-bold text-emerald-200 bg-emerald-900/40 border border-emerald-600"
+                            style={{ boxShadow: '0 0 16px rgba(16, 185, 129, 0.5)' }}
+                          >
+                            MAYORÍA ALCANZADA — {d.fullName}:{' '}
+                            {preg.tipo_votacion === 'nominal' ? (
+                              <>
+                                {d.porcentaje}% · {d.votosCantidad}{' '}
+                                {d.votosCantidad !== 1 ? 'unidades' : 'unidad'}
+                              </>
+                            ) : (
+                              <>
+                                {d.porcentaje}% del conjunto · {d.votosCantidad}{' '}
+                                {d.votosCantidad !== 1 ? 'unidades' : 'unidad'}
+                              </>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <aside
+              className="order-1 xl:order-2 w-full shrink-0 xl:w-[min(100%,300px)] xl:sticky xl:top-4 rounded-2xl border border-amber-500/45 bg-slate-900/80 flex flex-col overflow-hidden max-h-[min(42vh,380px)] xl:max-h-[min(calc(95vh-7rem),820px)]"
+              aria-label="Unidades pendientes de votar"
+            >
+              <div className="py-3 px-4 border-b border-amber-500/25 flex-shrink-0 bg-amber-950/35">
+                <h3 className="text-sm font-semibold flex items-center gap-1.5 text-amber-100">
+                  <UserX className="w-4 h-4 shrink-0" />
+                  Pendientes (Faltantes)
+                  <span className="font-bold tabular-nums">({faltantes.length})</span>
+                </h3>
+                <p className="text-xs text-slate-300 mt-1 leading-snug">
+                  Unidades que aún no han votado en esta asamblea
+                </p>
+                <div className="relative mt-2">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden="true" />
+                  <input
+                    type="search"
+                    placeholder="Buscar..."
+                    aria-label="Buscar en pendientes (vista grande)"
+                    value={searchFaltantes}
+                    onChange={(e) => setSearchFaltantes(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 text-sm rounded-xl border border-slate-600 bg-slate-800 text-slate-100 placeholder:text-slate-500"
+                  />
                 </div>
-              )
-            })}
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+                {faltantesFiltrados.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-slate-300 flex items-center gap-2 justify-center">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                    {faltantes.length === 0 ? 'Todas las unidades ya votaron.' : 'Ninguna unidad coincide con la búsqueda.'}
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-slate-700/80">
+                    {faltantesFiltrados.map((u) => (
+                      <li key={u.id} className="px-3 py-2 text-sm hover:bg-amber-950/25">
+                        <div className="font-medium text-slate-100">
+                          {u.torre} - {u.numero}
+                        </div>
+                        <div className="text-slate-300 truncate text-xs sm:text-sm">{u.nombre_propietario}</div>
+                        <div className="text-xs text-slate-400 truncate">{u.email_propietario}</div>
+                        <div className="text-xs font-mono text-amber-300/90 mt-0.5">{u.coeficiente.toFixed(2)}%</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </aside>
           </div>
         </DialogContent>
       </Dialog>
