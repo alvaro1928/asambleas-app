@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/dashboard/acta-proxy-documento-poder?url=...
  * Proxy para descargar documentos de poder desde Supabase Storage.
