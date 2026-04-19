@@ -4,10 +4,10 @@ import { cn } from '@/lib/utils'
 export const landingLegalFocusRing =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4338ca] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8f9ff]'
 
-export type LandingLegalNavHighlight = 'inicio' | 'legal'
+export type LandingLegalNavHighlight = 'inicio' | 'legal' | 'neutral'
 
 interface LandingLegalNavProps {
-  /** Qué enlace del menú central va resaltado (mismo criterio visual que el landing). */
+  /** Qué enlace del menú central va resaltado (mismo criterio visual que el landing). `neutral` = ninguno. */
   highlight?: LandingLegalNavHighlight
 }
 
