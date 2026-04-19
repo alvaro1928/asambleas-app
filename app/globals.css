@@ -50,6 +50,18 @@ body {
   font-family: ui-sans-serif, system-ui, sans-serif, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
+/* Landing: gradientes tipo export Stitch (usan --color-primary del sitio) */
+.landing-primary-gradient {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary) 72%, #0f172a) 0%,
+    var(--color-primary) 100%
+  );
+}
+.landing-dark-panel-gradient {
+  background: linear-gradient(180deg, #0b1c30 0%, #16124c 100%);
+}
+
 /* PDF / impresión: tablas completas, encabezados repetidos y página horizontal para tablas anchas */
 @media print {
   @page landscape {
