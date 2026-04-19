@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { AdminThemeToggle } from '@/components/AdminThemeToggle'
 
 export default function NuevoConjuntoPage() {
   const router = useRouter()
@@ -149,8 +150,8 @@ export default function NuevoConjuntoPage() {
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center space-x-4 min-w-0">
               <Link
                 href="/dashboard"
                 className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
@@ -173,6 +174,7 @@ export default function NuevoConjuntoPage() {
                 Registrar Nuevo Conjunto
               </h1>
             </div>
+            <AdminThemeToggle />
           </div>
         </div>
       </header>

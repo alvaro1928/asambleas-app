@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { Building2, ArrowLeft, Save, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { AdminThemeToggle } from '@/components/AdminThemeToggle'
 
 export default function EditarConjuntoPage() {
   const params = useParams()
@@ -149,21 +150,24 @@ export default function EditarConjuntoPage() {
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center space-x-4">
-            <Link
-              href="/dashboard/conjuntos"
-              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6" />
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Editar Conjunto
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Actualiza la información de tu conjunto residencial
-              </p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center space-x-4 min-w-0">
+              <Link
+                href="/dashboard/conjuntos"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </Link>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Editar Conjunto
+                </h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Actualiza la información de tu conjunto residencial
+                </p>
+              </div>
             </div>
+            <AdminThemeToggle />
           </div>
         </div>
       </header>

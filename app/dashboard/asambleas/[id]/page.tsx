@@ -68,6 +68,7 @@ import { StickyBanner } from '@/components/StickyBanner'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
 import { WhatsAppGlyph } from '@/components/icons/WhatsAppGlyph'
 import { ModalRegistroAsistencia } from '@/components/ModalRegistroAsistencia'
+import { AdminThemeToggle } from '@/components/AdminThemeToggle'
 
 /** Confirmación al activar acceso público (cobro LOPD: lib/legal-docs, supabase/SESION-Y-TOKENS-CONSENTIMIENTO.sql). */
 function mensajeConfirmacionActivarVotacionPublica(isDemo: boolean, sessionSeq: number): string {
@@ -246,6 +247,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   const [timerSavingDefault, setTimerSavingDefault] = useState(false)
   const [timerTogglingEnabled, setTimerTogglingEnabled] = useState(false)
   const [showModalAsistencia, setShowModalAsistencia] = useState(false)
+  /** CRUD de puntos del orden del día (modal lateral, no en la columna de preguntas) */
+  const [modalOrdenDiaOpen, setModalOrdenDiaOpen] = useState(false)
   // Delegado (token enlace asistente)
   const [generandoToken, setGenerandoToken] = useState(false)
   const [copiadoToken, setCopiadoToken] = useState(false)
@@ -2540,6 +2543,7 @@ Tu participacion es importante. 🏠`
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto min-w-0">
+              <AdminThemeToggle />
               {/* 1. Configuración: acceso a unidades */}
               {asamblea.organization_id && (
                 <Link
@@ -3132,6 +3136,82 @@ Tu participacion es importante. 🏠`
                   </div>
                 )}
 
+                {asamblea.estado !== 'finalizada' && (
+                  <div className="mb-4 rounded-2xl border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-950/25 px-3 py-3 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <ListOrdered className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-violet-900 dark:text-violet-100">Orden del día</p>
+                        <p className="text-xs text-violet-800/90 dark:text-violet-200/90 mt-0.5">
+                          {puntosOrdenSorted.length === 0
+                            ? 'Sin puntos formales aún. Puedes crear solo preguntas o definir puntos para el acta.'
+                            : `${puntosOrdenSorted.length} punto${puntosOrdenSorted.length !== 1 ? 's' : ''} en la agenda.`}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full min-h-[2.5rem] rounded-xl border-violet-300 dark:border-violet-700 bg-white/80 dark:bg-violet-950/40 text-violet-900 dark:text-violet-100 hover:bg-violet-100/80 dark:hover:bg-violet-900/50 justify-center gap-2 font-medium"
+                      onClick={() => setModalOrdenDiaOpen(true)}
+                      disabled={isReadOnlyStructure}
+                      title="Crear, editar, reordenar o eliminar puntos del orden del día"
+                    >
+                      <ListOrdered className="w-4 h-4 shrink-0" />
+                      Modificar orden del día
+                    </Button>
+                    <div className="pt-2 border-t border-violet-200/90 dark:border-violet-800/80">
+                      <p className="text-[10px] font-semibold text-violet-800 dark:text-violet-200 uppercase tracking-wide mb-2">
+                        Punto actual de la sesión
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <Select
+                          id="punto_sesion_actual_sidebar"
+                          className="w-full text-sm"
+                          value={asamblea.punto_orden_dia_actual_id ?? ''}
+                          onChange={(e) => {
+                            const v = e.target.value
+                            void handleSetPuntoSesionActual(v === '' ? null : v)
+                          }}
+                          disabled={puntoActualizando || isReadOnlyStructure}
+                        >
+                          <option value="">Ninguno (sin indicar)</option>
+                          {puntosOrdenSorted.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.orden}. {p.titulo}
+                            </option>
+                          ))}
+                        </Select>
+                        <div className="flex items-center gap-2 justify-center sm:justify-start">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl flex-1 sm:flex-initial"
+                            onClick={() => handlePuntoSesionStep('prev')}
+                            disabled={puntoActualizando || isReadOnlyStructure || puntosOrdenSorted.length === 0}
+                            title="Punto anterior"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl flex-1 sm:flex-initial"
+                            onClick={() => handlePuntoSesionStep('next')}
+                            disabled={puntoActualizando || isReadOnlyStructure || puntosOrdenSorted.length === 0}
+                            title="Siguiente punto"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {asamblea.estado === 'finalizada' ? (
                   <div className="space-y-2 rounded-2xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50 p-4">
                     <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
@@ -3433,173 +3513,6 @@ Tu participacion es importante. 🏠`
           {/* Preguntas / votos: en móvil arriba */}
           <div className="lg:col-span-2 order-1 lg:order-2 min-w-0">
             <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 min-w-0 overflow-hidden">
-              <section className="mb-8 pb-8 border-b border-gray-200 dark:border-gray-600" aria-labelledby="orden-dia-heading">
-                <h2 id="orden-dia-heading" className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-1">
-                  <ListOrdered className="w-5 h-5 text-indigo-500 shrink-0" />
-                  Orden del día
-                </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Define puntos formales (informativos o de debate) y opcionalmente asocia cada pregunta de votación a un punto. El punto actual se muestra en la página pública de votación.
-                </p>
-
-                <div className="rounded-2xl border border-indigo-200/80 dark:border-indigo-800/80 bg-indigo-50/50 dark:bg-indigo-950/20 px-4 py-3 mb-4">
-                  <p className="text-xs font-semibold text-indigo-800 dark:text-indigo-200 uppercase tracking-wide mb-2">
-                    Punto actual de la sesión
-                  </p>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    <Select
-                      id="punto_sesion_actual"
-                      className="flex-1 min-w-0 max-w-md"
-                      value={asamblea.punto_orden_dia_actual_id ?? ''}
-                      onChange={(e) => {
-                        const v = e.target.value
-                        void handleSetPuntoSesionActual(v === '' ? null : v)
-                      }}
-                      disabled={puntoActualizando || isReadOnlyStructure}
-                    >
-                      <option value="">Ninguno (sin indicar)</option>
-                      {puntosOrdenSorted.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.orden}. {p.titulo}
-                        </option>
-                      ))}
-                    </Select>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="rounded-xl"
-                        onClick={() => handlePuntoSesionStep('prev')}
-                        disabled={puntoActualizando || isReadOnlyStructure || puntosOrdenSorted.length === 0}
-                        title="Punto anterior"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="rounded-xl"
-                        onClick={() => handlePuntoSesionStep('next')}
-                        disabled={puntoActualizando || isReadOnlyStructure || puntosOrdenSorted.length === 0}
-                        title="Siguiente punto"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end mb-4">
-                  <div>
-                    <Label htmlFor="nuevo_punto_titulo">Nuevo punto</Label>
-                    <Input
-                      id="nuevo_punto_titulo"
-                      value={nuevoPuntoTitulo}
-                      onChange={(e) => setNuevoPuntoTitulo(e.target.value)}
-                      placeholder="Ej. Informe de gestión, Aprobación de cuentas…"
-                      className="mt-1"
-                      disabled={isReadOnlyStructure}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={() => void handleAgregarPuntoOrden()}
-                    disabled={savingPuntoOrden || isReadOnlyStructure}
-                    className="bg-indigo-600 hover:bg-indigo-700 sm:mb-0"
-                  >
-                    {savingPuntoOrden ? 'Guardando…' : 'Agregar punto'}
-                  </Button>
-                  <div className="sm:col-span-2">
-                    <Label htmlFor="nuevo_punto_desc" className="text-xs text-gray-500">
-                      Descripción (opcional, ayuda en acta)
-                    </Label>
-                    <Input
-                      id="nuevo_punto_desc"
-                      value={nuevoPuntoDesc}
-                      onChange={(e) => setNuevoPuntoDesc(e.target.value)}
-                      placeholder="Nota breve para la mesa o el acta"
-                      className="mt-1"
-                      disabled={isReadOnlyStructure}
-                    />
-                  </div>
-                </div>
-
-                {puntosOrdenSorted.length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                    Aún no hay puntos. Puedes crear solo preguntas de votación, o añadir puntos aquí para alinear el acta con el orden del día real.
-                  </p>
-                ) : (
-                  <ul className="space-y-2">
-                    {puntosOrdenSorted.map((p, idx) => (
-                      <li
-                        key={p.id}
-                        className="flex flex-wrap items-start gap-2 justify-between rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50/80 dark:bg-gray-900/40 px-3 py-2.5"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mr-2">
-                            {p.orden}.
-                          </span>
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">{p.titulo}</span>
-                          {p.descripcion && (
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 break-words">{p.descripcion}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2"
-                            onClick={() => handleMoverPuntoOrden(p.id, 'up')}
-                            disabled={idx === 0 || isReadOnlyStructure}
-                            title="Subir"
-                          >
-                            ↑
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2"
-                            onClick={() => handleMoverPuntoOrden(p.id, 'down')}
-                            disabled={idx >= puntosOrdenSorted.length - 1 || isReadOnlyStructure}
-                            title="Bajar"
-                          >
-                            ↓
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs"
-                            onClick={() => {
-                              setPuntoEditando(p)
-                              setEditPuntoTitulo(p.titulo)
-                              setEditPuntoDesc(p.descripcion ?? '')
-                            }}
-                            disabled={isReadOnlyStructure}
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-red-600 hover:text-red-700"
-                            onClick={() => void handleEliminarPuntoOrden(p)}
-                            disabled={isReadOnlyStructure}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                   Preguntas de Votación
@@ -4096,6 +4009,130 @@ Tu participacion es importante. 🏠`
           </div>
         </div>
       </main>
+
+      {/* Modal: CRUD puntos del orden del día (abre desde panel lateral — Acceso público / zona quórum) */}
+      <Dialog open={modalOrdenDiaOpen} onOpenChange={setModalOrdenDiaOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListOrdered className="w-5 h-5 text-indigo-500 shrink-0" />
+              Modificar orden del día
+            </DialogTitle>
+            <DialogDescription>
+              Crea, edita, reordena o elimina puntos. Puedes asociar cada pregunta de votación a un punto al crearla o editarla. El <strong>punto actual de la sesión</strong> se indica en el panel izquierdo, junto a este botón.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <div>
+                <Label htmlFor="modal_nuevo_punto_titulo">Nuevo punto</Label>
+                <Input
+                  id="modal_nuevo_punto_titulo"
+                  value={nuevoPuntoTitulo}
+                  onChange={(e) => setNuevoPuntoTitulo(e.target.value)}
+                  placeholder="Ej. Informe de gestión, Aprobación de cuentas…"
+                  className="mt-1"
+                  disabled={isReadOnlyStructure}
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={() => void handleAgregarPuntoOrden()}
+                disabled={savingPuntoOrden || isReadOnlyStructure}
+                className="bg-indigo-600 hover:bg-indigo-700 sm:mb-0"
+              >
+                {savingPuntoOrden ? 'Guardando…' : 'Agregar'}
+              </Button>
+              <div className="sm:col-span-2">
+                <Label htmlFor="modal_nuevo_punto_desc" className="text-xs text-gray-500">
+                  Descripción (opcional, ayuda en acta)
+                </Label>
+                <Input
+                  id="modal_nuevo_punto_desc"
+                  value={nuevoPuntoDesc}
+                  onChange={(e) => setNuevoPuntoDesc(e.target.value)}
+                  placeholder="Nota breve para la mesa o el acta"
+                  className="mt-1"
+                  disabled={isReadOnlyStructure}
+                />
+              </div>
+            </div>
+
+            {puntosOrdenSorted.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                Aún no hay puntos. Puedes crear solo preguntas de votación, o añadir puntos aquí para alinear el acta con el orden del día real.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {puntosOrdenSorted.map((p, idx) => (
+                  <li
+                    key={p.id}
+                    className="flex flex-wrap items-start gap-2 justify-between rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50/80 dark:bg-gray-900/40 px-3 py-2.5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mr-2">
+                        {p.orden}.
+                      </span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">{p.titulo}</span>
+                      {p.descripcion && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 break-words">{p.descripcion}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2"
+                        onClick={() => handleMoverPuntoOrden(p.id, 'up')}
+                        disabled={idx === 0 || isReadOnlyStructure}
+                        title="Subir"
+                      >
+                        ↑
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2"
+                        onClick={() => handleMoverPuntoOrden(p.id, 'down')}
+                        disabled={idx >= puntosOrdenSorted.length - 1 || isReadOnlyStructure}
+                        title="Bajar"
+                      >
+                        ↓
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => {
+                          setPuntoEditando(p)
+                          setEditPuntoTitulo(p.titulo)
+                          setEditPuntoDesc(p.descripcion ?? '')
+                        }}
+                        disabled={isReadOnlyStructure}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-red-600 hover:text-red-700"
+                        onClick={() => void handleEliminarPuntoOrden(p)}
+                        disabled={isReadOnlyStructure}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog: editar punto del orden del día */}
       <Dialog

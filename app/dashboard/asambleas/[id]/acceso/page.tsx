@@ -23,8 +23,6 @@ import {
   Link2,
   ChevronDown,
   ChevronUp,
-  Sun,
-  Moon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,6 +32,8 @@ import type { BarChartData } from '@/components/charts/VotacionBarChart'
 import { ModalRegistroAsistencia } from '@/components/ModalRegistroAsistencia'
 import { buildPublicVotarUrl } from '@/lib/publicVotarUrl'
 import { POLL_MS_FLAGS, POLL_MS_HEAVY, shouldSkipFocusRefresh } from '@/lib/votacion-live'
+import { AdminThemeToggle } from '@/components/AdminThemeToggle'
+import { cn } from '@/lib/utils'
 
 const QRCodeSVG = dynamic(
   () => import('qrcode.react').then((m) => ({ default: m.QRCodeSVG })),
@@ -266,26 +266,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
   // Enlace delegado
   const [showModalAsistencia, setShowModalAsistencia] = useState(false)
-  const [visualTheme, setVisualTheme] = useState<'dark' | 'light'>('dark')
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const saved = window.localStorage.getItem('acceso_visual_theme')
-    if (saved === 'light' || saved === 'dark') {
-      setVisualTheme(saved)
-      return
-    }
-    const preferDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    setVisualTheme(preferDark ? 'dark' : 'light')
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    window.localStorage.setItem('acceso_visual_theme', visualTheme)
-    const root = document.documentElement
-    if (visualTheme === 'dark') root.classList.add('dark')
-    else root.classList.remove('dark')
-  }, [visualTheme])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -964,7 +944,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
 
   if (loading && !asamblea) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0B0E14' }}>
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-[#0B0E14]">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
           <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando control de acceso...</p>
@@ -976,8 +956,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
   const saldoInsuficiente = totalUnidadesConjunto > 0 && tokensDisponibles < totalUnidadesConjunto
 
   return (
-    <div className={`min-h-screen ${visualTheme === 'light' ? 'acceso-theme-light' : 'acceso-theme-dark'}`} style={{ backgroundColor: '#0B0E14' }}>
-      <header className="shadow-sm border-b border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: '#0B0E14' }}>
+    <div className="min-h-screen bg-slate-100 dark:bg-[#0B0E14]">
+      <header className="shadow-sm border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B0E14]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-4">
@@ -993,16 +973,10 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setVisualTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-                className="rounded-3xl border-gray-200 dark:border-[rgba(255,255,255,0.18)] bg-white/90 dark:bg-slate-900/60"
-                title="Cambiar rápido entre modo claro y oscuro (proyector)"
-              >
-                {visualTheme === 'dark' ? <Sun className="w-4 h-4 mr-1.5" /> : <Moon className="w-4 h-4 mr-1.5" />}
-                {visualTheme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-              </Button>
+              <AdminThemeToggle
+                showLabel
+                title="Mismo tema en todo el panel; modo oscuro suele verse mejor en proyección"
+              />
               <Button
                 variant="outline"
                 size="sm"
@@ -1032,7 +1006,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           )}
 
           {/* 1. Enlace de votación — collapsable (abierto por defecto) */}
-          <div className="w-full mb-3 rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+          <div className="w-full mb-3 rounded-3xl border border-slate-200 dark:border-white/10 overflow-hidden bg-white/95 dark:bg-slate-900/60">
             <button type="button" onClick={() => setOpenEnlace((v) => !v)}
               className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-white/5 transition-colors">
               <div className="flex items-center gap-2 min-w-0">
@@ -1054,7 +1028,14 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           </div>
 
           {/* 2. Verificación de Quórum — collapsable */}
-          <div className="w-full mb-3 rounded-3xl border overflow-hidden" style={{ backgroundColor: verificacionActiva ? 'rgba(21,128,61,0.12)' : 'rgba(15,23,42,0.6)', borderColor: verificacionActiva ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.1)' }}>
+          <div
+            className={cn(
+              'w-full mb-3 rounded-3xl border overflow-hidden',
+              verificacionActiva
+                ? 'border-emerald-400/50 bg-emerald-50 dark:bg-emerald-950/30'
+                : 'border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-900/60',
+            )}
+          >
             <button
               type="button"
               onClick={() => setOpenVerificacion((v) => !v)}
@@ -1108,13 +1089,12 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           {/* Cronómetro de intervención (indicador global) */}
           {mostrarCronometroConfig && participationTimerEnabled && (
             <div
-            className="w-full mb-3 rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden"
-            style={{
-              backgroundColor:
-                asamblea?.participacion_timer_end_at && Date.parse(asamblea.participacion_timer_end_at) > Date.now()
-                  ? 'rgba(79,70,229,0.12)'
-                  : 'rgba(15,23,42,0.6)',
-            }}
+            className={cn(
+              'w-full mb-3 rounded-3xl border overflow-hidden',
+              asamblea?.participacion_timer_end_at && Date.parse(asamblea.participacion_timer_end_at) > Date.now()
+                ? 'border-indigo-300/50 bg-indigo-50 dark:border-indigo-500/30 dark:bg-indigo-950/40'
+                : 'border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-900/60',
+            )}
           >
             <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
@@ -1190,7 +1170,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Columna izquierda: QR */}
           <div className="lg:col-span-1 space-y-6">
-            <Card className="rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+            <Card className="rounded-3xl border border-slate-200 dark:border-white/10 overflow-hidden bg-white/95 dark:bg-slate-900/60">
               <CardHeader className="bg-indigo-600 text-white py-4">
                 <CardTitle className="text-lg flex items-center">
                   <QrCode className="w-5 h-5 mr-2" />
@@ -1219,7 +1199,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             {verificacionActiva ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[calc(100vh-12rem)] min-h-[480px]">
                 {/* Ya verificaron asistencia */}
-                <Card className="flex flex-col overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                <Card className="flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-900/60">
                   <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-emerald-50 dark:bg-emerald-900/20">
                     <CardTitle className="text-sm flex items-center gap-1.5 text-emerald-800 dark:text-emerald-200">
                       <UserCheck className="w-4 h-4 text-emerald-600" />
@@ -1270,7 +1250,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </Card>
 
                 {/* Faltan por verificar */}
-                <Card className="flex flex-col overflow-hidden rounded-3xl border border-amber-500/50 border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                <Card className="flex flex-col overflow-hidden rounded-3xl border border-amber-500/50 border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-900/60">
                   <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-amber-50 dark:bg-amber-900/20">
                     <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
                       <UserX className="w-4 h-4" />
@@ -1318,7 +1298,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-h-[480px]">
                 {/* Pendientes (Faltantes) */}
-                <Card className="flex flex-col overflow-hidden rounded-3xl border border-amber-500/50 border-[rgba(255,255,255,0.1)] md:row-span-2" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                <Card className="flex flex-col overflow-hidden rounded-3xl border border-amber-500/50 border-slate-200 dark:border-white/10 md:row-span-2 bg-white/95 dark:bg-slate-900/60">
                   <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-amber-50 dark:bg-amber-900/20">
                     <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
                       <UserX className="w-4 h-4" />
@@ -1364,7 +1344,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </Card>
 
                 {/* Ya Votaron */}
-                <Card className="flex flex-col overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                <Card className="flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-900/60">
                   <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0">
                     <CardTitle className="text-sm flex items-center gap-1.5 text-slate-200">
                       <UserCheck className="w-4 h-4 text-emerald-500" />
@@ -1407,7 +1387,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                 </Card>
 
                 {/* Sesión Activa: unidades con ping de quórum activo (ocultable) */}
-                <Card className="flex flex-col overflow-hidden rounded-3xl border border-[rgba(255,255,255,0.1)]" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                <Card className="flex flex-col overflow-hidden rounded-3xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-900/60">
                   <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-green-50 dark:bg-green-900/20">
                     <div className="flex items-center justify-between gap-2">
                       <CardTitle className="text-sm flex items-center gap-1.5">
@@ -1479,7 +1459,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           {/* Gráfica: ancho completo en fila inferior */}
           {preguntasConResultados.length > 0 && (
             <div className="w-full lg:col-span-3 mt-6">
-              <Card className="w-full rounded-3xl border border-[rgba(255,255,255,0.1)] overflow-hidden" style={{ backgroundColor: 'rgba(15,23,42,0.6)' }}>
+              <Card className="w-full rounded-3xl border border-slate-200 dark:border-white/10 overflow-hidden bg-white/95 dark:bg-slate-900/60">
               <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-[rgba(255,255,255,0.1)] py-4 px-6">
                 <div>
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -1766,37 +1746,6 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
         onGuardado={loadAvanceVotaciones}
       />
 
-      <style jsx global>{`
-        .acceso-theme-light {
-          background: #f8fafc !important;
-        }
-        .acceso-theme-light header,
-        .acceso-theme-light main {
-          background: #f8fafc !important;
-        }
-        .acceso-theme-light [style*="backgroundColor: 'rgba(15,23,42,0.6)'"],
-        .acceso-theme-light [style*="backgroundColor: 'rgba(15,23,42,0.6)';"] {
-          background: #ffffff !important;
-        }
-        .acceso-theme-light .text-slate-200,
-        .acceso-theme-light .text-slate-300,
-        .acceso-theme-light .text-slate-400,
-        .acceso-theme-light .text-slate-500 {
-          color: #0f172a !important;
-        }
-        .acceso-theme-light .bg-white\/5 {
-          background: #f1f5f9 !important;
-        }
-        .acceso-theme-light .border-white\/10,
-        .acceso-theme-light .border-\[rgba\(255\,255\,255\,0\.1\)\] {
-          border-color: #cbd5e1 !important;
-        }
-        .acceso-theme-light .text-indigo-200,
-        .acceso-theme-light .text-indigo-300,
-        .acceso-theme-light .text-emerald-200 {
-          color: #1e3a8a !important;
-        }
-      `}</style>
     </div>
   )
 }

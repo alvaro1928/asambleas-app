@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ToastProvider } from "@/components/providers/ToastProvider";
 import { AuthSessionListener } from "@/components/providers/AuthSessionListener";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
 const GA_MEASUREMENT_ID = "G-LNT6X43H6Z";
 
@@ -76,8 +77,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <body className={`${inter.className} min-w-0 overflow-x-hidden`}>
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`(function(){try{var k='asambleas_ui_theme';var a='acceso_visual_theme';var v=localStorage.getItem(k)||localStorage.getItem(a);if(v==='light'){document.documentElement.classList.remove('dark');return;}if(v==='dark'){document.documentElement.classList.add('dark');return;}if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark');}catch(e){}})();`}
+        </Script>
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
           strategy="afterInteractive"
@@ -90,10 +94,12 @@ export default function RootLayout({
             gtag('config', '${GA_MEASUREMENT_ID}');
           `}
         </Script>
-        <ToastProvider>
-          <AuthSessionListener />
-          {children}
-        </ToastProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <AuthSessionListener />
+            {children}
+          </ToastProvider>
+        </ThemeProvider>
         <Analytics />
         {/* Piloto: retirar SpeedInsights cuando ya no haga falta la m?trica */}
         <SpeedInsights />

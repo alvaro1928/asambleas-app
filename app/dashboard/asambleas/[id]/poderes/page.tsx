@@ -35,6 +35,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useToast } from '@/components/providers/ToastProvider'
 import { GuiaTokensModal } from '@/components/GuiaTokensModal'
+import { AdminThemeToggle } from '@/components/AdminThemeToggle'
 import { matchesTorreUnidadSearch } from '@/lib/matchUnidadSearch'
 import { buildPublicRegistroPoderUrl } from '@/lib/publicVotarUrl'
 import {
@@ -1063,6 +1064,7 @@ export default function PoderesPage({ params }: { params: { id: string } }) {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <AdminThemeToggle />
               <button
                 type="button"
                 onClick={() => setGuiaModalOpen(true)}

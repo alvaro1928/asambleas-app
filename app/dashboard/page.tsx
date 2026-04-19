@@ -15,6 +15,7 @@ import { Tooltip as UiTooltip } from '@/components/ui/tooltip'
 import { isAdminEmail } from '@/lib/super-admin'
 import { sumaCoeficientesValida } from '@/lib/coeficientes'
 import { useToast } from '@/components/providers/ToastProvider'
+import { AdminThemeToggle } from '@/components/AdminThemeToggle'
 
 interface UnidadMetrics {
   total: number
@@ -242,10 +243,10 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0B0E14' }}>
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-[#0B0E14]">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400"></div>
-          <p className="mt-4 text-slate-400">Cargando...</p>
+          <p className="mt-4 text-slate-600 dark:text-slate-400">Cargando...</p>
         </div>
       </div>
     )
@@ -286,9 +287,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#0B0E14' }}>
+    <div className="min-h-screen bg-slate-100 dark:bg-[#0B0E14]">
       {/* Header */}
-      <header className="border-b rounded-b-3xl shadow-soft overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: '#0B0E14' }}>
+      <header className="border-b rounded-b-3xl shadow-soft overflow-hidden border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B0E14]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           {/* Fila superior: logo + menú móvil */}
           <div className="flex items-center justify-between gap-3 min-w-0">
@@ -301,10 +302,11 @@ export default function DashboardPage() {
                 className="rounded-full object-contain bg-white shrink-0 sm:w-10 sm:h-10"
                 unoptimized
               />
-              <span className="text-lg sm:text-2xl font-bold text-white truncate">Asambleas App</span>
+              <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white truncate">Asambleas App</span>
             </Link>
             {/* Botones en desktop */}
             <div className="hidden md:flex items-center flex-wrap gap-2 shrink-0">
+              <AdminThemeToggle />
               {user?.email && isAdminEmail(user.email) && (
                 <UiTooltip content="Panel de super administrador: conjuntos, créditos y configuración">
                   <a
@@ -320,7 +322,7 @@ export default function DashboardPage() {
                 </UiTooltip>
               )}
               <UiTooltip content="Cambiar contraseña, preferencias y datos de tu cuenta">
-                <Link href="/dashboard/configuracion" className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-3xl transition-colors inline-flex items-center gap-2">
+                <Link href="/dashboard/configuracion" className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-3xl transition-colors inline-flex items-center gap-2">
                   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
@@ -328,7 +330,7 @@ export default function DashboardPage() {
                 </Link>
               </UiTooltip>
               <UiTooltip content="Documentos legales: términos, EULA y políticas">
-                <Link href="/dashboard/legal" className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-3xl transition-colors inline-flex items-center gap-2">
+                <Link href="/dashboard/legal" className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-3xl transition-colors inline-flex items-center gap-2">
                   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6a2 2 0 012-2z" />
                   </svg>
@@ -336,7 +338,7 @@ export default function DashboardPage() {
                 </Link>
               </UiTooltip>
               <UiTooltip content="Cerrar sesión y volver a la pantalla de inicio">
-                <button onClick={handleSignOut} className="px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-3xl transition-colors">
+                <button onClick={handleSignOut} className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-3xl transition-colors">
                   Cerrar sesión
                 </button>
               </UiTooltip>
@@ -346,7 +348,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setMenuMobileOpen((v) => !v)}
-                className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10"
+                className="p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
                 aria-label="Menú"
               >
                 <Menu className="w-6 h-6" />
@@ -354,26 +356,29 @@ export default function DashboardPage() {
               {menuMobileOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setMenuMobileOpen(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-white/20 bg-slate-900 shadow-xl z-50 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-slate-200 dark:border-white/20 bg-white dark:bg-slate-900 shadow-xl z-50 overflow-hidden">
+                    <div className="px-3 py-2 border-b border-slate-200 dark:border-white/10 flex justify-end">
+                      <AdminThemeToggle />
+                    </div>
                     {user?.email && isAdminEmail(user.email) && (
                       <a
                         href="/super-admin"
                         onClick={(e) => { e.preventDefault(); setMenuMobileOpen(false); window.location.href = '/super-admin' }}
-                        className="flex items-center gap-2 px-4 py-3 text-slate-200 hover:bg-white/10 border-b border-white/10"
+                        className="flex items-center gap-2 px-4 py-3 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 border-b border-slate-200 dark:border-white/10"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                         Administración
                       </a>
                     )}
-                    <Link href="/dashboard/configuracion" onClick={() => setMenuMobileOpen(false)} className="flex items-center gap-2 px-4 py-3 text-slate-200 hover:bg-white/10 border-b border-white/10">
+                    <Link href="/dashboard/configuracion" onClick={() => setMenuMobileOpen(false)} className="flex items-center gap-2 px-4 py-3 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 border-b border-slate-200 dark:border-white/10">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                       Configuración
                     </Link>
-                    <Link href="/dashboard/legal" onClick={() => setMenuMobileOpen(false)} className="flex items-center gap-2 px-4 py-3 text-slate-200 hover:bg-white/10 border-b border-white/10">
+                    <Link href="/dashboard/legal" onClick={() => setMenuMobileOpen(false)} className="flex items-center gap-2 px-4 py-3 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 border-b border-slate-200 dark:border-white/10">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6a2 2 0 012-2z" /></svg>
                       Legal
                     </Link>
-                    <button onClick={() => { setMenuMobileOpen(false); handleSignOut(); }} className="flex items-center gap-2 w-full px-4 py-3 text-slate-200 hover:bg-white/10 text-left">
+                    <button onClick={() => { setMenuMobileOpen(false); handleSignOut(); }} className="flex items-center gap-2 w-full px-4 py-3 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 text-left">
                       Cerrar sesión
                     </button>
                   </div>
@@ -389,28 +394,28 @@ export default function DashboardPage() {
             </div>
             {/* Billetera colapsable — se ajusta al dropdown de Unidades */}
             {selectedConjuntoId && (
-              <div className="min-w-0 w-full sm:w-auto sm:min-w-[200px] rounded-3xl border border-white/20 bg-white/10 backdrop-blur-md shadow-lg overflow-hidden shrink-0">
+              <div className="min-w-0 w-full sm:w-auto sm:min-w-[200px] rounded-3xl border border-slate-200 dark:border-white/20 bg-white dark:bg-white/10 backdrop-blur-md shadow-lg overflow-hidden shrink-0">
                 <button
                   type="button"
                   onClick={() => setBilleteraColapsada((v) => !v)}
-                  className="w-full px-3.5 py-2.5 border-b border-white/10 flex items-center justify-between gap-2"
+                  className="w-full px-3.5 py-2.5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between gap-2"
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <Wallet className="w-4 h-4 shrink-0" style={{ color: colorPrincipalHex }} />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-200">Billetera</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-200">Billetera</span>
                     <span className="text-sm font-bold truncate" style={{ color: colorPrincipalHex }}>{tokensDisponibles} tokens (créditos)</span>
                   </div>
-                  {billeteraColapsada ? <ChevronDown className="w-4 h-4 shrink-0 text-slate-400" /> : <ChevronUp className="w-4 h-4 shrink-0 text-slate-400" />}
+                  {billeteraColapsada ? <ChevronDown className="w-4 h-4 shrink-0 text-slate-500 dark:text-slate-400" /> : <ChevronUp className="w-4 h-4 shrink-0 text-slate-500 dark:text-slate-400" />}
                 </button>
                 {!billeteraColapsada && (
                   <div className="px-3.5 py-3 space-y-2">
                     <div className="flex items-center gap-2">
-                      <p className="text-[10px] uppercase tracking-wider text-slate-400">Saldo</p>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Saldo</p>
                       <button
                         type="button"
                         onClick={handleActualizarSaldo}
                         disabled={refreshingSaldo}
-                        className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-50"
+                        className="p-1 rounded-full text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-50"
                         title="Actualizar saldo"
                       >
                         <RefreshCw className={`w-4 h-4 ${refreshingSaldo ? 'animate-spin' : ''}`} />
@@ -418,13 +423,13 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <p className="text-lg font-bold leading-tight" style={{ color: colorPrincipalHex }}>
-                        {tokensDisponibles} <span className="text-sm font-medium text-slate-300">tokens (créditos)</span>
+                        {tokensDisponibles} <span className="text-sm font-medium text-slate-600 dark:text-slate-300">tokens (créditos)</span>
                       </p>
                     </div>
                     {costoOperacion > 0 && (
                       <div>
-                        <p className="text-[10px] uppercase tracking-wider text-slate-400">Costo al activar asamblea</p>
-                        <p className="text-sm font-semibold text-slate-200">{costoOperacion} tokens (créditos)</p>
+                        <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Costo al activar asamblea</p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{costoOperacion} tokens (créditos)</p>
                       </div>
                     )}
                     {precioProCop != null && precioProCop > 0 && (
@@ -538,7 +543,7 @@ export default function DashboardPage() {
               </Dialog>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12" style={{ backgroundColor: '#0B0E14' }}>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-slate-100 dark:bg-[#0B0E14]">
         <div className="space-y-8">
           {/* Success Message */}
           {successMessage && (
@@ -555,7 +560,7 @@ export default function DashboardPage() {
                     clipRule="evenodd"
                   />
                 </svg>
-                <p className="text-sm text-green-200 font-medium">
+                <p className="text-sm text-green-800 dark:text-green-200 font-medium">
                   {successMessage}
                 </p>
               </div>
@@ -579,7 +584,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setGuiaModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-3xl border border-white/20 text-slate-200 hover:text-white hover:bg-white/10 transition-colors text-sm"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-3xl border border-slate-200 dark:border-white/20 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-sm"
             >
               <HelpCircle className="w-4 h-4 shrink-0" style={{ color: colorPrincipalHex }} />
               Guía: tokens (créditos) y funcionalidades
@@ -587,7 +592,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Welcome Card — responsive */}
-          <div className="rounded-3xl shadow-xl p-6 sm:p-8 border min-w-0 overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
+          <div className="rounded-3xl shadow-xl p-6 sm:p-8 border min-w-0 overflow-hidden border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/60">
             <div className="flex flex-col sm:flex-row items-start gap-4 min-w-0">
               <div className="flex-shrink-0">
                 <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: `${colorPrincipalHex}99` }}>
@@ -597,24 +602,24 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="flex-1 min-w-0 w-full">
-                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">
+                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-1 sm:mb-2">
                   ¡Bienvenido!
                 </h2>
-                <p className="text-slate-300 text-base sm:text-lg truncate max-w-full" title={user?.email ?? undefined}>
+                <p className="text-slate-700 dark:text-slate-300 text-base sm:text-lg truncate max-w-full" title={user?.email ?? undefined}>
                   {user?.email}
                 </p>
-                <p className="text-slate-400 mt-1 text-sm sm:text-base">
+                <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm sm:text-base">
                   Estás listo para gestionar tus asambleas
                 </p>
                 {selectedConjuntoId && (
                   <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
-                    <span className="text-sm text-slate-400">
-                      Saldo: <strong className="text-slate-200">{tokensDisponibles} tokens (créditos)</strong>
+                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                      Saldo: <strong className="text-slate-900 dark:text-slate-200">{tokensDisponibles} tokens (créditos)</strong>
                     </span>
                     <button
                       type="button"
                       onClick={() => setModalCompraOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-2xl border border-white/20 text-slate-200 hover:text-white hover:bg-white/10 transition-colors text-sm font-medium shrink-0"
+                      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-2xl border border-slate-200 dark:border-white/20 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-sm font-medium shrink-0"
                       title="Abrir modal de compra de tokens (créditos)"
                     >
                       <Plus className="w-4 h-4 shrink-0" />
@@ -627,7 +632,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Action Card */}
-          <div className="rounded-3xl shadow-lg p-8 border" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
+          <div className="rounded-3xl shadow-lg p-8 border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/60">
             <div className="text-center space-y-6">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-100 dark:bg-indigo-900/30 rounded-full">
                 <svg
@@ -646,10 +651,10 @@ export default function DashboardPage() {
               </div>
 
               <div>
-                <h3 className="text-2xl font-bold text-white mb-2">
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
                   Comienza ahora
                 </h3>
-                <p className="text-slate-400">
+                <p className="text-slate-600 dark:text-slate-400">
                   Crea tu primer conjunto residencial y empieza a gestionar tus asambleas
                 </p>
               </div>
@@ -713,7 +718,7 @@ export default function DashboardPage() {
                 <UiTooltip content="Crear una asamblea de prueba con datos de ejemplo, sin consumir tokens (créditos)">
                   <Link
                     href="/dashboard/asambleas?demo=1"
-                    className="inline-flex items-center justify-center px-6 py-4 border-2 border-amber-400/80 text-amber-200 hover:bg-amber-400/20 font-semibold rounded-3xl transition-all duration-200 space-x-2"
+                    className="inline-flex items-center justify-center px-6 py-4 border-2 border-amber-500 text-amber-800 hover:bg-amber-50 dark:border-amber-400/80 dark:text-amber-200 dark:hover:bg-amber-400/20 font-semibold rounded-3xl transition-all duration-200 space-x-2"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
@@ -730,7 +735,7 @@ export default function DashboardPage() {
             {/* Total Unidades */}
             <div className="min-w-0 w-full flex flex-col">
               <UiTooltip content="Ver listado de unidades, editar y gestionar coeficientes">
-                <Link href="/dashboard/unidades" className="flex flex-col flex-1 min-h-[180px] min-w-0 rounded-3xl shadow-lg p-5 border hover:shadow-xl hover:border-green-400/50 transition-all cursor-pointer overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                <Link href="/dashboard/unidades" className="flex flex-col flex-1 min-h-[180px] min-w-0 rounded-3xl shadow-lg p-5 border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/60 hover:shadow-xl hover:border-green-400/50 transition-all cursor-pointer overflow-hidden">
                   <div className="flex items-center justify-between mb-2 shrink-0">
                     <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0">
                       <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -738,8 +743,8 @@ export default function DashboardPage() {
                       </svg>
                     </div>
                   </div>
-                  <p className="text-2xl font-bold text-white shrink-0">{metrics.total}</p>
-                  <p className="text-sm text-slate-400 mt-1 mt-auto min-w-0 truncate" title="Total Unidades • Clic para gestionar">
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white shrink-0">{metrics.total}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 mt-auto min-w-0 truncate" title="Total Unidades • Clic para gestionar">
                     Total Unidades • Clic para gestionar
                   </p>
                 </Link>
@@ -748,7 +753,7 @@ export default function DashboardPage() {
 
             {/* Suma Coeficientes */}
             <div className="min-w-0 w-full flex flex-col">
-              <div className="flex flex-col flex-1 min-h-[180px] min-w-0 rounded-3xl shadow-lg p-5 border overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }} title="Ley 675: la suma debe ser 100% (se acepta un pequeño margen por redondeo). Verde = dentro del rango.">
+              <div className="flex flex-col flex-1 min-h-[180px] min-w-0 rounded-3xl shadow-lg p-5 border overflow-hidden border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/60" title="Ley 675: la suma debe ser 100% (se acepta un pequeño margen por redondeo). Verde = dentro del rango.">
                 <div className="flex items-center justify-between mb-2 shrink-0">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${sumaCoeficientesValida(metrics.sumaCoeficientes) ? 'bg-green-500/20' : 'bg-yellow-500/20'}`}>
                     <svg className={`w-6 h-6 ${sumaCoeficientesValida(metrics.sumaCoeficientes) ? 'text-green-400' : 'text-yellow-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -761,15 +766,15 @@ export default function DashboardPage() {
                     <svg className="w-5 h-5 text-yellow-500 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                   )}
                 </div>
-                <p className="text-2xl font-bold text-white shrink-0">{metrics.sumaCoeficientes.toFixed(2)}%</p>
-                <p className="text-sm text-slate-400 mt-1 mt-auto min-w-0 truncate" title="Suma Coeficientes (Ley 675)">Suma Coeficientes (Ley 675)</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white shrink-0">{metrics.sumaCoeficientes.toFixed(2)}%</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 mt-auto min-w-0 truncate" title="Suma Coeficientes (Ley 675)">Suma Coeficientes (Ley 675)</p>
               </div>
             </div>
 
             {/* Conjuntos Registrados */}
             <div className="min-w-0 w-full flex flex-col">
               <UiTooltip content="Ver y editar los conjuntos residenciales que gestionas">
-                <Link href="/dashboard/conjuntos" className="flex flex-col flex-1 min-h-[180px] min-w-0 rounded-3xl shadow-lg p-5 border hover:shadow-xl hover:border-purple-400/50 transition-all cursor-pointer overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                <Link href="/dashboard/conjuntos" className="flex flex-col flex-1 min-h-[180px] min-w-0 rounded-3xl shadow-lg p-5 border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/60 hover:shadow-xl hover:border-purple-400/50 transition-all cursor-pointer overflow-hidden">
                   <div className="flex items-center justify-between mb-2 shrink-0">
                     <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center shrink-0">
                       <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -777,8 +782,8 @@ export default function DashboardPage() {
                       </svg>
                     </div>
                   </div>
-                  <p className="text-2xl font-bold text-white shrink-0">{conjuntosCount}</p>
-                  <p className="text-sm text-slate-400 mt-1 mt-auto min-w-0 truncate" title="Conjuntos Registrados">Conjuntos Registrados</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white shrink-0">{conjuntosCount}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 mt-auto min-w-0 truncate" title="Conjuntos Registrados">Conjuntos Registrados</p>
                 </Link>
               </UiTooltip>
             </div>

@@ -23,6 +23,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { AdminThemeToggle } from '@/components/AdminThemeToggle'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
@@ -519,6 +520,7 @@ function UnidadesPageContent() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <AdminThemeToggle />
               {volverAsambleaId && (
                 <Link href={`/dashboard/asambleas/${volverAsambleaId}`}>
                   <Button variant="outline" className="border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400">

@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { AdminThemeToggle } from '@/components/AdminThemeToggle'
 
 const navItems = [
   { href: '/super-admin', label: 'Inicio', icon: LayoutDashboard },
@@ -54,7 +55,7 @@ export default function SuperAdminLayout({
           <Shield className="w-6 h-6 text-amber-500 shrink-0" />
           <span className="font-semibold text-gray-900 dark:text-white truncate">Super Admin</span>
         </div>
-        <div className="w-10" />
+        <AdminThemeToggle />
       </header>
 
       {/* Sidebar: desktop siempre visible; mobile solo cuando sidebarOpen */}
@@ -67,12 +68,15 @@ export default function SuperAdminLayout({
         `}
       >
         <div className="flex flex-col h-full overflow-y-auto">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700 hidden md:flex items-center gap-3 shrink-0">
-            <Shield className="w-8 h-8 text-amber-500" />
-            <div className="min-w-0">
-              <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">Super Administración</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">Resúmenes y configuración</p>
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 hidden md:flex items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <Shield className="w-8 h-8 text-amber-500 shrink-0" />
+              <div className="min-w-0">
+                <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">Super Administración</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">Resúmenes y configuración</p>
+              </div>
             </div>
+            <AdminThemeToggle />
           </div>
           <nav className="flex-1 p-3 space-y-1">
             {navItems.map(({ href, label, icon: Icon }) => {

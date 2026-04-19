@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Shield, FileText, Cookie, ScrollText, BookOpen, ArrowLeft, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { LEGAL_DOC_ORDER, type LegalDocKey, type LegalDocument } from '@/lib/legal-docs'
+import { AdminThemeToggle } from '@/components/AdminThemeToggle'
 
 const TAB_META: Record<LegalDocKey, { icon: ComponentType<{ className?: string }>; short: string }> = {
   terminos_condiciones: { icon: ScrollText, short: 'Términos' },
@@ -71,8 +72,11 @@ export default function DashboardLegalPage() {
               <p className="text-sm text-gray-500 dark:text-gray-400 truncate">Términos, EULA y políticas vigentes del servicio</p>
             </div>
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
-            {docActiva?.ultima_actualizacion ? `Actualizado: ${docActiva.ultima_actualizacion}` : 'Actualizado recientemente'}
+          <div className="flex items-center gap-3 shrink-0">
+            <AdminThemeToggle />
+            <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
+              {docActiva?.ultima_actualizacion ? `Actualizado: ${docActiva.ultima_actualizacion}` : 'Actualizado recientemente'}
+            </span>
           </div>
         </div>
       </header>

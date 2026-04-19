@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useToast } from '@/components/providers/ToastProvider'
+import { AdminThemeToggle } from '@/components/AdminThemeToggle'
 
 interface Conjunto {
   id: string
@@ -177,12 +178,15 @@ export default function ConjuntosPage() {
                 </p>
               </div>
             </div>
-            <Link href="/dashboard/nuevo-conjunto">
-              <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700">
-                <Building2 className="w-4 h-4 mr-2" />
-                Nuevo Conjunto
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2 shrink-0">
+              <AdminThemeToggle />
+              <Link href="/dashboard/nuevo-conjunto">
+                <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700">
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Nuevo Conjunto
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>

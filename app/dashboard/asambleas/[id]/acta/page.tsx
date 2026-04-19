@@ -9,6 +9,7 @@ import { ArrowLeft, Download, FileText, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/providers/ToastProvider'
+import { AdminThemeToggle } from '@/components/AdminThemeToggle'
 
 interface Asamblea {
   id: string
@@ -973,19 +974,20 @@ export default function ActaPage({ params }: { params: { id: string } }) {
         </div>
       )}
       {/* Barra de acciones: oculta al imprimir */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 p-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
+      <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="flex items-center gap-3">
+          <AdminThemeToggle />
           <Link href={`/dashboard/asambleas/${params.id}`}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Volver
             </Button>
           </Link>
-          <div className="flex items-center gap-2 rounded-3xl bg-slate-100 px-3 py-2 border border-slate-200">
-            <span className="text-xs font-medium text-slate-600">Billetera:</span>
-            <span className="text-sm font-bold text-indigo-600">{tokensDisponibles} tokens (créditos)</span>
+          <div className="flex items-center gap-2 rounded-3xl bg-slate-100 dark:bg-slate-800 px-3 py-2 border border-slate-200 dark:border-slate-600">
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
+            <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens (créditos)</span>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Acta generada. Descarga el PDF cuando lo necesites (no consume más tokens).
           </p>
         </div>

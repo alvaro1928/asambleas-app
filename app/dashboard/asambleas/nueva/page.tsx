@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ComprarTokensCTA } from '@/components/ComprarTokensCTA'
+import { AdminThemeToggle } from '@/components/AdminThemeToggle'
 
 type OrganizationStatus = {
   tokens_disponibles: number
@@ -217,15 +218,18 @@ export default function NuevaAsambleaPage() {
               </p>
             </div>
           </div>
-          {!statusLoading && status && (
-            <div className="flex items-center gap-2 rounded-3xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600 mt-3 sm:mt-0">
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
-              <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens (créditos)</span>
-              {costoOperacion > 0 && (
-                <span className="text-xs text-slate-500 dark:text-slate-400">(costo al activar: {costoOperacion})</span>
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <AdminThemeToggle />
+            {!statusLoading && status && (
+              <div className="flex items-center gap-2 rounded-3xl bg-slate-100 dark:bg-slate-700/50 px-3 py-2 border border-slate-200 dark:border-slate-600 mt-3 sm:mt-0">
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Billetera:</span>
+                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{tokensDisponibles} tokens (créditos)</span>
+                {costoOperacion > 0 && (
+                  <span className="text-xs text-slate-500 dark:text-slate-400">(costo al activar: {costoOperacion})</span>
+                )}
+              </div>
+            )}
+          </div>
           </div>
         </div>
       </header>

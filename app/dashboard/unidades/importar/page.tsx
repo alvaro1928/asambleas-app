@@ -14,6 +14,7 @@ import Papa from 'papaparse'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useToast } from '@/components/providers/ToastProvider'
+import { AdminThemeToggle } from '@/components/AdminThemeToggle'
 import {
   Table,
   TableBody,
@@ -396,6 +397,7 @@ export default function ImportarUnidadesPage() {
             </div>
             
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <AdminThemeToggle />
               <ConjuntoSelector onConjuntoChange={checkExistingUnits} />
               <div className="flex items-center space-x-3">
                 {unidadesExistentes > 0 && (
