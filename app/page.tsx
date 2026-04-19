@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type CSSProperties } from 'react'
 import {
   Building2,
   FileText,
@@ -50,6 +50,19 @@ function publicSiteUrl(): string {
   return raw.startsWith('http') ? raw.replace(/\/$/, '') : `https://${raw.replace(/\/$/, '')}`
 }
 
+/**
+ * Estilo alineado al design system Stitch del proyecto (pantalla "Landing Page - High-Tech & Accessible",
+ * tokens "Sovereign Monolith"): #0B0E14 base, #10131A superficie, tarjetas #1D2026 → hover #272A31, texto #E1E2EB / #C7C4D8.
+ */
+
+/** CTA primario Stitch: gradiente 135° entre primario y tinte (designMd). */
+function primaryGradientStyle(hex: string): CSSProperties {
+  return {
+    backgroundImage: `linear-gradient(135deg, ${hex}, color-mix(in srgb, ${hex} 58%, #c3c0ff))`,
+    color: '#ffffff',
+  }
+}
+
 export default function Home() {
   useRedirectOAuthCode()
   const [nombreConjunto, setNombreConjunto] = useState('')
@@ -89,12 +102,11 @@ export default function Home() {
     }
   }, [colorPrincipalHex])
 
-  const landingBg = 'bg-[#050508]'
   const focusRing =
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050508]'
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#818cf8]/90 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0E14]'
 
   return (
-    <main id="contenido-principal" className={cn('min-h-screen text-slate-100 antialiased', landingBg)}>
+    <main id="contenido-principal" className="min-h-screen bg-[#0B0E14] antialiased text-[#E1E2EB]">
       <a
         href="#inicio-landing"
         className={cn(
@@ -107,13 +119,13 @@ export default function Home() {
 
       <nav
         aria-label="Principal"
-        className="sticky top-0 z-40 border-b border-white/10 bg-[#050508]/90 backdrop-blur-md supports-[backdrop-filter]:bg-[#050508]/75"
+        className="sticky top-0 z-40 border-b border-[#464555]/25 bg-[#10131A]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[#10131A]/85"
       >
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Link
             href="/"
             className={cn(
-              'text-sm font-semibold tracking-tight text-white transition-colors duration-200 hover:text-cyan-200 rounded-md px-1 py-0.5',
+              'text-sm font-semibold tracking-tight text-[#E1E2EB] transition-colors duration-200 hover:text-white rounded-md px-1 py-0.5',
               focusRing
             )}
           >
@@ -123,7 +135,7 @@ export default function Home() {
             <Link
               href="/login"
               className={cn(
-                'rounded-lg px-3 py-2 text-sm font-medium text-slate-200 transition-colors duration-200 hover:text-white',
+                'rounded-lg px-3 py-2 text-sm font-medium text-[#C7C4D8] transition-colors duration-200 hover:text-[#E1E2EB]',
                 focusRing
               )}
             >
@@ -132,8 +144,8 @@ export default function Home() {
             <Link href="/login">
               <Button
                 size="sm"
-                className={cn('rounded-2xl shadow-md min-h-[2.75rem]', focusRing)}
-                style={{ backgroundColor: colorPrincipalHex }}
+                className={cn('rounded-xl min-h-[2.75rem] border-0 shadow-lg shadow-black/30', focusRing)}
+                style={primaryGradientStyle(colorPrincipalHex)}
               >
                 Empezar
               </Button>
@@ -143,10 +155,7 @@ export default function Home() {
       </nav>
 
       {/* Hero — estilo high-tech + accesible (contraste, foco, jerarquía) */}
-      <header
-        id="inicio-landing"
-        className={cn('relative overflow-hidden border-b border-white/10', landingBg)}
-      >
+      <header id="inicio-landing" className="relative overflow-hidden bg-[#10131A]">
         <div
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_60%_at_50%_-25%,rgba(99,102,241,0.28),transparent_55%)] motion-reduce:opacity-80"
           aria-hidden
@@ -156,9 +165,9 @@ export default function Home() {
           aria-hidden
         />
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-cyan-500/5 motion-reduce:from-indigo-500/5" aria-hidden />
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-14 md:py-24 lg:py-28">
-          <div className="flex flex-col items-center text-center">
-            <p className="mb-5 inline-flex items-center rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-cyan-300/95 sm:text-xs">
+        <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-14 md:py-24 lg:py-28">
+          <div className="flex flex-col items-center text-center lg:items-start lg:text-left">
+            <p className="mb-5 inline-flex items-center rounded-full bg-[#1D2026] px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-[#C7C4D8] sm:text-xs">
               Ley 675 · Colombia
             </p>
             <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-lg mb-6 ring-2 ring-white/25">
@@ -179,24 +188,24 @@ export default function Home() {
                 </div>
               )}
             </div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white max-w-3xl text-balance">
+            <h1 className="max-w-4xl text-balance text-4xl font-bold tracking-[-0.02em] text-[#E1E2EB] md:text-5xl lg:text-6xl">
               {titulo || 'Asambleas digitales para propiedad horizontal'}
             </h1>
-            <p className="mt-4 text-lg md:text-xl text-slate-300 max-w-2xl leading-relaxed">
+            <p className="mt-4 max-w-2xl text-lg leading-relaxed text-[#C7C4D8] md:text-xl">
               {subtitulo || 'Votaciones en tiempo real, actas y auditoría. Pensado para administradores y consejos de administración.'}
             </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+            <div className="mt-8 flex w-full flex-wrap items-center justify-center gap-4 lg:justify-start">
               <Link href="/login">
                 <Button
                   size="lg"
-                  className={cn('rounded-3xl shadow-lg transition-colors duration-200 min-h-[3rem]', focusRing)}
-                  style={{ backgroundColor: colorPrincipalHex }}
+                  className={cn('min-h-[3rem] rounded-3xl border-0 shadow-xl shadow-black/40 transition-colors duration-200', focusRing)}
+                  style={primaryGradientStyle(colorPrincipalHex)}
                 >
                   Empezar ahora
                 </Button>
               </Link>
             </div>
-            <p className="mt-6 text-sm text-slate-300/95 max-w-2xl leading-relaxed">
+            <p className="mt-6 max-w-2xl text-sm leading-[1.6] text-[#C7C4D8]">
               Censo con coeficientes, votación nominal o por coeficiente, control de quórum, poderes con auditoría,
               invitación masiva y acta descargable con opción de sellado en blockchain. Todo en un solo flujo pensado para Ley 675 y transparencia ante la copropiedad.
             </p>
@@ -205,11 +214,11 @@ export default function Home() {
       </header>
 
       {/* Valor: acta, quórum, blockchain */}
-      <section className={cn('border-b border-white/10', landingBg)}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-6">
+      <section className="bg-[#191C22] py-2">
+        <div className="mx-auto max-w-6xl px-4 pb-8 pt-6 sm:px-6 lg:px-8">
           <div
-            className="rounded-2xl border border-white/20 text-white shadow-xl shadow-black/30 py-6 px-6 backdrop-blur-sm sm:rounded-3xl"
-            style={{ backgroundColor: colorPrincipalHex }}
+            className="rounded-3xl px-6 py-6 text-white shadow-[0_24px_48px_rgba(0,0,0,0.4)] sm:px-8"
+            style={primaryGradientStyle(colorPrincipalHex)}
           >
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-center sm:text-left">
             <Zap className="w-10 h-10 shrink-0 text-indigo-200" />
@@ -228,61 +237,49 @@ export default function Home() {
       </section>
 
       {/* Cómo funciona (información funcional) */}
-      <section className={cn('py-14 border-b border-white/10', landingBg)}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400/90 mb-2">Flujo</p>
-          <h2 className="text-2xl md:text-3xl font-bold text-white text-center mb-10 tracking-tight">Cómo funciona</h2>
+      <section className="bg-[#0B0E14] py-14">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <p className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.2em] text-[#C7C4D8]">Flujo</p>
+          <h2 className="mb-10 text-center text-2xl font-bold tracking-tight text-[#E1E2EB] md:text-3xl">Cómo funciona</h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <div
-              className={cn(
-                'flex flex-col items-center text-center rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-lg shadow-black/20 backdrop-blur-sm transition-colors duration-200 hover:border-white/15 sm:rounded-3xl'
-              )}
-            >
+            <div className="flex flex-col items-center rounded-3xl bg-[#1D2026] p-6 text-center shadow-[0_24px_48px_rgba(0,0,0,0.35)] transition-colors duration-200 hover:bg-[#272A31]">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 opacity-90" style={{ backgroundColor: `${colorPrincipalHex}30` }}>
                 <Building2 className="w-6 h-6" style={{ color: colorPrincipalHex }} />
               </div>
-              <h3 className="font-semibold text-white text-lg">1. Crea tu conjunto</h3>
-              <p className="text-sm text-slate-300 mt-1 leading-relaxed">
+              <h3 className="text-lg font-semibold text-[#E1E2EB]">1. Crea tu conjunto</h3>
+              <p className="mt-1 text-sm leading-relaxed text-[#C7C4D8]">
                 Registra tu edificio o conjunto. Luego carga las unidades (apartamentos, locales) con coeficientes y datos de contacto.
               </p>
             </div>
-            <div
-              className={cn(
-                'flex flex-col items-center text-center rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-lg shadow-black/20 backdrop-blur-sm transition-colors duration-200 hover:border-white/15 sm:rounded-3xl'
-              )}
-            >
+            <div className="flex flex-col items-center rounded-3xl bg-[#1D2026] p-6 text-center shadow-[0_24px_48px_rgba(0,0,0,0.35)] transition-colors duration-200 hover:bg-[#272A31]">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 opacity-90" style={{ backgroundColor: `${colorPrincipalHex}30` }}>
                 <FileText className="w-6 h-6" style={{ color: colorPrincipalHex }} />
               </div>
-              <h3 className="font-semibold text-white text-lg">2. Convoca la asamblea</h3>
-              <p className="text-sm text-slate-300 mt-1 leading-relaxed">
+              <h3 className="text-lg font-semibold text-[#E1E2EB]">2. Convoca la asamblea</h3>
+              <p className="mt-1 text-sm leading-relaxed text-[#C7C4D8]">
                 Crea la asamblea, añade las preguntas a votar y activa la votación. Obtendrás un enlace y un código para compartir.
               </p>
             </div>
-            <div
-              className={cn(
-                'flex flex-col items-center text-center rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-lg shadow-black/20 backdrop-blur-sm transition-colors duration-200 hover:border-white/15 sm:rounded-3xl'
-              )}
-            >
+            <div className="flex flex-col items-center rounded-3xl bg-[#1D2026] p-6 text-center shadow-[0_24px_48px_rgba(0,0,0,0.35)] transition-colors duration-200 hover:bg-[#272A31]">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 opacity-90" style={{ backgroundColor: `${colorPrincipalHex}30` }}>
                 <Users className="w-6 h-6" style={{ color: colorPrincipalHex }} />
               </div>
-              <h3 className="font-semibold text-white text-lg">3. Los copropietarios votan</h3>
-              <p className="text-sm text-slate-300 mt-1 leading-relaxed">
+              <h3 className="text-lg font-semibold text-[#E1E2EB]">3. Los copropietarios votan</h3>
+              <p className="mt-1 text-sm leading-relaxed text-[#C7C4D8]">
                 Cada propietario entra con su correo o teléfono, elige sus opciones y vota. Quórum y resultados en tiempo real (Ley 675).
               </p>
             </div>
           </div>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 text-center flex-wrap">
-            <div className="flex items-center gap-2 text-slate-200">
+            <div className="flex items-center gap-2 text-[#C7C4D8]">
               <FileText className="w-5 h-5 text-emerald-400 shrink-0" />
               <span className="text-sm">Actas, certificados de voto y trazabilidad al cerrar</span>
             </div>
-            <div className="flex items-center gap-2 text-slate-200">
+            <div className="flex items-center gap-2 text-[#C7C4D8]">
               <Shield className="w-5 h-5 text-purple-400 shrink-0" />
               <span className="text-sm">Datos por conjunto, consentimiento Ley 1581 y acceso seguro</span>
             </div>
-            <div className="flex items-center gap-2 text-slate-200">
+            <div className="flex items-center gap-2 text-[#C7C4D8]">
               <Link2 className="w-5 h-5 text-amber-400 shrink-0" />
               <span className="text-sm">Sello en blockchain Bitcoin (OpenTimestamps), sin costo extra</span>
             </div>
@@ -291,106 +288,82 @@ export default function Home() {
       </section>
 
       {/* Funciones destacadas (SEO + conversión): prioridad intención de búsqueda */}
-      <section
-        className={cn('py-14 border-b border-white/10', landingBg)}
-        aria-labelledby="landing-funciones-heading"
-      >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400/90 mb-2">Capacidades</p>
-          <h2 id="landing-funciones-heading" className="text-2xl md:text-3xl font-bold text-white text-center mb-3 tracking-tight text-balance">
+      <section className="bg-[#191C22] py-14" aria-labelledby="landing-funciones-heading">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <p className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.2em] text-[#C7C4D8]">Capacidades</p>
+          <h2
+            id="landing-funciones-heading"
+            className="mb-3 text-balance text-center text-2xl font-bold tracking-tight text-[#E1E2EB] md:text-3xl"
+          >
             Plataforma completa para asambleas de copropiedad
           </h2>
-          <p className="text-center text-slate-300 text-sm md:text-base max-w-3xl mx-auto mb-10 leading-relaxed">
+          <p className="mx-auto mb-10 max-w-3xl text-center text-sm leading-relaxed text-[#C7C4D8] md:text-base">
             Lo esencial para cumplir con la Ley 675 de propiedad horizontal y ganar confianza de los copropietarios:
             desde la convocatoria hasta el acta y los poderes, con transparencia en cada paso.
           </p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <article
-              className={cn(
-                'flex flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-lg shadow-black/20 backdrop-blur-sm transition-colors duration-200 hover:border-white/15 sm:rounded-3xl'
-              )}
-            >
+            <article className="flex flex-col rounded-3xl bg-[#1D2026] p-6 shadow-[0_24px_48px_rgba(0,0,0,0.35)] transition-colors duration-200 hover:bg-[#272A31]">
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${colorPrincipalHex}28` }}>
                 <Vote className="w-5 h-5" style={{ color: colorPrincipalHex }} aria-hidden />
               </div>
-              <h3 className="font-semibold text-white text-lg">Votación Ley 675</h3>
-              <p className="text-sm text-slate-300 mt-2 flex-1 leading-relaxed">
-                Voto por <strong className="text-slate-300">coeficiente de copropiedad</strong> o nominal; preguntas abiertas y cerradas,
+              <h3 className="text-lg font-semibold text-[#E1E2EB]">Votación Ley 675</h3>
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-[#C7C4D8]">
+                Voto por <strong className="font-medium text-[#E1E2EB]">coeficiente de copropiedad</strong> o nominal; preguntas abiertas y cerradas,
                 umbral de aprobación y resultados en tiempo real para el conjunto.
               </p>
             </article>
-            <article
-              className={cn(
-                'flex flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-lg shadow-black/20 backdrop-blur-sm transition-colors duration-200 hover:border-white/15 sm:rounded-3xl'
-              )}
-            >
+            <article className="flex flex-col rounded-3xl bg-[#1D2026] p-6 shadow-[0_24px_48px_rgba(0,0,0,0.35)] transition-colors duration-200 hover:bg-[#272A31]">
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${colorPrincipalHex}28` }}>
                 <UserCheck className="w-5 h-5" style={{ color: colorPrincipalHex }} aria-hidden />
               </div>
-              <h3 className="font-semibold text-white text-lg">Quórum y asistencia</h3>
-              <p className="text-sm text-slate-300 mt-2 flex-1 leading-relaxed">
-                <strong className="text-slate-300">Verificación de asistencia</strong> por ronda, estadísticas de quórum visibles
+              <h3 className="text-lg font-semibold text-[#E1E2EB]">Quórum y asistencia</h3>
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-[#C7C4D8]">
+                <strong className="font-medium text-[#E1E2EB]">Verificación de asistencia</strong> por ronda, estadísticas de quórum visibles
                 y enlace para delegado en sala para registrar presencia cuando la mesa lo requiera.
               </p>
             </article>
-            <article
-              className={cn(
-                'flex flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-lg shadow-black/20 backdrop-blur-sm transition-colors duration-200 hover:border-white/15 sm:rounded-3xl'
-              )}
-            >
+            <article className="flex flex-col rounded-3xl bg-[#1D2026] p-6 shadow-[0_24px_48px_rgba(0,0,0,0.35)] transition-colors duration-200 hover:bg-[#272A31]">
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${colorPrincipalHex}28` }}>
                 <ScrollText className="w-5 h-5" style={{ color: colorPrincipalHex }} aria-hidden />
               </div>
-              <h3 className="font-semibold text-white text-lg">Poderes y apoderados</h3>
-              <p className="text-sm text-slate-300 mt-2 flex-1 leading-relaxed">
-                Registro de <strong className="text-slate-300">poderes de representación</strong>, límites configurables,
+              <h3 className="text-lg font-semibold text-[#E1E2EB]">Poderes y apoderados</h3>
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-[#C7C4D8]">
+                Registro de <strong className="font-medium text-[#E1E2EB]">poderes de representación</strong>, límites configurables,
                 documento adjunto y flujo donde el votante puede declarar un poder recibido para revisión del administrador.
               </p>
             </article>
-            <article
-              className={cn(
-                'flex flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-lg shadow-black/20 backdrop-blur-sm transition-colors duration-200 hover:border-white/15 sm:rounded-3xl'
-              )}
-            >
+            <article className="flex flex-col rounded-3xl bg-[#1D2026] p-6 shadow-[0_24px_48px_rgba(0,0,0,0.35)] transition-colors duration-200 hover:bg-[#272A31]">
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${colorPrincipalHex}28` }}>
                 <MessageCircle className="w-5 h-5" style={{ color: colorPrincipalHex }} aria-hidden />
               </div>
-              <h3 className="font-semibold text-white text-lg">WhatsApp y acceso rápido</h3>
-              <p className="text-sm text-slate-300 mt-2 flex-1 leading-relaxed">
-                Invitaciones masivas con enlace de votación, <strong className="text-slate-300">código de acceso</strong> y
+              <h3 className="text-lg font-semibold text-[#E1E2EB]">WhatsApp y acceso rápido</h3>
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-[#C7C4D8]">
+                Invitaciones masivas con enlace de votación, <strong className="font-medium text-[#E1E2EB]">código de acceso</strong> y
                 experiencia móvil clara para copropietarios que votan desde el celular.
               </p>
             </article>
-            <article
-              className={cn(
-                'flex flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-lg shadow-black/20 backdrop-blur-sm transition-colors duration-200 hover:border-white/15 sm:rounded-3xl'
-              )}
-            >
+            <article className="flex flex-col rounded-3xl bg-[#1D2026] p-6 shadow-[0_24px_48px_rgba(0,0,0,0.35)] transition-colors duration-200 hover:bg-[#272A31]">
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${colorPrincipalHex}28` }}>
                 <QrCode className="w-5 h-5" style={{ color: colorPrincipalHex }} aria-hidden />
               </div>
-              <h3 className="font-semibold text-white text-lg">QR en la sala</h3>
-              <p className="text-sm text-slate-300 mt-2 flex-1 leading-relaxed">
-                <strong className="text-slate-300">Código QR</strong> para compartir el ingreso a la votación en la asamblea presencial,
+              <h3 className="text-lg font-semibold text-[#E1E2EB]">QR en la sala</h3>
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-[#C7C4D8]">
+                <strong className="font-medium text-[#E1E2EB]">Código QR</strong> para compartir el ingreso a la votación en la asamblea presencial,
                 sin fricción para quien aún no tiene el enlace a mano.
               </p>
             </article>
-            <article
-              className={cn(
-                'flex flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-lg shadow-black/20 backdrop-blur-sm transition-colors duration-200 hover:border-white/15 sm:rounded-3xl'
-              )}
-            >
+            <article className="flex flex-col rounded-3xl bg-[#1D2026] p-6 shadow-[0_24px_48px_rgba(0,0,0,0.35)] transition-colors duration-200 hover:bg-[#272A31]">
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: `${colorPrincipalHex}28` }}>
                 <Printer className="w-5 h-5" style={{ color: colorPrincipalHex }} aria-hidden />
               </div>
-              <h3 className="font-semibold text-white text-lg">Censo y respaldo en papel</h3>
-              <p className="text-sm text-slate-300 mt-2 flex-1 leading-relaxed">
-                Importación de unidades y <strong className="text-slate-300">PDF del censo</strong> con columna para firmas,
+              <h3 className="text-lg font-semibold text-[#E1E2EB]">Censo y respaldo en papel</h3>
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-[#C7C4D8]">
+                Importación de unidades y <strong className="font-medium text-[#E1E2EB]">PDF del censo</strong> con columna para firmas,
                 útil si la mesa requiere constancia física de asistencia junto al registro digital.
               </p>
             </article>
           </div>
-          <p className="mt-10 text-center text-sm text-slate-400 max-w-2xl mx-auto leading-relaxed">
+          <p className="mx-auto mt-10 max-w-2xl text-center text-sm leading-relaxed text-[#C7C4D8]">
             Además: acta descargable, certificado de votos para el copropietario, sellado opcional del acta en blockchain (OpenTimestamps)
             y segregación de datos por conjunto para privacidad y cumplimiento del tratamiento de datos personales.
           </p>
@@ -398,17 +371,15 @@ export default function Home() {
       </section>
 
       {/* Blockchain */}
-      <section className={cn('py-14 border-b border-white/10', landingBg)}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div
-            className="flex flex-col items-center gap-8 rounded-2xl border border-emerald-500/35 bg-emerald-500/[0.07] p-8 shadow-lg shadow-black/20 backdrop-blur-sm md:flex-row sm:rounded-3xl"
-          >
+      <section className="bg-[#0B0E14] py-14">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center gap-8 rounded-3xl bg-[#1D2026] p-8 shadow-[0_24px_48px_rgba(0,0,0,0.35)] md:flex-row ring-1 ring-[#34d399]/20">
             <div className="flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.15)' }}>
               <Link2 className="w-8 h-8" style={{ color: '#10b981' }} />
             </div>
             <div className="flex-1 text-center md:text-left">
               <div className="flex flex-wrap items-center gap-2 justify-center md:justify-start mb-2">
-                <h3 className="text-lg font-bold text-white">Acta certificada en blockchain de Bitcoin</h3>
+                <h3 className="text-lg font-bold text-[#E1E2EB]">Acta certificada en blockchain de Bitcoin</h3>
                 <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(16,185,129,0.2)', color: '#34d399' }}>Gratis · Sin costo adicional</span>
               </div>
               <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
@@ -433,14 +404,14 @@ export default function Home() {
       </section>
 
       {/* Contacto / CTA */}
-      <section className={cn('py-14 border-b border-white/10', landingBg)}>
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-slate-300 mb-6 leading-relaxed">
+      <section className="bg-[#191C22] py-14">
+        <div className="mx-auto max-w-2xl px-4 text-center sm:px-6 lg:px-8">
+          <p className="mb-6 leading-relaxed text-[#C7C4D8]">
             ¿Dudas? Escríbenos y te ayudamos a configurar tu primera asamblea.
           </p>
           {whatsappNumber && (
             <div className="mb-5">
-              <Label htmlFor="nombre-conjunto-landing" className="text-xs text-slate-400">
+              <Label htmlFor="nombre-conjunto-landing" className="text-xs text-[#C7C4D8]">
                 Nombre de tu conjunto (opcional, se incluye en el mensaje)
               </Label>
               <Input
@@ -448,7 +419,7 @@ export default function Home() {
                 placeholder="Ej. Conjunto Los Robles"
                 value={nombreConjunto}
                 onChange={(e) => setNombreConjunto(e.target.value)}
-                className="mt-1 rounded-3xl text-sm bg-slate-900/80 border-white/20 text-white placeholder:text-slate-500 max-w-xs mx-auto block focus-visible:border-cyan-400/50 focus-visible:ring-2 focus-visible:ring-cyan-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050508]"
+                className="mx-auto mt-1 block max-w-xs rounded-3xl border border-[#464555]/40 bg-[#32353C] text-sm text-[#E1E2EB] placeholder:text-[#918fa1] focus-visible:border-[#818cf8]/50 focus-visible:ring-2 focus-visible:ring-[#818cf8]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0E14]"
               />
             </div>
           )}
@@ -456,8 +427,8 @@ export default function Home() {
             <Link href="/login">
               <Button
                 size="lg"
-                className={cn('rounded-3xl shadow-lg w-full sm:w-auto min-h-[3rem] transition-colors duration-200', focusRing)}
-                style={{ backgroundColor: colorPrincipalHex }}
+                className={cn('min-h-[3rem] w-full rounded-3xl border-0 shadow-xl shadow-black/40 transition-colors duration-200 sm:w-auto', focusRing)}
+                style={primaryGradientStyle(colorPrincipalHex)}
               >
                 Empezar ahora
               </Button>
@@ -472,7 +443,7 @@ export default function Home() {
               >
                 <Button
                   size="lg"
-                  className="rounded-3xl gap-2.5 w-full sm:w-auto min-h-[3rem] border-0 bg-[#25D366] text-white shadow-lg shadow-emerald-950/35 hover:bg-[#20bd5a] hover:text-white focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2 focus-visible:ring-offset-[#050508]"
+                  className="rounded-3xl gap-2.5 w-full sm:w-auto min-h-[3rem] border-0 bg-[#25D366] text-white shadow-lg shadow-emerald-950/35 hover:bg-[#20bd5a] hover:text-white focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0E14]"
                 >
                   <WhatsAppGlyph className="w-5 h-5 shrink-0" />
                   <span className="font-semibold">{ctaWhatsappText}</span>
@@ -484,14 +455,14 @@ export default function Home() {
       </section>
 
       {/* Transparencia comercial y legal */}
-      <section className={cn('py-12 border-b border-white/10', landingBg)}>
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-lg font-semibold text-white tracking-tight">Créditos y condiciones de uso</h2>
-          <p className="mt-3 text-sm text-slate-300 leading-relaxed">
+      <section className="bg-[#0B0E14] py-12">
+        <div className="mx-auto max-w-2xl px-4 text-center sm:px-6">
+          <h2 className="text-lg font-semibold tracking-tight text-[#E1E2EB]">Créditos y condiciones de uso</h2>
+          <p className="mt-3 text-sm leading-relaxed text-[#C7C4D8]">
             Algunas funciones usan créditos digitales (tokens) de la billetera del gestor; el consumo principal por votación pública se relaciona con la aceptación del tratamiento de datos (LOPD) por sesión, con franquicia por unidades según las reglas de la plataforma. Precios, consumos y vigencia del saldo están en los{' '}
             <Link
               href="/terminos"
-              className={cn('text-indigo-300 hover:text-white underline underline-offset-2 rounded-sm', focusRing)}
+              className={cn('rounded-sm text-[#a5b4fc] underline underline-offset-2 hover:text-[#E1E2EB]', focusRing)}
             >
               Términos y documentos legales
             </Link>
@@ -501,23 +472,17 @@ export default function Home() {
       </section>
 
       {/* CTA final */}
-      <section className={cn('py-16 border-t border-white/10', landingBg)}>
-        <div
-          className={cn(
-            'max-w-3xl mx-auto px-4 text-center rounded-2xl border border-white/10 bg-white/[0.04] p-8 shadow-xl shadow-black/25 backdrop-blur-sm sm:rounded-3xl'
-          )}
-        >
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 tracking-tight">
-            ¿Ya tienes cuenta?
-          </h2>
-          <p className="text-slate-300 mb-6 leading-relaxed">
+      <section className="bg-[#191C22] py-16">
+        <div className="mx-auto max-w-3xl rounded-3xl bg-[#1D2026] p-8 text-center shadow-[0_24px_48px_rgba(0,0,0,0.4)] px-4">
+          <h2 className="mb-4 text-2xl font-bold tracking-tight text-[#E1E2EB] md:text-3xl">¿Ya tienes cuenta?</h2>
+          <p className="mb-6 leading-relaxed text-[#C7C4D8]">
             Accede al panel de administración para gestionar tus asambleas.
           </p>
           <Link href="/login">
             <Button
               size="lg"
-              className={cn('rounded-3xl shadow-lg min-h-[3rem] transition-colors duration-200', focusRing)}
-              style={{ backgroundColor: colorPrincipalHex }}
+              className={cn('min-h-[3rem] rounded-3xl border-0 shadow-xl shadow-black/40 transition-colors duration-200', focusRing)}
+              style={primaryGradientStyle(colorPrincipalHex)}
             >
               Iniciar sesión
             </Button>
@@ -555,33 +520,33 @@ export default function Home() {
         }}
       />
 
-      <footer className={cn('py-8 border-t border-white/10 text-center text-sm text-slate-400', landingBg)}>
-        <p className="max-w-3xl mx-auto px-4 leading-relaxed">
+      <footer className="border-t border-[#464555]/25 bg-[#10131A] py-8 text-center text-sm text-[#C7C4D8]">
+        <p className="mx-auto max-w-3xl px-4 leading-relaxed">
           Asambleas Online — Votaciones y actas para propiedad horizontal en Colombia (Ley 675, quórum, poderes y trazabilidad)
         </p>
         <p className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
           <Link
             href="/terminos"
-            className={cn('text-slate-300 hover:text-white transition-colors duration-200 underline underline-offset-2', focusRing)}
+            className={cn('text-[#C7C4D8] underline underline-offset-2 transition-colors duration-200 hover:text-[#E1E2EB]', focusRing)}
           >
             Términos y políticas
           </Link>
           <Link
             href="/politica-privacidad"
-            className={cn('text-slate-300 hover:text-white transition-colors duration-200 underline underline-offset-2', focusRing)}
+            className={cn('text-[#C7C4D8] underline underline-offset-2 transition-colors duration-200 hover:text-[#E1E2EB]', focusRing)}
           >
             Política de Privacidad
           </Link>
           <a
             href="/EULA-Asambleas-App.txt"
             download
-            className={cn('text-slate-300 hover:text-white transition-colors duration-200 underline underline-offset-2', focusRing)}
+            className={cn('text-[#C7C4D8] underline underline-offset-2 transition-colors duration-200 hover:text-[#E1E2EB]', focusRing)}
           >
             Descargar EULA
           </a>
           <Link
             href="/epbco"
-            className={cn('text-slate-300 hover:text-white transition-colors duration-200 underline underline-offset-2', focusRing)}
+            className={cn('text-[#C7C4D8] underline underline-offset-2 transition-colors duration-200 hover:text-[#E1E2EB]', focusRing)}
           >
             EPBCO Solutions
           </Link>
