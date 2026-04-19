@@ -12,6 +12,7 @@ import { useToast } from '@/components/providers/ToastProvider'
 import { buildPublicVotarUrl } from '@/lib/publicVotarUrl'
 import { normalizeCodigoAccesoFromUrl } from '@/lib/codigoAcceso'
 import { FOCUS_REFRESH_MIN_MS, POLL_MS_FLAGS, POLL_MS_HEAVY, shouldSkipFocusRefresh } from '@/lib/votacion-live'
+import type { OrdenDiaPublico } from '@/lib/agenda'
 import dynamic from 'next/dynamic'
 
 const QRCodeSVG = dynamic(
@@ -173,6 +174,8 @@ export default function VotacionPublicaPage() {
   /** URL de la página de votación (origen + /votar/codigo) para mostrar QR y copiar enlace; solo en cliente */
   const [urlVotacionCompartir, setUrlVotacionCompartir] = useState('')
   const [copiandoEnlace, setCopiandoEnlace] = useState(false)
+  /** Agenda formal: puntos y punto actual (mesa), desde API pública */
+  const [ordenDiaPublico, setOrdenDiaPublico] = useState<OrdenDiaPublico | null>(null)
 
   /** Evita closure obsoleto en setInterval (móvil/Safari) y permite saber el paso actual al volver a la pestaña */
   const stepRef = useRef(step)
@@ -906,6 +909,7 @@ export default function VotacionPublicaPage() {
 
       /** Solo vía API (service role). El fallback con supabase.from() en el cliente fallaba tras RLS/hardening si había sesión authenticated de otra organización en el mismo navegador. */
       let preguntasConOpciones: Pregunta[] = []
+      let ordenDiaResp: OrdenDiaPublico | null = null
       let cargadoPorApi = false
       for (let attempt = 0; attempt < 2 && !cargadoPorApi; attempt++) {
         if (attempt > 0) await new Promise((r) => setTimeout(r, 450))
@@ -920,9 +924,19 @@ export default function VotacionPublicaPage() {
             cache: 'no-store',
             body: JSON.stringify({ codigo }),
           })
-          const json = (await res.json().catch(() => ({}))) as { preguntas?: Pregunta[] }
+          const json = (await res.json().catch(() => ({}))) as {
+            preguntas?: Pregunta[]
+            orden_dia?: OrdenDiaPublico
+          }
           if (res.ok && Array.isArray(json.preguntas)) {
             preguntasConOpciones = json.preguntas
+            ordenDiaResp =
+              json.orden_dia && Array.isArray(json.orden_dia.puntos)
+                ? {
+                    puntos: json.orden_dia.puntos,
+                    punto_actual: json.orden_dia.punto_actual ?? null,
+                  }
+                : null
             cargadoPorApi = true
           }
         } catch {
@@ -935,8 +949,11 @@ export default function VotacionPublicaPage() {
         setPreguntas([])
         setEstadisticas({})
         setVotosActuales([])
+        setOrdenDiaPublico(null)
         return
       }
+
+      setOrdenDiaPublico(ordenDiaResp)
 
       if (!preguntasConOpciones || preguntasConOpciones.length === 0) {
         setPreguntas([])
@@ -2048,6 +2065,37 @@ export default function VotacionPublicaPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {ordenDiaPublico && ordenDiaPublico.puntos.length > 0 && (
+          <div className="max-w-3xl mx-auto px-4 pt-4">
+            <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-white/95 dark:bg-gray-800/95 backdrop-blur px-4 py-3 shadow-sm">
+              {ordenDiaPublico.punto_actual ? (
+                <p className="text-sm text-gray-800 dark:text-gray-100 leading-snug">
+                  <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+                    {(() => {
+                      const idx = ordenDiaPublico.puntos.findIndex(
+                        (p) => p.id === ordenDiaPublico.punto_actual!.id
+                      )
+                      return idx >= 0
+                        ? `Punto ${idx + 1} de ${ordenDiaPublico.puntos.length}:`
+                        : 'Punto en curso:'
+                    })()}
+                  </span>{' '}
+                  <span className="font-medium">{ordenDiaPublico.punto_actual.titulo}</span>
+                  {ordenDiaPublico.punto_actual.descripcion && (
+                    <span className="block text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {ordenDiaPublico.punto_actual.descripcion}
+                    </span>
+                  )}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  Orden del día: {ordenDiaPublico.puntos.length} punto(s) programado(s). La mesa aún no indica el punto en curso.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Modal de ayuda al votante */}
         <Dialog open={showAyudaVotar} onOpenChange={setShowAyudaVotar}>

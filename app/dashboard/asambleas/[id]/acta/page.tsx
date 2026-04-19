@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import JSZip from 'jszip'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -34,6 +34,14 @@ interface Pregunta {
   estado: string
   orden: number
   umbral_aprobacion?: number | null
+  punto_orden_dia_id?: string | null
+}
+
+interface PuntoOrdenDiaActa {
+  id: string
+  orden: number
+  titulo: string
+  descripcion: string | null
 }
 
 interface Opcion {
@@ -122,6 +130,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [asamblea, setAsamblea] = useState<Asamblea | null>(null)
   const [conjunto, setConjunto] = useState<Conjunto | null>(null)
   const [preguntas, setPreguntas] = useState<(Pregunta & { opciones: Opcion[] })[]>([])
+  const [puntosOrdenDiaActa, setPuntosOrdenDiaActa] = useState<PuntoOrdenDiaActa[]>([])
   const [estadisticas, setEstadisticas] = useState<Record<string, StatsPregunta>>({})
   const [quorum, setQuorum] = useState<Quorum | null>(null)
   interface VerifStatsActa { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean; hora_verificacion?: string; hora_ultima_verificacion?: string }
@@ -148,6 +157,58 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [incluirAnexosPoderes, setIncluirAnexosPoderes] = useState(false)
   const descargarSoporteConAnexosRef = useRef(false)
   const [fechaGeneracionActa] = useState(() => new Date())
+
+  const actaGruposOrdenDia = useMemo(() => {
+    type PQ = Pregunta & { opciones: Opcion[] }
+    const puntosSorted = [...puntosOrdenDiaActa].sort((a, b) => a.orden - b.orden)
+    const byPunto = new Map<string, PQ[]>()
+    const sinPunto: PQ[] = []
+    for (const p of preguntas) {
+      const pid = p.punto_orden_dia_id
+      if (!pid) {
+        sinPunto.push(p)
+        continue
+      }
+      if (!byPunto.has(pid)) byPunto.set(pid, [])
+      byPunto.get(pid)!.push(p)
+    }
+    type Grupo =
+      | { kind: 'punto'; punto: PuntoOrdenDiaActa; preguntas: PQ[] }
+      | { kind: 'sin_punto'; preguntas: PQ[] }
+    const grupos: Grupo[] = []
+    for (const punto of puntosSorted) {
+      const prs = byPunto.get(punto.id) ?? []
+      prs.sort((a, b) => a.orden - b.orden)
+      grupos.push({ kind: 'punto', punto, preguntas: prs })
+    }
+    if (sinPunto.length > 0) {
+      sinPunto.sort((a, b) => a.orden - b.orden)
+      grupos.push({ kind: 'sin_punto', preguntas: sinPunto })
+    }
+    return grupos
+  }, [preguntas, puntosOrdenDiaActa])
+
+  const actaFilasResultado = useMemo(() => {
+    type PQ = Pregunta & { opciones: Opcion[] }
+    type Row =
+      | { kind: 'header_punto'; punto: PuntoOrdenDiaActa }
+      | { kind: 'header_sin' }
+      | { kind: 'pregunta'; pregunta: PQ; indexDisplay: number }
+    const rows: Row[] = []
+    let n = 0
+    for (const grupo of actaGruposOrdenDia) {
+      if (grupo.kind === 'punto') {
+        rows.push({ kind: 'header_punto', punto: grupo.punto })
+      } else {
+        rows.push({ kind: 'header_sin' })
+      }
+      for (const p of grupo.preguntas) {
+        n += 1
+        rows.push({ kind: 'pregunta', pregunta: p, indexDisplay: n })
+      }
+    }
+    return rows
+  }, [actaGruposOrdenDia])
 
   useEffect(() => {
     loadData()
@@ -224,9 +285,21 @@ export default function ActaPage({ params }: { params: { id: string } }) {
 
       const { data: preguntasData } = await supabase
         .from('preguntas')
-        .select('id, texto_pregunta, descripcion, tipo_votacion, estado, orden, umbral_aprobacion, is_archived')
+        .select('id, texto_pregunta, descripcion, tipo_votacion, estado, orden, umbral_aprobacion, is_archived, punto_orden_dia_id')
         .eq('asamblea_id', params.id)
         .order('orden', { ascending: true })
+
+      const { data: puntosOrdData, error: puntosOrdErr } = await supabase
+        .from('puntos_orden_dia')
+        .select('id, orden, titulo, descripcion')
+        .eq('asamblea_id', params.id)
+        .order('orden', { ascending: true })
+      if (puntosOrdErr) {
+        console.warn('Acta: puntos orden día:', puntosOrdErr.message)
+        setPuntosOrdenDiaActa([])
+      } else {
+        setPuntosOrdenDiaActa((puntosOrdData as PuntoOrdenDiaActa[]) || [])
+      }
 
       const preguntasParaActa = (preguntasData || []).filter((p: { is_archived?: boolean }) => !p.is_archived)
       const preguntasConOpciones: (Pregunta & { opciones: Opcion[] })[] = []
@@ -1211,7 +1284,36 @@ export default function ActaPage({ params }: { params: { id: string } }) {
             Para cada pregunta se indican los resultados de votación y el registro de verificación de quórum al momento de esa votación. Las verificaciones de la asamblea en general figuran en la sección anterior.
           </p>
           <div className="space-y-3">
-            {preguntas.map((pregunta, idx) => {
+            {actaFilasResultado.map((row) => {
+              if (row.kind === 'header_punto') {
+                return (
+                  <div
+                    key={`acta-h-${row.punto.id}`}
+                    className="break-inside-avoid mb-3 mt-4 first:mt-0"
+                  >
+                    <h3 className="text-base font-bold text-gray-900 border-b border-gray-300 pb-1">
+                      Punto {row.punto.orden}: {row.punto.titulo}
+                    </h3>
+                    {row.punto.descripcion && (
+                      <p className="text-sm text-gray-600 mt-1">{row.punto.descripcion}</p>
+                    )}
+                  </div>
+                )
+              }
+              if (row.kind === 'header_sin') {
+                return (
+                  <div key="acta-h-sin" className="break-inside-avoid mb-3 mt-4">
+                    <h3 className="text-base font-bold text-gray-900 border-b border-gray-300 pb-1">
+                      Otras votaciones
+                    </h3>
+                    <p className="text-xs text-gray-500 mb-1">
+                      Preguntas sin punto del orden del día asignado.
+                    </p>
+                  </div>
+                )
+              }
+              const pregunta = row.pregunta
+              const idx = row.indexDisplay - 1
               const stats = estadisticas[pregunta.id]
               const votosFinales = votacionesFinalesPorPregunta[pregunta.id] || []
               const totalCoefVotantes = votosFinales.reduce((s, r) => s + r.coeficiente, 0)

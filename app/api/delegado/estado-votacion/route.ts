@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyDelegadoToken } from '@/lib/delegado-verify'
+import { fetchOrdenDiaPublico } from '@/lib/agenda'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,10 +78,22 @@ export async function POST(request: NextRequest) {
 
     const { admin, asamblea } = v
 
+    const { data: asmAgenda } = await admin
+      .from('asambleas')
+      .select('punto_orden_dia_actual_id')
+      .eq('id', asamblea.id)
+      .maybeSingle()
+
+    const ordenDia = await fetchOrdenDiaPublico(
+      admin,
+      asamblea.id,
+      (asmAgenda as { punto_orden_dia_actual_id?: string | null } | null)?.punto_orden_dia_actual_id
+    )
+
     /** Incluir NULL: .eq(false) excluye filas con is_archived NULL en algunas BD. */
     const { data: pregData, error: pregErr } = await admin
       .from('preguntas')
-      .select('id, texto_pregunta, estado, tipo_votacion, umbral_aprobacion')
+      .select('id, texto_pregunta, estado, tipo_votacion, umbral_aprobacion, punto_orden_dia_id')
       .eq('asamblea_id', asamblea.id)
       .eq('estado', 'abierta')
       .or('is_archived.is.null,is_archived.eq.false')
@@ -123,6 +136,7 @@ export async function POST(request: NextRequest) {
       estado: p.estado as string,
       tipo_votacion: p.tipo_votacion as string,
       umbral_aprobacion: p.umbral_aprobacion as number | null,
+      punto_orden_dia_id: (p.punto_orden_dia_id as string | null) ?? null,
       opciones: opcMap[p.id as string] || [],
     }))
 
@@ -217,7 +231,13 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { ok: true, preguntas, votosRegistrados, avanceVotaciones },
+      {
+        ok: true,
+        preguntas,
+        votosRegistrados,
+        avanceVotaciones,
+        orden_dia: { puntos: ordenDia.puntos, punto_actual: ordenDia.punto_actual },
+      },
       { status: 200, headers: noStoreHeaders }
     )
   } catch (e) {

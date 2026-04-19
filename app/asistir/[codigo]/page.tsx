@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import type { BarChartData } from '@/components/charts/VotacionBarChart'
 import { normalizeCodigoAccesoFromUrl } from '@/lib/codigoAcceso'
 import { matchesUnidadBusquedaCompleta } from '@/lib/matchUnidadSearch'
+import type { OrdenDiaPublico } from '@/lib/agenda'
 
 const VotacionBarChart = dynamic(
   () => import('@/components/charts/VotacionBarChart'),
@@ -140,6 +141,16 @@ function mergeVotosDelegadoYPublico(
   return Array.from(map.values())
 }
 
+function ordenDiaFromApiPayload(raw: unknown): OrdenDiaPublico | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as { puntos?: unknown; punto_actual?: unknown }
+  if (!Array.isArray(o.puntos)) return null
+  return {
+    puntos: o.puntos as OrdenDiaPublico['puntos'],
+    punto_actual: (o.punto_actual as OrdenDiaPublico['punto_actual']) ?? null,
+  }
+}
+
 function mapPreguntasAbiertasApiToPreguntas(raw: Record<string, unknown>[]): Pregunta[] {
   return raw.map((p) => {
     const opcionesRaw = (p.opciones as Array<{ id: string; texto?: string; texto_opcion?: string; color?: string }>) || []
@@ -198,6 +209,7 @@ export default function AsistirPage() {
   const [guardandoVoto, setGuardandoVoto] = useState(false)
   const [msgVotacion, setMsgVotacion] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
   const [cargandoPreguntas, setCargandoPreguntas] = useState(false)
+  const [ordenDiaDelegado, setOrdenDiaDelegado] = useState<OrdenDiaPublico | null>(null)
   const [avanceVotaciones, setAvanceVotaciones] = useState<PreguntaConResultados[]>([])
   const [showAyudaDelegado, setShowAyudaDelegado] = useState(false)
   const [refrescandoManual, setRefrescandoManual] = useState(false)
@@ -334,6 +346,10 @@ export default function AsistirPage() {
           })
           const dataFb = await resFb.json().catch(() => ({}))
           const arr = Array.isArray(dataFb.preguntas) ? (dataFb.preguntas as Record<string, unknown>[]) : []
+          if (resFb.ok) {
+            const od = ordenDiaFromApiPayload((dataFb as { orden_dia?: unknown }).orden_dia)
+            if (od) setOrdenDiaDelegado(od)
+          }
           if (resFb.ok && arr.length > 0) {
             const nuevasPreguntas = mapPreguntasAbiertasApiToPreguntas(arr)
             setPreguntas(nuevasPreguntas)
@@ -362,6 +378,9 @@ export default function AsistirPage() {
         })),
       }))
 
+      const odPrincipal = ordenDiaFromApiPayload((data as { orden_dia?: unknown }).orden_dia)
+      if (odPrincipal) setOrdenDiaDelegado(odPrincipal)
+
       if (nuevasPreguntas.length === 0) {
         try {
           const resFb = await fetch('/api/votar/preguntas-abiertas', {
@@ -372,6 +391,10 @@ export default function AsistirPage() {
           })
           const dataFb = await resFb.json().catch(() => ({}))
           const arr = Array.isArray(dataFb.preguntas) ? (dataFb.preguntas as Record<string, unknown>[]) : []
+          if (resFb.ok) {
+            const odFb = ordenDiaFromApiPayload((dataFb as { orden_dia?: unknown }).orden_dia)
+            if (odFb) setOrdenDiaDelegado(odFb)
+          }
           if (resFb.ok && arr.length > 0) {
             nuevasPreguntas = mapPreguntasAbiertasApiToPreguntas(arr)
             console.warn('[asistir] Preguntas cargadas vía respaldo preguntas-abiertas (estado-votacion devolvió 0).')
@@ -802,6 +825,35 @@ export default function AsistirPage() {
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>Los registros quedarán marcados como <strong>registrados por asistente delegado</strong> en el acta y auditoría.</span>
         </div>
+
+        {ordenDiaDelegado && ordenDiaDelegado.puntos.length > 0 && (
+          <div className="rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-gray-800 px-4 py-3 shadow-sm">
+            {ordenDiaDelegado.punto_actual ? (
+              <p className="text-sm text-gray-800 dark:text-gray-100 leading-snug">
+                <span className="font-semibold text-indigo-700 dark:text-indigo-300">
+                  {(() => {
+                    const idx = ordenDiaDelegado.puntos.findIndex(
+                      (p) => p.id === ordenDiaDelegado.punto_actual!.id
+                    )
+                    return idx >= 0
+                      ? `Punto ${idx + 1} de ${ordenDiaDelegado.puntos.length}:`
+                      : 'Punto en curso:'
+                  })()}
+                </span>{' '}
+                <span className="font-medium">{ordenDiaDelegado.punto_actual.titulo}</span>
+                {ordenDiaDelegado.punto_actual.descripcion && (
+                  <span className="block text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {ordenDiaDelegado.punto_actual.descripcion}
+                  </span>
+                )}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                Orden del día: {ordenDiaDelegado.puntos.length} punto(s) programado(s). La mesa aún no indica el punto en curso.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Acceso rápido al panel: unidades y poderes (para actualizar datos o agregar poderes) */}
         {asamblea?.asamblea_id && asamblea?.organization_id && (

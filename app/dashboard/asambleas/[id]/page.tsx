@@ -43,6 +43,9 @@ import {
   Search,
   Settings2,
   Info,
+  ListOrdered,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -110,6 +113,16 @@ interface Asamblea {
   session_mode?: 'inactive' | 'verification' | 'voting'
   /** Secuencia de sesión (incrementa al cerrar sesión o desactivar acceso público) */
   session_seq?: number
+  /** Punto del orden del día en curso (mesa / UI pública) */
+  punto_orden_dia_actual_id?: string | null
+}
+
+interface PuntoOrdenDia {
+  id: string
+  asamblea_id: string
+  orden: number
+  titulo: string
+  descripcion: string | null
 }
 
 interface Pregunta {
@@ -121,6 +134,7 @@ interface Pregunta {
   estado: 'pendiente' | 'abierta' | 'cerrada'
   umbral_aprobacion?: number | null
   is_archived?: boolean
+  punto_orden_dia_id?: string | null
 }
 
 interface OpcionPregunta {
@@ -179,7 +193,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     texto_pregunta: '',
     descripcion: '',
     tipo_votacion: 'coeficiente' as 'coeficiente' | 'nominal',
-    umbral_aprobacion: null as number | null
+    umbral_aprobacion: null as number | null,
+    punto_orden_dia_id: null as string | null,
   })
   const [opciones, setOpciones] = useState<OpcionPregunta[]>([
     { texto_opcion: 'A favor', orden: 1, color: '#10b981' },
@@ -187,6 +202,15 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     { texto_opcion: 'Me abstengo', orden: 3, color: '#6b7280' }
   ])
   const [opcionesPreguntas, setOpcionesPreguntas] = useState<{ [key: string]: OpcionPregunta[] }>({})
+  const [puntosOrdenDia, setPuntosOrdenDia] = useState<PuntoOrdenDia[]>([])
+  const [nuevoPuntoTitulo, setNuevoPuntoTitulo] = useState('')
+  const [nuevoPuntoDesc, setNuevoPuntoDesc] = useState('')
+  const [savingPuntoOrden, setSavingPuntoOrden] = useState(false)
+  const [puntoEditando, setPuntoEditando] = useState<PuntoOrdenDia | null>(null)
+  const [editPuntoTitulo, setEditPuntoTitulo] = useState('')
+  const [editPuntoDesc, setEditPuntoDesc] = useState('')
+  const [savingEditPunto, setSavingEditPunto] = useState(false)
+  const [puntoActualizando, setPuntoActualizando] = useState(false)
   const [estadisticas, setEstadisticas] = useState<{ [key: string]: EstadisticaOpcion[] }>({})
   /** Por pregunta: totales globales (votos emitidos en la pregunta), desde el RPC. */
   const [estadisticasMeta, setEstadisticasMeta] = useState<{ [key: string]: EstadisticasPreguntaMeta }>({})
@@ -251,7 +275,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     texto_pregunta: '',
     descripcion: '',
     tipo_votacion: 'coeficiente' as 'coeficiente' | 'nominal',
-    umbral_aprobacion: null as number | null
+    umbral_aprobacion: null as number | null,
+    punto_orden_dia_id: null as string | null,
   })
   const [editOpciones, setEditOpciones] = useState<OpcionPregunta[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
@@ -614,6 +639,18 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           
           setOpcionesPreguntas(opcionesMap)
         }
+      }
+
+      const { data: puntosOrdData, error: puntosOrdErr } = await supabase
+        .from('puntos_orden_dia')
+        .select('*')
+        .eq('asamblea_id', params.id)
+        .order('orden', { ascending: true })
+      if (puntosOrdErr) {
+        console.error('Error loading puntos orden día:', puntosOrdErr)
+        setPuntosOrdenDia([])
+      } else {
+        setPuntosOrdenDia((puntosOrdData as PuntoOrdenDia[]) || [])
       }
 
       // Cargar estadísticas y quórum (pasamos preguntas recién cargadas: setState es async y loadEstadisticas usa preguntas)
@@ -1397,7 +1434,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           descripcion: newPregunta.descripcion.trim() || null,
           tipo_votacion: newPregunta.tipo_votacion,
           estado: 'pendiente',
-          umbral_aprobacion: newPregunta.umbral_aprobacion ?? null
+          umbral_aprobacion: newPregunta.umbral_aprobacion ?? null,
+          punto_orden_dia_id: newPregunta.punto_orden_dia_id || null,
         })
         .select()
         .single()
@@ -1430,7 +1468,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         texto_pregunta: '',
         descripcion: '',
         tipo_votacion: 'coeficiente',
-        umbral_aprobacion: null
+        umbral_aprobacion: null,
+        punto_orden_dia_id: null,
       })
       setOpciones([
         { texto_opcion: 'A favor', orden: 1, color: '#10b981' },
@@ -1562,6 +1601,157 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
     }
   }
 
+  const puntosOrdenSorted = useMemo(
+    () => [...puntosOrdenDia].sort((a, b) => a.orden - b.orden),
+    [puntosOrdenDia]
+  )
+
+  const handleAgregarPuntoOrden = async () => {
+    if (!nuevoPuntoTitulo.trim()) {
+      toast.error('El título del punto es obligatorio')
+      return
+    }
+    if (!params.id || !asamblea) return
+    setSavingPuntoOrden(true)
+    try {
+      const nextOrden =
+        puntosOrdenSorted.length > 0 ? Math.max(...puntosOrdenSorted.map((p) => p.orden)) + 1 : 1
+      const { data, error } = await supabase
+        .from('puntos_orden_dia')
+        .insert({
+          asamblea_id: params.id,
+          orden: nextOrden,
+          titulo: nuevoPuntoTitulo.trim(),
+          descripcion: nuevoPuntoDesc.trim() || null,
+        })
+        .select()
+        .single()
+      if (error) throw error
+      if (data) setPuntosOrdenDia((prev) => [...prev, data as PuntoOrdenDia])
+      setNuevoPuntoTitulo('')
+      setNuevoPuntoDesc('')
+      toast.success('Punto agregado al orden del día')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al crear el punto'
+      toast.error(msg)
+    } finally {
+      setSavingPuntoOrden(false)
+    }
+  }
+
+  const handleEliminarPuntoOrden = async (punto: PuntoOrdenDia) => {
+    if (!window.confirm(`¿Eliminar el punto «${punto.titulo}»? Las preguntas asociadas quedarán sin punto.`)) return
+    try {
+      const { error } = await supabase.from('puntos_orden_dia').delete().eq('id', punto.id)
+      if (error) throw error
+      setPuntosOrdenDia((prev) => prev.filter((p) => p.id !== punto.id))
+      setPreguntas((prev) =>
+        prev.map((p) => (p.punto_orden_dia_id === punto.id ? { ...p, punto_orden_dia_id: null } : p))
+      )
+      if (asamblea?.punto_orden_dia_actual_id === punto.id) {
+        const { error: e2 } = await supabase
+          .from('asambleas')
+          .update({ punto_orden_dia_actual_id: null })
+          .eq('id', params.id)
+        if (!e2) setAsamblea((prev) => (prev ? { ...prev, punto_orden_dia_actual_id: null } : prev))
+      }
+      toast.success('Punto eliminado')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al eliminar'
+      toast.error(msg)
+    }
+  }
+
+  const handleMoverPuntoOrden = async (puntoId: string, dir: 'up' | 'down') => {
+    const sorted = [...puntosOrdenSorted]
+    const i = sorted.findIndex((p) => p.id === puntoId)
+    const j = dir === 'up' ? i - 1 : i + 1
+    if (i < 0 || j < 0 || j >= sorted.length) return
+    const a = sorted[i]
+    const b = sorted[j]
+    try {
+      const { error: e1 } = await supabase.from('puntos_orden_dia').update({ orden: b.orden }).eq('id', a.id)
+      if (e1) throw e1
+      const { error: e2 } = await supabase.from('puntos_orden_dia').update({ orden: a.orden }).eq('id', b.id)
+      if (e2) throw e2
+      setPuntosOrdenDia((prev) =>
+        prev.map((p) => {
+          if (p.id === a.id) return { ...p, orden: b.orden }
+          if (p.id === b.id) return { ...p, orden: a.orden }
+          return p
+        })
+      )
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al reordenar'
+      toast.error(msg)
+    }
+  }
+
+  const handleSetPuntoSesionActual = async (puntoId: string | null) => {
+    if (!asamblea || !params.id) return
+    setPuntoActualizando(true)
+    try {
+      const { error } = await supabase
+        .from('asambleas')
+        .update({ punto_orden_dia_actual_id: puntoId })
+        .eq('id', params.id)
+      if (error) throw error
+      setAsamblea({ ...asamblea, punto_orden_dia_actual_id: puntoId ?? null })
+      toast.success(puntoId ? 'Punto actual de la sesión actualizado' : 'Sin punto marcado como actual')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al actualizar'
+      toast.error(msg)
+    } finally {
+      setPuntoActualizando(false)
+    }
+  }
+
+  const handlePuntoSesionStep = (dir: 'prev' | 'next') => {
+    const sorted = puntosOrdenSorted
+    if (sorted.length === 0) return
+    const curId = asamblea?.punto_orden_dia_actual_id ?? null
+    const idx = curId ? sorted.findIndex((p) => p.id === curId) : -1
+    const j = dir === 'next' ? (idx < 0 ? 0 : idx + 1) : idx <= 0 ? -1 : idx - 1
+    if (j < 0 || j >= sorted.length) {
+      void handleSetPuntoSesionActual(null)
+      return
+    }
+    void handleSetPuntoSesionActual(sorted[j].id)
+  }
+
+  const handleGuardarEdicionPunto = async () => {
+    if (!puntoEditando) return
+    if (!editPuntoTitulo.trim()) {
+      toast.error('El título es obligatorio')
+      return
+    }
+    setSavingEditPunto(true)
+    try {
+      const { error } = await supabase
+        .from('puntos_orden_dia')
+        .update({
+          titulo: editPuntoTitulo.trim(),
+          descripcion: editPuntoDesc.trim() || null,
+        })
+        .eq('id', puntoEditando.id)
+      if (error) throw error
+      setPuntosOrdenDia((prev) =>
+        prev.map((p) =>
+          p.id === puntoEditando.id
+            ? { ...p, titulo: editPuntoTitulo.trim(), descripcion: editPuntoDesc.trim() || null }
+            : p
+        )
+      )
+      setPuntoEditando(null)
+      toast.success('Punto actualizado')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al guardar'
+      toast.error(msg)
+    } finally {
+      setSavingEditPunto(false)
+    }
+  }
+
   const addOpcion = () => {
     setOpciones([
       ...opciones,
@@ -1658,7 +1848,8 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
       texto_pregunta: pregunta.texto_pregunta,
       descripcion: pregunta.descripcion || '',
       tipo_votacion: pregunta.tipo_votacion,
-      umbral_aprobacion: (pregunta as Pregunta & { umbral_aprobacion?: number | null }).umbral_aprobacion ?? null
+      umbral_aprobacion: (pregunta as Pregunta & { umbral_aprobacion?: number | null }).umbral_aprobacion ?? null,
+      punto_orden_dia_id: pregunta.punto_orden_dia_id ?? null,
     })
 
     // Cargar opciones actuales (pendiente: todas editables; abierta/cerrada: existentes solo lectura, se pueden añadir nuevas)
@@ -1699,6 +1890,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
           descripcion: editForm.descripcion.trim() || null,
           tipo_votacion: editForm.tipo_votacion,
           umbral_aprobacion: editForm.umbral_aprobacion ?? null,
+          punto_orden_dia_id: editForm.punto_orden_dia_id || null,
         })
         .eq('id', editingPregunta.id)
 
@@ -1712,6 +1904,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
               descripcion: editForm.descripcion.trim() || '',
               tipo_votacion: editForm.tipo_votacion,
               umbral_aprobacion: editForm.umbral_aprobacion ?? null,
+              punto_orden_dia_id: editForm.punto_orden_dia_id || null,
             }
           : p
       )
@@ -3240,6 +3433,173 @@ Tu participacion es importante. 🏠`
           {/* Preguntas / votos: en móvil arriba */}
           <div className="lg:col-span-2 order-1 lg:order-2 min-w-0">
             <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 min-w-0 overflow-hidden">
+              <section className="mb-8 pb-8 border-b border-gray-200 dark:border-gray-600" aria-labelledby="orden-dia-heading">
+                <h2 id="orden-dia-heading" className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-1">
+                  <ListOrdered className="w-5 h-5 text-indigo-500 shrink-0" />
+                  Orden del día
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Define puntos formales (informativos o de debate) y opcionalmente asocia cada pregunta de votación a un punto. El punto actual se muestra en la página pública de votación.
+                </p>
+
+                <div className="rounded-2xl border border-indigo-200/80 dark:border-indigo-800/80 bg-indigo-50/50 dark:bg-indigo-950/20 px-4 py-3 mb-4">
+                  <p className="text-xs font-semibold text-indigo-800 dark:text-indigo-200 uppercase tracking-wide mb-2">
+                    Punto actual de la sesión
+                  </p>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <Select
+                      id="punto_sesion_actual"
+                      className="flex-1 min-w-0 max-w-md"
+                      value={asamblea.punto_orden_dia_actual_id ?? ''}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        void handleSetPuntoSesionActual(v === '' ? null : v)
+                      }}
+                      disabled={puntoActualizando || isReadOnlyStructure}
+                    >
+                      <option value="">Ninguno (sin indicar)</option>
+                      {puntosOrdenSorted.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.orden}. {p.titulo}
+                        </option>
+                      ))}
+                    </Select>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl"
+                        onClick={() => handlePuntoSesionStep('prev')}
+                        disabled={puntoActualizando || isReadOnlyStructure || puntosOrdenSorted.length === 0}
+                        title="Punto anterior"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl"
+                        onClick={() => handlePuntoSesionStep('next')}
+                        disabled={puntoActualizando || isReadOnlyStructure || puntosOrdenSorted.length === 0}
+                        title="Siguiente punto"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end mb-4">
+                  <div>
+                    <Label htmlFor="nuevo_punto_titulo">Nuevo punto</Label>
+                    <Input
+                      id="nuevo_punto_titulo"
+                      value={nuevoPuntoTitulo}
+                      onChange={(e) => setNuevoPuntoTitulo(e.target.value)}
+                      placeholder="Ej. Informe de gestión, Aprobación de cuentas…"
+                      className="mt-1"
+                      disabled={isReadOnlyStructure}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => void handleAgregarPuntoOrden()}
+                    disabled={savingPuntoOrden || isReadOnlyStructure}
+                    className="bg-indigo-600 hover:bg-indigo-700 sm:mb-0"
+                  >
+                    {savingPuntoOrden ? 'Guardando…' : 'Agregar punto'}
+                  </Button>
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="nuevo_punto_desc" className="text-xs text-gray-500">
+                      Descripción (opcional, ayuda en acta)
+                    </Label>
+                    <Input
+                      id="nuevo_punto_desc"
+                      value={nuevoPuntoDesc}
+                      onChange={(e) => setNuevoPuntoDesc(e.target.value)}
+                      placeholder="Nota breve para la mesa o el acta"
+                      className="mt-1"
+                      disabled={isReadOnlyStructure}
+                    />
+                  </div>
+                </div>
+
+                {puntosOrdenSorted.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                    Aún no hay puntos. Puedes crear solo preguntas de votación, o añadir puntos aquí para alinear el acta con el orden del día real.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {puntosOrdenSorted.map((p, idx) => (
+                      <li
+                        key={p.id}
+                        className="flex flex-wrap items-start gap-2 justify-between rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50/80 dark:bg-gray-900/40 px-3 py-2.5"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mr-2">
+                            {p.orden}.
+                          </span>
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">{p.titulo}</span>
+                          {p.descripcion && (
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 break-words">{p.descripcion}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2"
+                            onClick={() => handleMoverPuntoOrden(p.id, 'up')}
+                            disabled={idx === 0 || isReadOnlyStructure}
+                            title="Subir"
+                          >
+                            ↑
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2"
+                            onClick={() => handleMoverPuntoOrden(p.id, 'down')}
+                            disabled={idx >= puntosOrdenSorted.length - 1 || isReadOnlyStructure}
+                            title="Bajar"
+                          >
+                            ↓
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => {
+                              setPuntoEditando(p)
+                              setEditPuntoTitulo(p.titulo)
+                              setEditPuntoDesc(p.descripcion ?? '')
+                            }}
+                            disabled={isReadOnlyStructure}
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-red-600 hover:text-red-700"
+                            onClick={() => void handleEliminarPuntoOrden(p)}
+                            disabled={isReadOnlyStructure}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                   Preguntas de Votación
@@ -3399,6 +3759,17 @@ Tu participacion es importante. 🏠`
                             <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
                               #{pregunta.orden}
                             </span>
+                            {pregunta.punto_orden_dia_id && (
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-200 max-w-[12rem] truncate"
+                                title={
+                                  puntosOrdenDia.find((x) => x.id === pregunta.punto_orden_dia_id)?.titulo ??
+                                  'Punto del orden del día'
+                                }
+                              >
+                                {puntosOrdenDia.find((x) => x.id === pregunta.punto_orden_dia_id)?.titulo ?? 'Punto'}
+                              </span>
+                            )}
                             <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded capitalize">
                               {pregunta.tipo_votacion}
                             </span>
@@ -3726,6 +4097,55 @@ Tu participacion es importante. 🏠`
         </div>
       </main>
 
+      {/* Dialog: editar punto del orden del día */}
+      <Dialog
+        open={puntoEditando !== null}
+        onOpenChange={(open) => {
+          if (!open) setPuntoEditando(null)
+        }}
+      >
+        <DialogContent className="max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Editar punto del orden del día</DialogTitle>
+            <DialogDescription>Cambios visibles en la votación pública y en el acta.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div>
+              <Label htmlFor="edit_punto_titulo">Título</Label>
+              <Input
+                id="edit_punto_titulo"
+                value={editPuntoTitulo}
+                onChange={(e) => setEditPuntoTitulo(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_punto_desc">Descripción (opcional)</Label>
+              <textarea
+                id="edit_punto_desc"
+                value={editPuntoDesc}
+                onChange={(e) => setEditPuntoDesc(e.target.value)}
+                rows={3}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <Button type="button" variant="outline" onClick={() => setPuntoEditando(null)}>
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleGuardarEdicionPunto()}
+                disabled={savingEditPunto}
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
+                {savingEditPunto ? 'Guardando…' : 'Guardar'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog: Nueva Pregunta */}
       <Dialog open={showNewPregunta} onOpenChange={setShowNewPregunta}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl">
@@ -3801,6 +4221,28 @@ Tu participacion es importante. 🏠`
               </p>
             </div>
 
+            <div>
+              <Label htmlFor="nueva_pregunta_punto">Punto del orden del día (opcional)</Label>
+              <Select
+                id="nueva_pregunta_punto"
+                value={newPregunta.punto_orden_dia_id ?? ''}
+                onChange={(e) =>
+                  setNewPregunta({
+                    ...newPregunta,
+                    punto_orden_dia_id: e.target.value === '' ? null : e.target.value,
+                  })
+                }
+                className="mt-2"
+              >
+                <option value="">Sin agrupar (global)</option>
+                {puntosOrdenSorted.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.orden}. {p.titulo}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
             {/* Opciones de Respuesta */}
             <div className="border-t pt-4">
               <div className="flex items-center justify-between mb-3">
@@ -3856,6 +4298,13 @@ Tu participacion es importante. 🏠`
                 variant="outline"
                 onClick={() => {
                   setShowNewPregunta(false)
+                  setNewPregunta({
+                    texto_pregunta: '',
+                    descripcion: '',
+                    tipo_votacion: 'coeficiente',
+                    umbral_aprobacion: null,
+                    punto_orden_dia_id: null,
+                  })
                   setOpciones([
                     { texto_opcion: 'A favor', orden: 1, color: '#10b981' },
                     { texto_opcion: 'En contra', orden: 2, color: '#ef4444' },
@@ -3964,6 +4413,28 @@ Tu participacion es importante. 🏠`
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 50 = mayoría simple, 70 = calificada (ej. reforma estatutos), 100 = unanimidad.
               </p>
+            </div>
+
+            <div>
+              <Label htmlFor="edit_pregunta_punto">Punto del orden del día (opcional)</Label>
+              <Select
+                id="edit_pregunta_punto"
+                value={editForm.punto_orden_dia_id ?? ''}
+                onChange={(e) =>
+                  setEditForm({
+                    ...editForm,
+                    punto_orden_dia_id: e.target.value === '' ? null : e.target.value,
+                  })
+                }
+                className="mt-2"
+              >
+                <option value="">Sin agrupar (global)</option>
+                {puntosOrdenSorted.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.orden}. {p.titulo}
+                  </option>
+                ))}
+              </Select>
             </div>
 
             {editingPregunta &&

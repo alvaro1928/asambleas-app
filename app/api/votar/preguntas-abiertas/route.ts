@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchOrdenDiaPublico } from '@/lib/agenda'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,9 +44,21 @@ async function responderPreguntasAbiertas(codigoRaw: string | null | undefined) 
 
   const asambleaId = codigoData[0].asamblea_id as string
 
+  const { data: asambleaRow } = await admin
+    .from('asambleas')
+    .select('punto_orden_dia_actual_id')
+    .eq('id', asambleaId)
+    .maybeSingle()
+
+  const ordenDia = await fetchOrdenDiaPublico(
+    admin,
+    asambleaId,
+    (asambleaRow as { punto_orden_dia_actual_id?: string | null } | null)?.punto_orden_dia_actual_id
+  )
+
   const { data: preguntasData, error: preguntasError } = await admin
     .from('preguntas')
-    .select('id, texto_pregunta, descripcion, tipo_votacion, estado, umbral_aprobacion')
+    .select('id, texto_pregunta, descripcion, tipo_votacion, estado, umbral_aprobacion, punto_orden_dia_id')
     .eq('asamblea_id', asambleaId)
     .eq('estado', 'abierta')
     .or('is_archived.is.null,is_archived.eq.false')
@@ -58,7 +71,13 @@ async function responderPreguntasAbiertas(codigoRaw: string | null | undefined) 
 
   const preguntas = preguntasData || []
   if (preguntas.length === 0) {
-    return NextResponse.json({ preguntas: [] }, { headers: noStoreHeaders })
+    return NextResponse.json(
+      {
+        preguntas: [],
+        orden_dia: { puntos: ordenDia.puntos, punto_actual: ordenDia.punto_actual },
+      },
+      { headers: noStoreHeaders }
+    )
   }
 
   const preguntaIds = preguntas.map((p: { id: string }) => p.id)
@@ -99,7 +118,13 @@ async function responderPreguntasAbiertas(codigoRaw: string | null | undefined) 
     opciones: opcionesPorPregunta[String(p.id)] || [],
   }))
 
-  return NextResponse.json({ preguntas: preguntasConOpciones }, { headers: noStoreHeaders })
+  return NextResponse.json(
+    {
+      preguntas: preguntasConOpciones,
+      orden_dia: { puntos: ordenDia.puntos, punto_actual: ordenDia.punto_actual },
+    },
+    { headers: noStoreHeaders }
+  )
 }
 
 /**
