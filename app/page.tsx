@@ -612,7 +612,7 @@ export default function Home() {
             className="text-xs uppercase tracking-widest text-slate-500 underline-offset-4 transition-opacity hover:text-indigo-600 hover:underline"
           >
             EULA
-          </Link>
+          </a>
           <Link
             href="/epbco"
             className="text-xs uppercase tracking-widest text-slate-500 underline-offset-4 transition-opacity hover:text-indigo-600 hover:underline"
