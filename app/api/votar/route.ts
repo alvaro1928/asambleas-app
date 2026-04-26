@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { logRouteError, publicErrorMessage } from '@/lib/route-errors'
+import { markPresenceOnVote } from '@/lib/quorum/participation'
 
 /**
  * POST /api/votar
@@ -230,6 +231,18 @@ export async function POST(request: NextRequest) {
       const resErr = NextResponse.json({ error: error.message }, { status: 400 })
       resErr.headers.set('X-Response-Time-Ms', String(elapsed))
       return resErr
+    }
+
+    // Integración conservadora: actualiza presencia/quórum sin tocar el contrato de voto.
+    try {
+      await markPresenceOnVote({
+        asambleaId: preguntaRow.asamblea_id,
+        identificador: emailNorm,
+        preguntaId: pregunta_id,
+        idempotencyKey: `vote:${pregunta_id}:${unidad_id}:${opcion_id}`,
+      })
+    } catch (presenceError) {
+      console.warn('[api/votar] voto ok, presencia no actualizada:', presenceError)
     }
 
     const elapsed = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startMs)

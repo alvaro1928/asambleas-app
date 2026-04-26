@@ -31,6 +31,7 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 | 20 | **AGREGAR-CONFIG-PODERES-Y-CORREO.sql** | Columna `plantilla_adicional_correo` en `configuracion_poderes`. Permite al gestor añadir texto (ej. enlace Teams/Meet) a los correos de votación. |
 | 21 | **CONFIGURACION-WHATSAPP-Y-TOKENS-POR-MENSAJE.sql** | Tabla `configuracion_whatsapp` (Token Meta, Phone Number ID, plantilla, `tokens_por_mensaje_whatsapp`). Añade `WhatsApp` a `billing_logs.tipo_operacion`. Para envío masivo por WhatsApp (cobro en tokens). |
 | 22 | **SANDBOX-USAR-UNIDADES-REALES.sql** | En asambleas demo: columna `sandbox_usar_unidades_reales`. Permite en sandbox probar con las 10 unidades demo o con las unidades reales del conjunto. Actualiza `calcular_quorum_asamblea`, `calcular_estadisticas_pregunta` y `validar_votante_asamblea`. **No afecta asambleas productivas.** Requiere 17 (ADD-IS-DEMO) y normalizar_telefono (VALIDAR-VOTANTE-EMAIL-O-TELEFONO-UNIFICADO). |
+| 23 | **ADD-QUORUM-PRESENCE.sql** | Capa de quórum automático por presencia en tiempo real: tablas `quorum_presence`, `quorum_presence_units`, `quorum_event_log`, `quorum_snapshot`, configuración por asamblea y RPCs de heartbeat/estado/snapshots. Mantiene compatibilidad con verificación manual histórica como respaldo. |
 
 ---
 
@@ -60,6 +61,7 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 20. AGREGAR-CONFIG-PODERES-Y-CORREO.sql
 21. CONFIGURACION-WHATSAPP-Y-TOKENS-POR-MENSAJE.sql
 22. SANDBOX-USAR-UNIDADES-REALES.sql
+23. ADD-QUORUM-PRESENCE.sql
 ```
 
 ---
@@ -81,5 +83,7 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 - **22:** Sandbox: opción "Probar con unidades de demostración (10)" o "Unidades reales del conjunto". Las asambleas reales no se ven afectadas.
 - **ASEGURAR-UNIDADES-DEMO-SANDBOX.sql** (recomendado si usas sandbox): Crea la función que asegura las 10 unidades demo por organización (test1@...test10@asambleas.online). Las unidades demo **no existen en las unidades normales** y son solo para sandbox; no se mezclan con asambleas reales/productivas. Ejecutar antes de **FIX-VALIDAR-VOTANTE-ACCESO-DEMO.sql** si el acceso con esas credenciales falla.
 - **TRIGGER-PROFILE-ON-SIGNUP.sql** (opcional pero recomendado): crea perfil en `profiles` al registrarse un nuevo usuario (email/password, Magic Link u OAuth) para que la billetera y la demo funcionen desde el primer acceso.
-- **ADD-VERIFICACION-ASISTENCIA.sql**: flag `verificacion_asistencia_activa` en asambleas y columnas en `quorum_asamblea` para verificación de asistencia. **ADD-VERIFICACION-ASISTENCIA-SESIONES.sql** (después): tabla `verificacion_asamblea_sesiones` y trigger para registrar cada apertura/cierre de verificación; el acta lista múltiples sesiones con fecha y hora. **ADD-VERIFICACION-POR-PREGUNTA.sql**: snapshots de verificación por pregunta para el acta (registro por pregunta).
+- **ADD-VERIFICACION-ASISTENCIA.sql**: base histórica de verificación de asistencia y soporte manual.
+- **ADD-QUORUM-PRESENCE.sql**: nuevo flujo principal de quórum automático (presencia activa + coeficiente + snapshots de quórum para acta).
+- **ADD-VERIFICACION-ASISTENCIA-SESIONES.sql** y **ADD-VERIFICACION-POR-PREGUNTA.sql**: se mantienen para compatibilidad y respaldo administrativo/legal.
 - **Realtime (opcional):** `REALTIME-PREGUNTAS-VOTACION.sql` — añade la tabla `preguntas` a la publicación `supabase_realtime` de forma idempotente. Permite que `/votar/[codigo]` reciba cambios de preguntas sin depender solo del polling. Verificar en Supabase → Database → Publications que `public.preguntas` esté en `supabase_realtime`.

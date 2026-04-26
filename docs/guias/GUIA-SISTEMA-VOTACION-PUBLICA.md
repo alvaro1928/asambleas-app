@@ -314,9 +314,9 @@ SELECT * FROM reporte_auditoria_pregunta('uuid-pregunta');
 
 ---
 
-## 🚀 Implementación
+## 🚀 Estado de implementación
 
-### Archivos a Crear:
+### Archivos implementados en el proyecto:
 
 1. **`supabase/AGREGAR-TRAZABILIDAD-VOTOS.sql`** ✅ (Ya creado)
    - Tabla `historial_votos`
@@ -324,25 +324,24 @@ SELECT * FROM reporte_auditoria_pregunta('uuid-pregunta');
    - Función `obtener_votos_votante`
    - Función `reporte_auditoria_pregunta`
 
-2. **`app/votar/[codigo]/page.tsx`** (Próximo)
+2. **`app/votar/[codigo]/page.tsx`** ✅
    - Interfaz pública de votación
    - Detección de poderes
    - Panel de quórum
    - Estadísticas en tiempo real
 
-3. **`app/api/votar/route.ts`** (Próximo)
+3. **`app/api/votar/route.ts`** ✅
    - API para registrar votos
    - Validaciones de seguridad
    - Captura de IP y User-Agent
 
-4. **`components/PanelQuorum.tsx`** (Próximo)
-   - Componente reutilizable
-   - Actualización automática cada 5 seg
+4. **Panel de quórum en dashboard/asistencia** ✅
+   - Quórum por coeficiente y estado de presencia en vivo
+   - Actualización automática + recálculo por eventos
 
-5. **`components/TarjetaPregunta.tsx`** (Próximo)
-   - Muestra pregunta con opciones
-   - Gráficos en tiempo real
-   - Indicador de voto actual
+5. **Tarjetas de pregunta y resultados** ✅
+   - Preguntas con opciones y gráficos en tiempo real
+   - Indicador de voto actual y trazabilidad
 
 ---
 
@@ -362,14 +361,14 @@ SELECT * FROM reporte_auditoria_pregunta('uuid-pregunta');
 
 ---
 
-## 📞 Próximos Pasos
+## 📞 Próximos pasos recomendados
 
 1. ✅ **Ejecutar SQL de trazabilidad** (AGREGAR-TRAZABILIDAD-VOTOS.sql)
-2. ⏳ **Crear interfaz de votación** (app/votar/[codigo]/page.tsx)
-3. ⏳ **Implementar API de votación** (con captura de IP)
-4. ⏳ **Testing completo** (votar, modificar, ver resultados)
-5. ⏳ **Reporte PDF** para actas oficiales
+2. ✅ **Interfaz de votación pública** (`app/votar/[codigo]/page.tsx`)
+3. ✅ **API de votación** (incluye trazabilidad)
+4. ⏳ **Expandir pruebas E2E** (reconexión/presencia/snapshots)
+5. ⏳ **Endurecer validaciones de producción y reportes de no regresión**
 
 ---
 
-**¿Listo para implementar la interfaz de votación completa con todos estos requisitos?** 🚀
+**La interfaz de votación y la API ya están operativas; la prioridad actual es fortalecer pruebas y observabilidad.**

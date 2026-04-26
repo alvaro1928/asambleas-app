@@ -85,6 +85,9 @@ Documento de referencia para retomar el trabajo en este chat. **Proyecto:** Asam
 - Quórum alcanzado si coeficiente_votante / coeficiente_total >= 50%.
 
 ### 4.6 Verificación de asistencia (quórum Ley 675)
+- **Flujo principal actual:** quórum automático por presencia activa (heartbeat, actividad, reconexión y voto).
+- **Regla clave:** la sesión autenticada es de UX/autenticación y no constituye evidencia de presencia para quórum.
+- **Cálculo oficial:** por coeficiente representado, con deduplicación por participante para evitar sumar dos veces en múltiples pestañas/dispositivos.
 - **Contexto:** Sin preguntas abiertas = verificación **general** (asamblea en general). Con una o más preguntas abiertas = verificación asociada a **todas** las abiertas en ese momento.
 - **Sesiones:** Cada vez que se **activa** la verificación se abre una nueva sesión. Al **desactivar** se cierra la sesión y se guarda el snapshot en `verificacion_asamblea_sesiones` (por pregunta o `pregunta_id` null = general). Al reabrir, nueva sesión → quórum a cero; los votantes deben verificar de nuevo.
 - **Registro:** `verificacion_asistencia_registro` con `pregunta_id` (null = general). RPC `ya_verifico_asistencia` y `unidad_ids_verificados_sesion_actual` filtran por sesión actual (desde última apertura).

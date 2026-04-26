@@ -156,7 +156,7 @@ Para que esto funcione, necesitas ejecutar en Supabase:
 
 ---
 
-## ✅ Próximos Pasos:
+## ✅ Estado actual y próximos pasos:
 
 1. **Ejecutar SQL en Supabase:**
    ```sql
@@ -166,9 +166,9 @@ Para que esto funcione, necesitas ejecutar en Supabase:
    3. AGREGAR-SISTEMA-OTP.sql (opcional pero recomendado)
    ```
 
-2. **Crear página pública `/votar/[codigo]`** (próximo)
+2. ✅ **Página pública `/votar/[codigo]`** implementada
 
-3. **Implementar envío de emails OTP** (próximo)
+3. ⏳ **Mejorar pruebas operativas y notificaciones**
 
 ---
 
@@ -178,7 +178,7 @@ Para que esto funcione, necesitas ejecutar en Supabase:
 ✅ **Funciones de copiar/compartir LISTAS**  
 ✅ **UI completa y profesional**  
 ⏳ **SQL scripts listos para ejecutar**  
-⏳ **Página pública de votación (próximo paso)**
+✅ **Página pública de votación activa**
 
 ---
 

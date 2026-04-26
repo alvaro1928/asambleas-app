@@ -76,6 +76,19 @@ interface Quorum {
   quorum_alcanzado: boolean
 }
 
+interface QuorumSnapshotRow {
+  id: string
+  pregunta_id: string | null
+  snapshot_type: 'assembly_opening' | 'voting_opening' | 'voting_closing' | 'quorum_change' | 'assembly_closing' | 'manual_check'
+  taken_at: string
+  active_coefficient_total: number
+  delegated_coefficient_total: number
+  total_represented_coefficient: number
+  total_assembly_coefficient: number
+  quorum_percentage: number
+  quorum_met: boolean
+}
+
 interface AuditRow {
   votante_email: string
   votante_nombre: string | null
@@ -125,6 +138,13 @@ interface PoderConDocumento {
   numero: string
 }
 
+function totalUnidadesConjuntoFromSnapshots(
+  _snapshots: QuorumSnapshotRow[],
+  fallbackTotal?: number
+): number {
+  return Number(fallbackTotal ?? 0)
+}
+
 export default function ActaPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -134,6 +154,7 @@ export default function ActaPage({ params }: { params: { id: string } }) {
   const [puntosOrdenDiaActa, setPuntosOrdenDiaActa] = useState<PuntoOrdenDiaActa[]>([])
   const [estadisticas, setEstadisticas] = useState<Record<string, StatsPregunta>>({})
   const [quorum, setQuorum] = useState<Quorum | null>(null)
+  const [quorumSnapshots, setQuorumSnapshots] = useState<QuorumSnapshotRow[]>([])
   interface VerifStatsActa { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean; hora_verificacion?: string; hora_ultima_verificacion?: string }
   interface VerifPorPregunta { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean; corte_timestamp?: string }
   /** Sesiones de verificación (cada vez que se abrió/cerró). pregunta_id null = asamblea en general; no null = asociada a esa pregunta. */
@@ -421,7 +442,30 @@ export default function ActaPage({ params }: { params: { id: string } }) {
       const { data: quorumData } = await supabase.rpc('calcular_quorum_asamblea', {
         p_asamblea_id: params.id,
       })
-      if (quorumData && quorumData[0]) {
+      const { data: snapshotsData } = await supabase
+        .from('quorum_snapshot')
+        .select('id, pregunta_id, snapshot_type, taken_at, active_coefficient_total, delegated_coefficient_total, total_represented_coefficient, total_assembly_coefficient, quorum_percentage, quorum_met')
+        .eq('asamblea_id', params.id)
+        .order('taken_at', { ascending: true })
+      const snapshots = (snapshotsData || []) as QuorumSnapshotRow[]
+      setQuorumSnapshots(snapshots)
+      const latestAssemblySnapshot = [...snapshots]
+        .reverse()
+        .find((s) => s.snapshot_type === 'assembly_closing' || s.snapshot_type === 'assembly_opening' || s.snapshot_type === 'quorum_change')
+      if (latestAssemblySnapshot) {
+        const totalUnits = totalUnidadesConjuntoFromSnapshots(snapshots, quorumData?.[0]?.total_unidades)
+        const unidadesVotantesApprox = Math.max(
+          0,
+          Math.round((latestAssemblySnapshot.quorum_percentage / 100) * Number(totalUnits || 0))
+        )
+        setQuorum({
+          total_unidades: Number(totalUnits || 0),
+          unidades_votantes: unidadesVotantesApprox,
+          coeficiente_votante: Number(latestAssemblySnapshot.total_represented_coefficient || 0),
+          porcentaje_participacion_coeficiente: Number(latestAssemblySnapshot.quorum_percentage || 0),
+          quorum_alcanzado: Boolean(latestAssemblySnapshot.quorum_met),
+        } as Quorum)
+      } else if (quorumData && quorumData[0]) {
         setQuorum(quorumData[0] as Quorum)
       }
 
@@ -1209,6 +1253,17 @@ export default function ActaPage({ params }: { params: { id: string } }) {
                   <tr className="bg-gray-50">
                     <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700 w-1/2">Total de unidades del conjunto</td>
                     <td className="border border-gray-200 px-3 py-2 text-gray-900">{quorum.total_unidades}</td>
+                  </tr>
+                )}
+                {quorumSnapshots.length > 0 && (
+                  <tr>
+                    <td className="border border-gray-200 px-3 py-2 font-semibold text-gray-700">
+                      Snapshots históricos de quórum usados en acta
+                    </td>
+                    <td className="border border-gray-200 px-3 py-2 text-gray-900">
+                      {quorumSnapshots.length} registro(s) · Último corte:{' '}
+                      {new Date(quorumSnapshots[quorumSnapshots.length - 1].taken_at).toLocaleString('es-CO')}
+                    </td>
                   </tr>
                 )}
                 <tr className={quorum ? '' : 'bg-gray-50'}>

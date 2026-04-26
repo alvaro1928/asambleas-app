@@ -31,13 +31,14 @@ Estructura lista para:
 - Validación y seguimiento de poderes
 - Estados: Activo, Revocado, Usado
 
-### ✅ 4. Verificación de quórum (asistencia)
+### ✅ 4. Quórum automático por presencia (flujo principal)
 
-- **Activar/Desactivar verificación:** En Control de acceso (`/dashboard/asambleas/[id]/acceso`) y en Acceso Público de la asamblea. Al activar, en la página de votación aparece un popup para que cada votante confirme "Verifico asistencia".
-- **Registrar asistencia manual:** El administrador puede marcar una o varias unidades como presentes (modal con lista y búsqueda). Se actualiza el porcentaje de asistencia verificada y el indicador de quórum (Ley 675 >50%).
-- **Paneles según estado:** Con verificación activa, la página de acceso muestra dos paneles: **Ya verificaron asistencia** y **Faltan por verificar**. Al desactivar la verificación, vuelven los paneles habituales: Sesión Activa, Ya Votaron, Pendientes.
-- **Reseteo:** Si el admin desactiva y vuelve a activar la verificación, todas las confirmaciones se borran; los votantes deben verificar de nuevo.
-- **Acta:** La verificación de asistencia se refleja en el acta (global y por pregunta, según el momento de la votación). En preguntas por **coeficiente**, los porcentajes por opción en el acta se calculan sobre el **coeficiente total del conjunto** (100% = todas las unidades). Scripts: `ADD-VERIFICACION-ASISTENCIA.sql`, `ADD-VERIFICACION-POR-PREGUNTA.sql`, `FIX-VERIFICACION-QUORUM-SANDBOX.sql`.
+- **Presencia en tiempo real:** El quórum se recalcula con heartbeat, actividad, reconexión y voto.
+- **Cálculo por coeficiente:** El estado del quórum usa coeficiente representado, no número bruto de personas.
+- **Antiduplicados:** Una misma persona no debe duplicar coeficiente por múltiples pestañas/dispositivos.
+- **Poderes/delegaciones:** El coeficiente delegado se integra en el total representado por el apoderado.
+- **Respaldo manual:** La asistencia manual se mantiene solo para contingencia administrativa/legal.
+- **Acta:** La evidencia se construye con snapshots históricos de quórum por hitos (apertura/cierre de asamblea y votaciones, cambios relevantes).
 
 ### ✅ 5. Acceso de asistente delegado
 
@@ -253,7 +254,7 @@ const { data: puedeVotar } = await supabase.rpc('puede_votar', {
 ```
 Propietario (Apto 101)
   ↓
-Accede a /votacion/[codigo]
+Accede a /votar/[codigo]
   ↓
 Verifica su email/código
   ↓
@@ -426,44 +427,11 @@ WHERE v.pregunta_id IN (
 
 ## 🚀 Próximos Pasos
 
-### Implementación Pendiente:
+### Prioridades actuales:
 
-#### 1. Interfaz Pública de Votación
-```
-/votacion/[codigo-asamblea]
-  ├─ Validación de propietario
-  ├─ Lista de preguntas abiertas
-  ├─ Selección de opción
-  ├─ Confirmación visual
-  └─ Ver resultados en tiempo real
-```
-
-#### 2. Gestión de Poderes (Admin)
-```
-/dashboard/asambleas/[id]/poderes
-  ├─ Registrar poder manualmente
-  ├─ Subir documento escaneado
-  ├─ Ver lista de poderes activos
-  └─ Revocar poder si es necesario
-```
-
-#### 3. Registro de Poderes (Propietario)
-```
-/votacion/[codigo]/registrar-poder
-  ├─ Formulario simple
-  ├─ Email del receptor
-  ├─ Subir documento (opcional)
-  └─ Confirmación automática
-```
-
-#### 4. Control de Asistencia
-```
-/dashboard/asambleas/[id]/asistencia
-  ├─ QR code para registro rápido
-  ├─ Lista de unidades presentes
-  ├─ Marcar presencia física/virtual
-  └─ Calcular quórum inicial
-```
+1. Consolidar pruebas de no regresión de votación + presencia automática.
+2. Afinar observabilidad de eventos/snapshots para auditoría operativa.
+3. Mantener documentación legal/funcional del acta alineada a snapshots históricos.
 
 ---
 
@@ -527,12 +495,9 @@ Al votar "A favor":
 - ✅ Funciones SQL para cálculos
 - ✅ Validaciones de Ley 675
 
-### ¿Qué falta implementar?
-- ⏳ Interfaz pública de votación
-- ⏳ Gestión de poderes (admin)
-- ⏳ Registro de poderes (propietario)
-- ⏳ Control de asistencia con QR
-- ⏳ Exportar resultados a PDF
+### ¿Qué sigue?
+- ⏳ Pruebas E2E de reconexión, presencia y snapshots de acta.
+- ⏳ Endurecimiento de políticas/operación para producción.
 
 ---
 

@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     // Solo procesar las unidades que efectivamente pertenecen a la organización
     const unidadesValidadas = unidades || []
     if (unidadesValidadas.length === 0) {
-      return NextResponse.json({ error: 'Ninguna unidad válida para esta asamblea' }, { status: 400 })
+      return NextResponse.json({ error: 'No hay unidades válidas para registrar respaldo manual en esta asamblea' }, { status: 400 })
     }
 
     const now = new Date().toISOString()
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
 
       if (updateErr) {
         console.error('registrar-asistencia-manual fallback update:', updateErr)
-        return NextResponse.json({ error: 'Error al guardar asistencia' }, { status: 500 })
+        return NextResponse.json({ error: 'No se pudo guardar el respaldo manual de asistencia' }, { status: 500 })
       }
     }
 
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     logRouteError('api/registrar-asistencia-manual', e)
     return NextResponse.json(
-      { error: publicErrorMessage(e, 'Error al registrar asistencia') },
+      { error: publicErrorMessage(e, 'No se pudo registrar el respaldo manual de asistencia') },
       { status: 500 }
     )
   }

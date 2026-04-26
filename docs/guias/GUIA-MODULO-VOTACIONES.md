@@ -29,13 +29,13 @@ Cada pregunta tiene 3 estados:
 - Se pueden ver resultados
 - **Acción disponible**: "Reabrir" (por si es necesario)
 
-### ✅ 3. Preparación para Votación Pública
+### ✅ 3. Votación pública y quórum en producción
 
-La estructura está lista para:
-- Interfaz pública de votación (próximo paso)
+La estructura está operativa con:
+- Interfaz pública de votación en `/votar/[codigo]`
 - Registro de votos en tiempo real
-- Cálculo de quórum
-- Validación de Ley 675
+- Quórum automático por presencia activa y coeficiente
+- Validación de Ley 675 con trazabilidad
 
 ---
 
@@ -187,16 +187,16 @@ Unidad 202: Vota "En contra" → +1 voto
 
 ---
 
-## 🚀 Próximos Pasos (Interfaz Pública)
+## 🚀 Próximos Pasos (fortalecimiento)
 
-### 1. Página de Votación Pública
+### 1. Robustecer pruebas de votación y presencia
 
 ```
-/asamblea/[codigo]
-  ├─ Validación de propietario (por email o código)
-  ├─ Lista de preguntas abiertas
-  ├─ Botones de opciones
-  └─ Confirmación de voto
+Pruebas de no regresión:
+  ├─ Emisión/modificación de voto
+  ├─ Reconexión y heartbeat
+  ├─ Deduplicación multi pestaña/dispositivo
+  └─ Integración con snapshots de acta
 ```
 
 ### 2. Registro de Quórum
@@ -350,9 +350,9 @@ Opción 4:    #f59e0b (ámbar)
 
 ## 🚀 Próxima Iteración
 
-- [ ] Interfaz pública de votación
-- [ ] Registro de quórum en tiempo real
+- [ ] Cobertura E2E de presencia/quórum/snapshots
+- [ ] Observabilidad operativa de eventos de presencia
 - [ ] Panel de resultados con gráficos
 - [ ] Exportar acta de asamblea (PDF)
 - [ ] Notificaciones por email
-- [ ] Control de unidades presentes
+- [ ] Mejoras de UX para seguimiento de presencia activa

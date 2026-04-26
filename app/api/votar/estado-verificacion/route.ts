@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     if (aErr || !aRow) {
       console.error('[estado-verificacion] asambleas:', aErr)
-      return NextResponse.json({ error: 'No se pudo leer la asamblea' }, { status: 500 })
+      return NextResponse.json({ error: 'No se pudo consultar el estado de quórum y presencia de la asamblea' }, { status: 500 })
     }
 
     /** Solo verificación general (asamblea completa). Se ignora verificacion_pregunta_id en BD para no romper quórum al cambiar de pregunta. */
@@ -177,6 +177,6 @@ export async function POST(request: NextRequest) {
     )
   } catch (e) {
     console.error('POST /api/votar/estado-verificacion:', e)
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+    return NextResponse.json({ error: 'No fue posible actualizar el estado de verificación en este momento' }, { status: 500 })
   }
 }

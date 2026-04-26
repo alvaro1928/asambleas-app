@@ -13,6 +13,16 @@ https://tu-dominio.com/votar/A2K9-X7M4
 
 ---
 
+## Estado actual del flujo de quórum
+
+- El quórum operativo es **automático** y se actualiza por presencia activa en tiempo real.
+- La sesión autenticada mantiene continuidad de UX, pero **no** se usa como prueba de presencia.
+- La presencia se deriva de heartbeat, actividad, reconexión y voto emitido.
+- El flujo manual de asistencia queda como **respaldo administrativo**.
+- El acta usa snapshots históricos de quórum para consistencia y trazabilidad.
+
+---
+
 ## 📱 Flujo Completo (Administrador → Residente)
 
 ### 1. **Administrador Crea la Asamblea**
@@ -336,14 +346,14 @@ Ya explicado en `GUIA-SISTEMA-VOTACION-PUBLICA.md`
 
 ---
 
-## 🚀 Próximos Pasos
+## 🚀 Estado y siguientes mejoras
 
 1. ✅ **Ejecutar SQL**: `AGREGAR-CODIGO-ACCESO-ASAMBLEAS.sql`
-2. ⏳ **Actualizar interfaz admin**: Agregar botón "Activar Votación"
-3. ⏳ **Crear página pública**: `/votar/[codigo]`
-4. ⏳ **Implementar validación de acceso**
-5. ⏳ **Testing completo**
+2. ✅ **Interfaz admin de activación/acceso público** implementada
+3. ✅ **Página pública** `/votar/[codigo]` implementada
+4. ✅ **Validación de acceso y trazabilidad** implementadas
+5. ⏳ **Ampliar pruebas de no regresión** (presencia/quórum/snapshots)
 
 ---
 
-**¿Quieres que implemente ahora la interfaz de administrador con los botones para generar y compartir el código?** 🚀
+**El flujo de código/enlace ya está en producción; se recomienda reforzar pruebas y observabilidad de presencia.**

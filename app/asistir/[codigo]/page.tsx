@@ -556,9 +556,9 @@ export default function AsistirPage() {
         const n = data.registradas as number
         setUnidades((prev) => prev.map((u) => (selAsistencia.has(u.id) ? { ...u, ya_verifico: true } : u)))
         setSelAsistencia(new Set())
-        setMsgAsistencia({ tipo: 'ok', texto: `✓ Asistencia registrada para ${n} unidad${n !== 1 ? 'es' : ''}.` })
+        setMsgAsistencia({ tipo: 'ok', texto: `✓ Respaldo manual registrado para ${n} unidad${n !== 1 ? 'es' : ''}.` })
       } else {
-        setMsgAsistencia({ tipo: 'error', texto: data.error || 'Error al registrar asistencia.' })
+        setMsgAsistencia({ tipo: 'error', texto: data.error || 'No se pudo registrar el respaldo manual.' })
       }
     } catch {
       setMsgAsistencia({ tipo: 'error', texto: 'Error de conexión.' })
@@ -580,9 +580,9 @@ export default function AsistirPage() {
       const data = await res.json()
       if (data.ok) {
         setUnidades((prev) => prev.map((u) => (u.id === unidadId ? { ...u, ya_verifico: false } : u)))
-        setMsgAsistencia({ tipo: 'ok', texto: 'Asistencia quitada. La unidad vuelve a pendientes de verificar.' })
+        setMsgAsistencia({ tipo: 'ok', texto: 'Respaldo manual retirado. La unidad vuelve al control automático de presencia.' })
       } else {
-        setMsgAsistencia({ tipo: 'error', texto: data.error || 'Error al quitar asistencia.' })
+        setMsgAsistencia({ tipo: 'error', texto: data.error || 'No se pudo retirar el respaldo manual.' })
       }
     } catch {
       setMsgAsistencia({ tipo: 'error', texto: 'Error de conexión.' })
@@ -913,9 +913,9 @@ export default function AsistirPage() {
             <div className="bg-indigo-600 px-5 py-4">
               <h2 className="text-white font-bold flex items-center gap-2">
                 <UserCheck className="w-5 h-5" />
-                Registrar asistencia
+                  Registrar respaldo manual
               </h2>
-              <p className="text-indigo-100 text-xs mt-0.5">Selecciona las unidades presentes y guarda su asistencia.</p>
+              <p className="text-indigo-100 text-xs mt-0.5">Úsalo solo como respaldo: la presencia principal se registra automáticamente.</p>
             </div>
 
             <div className="p-4 space-y-3">
@@ -1350,7 +1350,7 @@ export default function AsistirPage() {
               <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
                 {resumenAsistencia?.con_asistencia ?? unidades.filter((u) => u.ya_verifico).length}
               </p>
-              <p className="text-xs text-emerald-600 dark:text-emerald-300">Con asistencia</p>
+              <p className="text-xs text-emerald-600 dark:text-emerald-300">Con presencia registrada</p>
             </div>
             <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-3">
               <p className="text-2xl font-bold text-indigo-700 dark:text-indigo-400">

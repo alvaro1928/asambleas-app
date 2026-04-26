@@ -33,7 +33,7 @@
   - Tipos: coeficiente o nominal.
   - Estados: pendiente, abierta, cerrada.
   - Activar/desactivar votación pública (genera código de acceso).
-- **Acceso público** (`/dashboard/asambleas/[id]/acceso`): código, QR, enlace para votantes. **Verificación de quórum:** activar/desactivar (popup en votación "Verifico asistencia"); registrar asistencia manual; paneles Ya verificaron / Faltan por verificar. **Acceso delegado:** enlace seguro para asistente que puede registrar asistencia y votos en nombre de unidades.
+- **Acceso público** (`/dashboard/asambleas/[id]/acceso`): código, QR, enlace para votantes. **Quórum automático:** actualización en tiempo real por presencia activa (heartbeat, actividad, reconexión y voto), cálculo por coeficiente representado y deduplicación multi pestaña/dispositivo. **Respaldo manual:** registrar asistencia manual solo como contingencia administrativa/legal. **Acceso delegado:** enlace seguro para asistente que puede registrar asistencia de respaldo y votos en nombre de unidades.
 - **Envío de correo:** Botón "Enviar enlace por correo" (por API, sin abrir Outlook). Usa **SMTP** (configurable en Super Admin → Ajustes o por variables de entorno). Plantilla configurable en Dashboard → Configuración → Poderes y correo (texto adicional, ej. enlace a Teams/Meet).
 - **Poderes** (`/dashboard/asambleas/[id]/poderes`): asignar apoderados por unidad; importación masiva; límite máximo por apoderado configurable en Dashboard → Configuración → Poderes y correo.
 - **Acta** (`/dashboard/asambleas/[id]/acta`): descarga/impresión con resultados por pregunta, quórum y **detalle de auditoría** (quién votó, cuándo, IP, dispositivo).
@@ -42,6 +42,8 @@
 - **Entrada por código** (`/votar/[codigo]`): validación por email/teléfono, listado de unidades (propias + poderes), votación por pregunta.
 - Trazabilidad: **historial_votos** con IP y user_agent (API `/api/client-info`).
 - Estadísticas y quórum en tiempo real.
+- El voto mantiene su flujo actual y además actualiza presencia para quórum (sin alterar conteo, permisos ni reglas de cierre).
+- La sesión autenticada no equivale a presencia para quórum.
 
 ### Dashboard principal
 - Métricas: conjuntos, unidades, coeficientes, censo.

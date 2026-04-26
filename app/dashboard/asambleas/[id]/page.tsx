@@ -175,6 +175,19 @@ interface QuorumData {
   quorum_alcanzado: boolean
 }
 
+interface QuorumPresenceData {
+  totalUnidades: number
+  totalParticipantes: number
+  participantesActivos: number
+  participantesDelegadosActivos: number
+  activeCoefficientTotal: string
+  delegatedCoefficientTotal: string
+  totalRepresentedCoefficient: string
+  totalAssemblyCoefficient: string
+  quorumPercentage: string
+  quorumMet: boolean
+}
+
 export default function AsambleaDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -216,6 +229,7 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
   /** Por pregunta: totales globales (votos emitidos en la pregunta), desde el RPC. */
   const [estadisticasMeta, setEstadisticasMeta] = useState<{ [key: string]: EstadisticasPreguntaMeta }>({})
   const [quorum, setQuorum] = useState<QuorumData | null>(null)
+  const [quorumPresencia, setQuorumPresencia] = useState<QuorumPresenceData | null>(null)
   const [loadingStats, setLoadingStats] = useState(false)
   interface VerifStats { total_verificados: number; coeficiente_verificado: number; porcentaje_verificado: number; quorum_alcanzado: boolean }
   const [statsVerificacion, setStatsVerificacion] = useState<VerifStats | null>(null)
@@ -875,6 +889,24 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         quorum_alcanzado: porcentajeCoeficiente >= 50
       })
       }
+      }
+
+      try {
+        const resp = await fetch('/api/dashboard/quorum-presencia', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            asamblea_id: params.id,
+            pregunta_id: usarPreguntaAbierta ? ultimaPreguntaAbierta?.id ?? null : null,
+            force_recalculate: true,
+          }),
+        })
+        const json = await resp.json().catch(() => ({}))
+        if (resp.ok && json?.quorum) {
+          setQuorumPresencia(json.quorum as QuorumPresenceData)
+        }
+      } catch {
+        // El panel principal no debe romperse si falla la capa de presencia.
       }
     } catch (error) {
       console.error('Error loading quorum:', error)
@@ -1545,6 +1577,19 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         p.id === preguntaId ? { ...p, estado: nuevoEstado } : p
       ))
 
+      if (nuevoEstado === 'abierta' || nuevoEstado === 'cerrada') {
+        await fetch('/api/dashboard/quorum-presencia', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            asamblea_id: asamblea?.id,
+            pregunta_id: preguntaId,
+            snapshot_type: nuevoEstado === 'abierta' ? 'voting_opening' : 'voting_closing',
+            force_recalculate: true,
+          }),
+        }).catch(() => {})
+      }
+
       const mensajes = {
         pendiente: 'Pregunta cerrada',
         abierta: 'Votación abierta - Los propietarios ya pueden votar',
@@ -2025,6 +2070,17 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         pago_realizado: nuevoEstado === 'activa' ? true : asamblea.pago_realizado,
       }
       setAsamblea(updated)
+      if (nuevoEstado === 'activa') {
+        await fetch('/api/dashboard/quorum-presencia', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            asamblea_id: asamblea.id,
+            snapshot_type: 'assembly_opening',
+            force_recalculate: true,
+          }),
+        }).catch(() => {})
+      }
       setSuccessMessage(`Asamblea ${nuevoEstado === 'activa' ? 'activada' : 'actualizada'}`)
       setTimeout(() => setSuccessMessage(''), 3000)
       if (nuevoEstado === 'activa') setShowModalAsambleaActivada(true)
@@ -2083,6 +2139,15 @@ export default function AsambleaDetailPage({ params }: { params: { id: string } 
         token_delegado: null,
       })
       setPreguntas((prev) => prev.map((p) => (p.estado === 'abierta' ? { ...p, estado: 'cerrada' } : p)))
+      await fetch('/api/dashboard/quorum-presencia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          asamblea_id: asamblea.id,
+          snapshot_type: 'assembly_closing',
+          force_recalculate: true,
+        }),
+      }).catch(() => {})
       setShowModalConfirmarFinalizar(false)
       setSuccessMessage('Asamblea finalizada. El acta definitiva queda disponible para descarga.')
       setTimeout(() => setSuccessMessage(''), 7000)
@@ -2842,7 +2907,7 @@ Tu participacion es importante. 🏠`
               {/* Asistencia verificada (solo general): visible siempre con última sesión general o 0% */}
               {statsVerificacion != null && (
                 <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Asistencia verificada</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Presencia confirmada</p>
                   <p className={`text-2xl font-bold ${statsVerificacion?.quorum_alcanzado ? 'text-green-600 dark:text-green-400' : (statsVerificacion && statsVerificacion.porcentaje_verificado >= 30 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white')}`}>
                     {statsVerificacion ? `${statsVerificacion.porcentaje_verificado.toFixed(1)}%` : '—'}
                   </p>
@@ -2864,6 +2929,29 @@ Tu participacion es importante. 🏠`
                       Se requiere más del 50% para quórum (Ley 675)
                     </p>
                   )}
+                </div>
+              )}
+
+              {quorumPresencia && (
+                <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 border border-gray-200 dark:border-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Quórum por presencia (en vivo)</p>
+                  <p className={`text-2xl font-bold ${quorumPresencia.quorumMet ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                    {Number(quorumPresencia.quorumPercentage || 0).toFixed(1)}%
+                  </p>
+                  <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-500 ${
+                        quorumPresencia.quorumMet ? 'bg-green-600 dark:bg-green-500' : 'bg-amber-600 dark:bg-amber-500'
+                      }`}
+                      style={{ width: `${Math.min(100, Number(quorumPresencia.quorumPercentage || 0))}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    Activos: {quorumPresencia.participantesActivos} · Delegados: {quorumPresencia.participantesDelegadosActivos}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    Coef. representado: {Number(quorumPresencia.totalRepresentedCoefficient || 0).toFixed(2)}%
+                  </p>
                 </div>
               )}
             </div>
@@ -2898,7 +2986,7 @@ Tu participacion es importante. 🏠`
                   >
                     <span className="flex items-center gap-2">
                       <UserCheck className="w-4 h-4 text-indigo-500" />
-                      Historial de validaciones de quórum (asamblea en general)
+                      Historial de snapshots de quórum (asamblea en general)
                     </span>
                     {openHistorialQuorumGeneral ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
@@ -2953,7 +3041,7 @@ Tu participacion es importante. 🏠`
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-3"></div>
               <p className="text-gray-600 dark:text-gray-400">Cargando datos de participación...</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                {preguntas.length === 0 && !asamblea?.verificacion_asistencia_activa && 'Crea preguntas y ábrelas para ver el quórum. Activa la verificación de asistencia para ver el avance sin preguntas.'}
+                {preguntas.length === 0 && !asamblea?.verificacion_asistencia_activa && 'Crea preguntas y ábrelas para ver el quórum. El sistema recalcula automáticamente por presencia activa y coeficientes.'}
                 {preguntas.length === 0 && asamblea?.verificacion_asistencia_activa && 'Cargando asistencia verificada...'}
                 {preguntas.length > 0 && 'Cargando quórum...'}
               </p>
@@ -3280,7 +3368,7 @@ Tu participacion es importante. 🏠`
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 flex-1">
                         <span className="text-xs font-semibold text-indigo-800 dark:text-indigo-200 flex items-center gap-1.5">
                           <UserCheck className="w-4 h-4 shrink-0" />
-                          Verificación de quórum
+                          Verificación manual de respaldo
                           {asamblea.verificacion_asistencia_activa && (
                             <span className="font-normal text-indigo-600 dark:text-indigo-300">· Activa</span>
                           )}

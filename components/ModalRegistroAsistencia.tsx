@@ -166,11 +166,11 @@ export function ModalRegistroAsistencia({
         setSeleccionadas(new Set())
         setMensajeAsistencia({
           tipo: 'ok',
-          texto: `✓ Asistencia registrada para ${n} unidad${n !== 1 ? 'es' : ''}.`,
+          texto: `✓ Respaldo manual registrado para ${n} unidad${n !== 1 ? 'es' : ''}.`,
         })
         await onGuardado?.()
       } else {
-        setMensajeAsistencia({ tipo: 'error', texto: data.error || 'Error al guardar asistencia.' })
+        setMensajeAsistencia({ tipo: 'error', texto: data.error || 'No se pudo guardar el respaldo manual.' })
       }
     } catch {
       setMensajeAsistencia({ tipo: 'error', texto: 'Error de conexión. Intenta de nuevo.' })
@@ -194,10 +194,10 @@ export function ModalRegistroAsistencia({
         setUnidadesParaAsistencia((prev) =>
           prev.map((u) => (u.id === unidadId ? { ...u, ya_verifico: false } : u))
         )
-        setMensajeAsistencia({ tipo: 'ok', texto: 'Asistencia quitada. La unidad vuelve a pendientes de verificar.' })
+        setMensajeAsistencia({ tipo: 'ok', texto: 'Respaldo manual retirado. La unidad vuelve al control automático de presencia.' })
         await onGuardado?.()
       } else {
-        setMensajeAsistencia({ tipo: 'error', texto: data.error || 'Error al quitar asistencia.' })
+        setMensajeAsistencia({ tipo: 'error', texto: data.error || 'No se pudo retirar el respaldo manual.' })
       }
     } catch {
       setMensajeAsistencia({ tipo: 'error', texto: 'Error de conexión. Intenta de nuevo.' })
@@ -217,7 +217,7 @@ export function ModalRegistroAsistencia({
           <div className="flex items-center justify-between pr-8">
             <DialogTitle className="flex items-center gap-2 text-lg text-slate-100">
               <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              Registrar asistencia manual
+              Verificación manual de respaldo
             </DialogTitle>
             <Button
               type="button"
@@ -231,7 +231,7 @@ export function ModalRegistroAsistencia({
             </Button>
           </div>
           <p className="text-sm text-slate-400 mt-1">
-            Selecciona las unidades cuya asistencia quieres registrar en esta sesión. Las que ya verificaron aparecen como Verificada; si registraste una por error, usa Quitar para desmarcarla (solo mientras la verificación esté activa).
+            Usa esta herramienta solo como respaldo administrativo. El quórum principal se actualiza automáticamente por presencia activa y voto.
           </p>
         </DialogHeader>
 
@@ -307,7 +307,7 @@ export function ModalRegistroAsistencia({
                       {u.ya_verifico && (
                         <span className="text-xs text-emerald-400 font-semibold shrink-0 flex items-center gap-2">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          Verificada
+                          Registrada
                           <Button
                             type="button"
                             variant="ghost"
@@ -369,7 +369,7 @@ export function ModalRegistroAsistencia({
                 ) : (
                   <CheckCircle2 className="w-4 h-4" />
                 )}
-                Guardar asistencia
+                Guardar respaldo manual
               </Button>
             </div>
           </div>

@@ -1043,7 +1043,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
             >
               <div className="flex items-center gap-2 min-w-0">
                 <UserCheck className="w-4 h-4 shrink-0" style={{ color: verificacionActiva ? '#4ade80' : '#94a3b8' }} />
-                <span className="text-sm font-semibold text-slate-200">Verificación de Quórum</span>
+                <span className="text-sm font-semibold text-slate-200">Verificación manual de respaldo</span>
                 {statsVerificacion && (
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statsVerificacion.quorum_alcanzado ? 'bg-green-900/40 text-green-300' : 'bg-red-900/40 text-red-300'}`}>
                     {statsVerificacion.porcentaje_verificado.toFixed(1)}% · {statsVerificacion.quorum_alcanzado ? 'Quórum' : 'Sin quórum'}
@@ -1056,8 +1056,8 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               <div className="px-4 pb-4 pt-0 space-y-2 border-t border-white/10">
                 <p className="text-xs text-slate-400 pt-2">
                   {verificacionActiva
-                    ? 'Activa — Los votantes ven el popup para confirmar asistencia (sesión general de la asamblea). Al desactivar, el resultado queda en el acta.'
-                    : 'Inactiva — Al activar, los votantes verán el popup en la página de votación. Cada vez que activas se inicia una nueva sesión (quórum a cero).'}
+                    ? 'Activa — La confirmación manual queda disponible como respaldo. El quórum principal se actualiza automáticamente por presencia.'
+                    : 'Inactiva — El quórum sigue funcionando automáticamente por presencia activa y coeficiente representado.'}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-2 items-stretch">
                   <Button type="button" onClick={onActivarVerificacionClick} disabled={toggling}
@@ -1070,12 +1070,12 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                     onClick={() => setShowModalAsistencia(true)}
                     className="rounded-2xl font-semibold text-sm w-full sm:w-auto min-h-[2.5rem] h-auto py-2 px-4 justify-center bg-slate-700 hover:bg-slate-600 text-white whitespace-normal text-center leading-snug"
                   >
-                    <CheckCircle2 className="w-4 h-4 mr-1.5" /> Registrar asistencia
+                    <CheckCircle2 className="w-4 h-4 mr-1.5" /> Registrar respaldo manual
                   </Button>
                 </div>
                 {statsVerificacion && (
                   <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
-                    <span className="text-slate-400">Asistencia (general):</span>
+                    <span className="text-slate-400">Presencia confirmada (general):</span>
                     <span className={`font-bold ${statsVerificacion.quorum_alcanzado ? 'text-green-400' : statsVerificacion.porcentaje_verificado >= 30 ? 'text-amber-400' : 'text-red-400'}`}>
                       {statsVerificacion.porcentaje_verificado.toFixed(1)}%
                     </span>
@@ -1203,7 +1203,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-emerald-50 dark:bg-emerald-900/20">
                     <CardTitle className="text-sm flex items-center gap-1.5 text-emerald-800 dark:text-emerald-200">
                       <UserCheck className="w-4 h-4 text-emerald-600" />
-                      Ya verificaron asistencia
+                      Presencia confirmada
                       <span className="font-bold tabular-nums">({verificadosAsistencia.length})</span>
                     </CardTitle>
                     {statsDesglose && (
@@ -1215,7 +1215,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                       </p>
                     )}
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      Unidades que confirmaron asistencia en el popup
+                      Unidades con presencia confirmada en la sesión actual
                     </p>
                     <div className="relative mt-2">
                       <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
@@ -1232,7 +1232,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
                     <div className="flex-1 overflow-y-auto overscroll-contain">
                       {verificadosFiltrados.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-gray-500">Nadie ha verificado asistencia aún.</div>
+                        <div className="p-4 text-center text-sm text-gray-500">Aún no hay confirmaciones de presencia en esta sesión.</div>
                       ) : (
                         <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                           {verificadosFiltrados.map((u) => (
@@ -1254,11 +1254,11 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
                   <CardHeader className="py-3 px-4 border-b border-[rgba(255,255,255,0.1)] flex-shrink-0 bg-amber-50 dark:bg-amber-900/20">
                     <CardTitle className="text-sm flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
                       <UserX className="w-4 h-4" />
-                      Faltan por verificar
+                      Pendientes de confirmar
                       <span className="font-bold tabular-nums">({faltanVerificar.length})</span>
                     </CardTitle>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Unidades que aún no han confirmado asistencia — para alcanzar quórum
+                      Unidades pendientes de confirmación de presencia en esta sesión
                     </p>
                     <div className="relative mt-2">
                       <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" />
@@ -1569,10 +1569,10 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-indigo-300">
               <UserCheck className="w-5 h-5" />
-              Al reabrir la verificación de asistencia
+              Al reabrir la verificación manual de respaldo
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Comienza una nueva sesión: el quórum vuelve a cero y las personas deberán validar su asistencia de nuevo.
+              Se abre una nueva sesión de respaldo manual. El quórum principal sigue recalculándose automáticamente por presencia activa.
             </DialogDescription>
             <div className="space-y-2 text-left text-sm text-slate-400 mt-2">
               <p>
@@ -1594,7 +1594,7 @@ export default function AsambleaAccesoPage({ params }: { params: { id: string } 
               Cancelar
             </Button>
             <Button onClick={confirmarAvisoReabrirQuorum} className="w-full sm:flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">
-              Entendido, activar verificación
+              Entendido, activar respaldo manual
             </Button>
           </div>
         </DialogContent>

@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { upsertPresenceHeartbeat } from '@/lib/quorum/presence-service'
+import { recalculateQuorumAndLog } from '@/lib/quorum/quorum-service'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,7 +81,7 @@ export async function POST(request: NextRequest) {
     })
     if (idRowsErr) {
       console.error('[auto-verificar-asistencia] rpc quorum ids:', idRowsErr)
-      return NextResponse.json({ error: 'Error buscando registros de asistencia' }, { status: 500 })
+      return NextResponse.json({ error: 'No se pudo completar la confirmación automática de presencia' }, { status: 500 })
     }
     filas = (idRows ?? []).map((r: { quorum_id: string }) => ({ id: r.quorum_id }))
 
@@ -145,7 +147,7 @@ export async function POST(request: NextRequest) {
       })
     if (upsertRegErr) {
       console.error('[auto-verificar-asistencia] upsert registros:', upsertRegErr)
-      return NextResponse.json({ error: 'Error al registrar verificación' }, { status: 500 })
+      return NextResponse.json({ error: 'No se pudo guardar la confirmación automática de presencia' }, { status: 500 })
     }
 
     const ids = filas.map((f) => f.id)
@@ -153,6 +155,21 @@ export async function POST(request: NextRequest) {
       .from('quorum_asamblea')
       .update({ verifico_asistencia: true, hora_verificacion: marcaEn })
       .in('id', ids)
+
+    try {
+      await upsertPresenceHeartbeat({
+        asambleaId,
+        identificador,
+        eventType: 'vote_cast',
+        activityHint: true,
+        idempotencyKey: `auto-verify:${asambleaId}:${identificador}:${Math.floor(Date.now() / 5000)}`,
+      })
+      await recalculateQuorumAndLog(asambleaId, {
+        triggeredBy: 'auto_verify_asistencia',
+      })
+    } catch (presenceErr) {
+      console.warn('[auto-verificar-asistencia] no se pudo actualizar presencia:', presenceErr)
+    }
 
     return NextResponse.json({
       ok: true,
@@ -162,6 +179,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (e) {
     console.error('POST /api/votar/auto-verificar-asistencia:', e)
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+    return NextResponse.json({ error: 'Error temporal al registrar presencia automática' }, { status: 500 })
   }
 }

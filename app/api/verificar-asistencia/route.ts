@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     if (!asamblea.verificacion_asistencia_activa) {
       return NextResponse.json(
-        { error: 'La verificación de asistencia no está activa en este momento' },
+        { error: 'La confirmación manual de respaldo no está activa en este momento' },
         { status: 409 }
       )
     }
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     }
     if (filas.length === 0) {
       return NextResponse.json(
-        { error: 'No se encontró tu registro en esta asamblea. Intenta salir y volver a entrar.' },
+        { error: 'No encontramos tu presencia en esta asamblea. Reingresa para reactivar el registro automático.' },
         { status: 404 }
       )
     }
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
       })
     if (upsertRegErr) {
       console.error('verificar-asistencia upsert registros:', upsertRegErr)
-      return NextResponse.json({ error: 'Error al registrar verificación' }, { status: 500 })
+      return NextResponse.json({ error: 'No se pudo registrar la confirmación manual de respaldo' }, { status: 500 })
     }
 
     const insertadas = filas.length
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     logRouteError('api/verificar-asistencia', e)
     return NextResponse.json(
-      { error: publicErrorMessage(e, 'Error al registrar verificación') },
+      { error: publicErrorMessage(e, 'No se pudo registrar la confirmación manual de respaldo') },
       { status: 500 }
     )
   }

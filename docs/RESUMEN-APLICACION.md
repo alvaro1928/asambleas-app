@@ -42,14 +42,15 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
   - Umbral de aprobación por pregunta.
   - Activar/desactivar **votación pública** (genera código de acceso y URL).
   - Acceso directo a **Configuración** desde la cabecera de la asamblea y retorno rápido a la misma asamblea.
-  - En la sección **Acceso Público**, botones de **Verificación de quórum**: **Activar/Desactivar verificación** y **Registrar asistencia** (enlace a la página de acceso para el modal de registro manual); se muestra el resumen de asistencia verificada y si se alcanzó quórum (Ley 675).
+  - En la sección **Acceso Público**, el quórum se muestra en tiempo real por **presencia activa** y coeficiente representado. La **verificación manual** queda disponible como respaldo administrativo/legal.
   - Ver **quórum** (unidades que votaron, coeficiente, porcentaje nominal/coeficiente) y **historial de validaciones de quórum (asamblea en general)** en el panel colapsable. La visibilidad de las tarjetas de quórum y del historial se configura en **Configuración → Asamblea** (para tu usuario y este conjunto).
   - Ver estadísticas por pregunta (votos por opción, porcentajes).
   - **Registrar voto a nombre de un residente** (admin): selección de unidad, email y votos por pregunta abierta.
   - Copiar código y enlace; enlace a pantalla de acceso/QR.
 - **Control de acceso y QR** (`/dashboard/asambleas/[id]/acceso`):
   - Código QR y URL para que los votantes entren a `/votar/[codigo]`.
-  - **Verificación de quórum (asistencia):** **Activar verificación** muestra en la página de votación un popup para que cada votante confirme asistencia. Sin preguntas abiertas = verificación **general**; con preguntas abiertas = asociada a **todas** las abiertas. Al **cerrar** la verificación el resultado queda en el acta (general o por pregunta). Al **reabrir** comienza una nueva sesión (quórum a cero). **Registrar asistencia** marca manualmente unidades (solo cuenta la sesión actual). Paneles **Ya verificaron** / **Faltan por verificar** con totales y desglose directo/por poder.
+  - **Quórum automático por presencia:** se actualiza con heartbeat, actividad, reconexión y voto emitido. Sin preguntas abiertas = snapshot general; con preguntas abiertas = snapshots por votación en apertura/cierre y cambios relevantes.  
+  - **Respaldo manual de asistencia:** sigue disponible para contingencia; no es el flujo principal.
   - **Acceso de asistente delegado:** enlace (`/asistir/[codigo]?t=token`) para registrar asistencia y votos en nombre de unidades; quórum por **sesión actual**. Revocable en cualquier momento. En la página de asistente hay **modal de ayuda** (ícono ?) con instrucciones para registrar asistencia y votos.
   - **Registro de ingresos en tiempo real** (sesiones activas con actividad reciente).
   - **Avance de votaciones**: unidades que ya votaron, % de verificación de asistencia (si está activa) y progreso por pregunta; se actualiza cada 10 s.
@@ -61,7 +62,10 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
   - Límite máximo de poderes por apoderado **configurable** en Dashboard → Configuración → Poderes y correo; validación antes de crear.
   - Revocar poder (con diálogo de confirmación).
   - **Importación masiva** de poderes desde Excel/CSV (`/dashboard/asambleas/[id]/poderes/importar`).
-- **Acta** (`/dashboard/asambleas/[id]/acta`): descarga/impresión con resultados por pregunta, quórum y **detalle de auditoría** (quién votó, cuándo, IP, user-agent). **Descarga:** dos tipos — acta con auditoría completa (uso interno) y acta versión pública (totales y coeficientes, para compartir); opción de **incluir documentos de poder como anexos** (descarga en ZIP con acta + carpeta de documentos). En preguntas por **coeficiente**, los porcentajes se calculan sobre el **coeficiente total del conjunto** (100% = todas las unidades). Incluye **registros de verificación de quórum**: sección "Asamblea en general" (sesiones sin pregunta asociada) y por cada pregunta el registro de la sesión cerrada asociada a esa pregunta (si existe). Unidades que no participaron por pregunta; votos con indicador "Poder" cuando aplica.
+- **Acta** (`/dashboard/asambleas/[id]/acta`): descarga/impresión con resultados por pregunta, quórum y **detalle de auditoría** (quién votó, cuándo, IP, user-agent).  
+  **Fuente de quórum para acta:** snapshots históricos (no recálculo improvisado al final).  
+  **Incluye:** quórum inicial, snapshots por apertura/cierre de votaciones, eventos relevantes de pérdida/recuperación y snapshot final de cierre.  
+  **Descarga:** dos tipos — acta con auditoría completa (uso interno) y acta versión pública (totales y coeficientes, para compartir); opción de **incluir documentos de poder como anexos** (ZIP).
 
 **Dashboard principal**
 - Métricas: conjuntos, unidades, coeficientes, censo.
@@ -87,7 +91,8 @@ Resumen de todo lo que tiene la aplicación **Asambleas App** desde el punto de 
 - Mensaje al completar todas las votaciones; **historial** de preguntas cerradas con resultados y votos del votante.
 - **Ayuda al usuario:** modal de ayuda (ícono ? en la cabecera) con guía de pasos, tipos de votación (coeficiente vs nominal), poderes, verificación de asistencia y **actualización de la votación** (preguntas que el admin abre o cierra; refresco en vivo si Realtime está habilitado en Supabase).
 - **Trazabilidad**: IP y user-agent vía `/api/client-info`; RPC `registrar_voto_con_trazabilidad`.
-- Heartbeat cada 2 min y marcar salida al abandonar (quorum_asamblea, registro de ingresos).
+- Heartbeat periódico, actividad/reconexión y actualización automática de presencia para quórum.
+- La sesión autenticada no equivale a presencia para quórum.
 - Toasts para éxito/error (no `alert()`).
 - Diseño responsive; soporte modo oscuro.
 
@@ -221,7 +226,7 @@ app/
 - **Tablas principales**: `organizations`, `profiles`, `unidades`, `asambleas`, `preguntas`, `opciones_pregunta`, `poderes`, `votos`, `quorum_asamblea`, `planes`, `pagos_log`, etc.
 - **RLS**: políticas por `organization_id`; rol super admin con acceso total (script `ROL-SUPER-ADMIN.sql`).
 - **RPCs**: `validar_codigo_acceso`, `validar_votante_asamblea`, `registrar_voto_con_trazabilidad`, `calcular_quorum_asamblea`, `calcular_estadisticas_pregunta`, `calcular_verificacion_quorum`, `calcular_verificacion_quorum_snapshot`, `calcular_verificacion_por_preguntas`, `activar_votacion_publica`, `desactivar_votacion_publica`, etc.
-- **APIs de verificación y delegado**: `POST /api/verificar-asistencia` (votante confirma asistencia), `POST /api/registrar-asistencia-manual` (admin marca unidades), `POST|DELETE /api/delegado/configurar` (generar/revocar token), `POST /api/delegado/validar` (validar enlace delegado), `POST /api/delegado/registrar-asistencia`, `POST /api/delegado/registrar-voto`. Página pública de asistente: `/asistir/[codigo]?t=token`.
+- **APIs de presencia/quórum/delegado**: `POST /api/votar/presence-heartbeat` (presencia automática), `POST /api/dashboard/quorum-presencia` (recalcular/snapshot), `POST /api/verificar-asistencia` y `POST /api/registrar-asistencia-manual` (respaldo manual), `POST|DELETE /api/delegado/configurar`, `POST /api/delegado/validar`, `POST /api/delegado/registrar-asistencia`, `POST /api/delegado/registrar-voto`.
 
 ### 2.7 Variables de entorno (resumen)
 

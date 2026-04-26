@@ -13,6 +13,7 @@ import { buildPublicVotarUrl } from '@/lib/publicVotarUrl'
 import { normalizeCodigoAccesoFromUrl } from '@/lib/codigoAcceso'
 import { FOCUS_REFRESH_MIN_MS, POLL_MS_FLAGS, POLL_MS_HEAVY, shouldSkipFocusRefresh } from '@/lib/votacion-live'
 import type { OrdenDiaPublico } from '@/lib/agenda'
+import { useQuorumPresence } from '@/lib/quorum/useQuorumPresence'
 import dynamic from 'next/dynamic'
 
 const QRCodeSVG = dynamic(
@@ -176,6 +177,7 @@ export default function VotacionPublicaPage() {
   const [copiandoEnlace, setCopiandoEnlace] = useState(false)
   /** Agenda formal: puntos y punto actual (mesa), desde API pública */
   const [ordenDiaPublico, setOrdenDiaPublico] = useState<OrdenDiaPublico | null>(null)
+  const [preguntaAbiertaActualId, setPreguntaAbiertaActualId] = useState<string | null>(null)
 
   /** Evita closure obsoleto en setInterval (móvil/Safari) y permite saber el paso actual al volver a la pestaña */
   const stepRef = useRef(step)
@@ -190,6 +192,7 @@ export default function VotacionPublicaPage() {
   const cargarPreguntasPendienteRef = useRef(false)
   const pollingPesadoInFlightRef = useRef(false)
   const ultimaRecargaPesadaRef = useRef(0)
+  const reconnectToastShownRef = useRef(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && codigo) {
@@ -251,6 +254,30 @@ export default function VotacionPublicaPage() {
   /** Quórum verificado por pregunta (para tab Avance: cada pregunta muestra su quórum) */
   // --- Tabs ---
   const [tabActivo, setTabActivo] = useState<'votacion' | 'avance' | 'poderes' | 'misdatos'>('votacion')
+
+  const presence = useQuorumPresence({
+    enabled: (step === 'consentimiento' || step === 'votar') && !!asamblea?.asamblea_id && !!email.trim(),
+    asambleaId: asamblea?.asamblea_id ?? null,
+    identificador: email.trim() || null,
+    preguntaId: preguntaAbiertaActualId,
+    heartbeatSeconds: 30,
+  })
+
+  useEffect(() => {
+    if (step !== 'votar' && step !== 'consentimiento') return
+    if (!presence.isOnline || presence.isReconnecting) {
+      if (!reconnectToastShownRef.current) {
+        toast.info('Tu conexión se perdió temporalmente. Estamos intentando reconectarte.')
+        reconnectToastShownRef.current = true
+      }
+      return
+    }
+    if (presence.lastSuccessAt && reconnectToastShownRef.current) {
+      toast.success('Conexión restaurada. Tu participación fue actualizada.')
+      reconnectToastShownRef.current = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presence.isOnline, presence.isReconnecting])
 
   /** Declaración de poder recibido (pendiente de verificación en dashboard) */
   const [unidadesDelegacionOpciones, setUnidadesDelegacionOpciones] = useState<
@@ -950,6 +977,7 @@ export default function VotacionPublicaPage() {
         setEstadisticas({})
         setVotosActuales([])
         setOrdenDiaPublico(null)
+        setPreguntaAbiertaActualId(null)
         return
       }
 
@@ -959,10 +987,12 @@ export default function VotacionPublicaPage() {
         setPreguntas([])
         setEstadisticas({})
         setVotosActuales([])
+        setPreguntaAbiertaActualId(null)
         return
       }
 
       setPreguntas(preguntasConOpciones)
+      setPreguntaAbiertaActualId(preguntasConOpciones[0]?.id ?? null)
 
       // Cargar votos actuales del votante usando las unidades correctas
       if (unidadesParaUsar && unidadesParaUsar.length > 0) {
@@ -1667,11 +1697,11 @@ export default function VotacionPublicaPage() {
       })
       if (res.ok) {
         setYaVerifico(true)
-        toast.success('¡Asistencia verificada! Tu presencia quedó registrada.')
+        toast.success('Presencia confirmada. El quórum se actualiza automáticamente.')
         await refrescarVerificacion(asamblea.asamblea_id, email.trim())
       } else {
         const data = await res.json().catch(() => ({}))
-        toast.error(data?.error || 'No se pudo registrar la verificación.')
+        toast.error(data?.error || 'No se pudo registrar la confirmación de respaldo.')
       }
     } catch {
       toast.error('Error de conexión al verificar asistencia.')
@@ -2030,10 +2060,10 @@ export default function VotacionPublicaPage() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                Verificación de Asistencia
+                Confirmación de presencia (respaldo)
               </DialogTitle>
               <DialogDescription>
-                El administrador solicita confirmar tu asistencia en esta ronda. Pulsa el botón para registrar que estás presente; tu confirmación quedará registrada en el acta. La pantalla permanecerá bloqueada hasta que verifiques o el administrador cierre la verificación.
+                Tu presencia se detecta automáticamente en tiempo real. Si se solicita esta confirmación, úsala como respaldo para dejar constancia adicional en el acta.
               </DialogDescription>
             </DialogHeader>
             {statsVerificacion && statsVerificacion.total_verificados > 0 && (
@@ -2134,7 +2164,7 @@ export default function VotacionPublicaPage() {
               <div>
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-1">Verificación de asistencia</h4>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Si el administrador activó la verificación de quórum, aparecerá un aviso para que confirmes tu asistencia. Es necesario hacerlo para que tu presencia quede registrada en el acta.
+                  El quórum se actualiza automáticamente por presencia activa y voto. Si aparece esta confirmación, es un respaldo administrativo.
                 </p>
               </div>
               <div>
@@ -2234,7 +2264,7 @@ export default function VotacionPublicaPage() {
                     title={yaVerifico ? 'Tu asistencia quedó verificada en la última validación.' : 'Tu asistencia no quedó verificada en la última validación.'}
                   >
                     {yaVerifico ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                    {yaVerifico ? 'Asistencia verificada' : 'Asistencia pendiente'}
+                    {yaVerifico ? 'Presencia confirmada' : 'Presencia en validación'}
                   </span>
                 )}
               </div>
@@ -2566,11 +2596,11 @@ export default function VotacionPublicaPage() {
                           ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
                           : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
                       }`}>
-                        {statsVerificacion.quorum_alcanzado ? '✓ Quórum Ley 675 Art. 45' : '✗ Sin quórum (>50%)'}
+                        {statsVerificacion.quorum_alcanzado ? '✓ Quórum alcanzado (Ley 675 Art. 45)' : '✗ Quórum pendiente (>50%)'}
                       </span>
                     </>
                   ) : (
-                    <span className="text-sm text-gray-600 dark:text-gray-300">Cargando avance de verificación de asistencia…</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">Cargando avance de presencia y quórum…</span>
                   )}
                 </div>
               )}

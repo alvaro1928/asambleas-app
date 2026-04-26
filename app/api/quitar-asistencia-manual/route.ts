@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     const aperturaAt = (sesionAbierta as { apertura_at?: string } | null)?.apertura_at ?? null
     if (!aperturaAt) {
       return NextResponse.json(
-        { error: 'Solo se puede quitar asistencia mientras la verificación está activa. Activa la verificación de quórum e intenta de nuevo.' },
+        { error: 'Solo se puede retirar un respaldo manual mientras la sesión de verificación esté activa.' },
         { status: 400 }
       )
     }
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     if (deleteErr) {
       console.error('quitar-asistencia-manual delete:', deleteErr)
-      return NextResponse.json({ error: 'Error al quitar asistencia' }, { status: 500 })
+      return NextResponse.json({ error: 'No se pudo retirar el respaldo manual de asistencia' }, { status: 500 })
     }
 
     return NextResponse.json({
@@ -126,6 +126,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (e) {
     console.error('quitar-asistencia-manual:', e)
-    return NextResponse.json({ error: 'Error al quitar asistencia' }, { status: 500 })
+    return NextResponse.json({ error: 'No se pudo retirar el respaldo manual de asistencia' }, { status: 500 })
   }
 }

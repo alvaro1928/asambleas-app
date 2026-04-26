@@ -71,10 +71,10 @@ export default function Home() {
   useRedirectOAuthCode()
   const [nombreConjunto, setNombreConjunto] = useState('')
   const [titulo, setTitulo] = useState(
-    'Asambleas Online: votación Ley 675, quórum en vivo y acta digital'
+    'Asambleas Online: quórum automático en tiempo real y acta trazable'
   )
   const [subtitulo, setSubtitulo] = useState(
-    'Poderes de representación, WhatsApp y QR, verificación de asistencia y acta con trazabilidad. Para administradores y consejos de propiedad horizontal en Colombia.'
+    'Presencia activa, cálculo por coeficiente, snapshots históricos para acta y trazabilidad auditable. Mantén la votación actual sin fricción manual.'
   )
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [colorPrincipalHex, setColorPrincipalHex] = useState<string>('#4f46e5')
@@ -322,12 +322,11 @@ export default function Home() {
               <Zap className="h-10 w-10 shrink-0 text-indigo-200" aria-hidden />
               <div>
                 <p className="text-lg font-semibold">
-                  Quórum, asistencia verificable y acta lista al cierre — con respaldo en blockchain
+                  Quórum automático, presencia en tiempo real y acta con snapshots históricos
                 </p>
                 <p className="mt-1 text-sm text-indigo-100">
-                  Sigue el avance del quórum en vivo, registra rondas de verificación de asistencia y genera el acta
-                  con resultados auditables; sellado opcional en Bitcoin (OpenTimestamps) para quien busca máxima
-                  trazabilidad.
+                  Recalcula automáticamente al entrar, salir, reconectar o votar. Conserva trazabilidad auditable y
+                  genera acta con evidencia histórica; sellado opcional en Bitcoin (OpenTimestamps).
                 </p>
               </div>
             </div>
@@ -370,10 +369,10 @@ export default function Home() {
                   <div className="mb-8 inline-block rounded-2xl bg-white/10 p-4">
                     <UserCheck className="h-8 w-8" aria-hidden />
                   </div>
-                  <h3 className="mb-4 text-2xl font-bold">Quórum y asistencia</h3>
+                  <h3 className="mb-4 text-2xl font-bold">Quórum automático por presencia</h3>
                   <p className="text-sm text-white/80">
-                    Verificación de asistencia por ronda, estadísticas de quórum visibles y enlace para delegado en sala
-                    cuando la mesa lo requiera.
+                    Presencia detectada en tiempo real, cálculo por coeficiente representado y respaldo manual solo
+                    para contingencias administrativas.
                   </p>
                 </div>
                 <Users
@@ -458,7 +457,7 @@ export default function Home() {
               {
                 n: '03',
                 t: 'Los copropietarios votan',
-                p: 'Cada propietario entra con correo o teléfono y vota. Quórum y resultados en tiempo real (Ley 675).',
+                p: 'Cada propietario entra con correo o teléfono y vota. El quórum se recalcula automáticamente por presencia activa y coeficientes (Ley 675).',
               },
             ].map((step) => (
               <div key={step.n} className="group relative">
@@ -475,7 +474,7 @@ export default function Home() {
           <div className="mx-auto mt-14 flex max-w-4xl flex-col flex-wrap items-center justify-center gap-4 text-center sm:flex-row sm:gap-8">
             <div className="flex items-center gap-2 text-[#0b1c30]">
               <FileText className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
-              <span className="text-sm">Actas, certificados de voto y trazabilidad al cerrar</span>
+              <span className="text-sm">Acta con snapshots históricos, certificados de voto y trazabilidad</span>
             </div>
             <div className="flex items-center gap-2 text-[#0b1c30]">
               <Shield className="h-5 w-5 shrink-0 text-purple-600" aria-hidden />
@@ -648,10 +647,10 @@ export default function Home() {
             },
             featureList: [
               'Votación por coeficiente o nominal según Ley 675',
-              'Verificación de asistencia y quórum en tiempo real',
+              'Quórum automático por presencia activa y coeficiente representado',
               'Poderes de representación y auditoría',
               'Invitaciones por WhatsApp y acceso con QR',
-              'Acta digital y certificados de voto',
+              'Acta digital con snapshots históricos de quórum y certificados de voto',
               'Sello de acta en blockchain OpenTimestamps',
             ],
           }),
