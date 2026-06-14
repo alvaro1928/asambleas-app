@@ -1,0 +1,31 @@
+---
+description: Diseño UI/UX — mobile-first con Tailwind
+alwaysApply: false
+globs: app/**/*.tsx,components/**/*.tsx
+---
+
+# Diseño UI/UX
+
+## Principios
+- Mobile-first: diseña para 375px, escala con sm:, md:, lg:
+- Tailwind CSS exclusivamente para estilos
+- Usa `cn()` (clsx + tailwind-merge) para clases condicionales
+- HTML semántico: nav, main, section, header, footer
+
+## Colores
+- Primario: acciones principales (indigo por defecto en el starter)
+- Usa variables CSS del starter (`--color-primary`) cuando aplique
+
+## Componentes
+- Estados hover/focus/disabled visibles en elementos interactivos
+- Loading: skeleton o spinner contextual, no genérico en flujos críticos
+
+## Formularios
+- Inputs con label visible
+- Botones primarios: w-full en móvil cuando tenga sentido
+- Confirmaciones destructivas: diálogo explícito, no `confirm()` nativo
+
+## Accesibilidad
+- Contraste WCAG AA
+- aria-label en iconos sin texto
+- focus-visible en elementos interactivos

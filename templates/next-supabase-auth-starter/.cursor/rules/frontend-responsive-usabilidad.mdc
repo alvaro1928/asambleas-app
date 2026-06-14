@@ -1,0 +1,16 @@
+---
+description: Checklist frontend para responsive y experiencia de uso
+globs: "{app,components}/**/*.{tsx,ts,jsx,js}"
+alwaysApply: false
+---
+
+# Frontend Responsive y Usabilidad
+
+En cambios de interfaz:
+
+- Verifica vistas en móvil, tablet y desktop (sin desbordes horizontales inesperados).
+- Usa layouts fluidos (`flex/grid`, `min/max-width`, `wrap`) y evita anchos fijos rígidos.
+- Revisa microcopys: botones, mensajes de error, estados vacíos y confirmaciones deben ser claros.
+- Incluye estados visuales de interacción (`hover`, `focus`, `disabled`, `loading`) para acciones críticas.
+- Prefiere componentes reutilizables y evita duplicar lógica de presentación.
+- Si una tabla es ancha, agrega estrategias de lectura: scroll controlado, columnas prioritarias o versiones compactas.

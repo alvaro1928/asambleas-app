@@ -1,0 +1,13 @@
+---
+description: Criterios de rendimiento y escalabilidad para cambios de código
+alwaysApply: true
+---
+
+# Rendimiento y Escalabilidad
+
+- Evita trabajo innecesario en render: memoiza cálculos costosos y estabiliza callbacks cuando aporte valor real.
+- Minimiza consultas repetidas; prioriza cargas por lotes, paginación y filtros en servidor cuando aplique.
+- No introduzcas complejidad O(n²) sobre listas crecientes sin justificación; propone alternativa escalable.
+- Mantén payloads pequeños y explícitos: selecciona solo columnas/campos requeridos en APIs/queries.
+- En UI con polling o refrescos periódicos, evita repintados agresivos y protege estados en curso del usuario.
+- Si agregas librerías nuevas, justifica impacto en bundle y escoge opciones livianas.

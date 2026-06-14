@@ -1,0 +1,13 @@
+---
+description: Principios globales de UX, usabilidad y diseño moderno
+alwaysApply: true
+---
+
+# Principios de Producto y UX
+
+- Diseña y desarrolla con enfoque **mobile-first** y comportamiento responsive en todos los breakpoints.
+- Prioriza claridad de flujo: menos pasos, menos fricción, textos accionables y estados de carga/vacío/error.
+- Toda nueva UI debe considerar accesibilidad base: contraste, foco visible, labels, targets tactiles y navegación por teclado.
+- Evita sobrecargar pantallas; aplica jerarquía visual clara (título, contexto, acción principal, acciones secundarias).
+- Mantén consistencia visual con los componentes y patrones existentes antes de introducir variantes nuevas.
+- Cuando existan varias opciones de implementación, favorece la que mejore usabilidad percibida y reduzca errores del usuario.

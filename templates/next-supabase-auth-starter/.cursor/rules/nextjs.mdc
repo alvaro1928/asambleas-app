@@ -1,0 +1,48 @@
+---
+description: Estándares Next.js con App Router y manejo robusto de estados
+alwaysApply: true
+---
+
+# Next.js (App Router)
+
+## Arquitectura
+
+- Usa **App Router** (`app/`) y no agregues `pages/` para rutas nuevas.
+- Prefiere **Server Components** por defecto para reducir JS enviado al cliente.
+- Usa **Client Components** solo cuando necesites estado local, `useEffect`, eventos de UI o hooks del navegador.
+- Evita mover lógica de datos al cliente sin necesidad.
+
+## Datos y rendering
+
+- Haz `fetch`/consultas en servidor cuando sea posible.
+- Evita consultas duplicadas entre layout/page/componentes; comparte datos en un único punto.
+- Si una vista es sensible a rendimiento, limita payloads y evita transformaciones costosas en render.
+
+## Manejo de errores y estados
+
+- Implementa `loading.tsx` cuando haya carga asíncrona relevante.
+- Implementa `error.tsx` para manejar fallos por segmento de ruta.
+- Muestra mensajes de error accionables para usuario y registra contexto técnico para depuración.
+
+## Ejemplos
+
+```tsx
+// app/dashboard/page.tsx (Server Component por defecto)
+import { getDashboardData } from "@/lib/dashboard";
+
+export default async function DashboardPage() {
+  const data = await getDashboardData();
+  return <section>{/* render */}</section>;
+}
+```
+
+```tsx
+// components/FiltroAsamblea.tsx
+"use client";
+import { useState } from "react";
+
+export function FiltroAsamblea() {
+  const [query, setQuery] = useState("");
+  return <input value={query} onChange={(e) => setQuery(e.target.value)} />;
+}
+```
