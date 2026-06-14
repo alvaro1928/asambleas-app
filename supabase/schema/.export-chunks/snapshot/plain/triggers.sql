@@ -1,0 +1,11 @@
+CREATE TRIGGER trg_asambleas_punto_actual_misma_asamblea BEFORE INSERT OR UPDATE OF punto_orden_dia_actual_id ON asambleas FOR EACH ROW EXECUTE FUNCTION asambleas_punto_actual_misma_asamblea();
+CREATE TRIGGER trg_asambleas_verificacion_sesion AFTER UPDATE OF verificacion_asistencia_activa ON asambleas FOR EACH ROW EXECUTE FUNCTION trg_verificacion_asistencia_sesion();
+CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON organizations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER planes_updated_at BEFORE UPDATE ON planes FOR EACH ROW EXECUTE FUNCTION planes_updated_at();
+CREATE TRIGGER trg_preguntas_punto_misma_asamblea BEFORE INSERT OR UPDATE OF punto_orden_dia_id, asamblea_id ON preguntas FOR EACH ROW EXECUTE FUNCTION preguntas_punto_misma_asamblea();
+CREATE TRIGGER trigger_tokens_bienvenida BEFORE INSERT ON profiles FOR EACH ROW EXECUTE FUNCTION set_tokens_bienvenida();
+CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER trg_quorum_presence_touch BEFORE UPDATE ON quorum_presence FOR EACH ROW EXECUTE FUNCTION quorum_touch_updated_at();
+CREATE TRIGGER trg_quorum_presence_config_touch BEFORE UPDATE ON quorum_presence_config FOR EACH ROW EXECUTE FUNCTION quorum_touch_updated_at();
+CREATE TRIGGER trg_quorum_presence_units_touch BEFORE UPDATE ON quorum_presence_units FOR EACH ROW EXECUTE FUNCTION quorum_touch_updated_at();
+CREATE TRIGGER update_unidades_updated_at BEFORE UPDATE ON unidades FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

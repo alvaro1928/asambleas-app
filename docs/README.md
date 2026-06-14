@@ -54,7 +54,8 @@
 
 | Documento | Descripción |
 |-----------|-------------|
-| **[supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md](supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md)** | Orden y descripción de los scripts SQL a ejecutar en Supabase. Incluye nota sobre **Realtime** (`REALTIME-PREGUNTAS-VOTACION.sql`) para actualización en vivo de preguntas en `/votar`. |
+| **[../supabase/schema/README.md](../supabase/schema/README.md)** | **Backup de estructura** (`public-schema.sql`): restaurar esquema `public` completo en proyecto nuevo (plan Free sin backups automáticos). |
+| **[supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md](supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md)** | Parches SQL puntuales sobre BD existente. Incluye nota sobre **Realtime** (`REALTIME-PREGUNTAS-VOTACION.sql`) para actualización en vivo de preguntas en `/votar`. |
 | [NOTAS-RLS-HARDENING.md](NOTAS-RLS-HARDENING.md) | RLS endurecido: rutas públicas que usan API con `service_role`, sesión cruzada `authenticated`, y consideraciones para modales del dashboard. |
 | [supabase/README-RLS.md](supabase/README-RLS.md) | Row Level Security (RLS). |
 | [supabase/INSTRUCCIONES-CORREGIR-RLS.md](supabase/INSTRUCCIONES-CORREGIR-RLS.md) | Cómo corregir políticas RLS. |

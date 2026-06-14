@@ -1,5 +1,28 @@
 # Resumen: scripts de base de datos a ejecutar en Supabase
 
+## Restaurar estructura completa (recomendado)
+
+En plan Free de Supabase no hay backups automáticos. El repo incluye un volcado **solo de esquema** (sin datos):
+
+| Qué | Dónde |
+|-----|--------|
+| Archivo canónico | `supabase/schema/restore/public-schema.sql` |
+| Instrucciones | `supabase/schema/README.md` |
+| Conteos verificados | `supabase/schema/MANIFEST.json` |
+
+Ejecuta **todo** ese archivo en el SQL Editor de un proyecto vacío. **No** ejecutes en cadena los `.sql` sueltos de `supabase/` para restaurar — son histórico (`supabase/legacy/README.md`).
+
+Regenerar el backup tras cambios en producción:
+
+```powershell
+$env:SUPABASE_ACCESS_TOKEN = "sbp_..."
+node scripts/export-schema-full.mjs --fetch
+```
+
+---
+
+## Parches puntuales (BD ya existente)
+
 Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Los archivos `.sql` están en la carpeta **`supabase/`** del repositorio. Todos son idempotentes (se pueden correr más de una vez).
 
 ---
@@ -68,7 +91,8 @@ Ejecuta estos scripts **en el SQL Editor de Supabase**, en el orden indicado. Lo
 
 ## Notas
 
-- **Base:** Se asume que ya tienes creadas las tablas base (`organizations`, `asambleas`, `preguntas`, `quorum_asamblea`, etc.), por ejemplo con `schema.sql` o tus migraciones iniciales.
+- **Proyecto nuevo:** usa `supabase/schema/restore/public-schema.sql` (ver `supabase/schema/README.md`). Incluye tablas, funciones, triggers, vistas y RLS actuales.
+- **Base:** Los parches de abajo asumen tablas base ya creadas (`organizations`, `asambleas`, `preguntas`, etc.) o una BD restaurada con `public-schema.sql`.
 - **1 y 2:** Si el “Registro de ingresos” y la salida de votación no te importan aún, puedes posponer 1 y 2.
 - **3 y 4:** Imprescindibles para el modelo de negocio (planes, límite de preguntas, acta Pro) y para el webhook de pagos.
 - **5:** Opcional si no usas umbral de aprobación por pregunta.

@@ -1,0 +1,59 @@
+{
+  "project_ref": "zbfwuabsgnrpizckeump",
+  "generated_at": "2026-06-14T21:29:51.447Z",
+  "schema": "public",
+  "source": "supabase/schema/.export-chunks/snapshot/plain",
+  "counts": {
+    "tables": 34,
+    "functions": 57,
+    "triggers": 11,
+    "views": 2,
+    "rls_tables": 34,
+    "policies": 56,
+    "comments": 26
+  },
+  "sections": {
+    "Custom ENUM types": {
+      "chars": 663,
+      "lines": 3
+    },
+    "Tables (structure only)": {
+      "chars": 17245,
+      "lines": 445
+    },
+    "Primary keys, foreign keys, uniques, checks": {
+      "chars": 28617,
+      "lines": 250
+    },
+    "Indexes": {
+      "chars": 18970,
+      "lines": 158
+    },
+    "Functions": {
+      "chars": 94939,
+      "lines": 2831
+    },
+    "Triggers": {
+      "chars": 1603,
+      "lines": 11
+    },
+    "Views": {
+      "chars": 1662,
+      "lines": 45
+    },
+    "Row Level Security (enable)": {
+      "chars": 2181,
+      "lines": 34
+    },
+    "RLS policies": {
+      "chars": 20419,
+      "lines": 233
+    },
+    "Table comments": {
+      "chars": 3241,
+      "lines": 26
+    }
+  },
+  "file": "supabase/schema/restore/public-schema.sql",
+  "size_bytes": 190477
+}

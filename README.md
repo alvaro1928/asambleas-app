@@ -16,7 +16,13 @@ Aplicación SaaS para asambleas de propiedades horizontales: votaciones, quórum
    ```
    Lista completa: **[docs/configuracion/VARIABLES-ENTORNO-VERCEL.md](docs/configuracion/VARIABLES-ENTORNO-VERCEL.md)**.
 
-3. **Base de datos** — En Supabase (SQL Editor) ejecuta los scripts en el orden indicado en **[docs/supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md](docs/supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md)** (empezando por `schema.sql` si es proyecto nuevo).
+3. **Base de datos** — Para un **proyecto Supabase nuevo**, restaura la estructura con un solo archivo (recomendado):
+
+   **`supabase/schema/restore/public-schema.sql`**
+
+   Instrucciones completas: **[supabase/schema/README.md](supabase/schema/README.md)**.
+
+   Los scripts sueltos en `supabase/*.sql` son histórico de parches; ver **[docs/supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md](docs/supabase/RESUMEN-SCRIPTS-A-EJECUTAR.md)** solo si necesitas aplicar un cambio puntual sobre una BD ya existente.
 
 4. **Arrancar**
    ```bash
